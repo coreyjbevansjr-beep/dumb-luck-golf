@@ -110,13 +110,37 @@ function viewportCssSize() {
   return { aw, ah };
 }
 function safeCssInsets() {
+  // #test harness can force CSS-px insets (standalone env() is hard to emulate in headless)
+  if (window.__dlgForceSafe) {
+    const f = window.__dlgForceSafe;
+    return { t: f.t || 0, r: f.r || 0, b: f.b || 0, l: f.l || 0 };
+  }
   const bs = getComputedStyle(document.body);
-  return {
-    t: cssPx(bs.getPropertyValue('--sat')),
-    r: cssPx(bs.getPropertyValue('--sar')),
-    b: cssPx(bs.getPropertyValue('--sab')),
-    l: cssPx(bs.getPropertyValue('--sal'))
-  };
+  let t = cssPx(bs.getPropertyValue('--sat'));
+  let r = cssPx(bs.getPropertyValue('--sar'));
+  let b = cssPx(bs.getPropertyValue('--sab'));
+  let l = cssPx(bs.getPropertyValue('--sal'));
+  // Probe env() directly if custom props still read 0 (some iOS standalone builds)
+  if (!t && !r && !b && !l) {
+    try {
+      const probe = document.createElement('div');
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+      document.body.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      t = cssPx(cs.paddingTop); r = cssPx(cs.paddingRight); b = cssPx(cs.paddingBottom); l = cssPx(cs.paddingLeft);
+      probe.remove();
+    } catch (e) {}
+  }
+  // Standalone / home-screen PWA: env(safe-area-inset-*) can read 0 before first layout.
+  // Floor the top inset so gear/FS clear the iOS status bar (~47 CSS px on notch phones).
+  let standalone = false;
+  try {
+    standalone = !!(navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  } catch (e) {}
+  if (standalone && t < 44) t = 47;
+  return { t, r, b, l };
 }
 let SAFE = { t: 0, r: 0, b: 0, l: 0 };   // logical-px safe insets (chrome offsets)
 function resize() {
@@ -1054,9 +1078,17 @@ const KB_CW = 20, KB_CH = 15;
 function layoutChrome() {
   // chrome hugs the safe content box (canvas itself is full-bleed so grass reaches the home indicator)
   const st = SAFE.t || 0, sl = SAFE.l || 0, sr = SAFE.r || 0;
-  FS_BTN.x = W - 22 - sr; FS_BTN.y = st; FS_BTN.w = 22; FS_BTN.h = 22;
-  GEAR_BTN.x = W - 44 - sr; GEAR_BTN.y = st; GEAR_BTN.w = 20; GEAR_BTN.h = 22;
-  PAUSE_BTN.x = sl; PAUSE_BTN.y = st; PAUSE_BTN.w = 22; PAUSE_BTN.h = 22;
+  // ≥44 CSS px hit targets, padded below the status-bar safe inset (standalone PWA taps)
+  const cssSy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
+  const tap = Math.max(22, Math.ceil(44 / cssSy));
+  const pad = Math.max(2, Math.round(4 / cssSy));
+  const gap = Math.max(2, Math.round(4 / cssSy));
+  FS_BTN.w = tap; FS_BTN.h = tap;
+  FS_BTN.x = W - tap - sr - pad; FS_BTN.y = st + pad;
+  GEAR_BTN.w = tap; GEAR_BTN.h = tap;
+  GEAR_BTN.x = FS_BTN.x - tap - gap; GEAR_BTN.y = FS_BTN.y;
+  PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
+  PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
   HUD_Y0 = PLAY_H;
   // mini scorecard fully on-screen top-right (pause owns the top-left)
   MC.w = 3 + MC.lw + 9 * MC.cw + 2 + MC.tw + 2; MC.h = 29;
@@ -1068,7 +1100,7 @@ function layoutChrome() {
   if (portrait) {
     // Portrait title: spread logo / menu / board through the upper sky, then hills+grass fill the lower third to the bottom edge.
     // Short Safari toolbars (e.g. 390x664) previously left a huge empty sky gap under a cramped top stack.
-    const iconBot = st + 22;
+    const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
     // Ground band ~ bottom 30–34% so grass always reaches H (no blue strip)
     TITLE_FAIR = Math.round(H * 0.68);
@@ -1102,27 +1134,29 @@ function layoutChrome() {
     // Hills start mid-board so glass shows ridge through the panel; grass fills to canvas bottom.
     const boardBot = TLB_R.y + boardH;
     TITLE_RIDGE = Math.max(TLB_R.y + Math.round(boardH * 0.35), Math.min(boardBot - 4, Math.round(H * 0.55)));
-    TITLE_FAIR = Math.min(H - Math.max(28, (SAFE.b || 0) + 8), Math.max(TITLE_RIDGE + Math.round(H * 0.05), Math.round(H * 0.66)));
-    if (H - TITLE_FAIR < 28) TITLE_FAIR = H - 28;
+    TITLE_FAIR = Math.min(H - Math.max(28, (SAFE.b || 0) + 8), Math.max(TITLE_RIDGE + Math.round(H * 0.05), Math.round(H * 0.60)));
+    if (H - TITLE_FAIR < 36) TITLE_FAIR = H - 36;
   } else {
-    // desktop / landscape: keep the existing solid short-grass look
-    const groundFrac = Math.min(0.14, 26 / Math.max(H, 1));
-    TITLE_FAIR = Math.round(H * (1 - groundFrac));
-    TITLE_RIDGE = Math.max(8, TITLE_FAIR - 26);
+    // desktop / landscape: keep logo near v8.2 native size; clear menu via gaps + shorter board + modest grass
+    const iconBot = GEAR_BTN.y + GEAR_BTN.h;
+    ldW = lw0; ldH = lh0;
+    if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    LOGO_Y = Math.max(3, Math.round(H * 0.012));
-    const boardH = 66, boardW = Math.min(236, W - 24), menuH = MENU_DY + 2;
-    const gapLogo = 10, gapMenu = 8;
-    let logoBot = LOGO_Y + ldH;
-    let menuY = logoBot + gapLogo;
-    let boardY = menuY + menuH + gapMenu;
-    const roomBot = TITLE_FAIR - 6;
-    if (boardY + boardH > roomBot) TITLE_FAIR = Math.min(H - 16, boardY + boardH + 4);
-    MENU_Y0 = menuY;
+    LOGO_Y = Math.max(iconBot + 2, Math.max(3, Math.round(H * 0.012)));
+    const boardH = 52, boardW = Math.min(236, W - 24), menuH = MENU_DY + 2;
+    const gapLogo = 14, gapMenu = 6;   // 14px clears the "Luck" descenders
+    const grassWant = Math.max(30, Math.round(H * 0.125));
+    MENU_Y0 = LOGO_Y + ldH + gapLogo;
+    let boardY = MENU_Y0 + menuH + gapMenu;
+    TITLE_FAIR = Math.min(H - grassWant, Math.max(boardY + boardH + 6, Math.round(H * 0.82)));
+    TITLE_RIDGE = Math.max(8, TITLE_FAIR - 26);
+    if (boardY + boardH > TITLE_RIDGE - 2) {
+      TITLE_RIDGE = boardY + boardH + 2;
+      TITLE_FAIR = Math.min(H - 28, Math.max(TITLE_RIDGE + 20, boardY + boardH + 6));
+    }
     TLB_R.w = boardW; TLB_R.h = boardH;
     TLB_R.x = Math.round((W - boardW) / 2);
-    const leftSky = Math.max(0, roomBot - (boardY + boardH));
-    TLB_R.y = boardY + Math.min(Math.floor(leftSky * 0.35), 12);
+    TLB_R.y = boardY;
   }
   // Customize: TOP-DOWN stack, then ground BELOW the UI (never squeeze UI into a fixed fairway).
   // Order: header → name+underline → gap G → 5 rows @ pitch P → LOCKED band → TEE OFF → gap → ridge/fairway → golfer.
@@ -1280,7 +1314,7 @@ function drawOverlay() {
       outlined(val, x + w - 12 - textW(val, 2), ry, vc, 2);
     }
   });
-  const hint = usingTouch ? 'TAP TO CHOOSE' : pause ? 'ESC/P = RESUME' : 'ENTER = CHANGE  ESC = BACK';
+  const hint = isTouchUi() ? (pause ? 'TAP TO RESUME' : 'TAP TO CHANGE') : pause ? 'ESC/P = RESUME' : 'ENTER = CHANGE  ESC = BACK';
   drawTextC(hint, y + h + 6, COL.gray);
 }
 function drawPauseButton() {   // top-left so it never clashes with the scorecard
@@ -1290,9 +1324,10 @@ function drawPauseButton() {   // top-left so it never clashes with the scorecar
   rect(ox, oy, 14, 1, COL.white); rect(ox, oy + 13, 14, 1, COL.white); rect(ox, oy, 1, 14, COL.white); rect(ox + 13, oy, 1, 14, COL.white);
   rect(ox + 4, oy + 3, 2, 8, COL.white); rect(ox + 8, oy + 3, 2, 8, COL.white);
 }
-function drawFsButton() {   // title screen, top-right
-  const on = isFs(), x = FS_BTN.x + 5, y = FS_BTN.y + 3;
-  ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+function drawFsButton() {   // title screen, top-right (glyph centered in ≥44 CSS hit box)
+  const on = isFs();
+  const x = FS_BTN.x + Math.floor((FS_BTN.w - 14) / 2), y = FS_BTN.y + Math.floor((FS_BTN.h - 14) / 2);
+  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
   const c = COL.white;
   if (!on) { rect(x + 2, y + 2, 4, 1, c); rect(x + 2, y + 2, 1, 4, c); rect(x + 8, y + 2, 4, 1, c); rect(x + 11, y + 2, 1, 4, c);
              rect(x + 2, y + 11, 4, 1, c); rect(x + 2, y + 8, 1, 4, c); rect(x + 8, y + 11, 4, 1, c); rect(x + 11, y + 8, 1, 4, c); }
@@ -1300,8 +1335,8 @@ function drawFsButton() {   // title screen, top-right
          rect(x + 4, y + 8, 1, 4, c); rect(x + 2, y + 8, 3, 1, c); rect(x + 9, y + 8, 1, 4, c); rect(x + 9, y + 8, 3, 1, c); }
 }
 function drawGearButton() {   // title settings gear, left of the fullscreen icon
-  const x = GEAR_BTN.x + 3, y = GEAR_BTN.y + 3, c = COL.white;
-  ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  const x = GEAR_BTN.x + Math.floor((GEAR_BTN.w - 14) / 2), y = GEAR_BTN.y + Math.floor((GEAR_BTN.h - 14) / 2), c = COL.white;
+  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
   // pixel gear: hub + teeth
   rect(x + 5, y + 5, 4, 4, c); rect(x + 6, y + 6, 2, 2, '#000');
   rect(x + 6, y + 2, 2, 2, c); rect(x + 6, y + 10, 2, 2, c); rect(x + 2, y + 6, 2, 2, c); rect(x + 10, y + 6, 2, 2, c);
@@ -2438,8 +2473,9 @@ function drawCart(layer, viewX) {
 }
 
 /* ---------------- wildlife: cosmetic only (never touches the ball, scoring, or physics) ----------------
-   Small cute critters (~1/5 chance per hole, at most once). Pause freezes them (updateWildlife runs inside update). */
-const WILD_CHANCE = 1 / 5;
+   Small cute critters (~1/3.5 chance per hole ≈ every 3–4 holes, at most once). Pause freezes them (updateWildlife runs inside update).
+   Pending delay ticks during aim/power/accuracy so they still show up around the backswing. */
+const WILD_CHANCE = 1 / 3.5;
 const wildSpr = (rows, map) => { const c = mk(rows[0].length, rows.length), g = c.getContext('2d');
   rows.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) { g.fillStyle = map[ch]; g.fillRect(x, y, 1, 1); } })); return c; };
 const flipSpr = img => { const c = mk(img.width, img.height), g = c.getContext('2d'); g.translate(img.width, 0); g.scale(-1, 1); g.drawImage(img, 0, 0); return c; };
@@ -3098,6 +3134,12 @@ function outlined(str, x, y, col, s = 1) {
   drawText(str, x, y, col, s);
 }
 function drawTextR(str, xr, y, col) { drawText(str, xr - textW(str), y, col); }
+
+/* Title fairway scenery — pixel props on the striped grass (cosmetic; desktop + portrait). */
+function drawTitleFairwayScenery() {
+  /* Title fairway: dog only (no props). Kept as a hook so layout stays simple. */
+}
+
 const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
 function drawSkyScene(fairTop) {
   if (fairTop == null) fairTop = TITLE_FAIR;
@@ -3126,8 +3168,9 @@ function drawSkyScene(fairTop) {
 }
 function renderTitle() {
   drawSkyScene(TITLE_FAIR);
+  drawTitleFairwayScenery();
   // logo: floating bob (~2–3px over ~3s, ease in/out); never rise into the gear/FS icons
-  const iconClear = (SAFE.t || 0) + 22 + 2;
+  const iconClear = GEAR_BTN.y + GEAR_BTN.h + 2;
   let bob = Math.round(Math.sin(st * (Math.PI * 2 / 3)) * 2.5);
   if (LOGO_Y + bob < iconClear) bob = iconClear - LOGO_Y;
   if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_DRAW.x, LOGO_Y + bob, LOGO_DRAW.w, LOGO_DRAW.h);
@@ -3151,10 +3194,11 @@ function renderTitle() {
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
+  const dogBot = H - 4 - (SAFE.b || 0);
   const dogY = (H > W * 1.15)
-    ? Math.min(H - 20 - (SAFE.b || 0), TITLE_FAIR + Math.max(8, Math.round((H - TITLE_FAIR) * 0.45)))
-    : TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2));
-  ctx.drawImage(SPR[k], Math.round(d.x), dogY);
+    ? Math.min(dogBot - 18, TITLE_FAIR + Math.max(8, Math.round((H - TITLE_FAIR) * 0.45)))
+    : Math.min(dogBot - 18, TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2)));
+  ctx.drawImage(SPR[k], Math.max(2, Math.min(W - 28, Math.round(d.x))), dogY);
   drawMenuPopup();
 }
 function drawMenuPopup() {
@@ -3555,7 +3599,7 @@ if (/test/.test(location.hash)) {
     forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); },
     // drive the real meter commit path: set power, then stop the accuracy marker at acc (0 = dead center)
     meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
-    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel } : null; }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); },
+    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel } : null; }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
     get stTime() { return st; }, get shortTarget() { const t = shortTarget(); return t ? t.p : null; }, get muted() { return muted; },
     forceLuck() { forceLuck = true; }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
     get toast() { return toast ? toast.lines : null; }, set scoresForTest(v) { scores = v.slice(); },
