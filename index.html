@@ -581,14 +581,14 @@ let titleDog = { x: 20, dir: 1, sniff: 0, next: 2.5 };
 let titleHole = compileHole(HOLES[0]), titleCam = 0;
 const TOTAL_PAR = HOLES.reduce((a, h) => a + h.par, 0);
 
-function setState(s) { state = s; st = 0; }
+function setState(s) { state = s; st = 0; if (s === 'title') refreshTitleLB(); }
 const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews never write scores
 const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
 /* --- title menu --- */
 const MENU = ['PLAY', 'CUSTOMIZE', 'LEADERBOARD', 'GALLERY', 'SHOP', 'SETTINGS'];
 const MENU_ROWS = [[0], [1], [2], [3, 4], [5]];              // GALLERY + SHOP sit side by side
-const LOGO_Y = 6, MENU_Y0 = 124, MENU_DY = 16;
+const LOGO_Y = 6, LOGO_X = 1, MENU_Y0 = 124, MENU_DY = 16;
 let titleSel = 0, menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
 const menuRowOf = i => MENU_ROWS.findIndex(r => r.includes(i));
 function menuMove(dr, dc) {
@@ -816,6 +816,92 @@ function openBoard(entry) {
   });
 }
 function closeBoard() { board = null; SFX.click(); setState('title'); }
+/* --- home-screen leaderboard ("TOP GOLFERS"): top 5 from loadScores(), refreshed each time the title shows ---
+   Click/tap it to open the full LEADERBOARD screen. */
+const TLB_R = { x: 164, y: 24, w: 90, h: 94 };
+let titleLB = { rows: null, src: '', t: -1e9, busy: false }, tlbHover = false;
+function refreshTitleLB(force) {
+  const now = performance.now();
+  if (titleLB.busy || (!force && now - titleLB.t < 1500)) return;
+  titleLB.busy = true; titleLB.t = now;
+  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadScores()).catch(() => null).then(rows => {
+    titleLB.busy = false;
+    if (rows) { titleLB.rows = rows; titleLB.src = lbSource; } else if (!titleLB.rows) titleLB.rows = [];
+  });
+}
+const pixArt = (rows, map) => { const c = mk(rows[0].length, rows.length), g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) { g.fillStyle = map[ch]; g.fillRect(x, y, 1, 1); } })); return c; };
+const GOLD = { y: '#f8d878', o: '#d8a000', w: '#fcfcfc', k: '#000', r: '#f83800', b: '#3cbcfc', d: '#a87000' };
+const TROPHY = pixArt([
+  'kkkkkkkkkkk',
+  'kyywyyyyook',
+  'kykwyyyyoko',
+  'kykwyyyyokk',
+  'kkkwyyyyokk',
+  '.kkyyyyyok.',
+  '..kkyyyok..',
+  '...kkyok...',
+  '....kok....',
+  '...kyyyk...',
+  '..kooooook.',
+  '..kkkkkkkk.'].map(r => r.padEnd(11, '.')), GOLD);
+const CROWN = pixArt([
+  '.w.....w.....w.',
+  'kyk...kyk...kyk',
+  'kyyk.kyyyk.kyyk',
+  'kyyykyyyyykyyyk',
+  'kyyyyyyyyyyyyyk',
+  'koooooooooooook',
+  'kyybyyyryyybyyk',
+  'koooooooooooook',
+  'kkkkkkkkkkkkkkk'], GOLD);
+const TLB_TONES = [null, ['#fcfcfc', '#bcbcbc', '#7c7c7c'], ['#f0b080', '#c87c3c', '#7c3c00'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#a8b8d0', '#6c7c94', '#3c4c64']];
+function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y - r, 1, 2 * r + 1, col); }
+function drawTitleBoard() {
+  const { x, y, w, h } = TLB_R, lit = (tlbHover || titleSel === 2) && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
+  const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
+  // gold frame: black / bevelled gold / black, dark navy inside
+  if (lit) { rect(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878'); }   // selected / hovered: glowing edge
+  rect(x, y, w, h, '#000'); rect(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
+  rect(x + 2, y + 2, w - 4, h - 4, G1); rect(x + 3, y + 3, w - 6, h - 6, '#000'); rect(x + 4, y + 4, w - 8, h - 8, '#0c1848');
+  for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);   // rivets
+  // title: trophy + TOP GOLFERS with a shimmer sweeping across
+  ctx.drawImage(TROPHY, x + 6, y + 5);
+  const title = 'TOP GOLFERS', band = (st * 9) % (title.length + 14);
+  [...title].forEach((ch, i) => drawText(ch, x + 19 + i * 6, y + 7, Math.abs(i - band) < 1.2 ? COL.white : G1));
+  rect(x + 5, y + 18, w - 10, 1, '#a87000');
+  const rows = titleLB.rows;
+  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawText('LOADING...', x + Math.round((w - textW('LOADING...')) / 2), y + 50, COL.gray); return; }
+  if (!rows.length) {   // empty state
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(TROPHY, x + 34, y + 23, 22, 24);
+    drawSpark(x + 28, y + 27, 1 + (Math.floor(st * 3) % 2), '#fce4a0'); drawSpark(x + 62, y + 38, 2 - (Math.floor(st * 3) % 2), '#fce4a0');
+    for (const [str, yy, col] of [['BE THE FIRST', 52, COL.white], ['ON THE BOARD!', 62, COL.white]]) drawText(str, x + Math.round((w - textW(str)) / 2), y + yy, col);
+    const pr = usingTouch ? 'TAP PLAY!' : 'PRESS PLAY!';
+    if (Math.floor(st * 2.5) % 2 === 0) drawText(pr, x + Math.round((w - textW(pr)) / 2), y + 77, G1);
+    return;
+  }
+  // #1: big gold row with a crown, shimmering name and sparkles
+  const top = rows[0];
+  rect(x + 5, y + 21, w - 10, 28, '#000'); rect(x + 6, y + 22, w - 12, 26, '#3c2800'); rect(x + 6, y + 22, w - 12, 1, '#7c5800');
+  ctx.drawImage(CROWN, x + 8, y + 25);
+  drawText('1ST', x + 7, y + 37, '#d8a000');
+  const nm = top.name, nb = (st * 7) % (nm.length + 10);
+  [...nm].forEach((ch, i) => drawText(ch, x + 28 + i * 6, y + 25, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
+  const sc = fmtRel(top.to_par);
+  drawText(sc, x + 29, y + 34, '#000', 2); drawText(sc, x + 28, y + 33, '#f8d878', 2);
+  const sp = Math.abs(Math.floor(st * 2.2)) % 3, SPK = [[x + 7, y + 22], [x + w - 9, y + 25], [x + w - 14, y + 44]];
+  drawSpark(SPK[sp][0], SPK[sp][1], 1 + (Math.floor(st * 8) % 2), COL.white);
+  // #2-#5 in silver, bronze, then steel
+  for (let i = 1; i < 5; i++) {
+    const r = rows[i], ry = y + 51 + (i - 1) * 10, [c1, c2, c3] = TLB_TONES[i];
+    rect(x + 6, ry, 7, 7, c3); rect(x + 7, ry, 5, 7, c2); rect(x + 6, ry + 1, 7, 5, c2); rect(x + 7, ry + 1, 2, 1, c1);   // medal
+    text3(ctx, String(i + 1), x + 8, ry + 1, '#000');
+    if (!r) { const first = !rows[i - 1] ? false : true; if (first && Math.floor(st * 2) % 2 === 0) drawText('YOU NEXT?', x + 17, ry, '#d8a000'); else drawText('---', x + 17, ry, '#3c4c64'); continue; }
+    const s2 = fmtRel(r.to_par), sw = textW(s2), room = w - 6 - sw - 3 - (x + 17 - x);
+    let n = r.name; while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
+    drawText(n, x + 17, ry, c1); drawText(s2, x + w - 6 - sw, ry, c1);
+  }
+}
 function fmtDate(s) { const d = new Date(s); if (!s || isNaN(d)) return '--'; const p = n => String(n).padStart(2, '0'); return p(d.getMonth() + 1) + '/' + p(d.getDate()) + '/' + p(d.getFullYear() % 100); }
 const fmtRel = d => d === 0 ? 'E' : (d > 0 ? '+' + d : String(d));
 function scoreName(strk, par) {
@@ -1093,6 +1179,8 @@ function inClubBox(p) { return p.x >= CLUB_BOX.x && p.x < CLUB_BOX.x + CLUB_BOX.
 cv.addEventListener('pointermove', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
   if (ov) { if (e.pointerType === 'mouse') { const r = ovRects.find(q => hit(p, q)); if (r) ov.sel = r.i; } return; }
+  tlbHover = state === 'title' && !menuPopup && e.pointerType === 'mouse' && hit(p, TLB_R);
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || menuRects.some(r => hit(p, r)) || hit(p, FS_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   if (e.pointerType === 'mouse') aimAt(p.x, p.y);
   else if (touchDown) {
@@ -1107,6 +1195,7 @@ cv.addEventListener('pointerdown', e => {
   if (GAME_STATES.includes(state) && hit(p, PAUSE_BTN)) { pauseGame(); touchDown = null; return; }
   if (state === 'card' && hit(p, SHARE_BTN)) { if (e.pointerType === 'mouse') shareScore(); else shareArmed = true; touchDown = null; return; }
   if (state === 'title' && !menuPopup && hit(p, FS_BTN)) { if (e.pointerType === 'mouse') toggleFullscreen(); else fsArmed = true; touchDown = null; return; }
+  if (state === 'title' && !menuPopup && hit(p, TLB_R)) { SFX.click(); titleSel = 2; tlbHover = false; cv.style.cursor = ''; openBoard(null); touchDown = null; return; }
   if (state === 'title') { if (menuPopup) closePopup(); else { const m = menuRects.find(r => hit(p, r)); if (m) { titleSel = m.i; menuActivate(m.i); } } touchDown = null; return; }
   if (state === 'custom') { if (cz) customPointer(p); touchDown = null; return; }
   if (state === 'board') { if (st > 0.3) closeBoard(); touchDown = null; return; }
@@ -1629,7 +1718,7 @@ function outlined(str, x, y, col, s = 1) {
   drawText(str, x, y, col, s);
 }
 function drawTextR(str, xr, y, col) { drawText(str, xr - textW(str), y, col); }
-const TITLE_CLOUDS = [[6, 16], [226, 34], [8, 160], [224, 150]];
+const TITLE_CLOUDS = [[190, 6], [8, 160], [224, 150]];
 function drawSkyScene() {
   rect(0, 0, W, H, COL.sky);
   for (const [x, y] of TITLE_CLOUDS) drawCloud(x, y);
@@ -1644,7 +1733,8 @@ function drawSkyScene() {
 }
 function renderTitle() {
   drawSkyScene();
-  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, Math.round((W - LOGO_BIG.width) / 2), LOGO_Y);
+  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_X, LOGO_Y);
+  drawTitleBoard();
   menuRects = [];
   const GAP = 34, last = MENU_ROWS[3], lastW = textW(MENU[last[0]], 2) + GAP + textW(MENU[last[1]], 2);
   MENU.forEach((label, i) => {
@@ -1886,13 +1976,14 @@ function facingForGolfer() { return state === 'flight' ? shotFacing : facing; }
 const TIME_SCALE = (location.hash.match(/speed=(\d+)/) || [0, 1])[1] * 1;
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(1 / 20, (now - last) / 1000) * TIME_SCALE; last = now;
+  const dt = clamp((now - last) / 1000, 0, 1 / 20) * TIME_SCALE; last = now;   // rAF time can be a hair before 'last' on the first frame
   const pre = state;
   if (!paused) { update(dt); updateCart(dt); }   // paused = completely frozen
   if (pre === 'swing' && state === 'flight') shotFacing = facing;
   render();
   requestAnimationFrame(frame);
 }
+refreshTitleLB(true);
 requestAnimationFrame(frame);
 
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
@@ -1902,7 +1993,7 @@ if (/test/.test(location.hash)) {
     get ball() { return ball ? { x: ball.x, h: ball.h, mode: ball.mode, lie: surfAt(hole, ball.x) } : null; }, get cup() { return hole ? hole.cup : null; },
     get player() { return Object.assign({}, player); }, get board() { return board ? { rows: board.rows, hi: board.hi } : null; },
     get saveWhere() { return saveWhere; }, get titleSel() { return titleSel; }, get popup() { return menuPopup ? menuPopup.kind : null; }, get menuRects() { return menuRects.map(r => Object.assign({}, r)); }, get cz() { return cz ? Object.assign({}, cz) : null; },
-    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
+    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get titleLB() { return { rows: titleLB.rows, src: titleLB.src, busy: titleLB.busy }; }, refreshTitleLB(f) { refreshTitleLB(f); }, TLB_R, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
     // pick the best shot by simulating the real physics, then fire it through the normal launch path
     autoShot() {
       if (state !== 'aim') return null;
