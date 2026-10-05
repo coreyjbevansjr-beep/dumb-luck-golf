@@ -1190,7 +1190,7 @@ function menuActivate(i) {
 let paused = false, ov = null, ovRects = [], fsArmed = false, shareArmed = false;   // ov: { kind: 'pause' | 'settings', sel, back, t }
 let roundTip = false, tipOkR = { x: 0, y: 0, w: 88, h: 24 };   // hole-1 power-meter tip (stays until OK)
 const GAME_STATES = ['intro', 'aim', 'power', 'accuracy', 'swing', 'flight', 'penalty', 'holed', 'done'];
-const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'RESTART HOLE', 'QUIT TO MENU'];
+const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
 let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;
@@ -1397,11 +1397,6 @@ function pauseGame() {
   SFX.click();
 }
 function resumeGame() { paused = false; ov = null; SFX.click(); }
-function restartHole() {
-  strokes = 0; lastSpot = TEE_X; placeBall(TEE_X); msg = null; dogPop = null; fxClear(); trail = [];
-  camX = camTarget(); scheduleWildlife();
-  showMsg('RESTART HOLE', COL.white, 1); setState('aim');
-}
 function quitToMenu() { paused = false; ov = null; roundTip = false; board = null; dogPop = null; msg = null; fxClear(); clearWildlife(); setState('title'); }
 function ovBack() {
   if (ov.kind === 'pause') resumeGame();
@@ -1413,8 +1408,7 @@ function ovActivate(i, dir = 1) {
   if (ov.kind === 'pause') {
     if (i === 0) resumeGame();
     else if (i === 1) openSettings('pause');
-    else if (i === 2) { paused = false; ov = null; restartHole(); SFX.click(); }
-    else quitToMenu();
+    else if (i === 2) quitToMenu();
     return;
   }
   if (i === 0) { settings.sound = !settings.sound; muted = !settings.sound; saveSettings(); SFX.click(); }
@@ -2541,7 +2535,6 @@ addEventListener('keydown', e => {
   }
   if (state === 'card' && (k === 's' || k === 'S') && !e.repeat) { shareScore(); return; }
   if (k === ' ' || k === 'Enter') { if (!e.repeat) action(); return; }
-  if ((k === 'r' || k === 'R') && hole && ['aim', 'power', 'accuracy', 'flight', 'penalty'].includes(state)) { restartHole(); return; }
   if (state === 'aim') {
     const ak = aimKey(k);
     if (ak) { if (!(ak in held)) { nudgeAngle(ak === 'up' ? 1 : -1); held[ak] = 0; } }   // tap = 1 degree, hold = speeds up
