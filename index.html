@@ -1047,7 +1047,7 @@ let LOGO_DRAW = { w: 160, h: 111, x: 48 };
 let TITLE_FAIR = 214, TITLE_RIDGE = 188, CZ_FAIR = 214, HUD_Y0 = 186;
 let SHARE_BTN = { x: 30, y: 161, w: 86, h: 15 }, LB_BTN = { x: 124, y: 161, w: 102, h: 15 };
 let CLUB_BOX = { x: 2, y: 201, w: 66, h: 11 };
-let CZ_Y = [14, 46, 66, 86, 106, 128], DONE_R = { x: 60, y: 124, w: 136, h: 22 };
+let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 120, h: 14 }, CZ_GOLF = { x: 128, y: 200, s: 3 }, DONE_R = { x: 60, y: 124, w: 136, h: 22 };
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
@@ -1124,15 +1124,70 @@ function layoutChrome() {
     const leftSky = Math.max(0, roomBot - (boardY + boardH));
     TLB_R.y = boardY + Math.min(Math.floor(leftSky * 0.35), 12);
   }
-  // customize: center the option list; raise ground so the golfer stands closer
-  CZ_FAIR = portrait ? Math.round(H * 0.50) : TITLE_FAIR;
-  const czGap = portrait ? (H < 420 ? 15 : 17) : 20;
-  // name + 5 option rows + lock-hint band (~14) + TEE OFF must fit above fairway
-  const hintBand = 14;
-  let czTop = Math.max(22, Math.round((CZ_FAIR - (6 * czGap + 36 + hintBand)) / 2));
-  CZ_Y = [czTop, czTop + czGap + 8, czTop + 2 * czGap + 8, czTop + 3 * czGap + 8, czTop + 4 * czGap + 8, czTop + 5 * czGap + 8, czTop + 6 * czGap + 8 + hintBand];
-  if (CZ_Y[6] > CZ_FAIR - 24) { const sh = CZ_Y[6] - (CZ_FAIR - 24); for (let i = 0; i < CZ_Y.length; i++) CZ_Y[i] -= sh; }
-  DONE_R.x = Math.round((W - 136) / 2); DONE_R.y = CZ_Y[6] - 4; DONE_R.w = 136; DONE_R.h = 22;
+  // Customize: TOP-DOWN stack, then ground BELOW the UI (never squeeze UI into a fixed fairway).
+  // Order: header → name+underline → gap G → 5 rows @ pitch P → LOCKED band → TEE OFF → gap → ridge/fairway → golfer.
+  const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
+  const minPitch = Math.max(Math.ceil(44 / sy), 22); // ≥44 CSS centers + scale-2 labels (~14px) never touch
+  let G = Math.max(10, Math.round(minPitch * 0.45));       // name→HAT gap (shrinkable)
+  let lockH = 14;                                          // reserved LOCKED band (always)
+  let afterLock = 6;                                       // LOCKED → TEE
+  let teeH = Math.max(16, Math.round(minPitch * 0.7));
+  let afterTee = 10;                                       // TEE bottom → ridge
+  let grassWant = portrait ? Math.max(56, Math.round(H * 0.22)) : Math.max(48, Math.round(H * 0.24));
+  let P = Math.max(minPitch, Math.ceil(52 / sy));           // comfortable pitch
+  const nameY = (SAFE.t || 0) + 18;                        // below CUSTOMIZE header
+  const nameBlock = 18;                                    // underline at nameY+17
+  const mk = (p, g, lh, al, th, at) => {
+    const first = nameY + nameBlock + g;
+    const trail = first + 4 * p;
+    const trailBot = trail + 15;   // scale-2 label is 14px tall + 1px shadow
+    const lockTop = trailBot + 2;
+    const lockBot = lockTop + lh;
+    const tee = lockBot + al;
+    const teeBot = tee + th;
+    // drawSkyScene paints hills from (fair-26)..fair — keep that whole band BELOW TEE
+    const ridgeH = 26;
+    const ridge = teeBot + at;
+    const fair = ridge + ridgeH;
+    return { first, trail, lockTop, lockBot, tee, teeBot, ridge, fair, p };
+  };
+  let L = mk(P, G, lockH, afterLock, teeH, afterTee);
+  const botLimit = () => H - (SAFE.b || 0) - 4;
+  // Fit: shrink gaps first, then pitch (never < minPitch), then grass
+  // Never let HAT collide with the name underline (label extends ~7px above center)
+  const minG = 10;
+  if (G < minG) G = minG;
+  for (let guard = 0; guard < 80 && L.fair + grassWant > botLimit(); guard++) {
+    if (afterTee > 6) afterTee--;
+    else if (afterLock > 3) afterLock--;
+    else if (G > minG) G--;
+    else if (P > minPitch) P--;
+    else if (grassWant > 36) grassWant -= 4;
+    else break;
+    L = mk(P, G, lockH, afterLock, teeH, afterTee);
+  }
+  // UI always wins: fairway under TEE + gap + full ridge band
+  CZ_FAIR = Math.min(botLimit() - 8, L.fair);
+  if (CZ_FAIR < L.fair) CZ_FAIR = L.fair;
+  CZ_Y = [nameY, L.first, L.first + P, L.first + 2 * P, L.first + 3 * P, L.first + 4 * P, L.tee];
+  CZ_LOCK = { y: L.lockTop, h: lockH };
+  DONE_R.x = Math.round((W - 150) / 2); DONE_R.y = L.tee - 2; DONE_R.w = 150; DONE_R.h = teeH;
+  CZ_ROW_H = Math.max(minPitch, Math.min(P - 2, Math.ceil(48 / sy)));
+  CZ_OX = W > 300 ? Math.round(W / 2 - 156) : 0;
+  // Golfer on fairway below UI; landscape can sit slightly aside
+  {
+    const grassH = Math.max(8, H - CZ_FAIR - (SAFE.b || 0));
+    let gs = 3;
+    if (grassH < 70) gs = 2;
+    if (grassH < 48) gs = 1.5;
+    const up = Math.ceil(28 * gs);
+    let gy = Math.min(H - 12 - (SAFE.b || 0), CZ_FAIR + Math.max(up + 4, Math.round(grassH * 0.78)));
+    // Keep golfer head below TEE (and below fairway top + a little)
+    if (gy - up < CZ_Y[6] + teeH + 4) gy = Math.min(H - 8 - (SAFE.b || 0), CZ_Y[6] + teeH + 4 + up);
+    if (gy - up < CZ_FAIR + 2) { gs = Math.max(1, gs - 0.5); }
+    const gx = (!portrait && W > 320) ? Math.round(W * 0.72) : Math.round(W / 2 - 3);
+    CZ_GOLF = { x: gx, y: gy, s: gs };
+  }
   CZ_BACK_R.x = 2; CZ_BACK_R.y = 2; CZ_BACK_R.w = 66; CZ_BACK_R.h = 22;
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
   KB_X0 = Math.round((W - 200) / 2);
@@ -1267,10 +1322,10 @@ function closePopup() { if (menuPopup && menuPopup.t > 0.15) { menuPopup = null;
 const CZ_ROWS = 7, CZ_DONE = 6;   // CZ_Y / DONE_R live in layoutChrome()
 const CZ_OPTS = [null, ['hat', HATS], ['skin', SKINS], ['shirt', SHIRTS], ['pants', PANTS]];   // row -> [player key, choices]
 const NAME_RECT = { x: 52, y: 6, w: 152, h: 36 };
-const ARROW_L = r => ({ x: 120, y: CZ_Y[r] - 3, w: 26, h: 20 });
-const ARROW_R = r => ({ x: 178, y: CZ_Y[r] - 3, w: 26, h: 20 });
-const SWATCH_R = r => ({ x: 146, y: CZ_Y[r] - 3, w: 32, h: 20 });
-const ROW_R = r => ({ x: 40, y: CZ_Y[r] - 3, w: 176, h: 20 });
+const ARROW_L = r => { const h = CZ_ROW_H; return { x: 118 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 30, h }; };
+const ARROW_R = r => { const h = CZ_ROW_H; return { x: 176 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 30, h }; };
+const SWATCH_R = r => { const h = CZ_ROW_H; return { x: 144 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 36, h }; };
+const ROW_R = r => { const h = CZ_ROW_H; return { x: 28 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 200, h }; };
 /* DONE_R via layoutChrome */
 const KB = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ0123'], ['4', '5', '6', '7', '8', '9', 'SPC', 'DEL'], ['OK']];
 /* KB_* via layoutChrome; KB_CW/CH constants above */
@@ -3119,69 +3174,78 @@ function drawMenuPopup() {
 function renderCustom() {
   drawSkyScene(CZ_FAIR);
   const blink = Math.floor(st * 4) % 2 === 0, YEL = '#f8d878';
+  const ox = CZ_OX;
   // '< BACK' top-left (safe-area canvas corner) — returns to title, keeps saved player look
   {
     const br = CZ_BACK_R, on = mouse.seen && hitBtn(mouse, br);
     outlined('< BACK', br.x + 4, br.y + 4, on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
-  // golfer preview on the raised fairway (CZ_FAIR), large and centered
-  const gY = CZ_FAIR + Math.max(14, Math.round((H - CZ_FAIR) * 0.55));
-  ctx.save(); ctx.translate(Math.round(W / 2 - 3), gY); ctx.scale(3, 3);
-  drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
-  ctx.restore();
-  ctx.drawImage(SPR.golfball, Math.round(W / 2 + 16), gY - 4);
-  // name
+  // CUSTOMIZE header first (always above the name)
+  if (!cz.kb) {
+    const t = 'CUSTOMIZE';
+    outlined(t, Math.round((W - textW(t)) / 2), 2 + (SAFE.t || 0), COL.gray);
+  }
+  // Golfer on the fairway below the UI stack (position from layoutChrome)
+  {
+    const g = CZ_GOLF, gs = g.s || 3;
+    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(gs, gs);
+    drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
+    ctx.restore();
+    ctx.drawImage(SPR.golfball, g.x + Math.round(10 * gs), g.y - 2);
+  }
+
+  // name + underline (centered); clear of CUSTOMIZE header and of HAT below
   const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
   if (cz.name) outlined(cz.name, Math.round((W - textW(cz.name, 2)) / 2), ny, nf ? YEL : COL.white, 2);
   else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round((W - textW(ph, 2)) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
-  rect(66, ny + 17, 124, 2, '#000'); rect(67, ny + 17, 122, 1, nf ? YEL : COL.white);
+  const uw = 124, ux = Math.round((W - uw) / 2);
+  rect(ux, ny + 17, uw, 2, '#000'); rect(ux + 1, ny + 17, uw - 2, 1, nf ? YEL : COL.white);
   if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round((W + textW(cz.name, 2)) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
-  if (cz.row === 0 && !cz.kb) { const hint = 'TAP NAME TO TYPE'; outlined(hint, Math.round((W - textW(hint)) / 2), ny + 21, COL.white); }
-  // look toggles:  LABEL  <  [color]  >   (lock status never overlaps neighboring rows)
+  // look toggles — larger < > (scale 2); x shifted by CZ_OX so the block is centered on wide screens
+  const arrowSc = 2;
   [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4]].forEach(([lab, r]) => {
     const y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
-    outlined(lab, 122 - textW(lab, 2), y, col, 2);
-    outlined('<', 132 - nudge, y, col, 2); outlined('>', 182 + nudge, y, col, 2);
+    outlined(lab, 118 + ox - textW(lab, 2), y, col, 2);
+    outlined('<', 128 + ox - nudge, y - 2, col, arrowSc); outlined('>', 184 + ox + nudge, y - 2, col, arrowSc);
     const lk = lookOf(cz), c = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r];
     const hatLock = r === 1 && !hatUnlocked(cz.hat);
-    rect(146, y - 1, 32, 16, '#000'); rect(147, y, 30, 14, f ? YEL : COL.white); rect(149, y + 2, 26, 10, '#000');
+    const sh = Math.max(14, Math.min(20, CZ_ROW_H - 8));
+    const sy0 = y + 4 - Math.floor(sh / 2);
+    rect(146 + ox, sy0 - 1, 34, sh + 2, '#000'); rect(147 + ox, sy0, 32, sh, f ? YEL : COL.white); rect(149 + ox, sy0 + 2, 28, sh - 4, '#000');
     if (hatLock) {
-      // lock badge inside the swatch only — never to the right of '>'
-      rect(150, y + 3, 24, 8, '#183848');
-      outlined('LK', 154, y + 3, COL.orange);
-    } else rect(150, y + 3, 24, 8, c);
+      rect(150 + ox, sy0 + 3, 26, sh - 6, '#183848');
+      outlined('LK', 154 + ox, sy0 + Math.max(2, Math.floor((sh - 10) / 2)), COL.orange);
+    } else rect(150 + ox, sy0 + 3, 26, sh - 6, c);
   });
   {
     const r = 5, y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
-    outlined('TRAIL', 122 - textW('TRAIL', 2), y, col, 2);
-    outlined('<', 132 - nudge, y, col, 2); outlined('>', 182 + nudge, y, col, 2);
+    outlined('TRAIL', 118 + ox - textW('TRAIL', 2), y, col, 2);
+    outlined('<', 128 + ox - nudge, y - 2, col, arrowSc); outlined('>', 184 + ox + nudge, y - 2, col, arrowSc);
     const tid = (cz.trail || 'white').toUpperCase().slice(0, 5);
     const locked = !trailUnlocked(cz.trail || 'white');
-    // value stays between the arrows (same column as swatches)
-    if (locked) outlined('LK', 155, y + 2, COL.orange);
-    else outlined(tid, 148, y + 2, col);
+    if (locked) outlined('LK', 155 + ox, y, COL.orange);
+    else outlined(tid, 148 + ox, y, col);
   }
-  // One centered unlock hint under the option list (above TEE OFF) — roomy, never overlaps rows
+  // LOCKED bar in the reserved slot between TRAIL and TEE OFF (only when needed)
   {
     let hint = '';
     if (cz.row === 1 && !hatUnlocked(cz.hat)) hint = 'LOCKED - ' + (hatEarnHint(cz.hat) || 'EARN TO UNLOCK');
     else if (cz.row === 5 && !trailUnlocked(cz.trail || 'white')) hint = 'LOCKED - ' + (trailEarnHint(cz.trail) || 'EARN TO UNLOCK');
     if (hint) {
-      const hy = Math.min(CZ_Y[CZ_DONE] - 14, CZ_Y[5] + 18);
-      const hw = textW(hint) + 10;
+      // Strictly inside the reserved LOCKED band (never overlaps TRAIL or TEE)
+      const hy = CZ_LOCK.y + Math.max(0, Math.floor((CZ_LOCK.h - 12) / 2));
+      const hw = Math.min(W - 16, textW(hint) + 12);
       const hx = Math.round((W - hw) / 2);
-      rect(hx, hy - 1, hw, 11, '#000');
-      rect(hx + 1, hy, hw - 2, 9, '#183848');
-      drawText(hint, hx + 5, hy + 1, COL.orange);
+      rect(hx, hy - 1, hw, 12, '#000');
+      rect(hx + 1, hy, hw - 2, 10, '#183848');
+      drawText(hint, hx + 6, hy + 1, COL.orange);
     }
   }
-  // done / play
-  if (cz.from === 'play' && !cz.kb) { const t = 'CUSTOMIZE'; outlined(t, Math.round((W - textW(t)) / 2), 2, COL.gray); }   // BACK sits top-left
+  // TEE OFF / DONE — in the sky above the hills
   const dl = (cz.from === 'play' || cz.from === 'daily') ? (cz.from === 'daily' ? (dailyMeta && dailyMeta.practice ? 'PRACTICE' : 'PLAY DAILY') : 'TEE OFF') : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === CZ_DONE && !cz.kb;
   outlined(dl, dx, CZ_Y[CZ_DONE], df ? YEL : COL.white, 2);
   if (df) outlined('>', dx - 17 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
-  // name entry uses a native HTML <input> overlay (showNameOverlay) so phones get a real keyboard
 }
 function renderBoard() {
   drawSkyScene();
@@ -3514,7 +3578,7 @@ if (/test/.test(location.hash)) {
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); },
     get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startDaily() { startDailyFlow(); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
-    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE) }; },
+    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
     openNameKb() { openKb(); },
     closeNameKb(save) { closeKb(save !== false); },
