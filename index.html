@@ -16,6 +16,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <meta property="og:title" content="Dumb Luck Golf">
 <meta property="og:description" content="Play Dumb Luck Golf, a free retro 9-hole golf game. Post your score on the leaderboard.">
 <meta property="og:type" content="website">
@@ -31,11 +33,10 @@
 <style>
   html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-  body{position:fixed;inset:0;height:100vh;height:100dvh;box-sizing:border-box;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-  canvas{display:block;position:absolute;left:env(safe-area-inset-left);top:env(safe-area-inset-top);
-    width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));
-    height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  /* Canvas paints the full visual viewport (incl. home-indicator / notch). Grass can fill to the bottom edge — no sky strip below. */
+  body{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;box-sizing:border-box;padding:0;
+    --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
+  canvas{display:block;position:absolute;left:0;top:0;width:100%;height:100%;
     image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;touch-action:manipulation}
   #rot{display:none !important}
   #nameOverlay{display:none;position:fixed;left:0;right:0;top:0;z-index:50;padding:12px 12px calc(12px + env(safe-area-inset-top));
@@ -46,7 +47,8 @@
   #nameOverlay label{display:block;font-size:12px;letter-spacing:2px;margin:0 0 8px;color:#f8d878}
   #nameInput{display:block;width:100%;box-sizing:border-box;font-size:16px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;
     font-family:ui-monospace,Menlo,Consolas,monospace;padding:12px 10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;
-    border-radius:0;-webkit-appearance:none;appearance:none}
+    border-radius:0;-webkit-appearance:none;appearance:none;
+    user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
   #nameOverlay .row{display:flex;gap:10px;margin-top:12px}
   #nameOverlay button{flex:1;font-size:16px;letter-spacing:2px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;
     padding:12px 8px;border:2px solid #fcfcfc;background:#183848;color:#fcfcfc;touch-action:manipulation;-webkit-appearance:none}
@@ -93,10 +95,26 @@ let ctx = cv.getContext('2d');   // swapped briefly when drawing the share card
 ctx.imageSmoothingEnabled = false;
 // Fill the safe-area viewport edge-to-edge (no black letterbox). Grow the logical canvas to match
 // the aspect ratio so we extend sky/grass (portrait) or the course sideways (wide), keeping crisp nearest-neighbor pixels. Integer device-pixel snap when it costs <8%.
+function cssPx(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
+function viewportCssSize() {
+  // Prefer visualViewport (Safari toolbars) then innerHeight/Width — full bleed including safe areas.
+  const vv = window.visualViewport;
+  const aw = Math.max(1, Math.round((vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || 1));
+  const ah = Math.max(1, Math.round((vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || 1));
+  return { aw, ah };
+}
+function safeCssInsets() {
+  const bs = getComputedStyle(document.body);
+  return {
+    t: cssPx(bs.getPropertyValue('--sat')),
+    r: cssPx(bs.getPropertyValue('--sar')),
+    b: cssPx(bs.getPropertyValue('--sab')),
+    l: cssPx(bs.getPropertyValue('--sal'))
+  };
+}
+let SAFE = { t: 0, r: 0, b: 0, l: 0 };   // logical-px safe insets (chrome offsets)
 function resize() {
-  const bs = getComputedStyle(document.body), pad = k => parseFloat(bs[k]) || 0;
-  const aw = Math.max(1, document.body.clientWidth - pad('paddingLeft') - pad('paddingRight'));
-  const ah = Math.max(1, document.body.clientHeight - pad('paddingTop') - pad('paddingBottom'));
+  const { aw, ah } = viewportCssSize();
   const aspect = aw / ah, design = GW / GH;
   let lw, lh;
   if (aspect >= design) { lh = GH; lw = Math.max(GW, Math.round(GH * aspect)); }
@@ -105,8 +123,11 @@ function resize() {
   const dpr = window.devicePixelRatio || 1;
   let sc = Math.min(aw / lw, ah / lh);
   let dev = sc * dpr; const fl = Math.floor(dev); if (fl >= 1 && fl / dev >= 0.92) { dev = fl; sc = dev / dpr; lw = Math.max(GW, Math.round(aw / sc)); lh = Math.max(GH, Math.round(ah / sc)); }
+  const inset = safeCssInsets();
+  SAFE = { t: Math.round(inset.t / sc), r: Math.round(inset.r / sc), b: Math.round(inset.b / sc), l: Math.round(inset.l / sc) };
   if (lw === W && lh === H && cv.width === lw && cv.height === lh) {
     cv.style.width = aw + 'px'; cv.style.height = ah + 'px';
+    layoutChrome();
     return;
   }
   W = lw; H = lh;
@@ -117,6 +138,11 @@ function resize() {
   const extraPlay = Math.max(0, PLAY_H - PLAY0);
   BASE = BASE0 + Math.floor(extraPlay * 0.55);
   if (BASE > PLAY_H - dirtBand) BASE = PLAY_H - dirtBand;
+  // Portrait play: pin the fairway line near 64% of the full viewport (sky above, dirt down to HUD)
+  if (H > W * 1.15) {
+    const want = Math.round(H * 0.64);
+    BASE = clamp(want, Math.round(H * 0.58), PLAY_H - Math.max(dirtBand, 28));
+  }
   cv.width = W; cv.height = H;
   ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
   cv.style.width = aw + 'px'; cv.style.height = ah + 'px';
@@ -127,6 +153,7 @@ if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 document.addEventListener('fullscreenchange', resize); document.addEventListener('webkitfullscreenchange', resize);
 document.addEventListener('gesturestart', e => e.preventDefault());   // iOS pinch zoom
 document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('selectstart', e => { if (e.target && (e.target.id === 'nameInput' || e.target.closest && e.target.closest('#nameOverlay'))) return; e.preventDefault(); });
 /* ---------------- fullscreen ---------------- */
 const FS_EL = document.documentElement;
 const fsSupported = !!(FS_EL.requestFullscreen || FS_EL.webkitRequestFullscreen);
@@ -577,8 +604,9 @@ function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir) {
 }
 
 /* ---------------- sound ---------------- */
-let settings = { sound: true, aim: true };
-try { const v = JSON.parse(localStorage.getItem('dlg_golf_settings') || 'null'); if (v) settings = { sound: v.sound !== false, aim: v.aim !== false }; } catch (e) {}
+let settings = { sound: true, aim: true, haptics: true };
+try { const v = JSON.parse(localStorage.getItem('dlg_golf_settings') || 'null'); if (v) settings = { sound: v.sound !== false, aim: v.aim !== false, haptics: v.haptics !== false }; } catch (e) {}
+function hap(pat) { if (!settings.haptics || typeof navigator === 'undefined' || !navigator.vibrate) return; try { navigator.vibrate(pat); } catch (e) {} }
 function saveSettings() { try { localStorage.setItem('dlg_golf_settings', JSON.stringify(settings)); } catch (e) {} }
 let AC = null, muted = !settings.sound;
 function audioOn() { if (navigator.userActivation && !navigator.userActivation.isActive) return;   // no gesture yet (e.g. touchstart): wait for touchend/click
@@ -599,26 +627,29 @@ function noise(dur, vol = 0.2, when = 0) {
   const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; g.gain.value = vol; s.connect(g).connect(AC.destination); s.start(AC.currentTime + when);
 }
 const SFX = {
-  tick()   { tone(1319, 0.03, 'square', 0.03); },
+  tick()   { tone(1319, 0.03, 'square', 0.03); hap(8); },
   whoosh() { noise(0.12, 0.08); },
-  hit()    { tone(1568, 0.04, 'square', 0.06); noise(0.05, 0.15); },
-  putt()   { tone(988, 0.04, 'triangle', 0.12); },
-  bounce() { tone(140, 0.06, 'triangle', 0.12); },
-  cup()    { tone(523, 0.06, 'square', 0.06); tone(392, 0.08, 'triangle', 0.15, 0.08); },
+  hit()    { tone(1568, 0.04, 'square', 0.06); noise(0.05, 0.15); hap(18); },
+  putt()   { tone(988, 0.04, 'triangle', 0.12); hap(14); },
+  bounce() { tone(140, 0.06, 'triangle', 0.12); hap(12); },
+  cup()    { tone(523, 0.06, 'square', 0.06); tone(392, 0.08, 'triangle', 0.15, 0.08); hap([18, 40, 28, 40, 50]); },
   splash() { noise(0.6, 0.25); tone(600, 0.3, 'sine', 0.05, 0, 120); },
   cheer()  { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.05, i * 0.1)); },
   laugh()  { for (let i = 0; i < 8; i++) tone(i % 2 ? 330 : 415, 0.1, 'square', 0.05, i * 0.12); },
   jingle() { [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, 'square', 0.045, i * 0.14)); },
   sad()    { [392, 370, 349, 330].forEach((f, i) => tone(f, 0.22, 'square', 0.05, i * 0.22)); },
   fanfare(){ [523, 523, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'square', 0.05, i * 0.15)); },
-  click()  { tone(880, 0.04, 'square', 0.04); },
+  click()  { tone(880, 0.04, 'square', 0.04); hap(10); },
   bark()   { tone(180, 0.07, 'square', 0.07); tone(140, 0.1, 'square', 0.05, 0.08); tone(200, 0.06, 'square', 0.04, 0.2); },
   luck()   { tone(220, 0.25, 'square', 0.05, 0, 880); [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.1, 'square', 0.045, 0.25 + i * 0.06)); },
-  perfect(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.09, 'square', 0.045, i * 0.05)); tone(2637, 0.35, 'triangle', 0.05, 0.2); noise(0.06, 0.05); }
+  perfect(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.09, 'square', 0.045, i * 0.05)); tone(2637, 0.35, 'triangle', 0.05, 0.2); noise(0.06, 0.05); hap([12, 30, 12, 30, 40, 50, 70]); }
 };
 
 /* ---------------- game state ---------------- */
-let state = 'title', st = 0;
+let state = 'splash', st = 0;   // branded splash until first tap (also unlocks audio)
+let fade = { a: 0, going: null };   // screen transition overlay
+let uiPress = null;               // { key, until } press feedback
+let a2hs = { show: false, dismissAt: 0 };
 let holeIdx = 0, hole = null, scores = [], strokes = 0, wind = 0;
 let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
@@ -641,7 +672,14 @@ let titleDog = { x: 20, dir: 1, sniff: 0, next: 2.5 };
 let titleHole = compileHole(HOLES[0]), titleCam = 0;
 const TOTAL_PAR = HOLES.reduce((a, h) => a + h.par, 0);
 
-function setState(s) { state = s; st = 0; lockInput(250); if (s === 'title') refreshTitleLB(); }
+function setState(s) {
+  const from = state;
+  state = s; st = 0; lockInput(250);
+  if (s === 'title') refreshTitleLB();
+  // quick fade between major screens (not every swing state)
+  const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board'];
+  if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s };
+}
 const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews never write scores
 const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
@@ -675,7 +713,7 @@ const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scor
 let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;
 const TLB_R = { x: 10, y: 142, w: 236, h: 66 };
 let LOGO_DRAW = { w: 160, h: 111, x: 48 };
-let TITLE_FAIR = 214, CZ_FAIR = 214, HUD_Y0 = 186;
+let TITLE_FAIR = 214, TITLE_RIDGE = 188, CZ_FAIR = 214, HUD_Y0 = 186;
 let SHARE_BTN = { x: 30, y: 161, w: 86, h: 15 }, LB_BTN = { x: 124, y: 161, w: 102, h: 15 };
 let CLUB_BOX = { x: 2, y: 201, w: 66, h: 11 };
 let CZ_Y = [14, 46, 66, 86, 106, 128], DONE_R = { x: 60, y: 124, w: 136, h: 22 };
@@ -683,59 +721,71 @@ let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customiz
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
 function layoutChrome() {
-  // top-right chrome always hugs the corner of the (safe-area) canvas
-  FS_BTN.x = W - 22; FS_BTN.y = 0; FS_BTN.w = 22; FS_BTN.h = 22;
-  GEAR_BTN.x = W - 44; GEAR_BTN.y = 0; GEAR_BTN.w = 20; GEAR_BTN.h = 22;
-  PAUSE_BTN.x = 0; PAUSE_BTN.y = 0; PAUSE_BTN.w = 22; PAUSE_BTN.h = 22;
+  // chrome hugs the safe content box (canvas itself is full-bleed so grass reaches the home indicator)
+  const st = SAFE.t || 0, sl = SAFE.l || 0, sr = SAFE.r || 0;
+  FS_BTN.x = W - 22 - sr; FS_BTN.y = st; FS_BTN.w = 22; FS_BTN.h = 22;
+  GEAR_BTN.x = W - 44 - sr; GEAR_BTN.y = st; GEAR_BTN.w = 20; GEAR_BTN.h = 22;
+  PAUSE_BTN.x = sl; PAUSE_BTN.y = st; PAUSE_BTN.w = 22; PAUSE_BTN.h = 22;
   HUD_Y0 = PLAY_H;
   // mini scorecard fully on-screen top-right (pause owns the top-left)
   MC.w = 3 + MC.lw + 9 * MC.cw + 2 + MC.tw + 2; MC.h = 29;
-  MC.x = Math.max(24, W - MC.w - 2); MC.y = 2;
+  MC.x = Math.max(24 + sl, W - MC.w - 2 - sr); MC.y = 2 + st;
   const portrait = H > W * 1.15;
-  // title/customize ground: ~28% on phone so hills/grass aren't a thin strip; desktop keeps a short band
-  const groundFrac = portrait ? 0.32 : Math.min(0.14, 26 / Math.max(H, 1));
-  TITLE_FAIR = Math.round(H * (1 - groundFrac));
-  // logo: phone nearly full width; desktop native size
   const lw0 = (LOGO_BIG.complete && LOGO_BIG.width) ? LOGO_BIG.width : 160;
   const lh0 = (LOGO_BIG.complete && LOGO_BIG.height) ? LOGO_BIG.height : 111;
   let ldW = lw0, ldH = lh0;
-  if (portrait) { ldW = Math.min(W - 10, Math.round(W * 0.94)); ldH = Math.round(lh0 * ldW / lw0); }
-  LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-  LOGO_Y = portrait ? Math.max(4, Math.round(H * 0.02)) : Math.max(3, Math.round(H * 0.012));
-  // Pack logo → PLAY/SHOP → board tightly (clear gap under whole logo). Leftover sky sits BETWEEN board and hills — not between menu items.
-  const boardH = portrait ? 70 : 66;
-  const boardW = Math.min(236, W - 24);          // original design width — never stretch edge-to-edge
-  const menuH = MENU_DY + 2;
-  const gapLogo = portrait ? 14 : 10;            // desktop: keep native logo (tight but clear); phone: roomy
-  const gapMenu = portrait ? 8 : 8;
-  let logoBot = LOGO_Y + ldH;
-  let menuY = logoBot + gapLogo;
-  let boardY = menuY + menuH + gapMenu;
-  const roomBot = TITLE_FAIR - 6;
-  // If the stack doesn't fit above the hills, shrink the logo (phone) rather than overlapping
-  if (boardY + boardH > roomBot) {
-    if (!portrait) {
-      TITLE_FAIR = Math.min(H - 16, boardY + boardH + 4);
-      // grass band shrinks slightly so the full logo fits with a clear gap
-    } else {
-      const need = boardY + boardH - roomBot;
-      const maxShrink = Math.max(0, ldH - Math.round(lh0 * 0.55));
-      const shrink = Math.min(need, maxShrink);
-      ldH -= shrink; ldW = Math.round(lw0 * ldH / lh0);
-      LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-      logoBot = LOGO_Y + ldH;
-      menuY = logoBot + gapLogo;
-      boardY = menuY + menuH + gapMenu;
-      if (boardY + boardH > roomBot) boardY = roomBot - boardH;
+  if (portrait) {
+    // Portrait title (% of real viewport H). Icons occupy the top chrome; logo starts below them.
+    // logo ~9–33% H (≈82% W), PLAY/SHOP ~39%, board ~46–62%, hills ~72%, grass ~78%→bottom, dog ~88%.
+    const iconBot = st + 22;                         // gear / fullscreen row
+    const bobPad = 8;                                // logo bob amplitude + air gap under icons
+    TITLE_FAIR = Math.round(H * 0.78);               // grass top
+    TITLE_RIDGE = Math.round(H * 0.72);              // hill-line top
+    // Prefer ~82% width; keep top under icons. Aspect may land the bottom near ~33–35% H.
+    ldW = Math.min(W - 56, Math.round(W * 0.78));   // leave room so logo does not sit under gear/FS
+    ldH = Math.round(lh0 * ldW / lw0);
+    let logoTop = Math.max(iconBot + bobPad, Math.round(H * 0.10));
+    const logoBotMax = Math.round(H * 0.35);
+    if (logoTop + ldH > logoBotMax) {
+      ldH = Math.max(Math.round(lh0 * 0.5), logoBotMax - logoTop);
+      ldW = Math.min(Math.round(W * 0.78), Math.round(lw0 * ldH / lh0));
     }
+    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
+    LOGO_Y = logoTop;
+    MENU_Y0 = Math.round(H * 0.39);
+    const boardH = Math.max(66, Math.min(90, Math.round(H * 0.16)));
+    const boardW = Math.min(236, W - 24);
+    TLB_R.w = boardW; TLB_R.h = boardH;
+    TLB_R.x = Math.round((W - boardW) / 2);
+    TLB_R.y = Math.round(H * 0.46);
+    // keep even sky gaps: logo→menu, menu→board, board→hills (nudge if stacked too tight)
+    if (MENU_Y0 < LOGO_Y + ldH + 10) MENU_Y0 = LOGO_Y + ldH + 10;
+    if (TLB_R.y < MENU_Y0 + MENU_DY + 10) TLB_R.y = MENU_Y0 + MENU_DY + 10;
+    const boardBot = TLB_R.y + boardH;
+    if (TITLE_RIDGE - boardBot < 10) {
+      TITLE_RIDGE = Math.min(Math.round(H * 0.74), boardBot + Math.round(H * 0.08));
+      TITLE_FAIR = Math.min(H - Math.round(H * 0.16), TITLE_RIDGE + Math.round(H * 0.06));
+    }
+  } else {
+    // desktop / landscape: keep the existing solid short-grass look
+    const groundFrac = Math.min(0.14, 26 / Math.max(H, 1));
+    TITLE_FAIR = Math.round(H * (1 - groundFrac));
+    TITLE_RIDGE = Math.max(8, TITLE_FAIR - 26);
+    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
+    LOGO_Y = Math.max(3, Math.round(H * 0.012));
+    const boardH = 66, boardW = Math.min(236, W - 24), menuH = MENU_DY + 2;
+    const gapLogo = 10, gapMenu = 8;
+    let logoBot = LOGO_Y + ldH;
+    let menuY = logoBot + gapLogo;
+    let boardY = menuY + menuH + gapMenu;
+    const roomBot = TITLE_FAIR - 6;
+    if (boardY + boardH > roomBot) TITLE_FAIR = Math.min(H - 16, boardY + boardH + 4);
+    MENU_Y0 = menuY;
+    TLB_R.w = boardW; TLB_R.h = boardH;
+    TLB_R.x = Math.round((W - boardW) / 2);
+    const leftSky = Math.max(0, roomBot - (boardY + boardH));
+    TLB_R.y = boardY + Math.min(Math.floor(leftSky * 0.35), 12);
   }
-  MENU_Y0 = menuY;
-  TLB_R.w = boardW; TLB_R.h = boardH;
-  TLB_R.x = Math.round((W - boardW) / 2);
-  // use a little leftover sky to sit the board slightly lower (keeps menu tight under logo, shrinks the hole under the board)
-  const leftSky = Math.max(0, roomBot - (boardY + boardH));
-  // phone: keep board close under PLAY (only a little leftover); desktop unchanged
-  TLB_R.y = boardY + Math.min(Math.floor(leftSky * (portrait ? 0.18 : 0.35)), portrait ? 18 : 12);
   // customize: center the option list; raise ground so the golfer stands closer
   CZ_FAIR = portrait ? Math.round(H * 0.52) : TITLE_FAIR;
   const czGap = portrait ? 18 : 20;
@@ -755,6 +805,7 @@ function layoutChrome() {
 resize();   // boot: after chrome layout vars exist
 function settingsRows() {
   return [['SOUND', settings.sound ? 'ON' : 'OFF'], ['AIM LINE', settings.aim ? 'ON' : 'OFF'],
+          ['HAPTICS', settings.haptics ? 'ON' : 'OFF'],
           ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['BACK', null]];
 }
 const ovCount = () => ov.kind === 'pause' ? PAUSE_ITEMS.length : settingsRows().length;
@@ -788,16 +839,24 @@ function ovActivate(i, dir = 1) {
   }
   if (i === 0) { settings.sound = !settings.sound; muted = !settings.sound; saveSettings(); SFX.click(); }
   else if (i === 1) { settings.aim = !settings.aim; saveSettings(); SFX.click(); }
-  else if (i === 2) { toggleFullscreen(); SFX.click(); }
+  else if (i === 2) { settings.haptics = !settings.haptics; saveSettings(); SFX.click(); if (settings.haptics) hap(20); }
+  else if (i === 3) { toggleFullscreen(); SFX.click(); }
   else ovBack();
+}
+function isTypingTarget(el) {
+  if (!el || el === document.body || el === document.documentElement) return false;
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (el.isContentEditable) return true;
+  return !!(el.closest && el.closest('input,textarea,[contenteditable="true"]'));
 }
 function ovKey(e) {
   const k = e.key;
-  if (k === 'Escape' || k === 'p' || k === 'P' || k === 'Backspace') { ovBack(); return; }
+  if (k === 'Escape' || k === 'p' || k === 'P') { ovBack(); return; }
   if (k === 'ArrowUp' || k === 'w' || k === 'W') { ov.sel = (ov.sel + ovCount() - 1) % ovCount(); SFX.tick(); return; }
   if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'Tab') { ov.sel = (ov.sel + 1) % ovCount(); SFX.tick(); return; }
   if (e.repeat) return;
-  if (k === 'Enter' || k === ' ' || (ov.kind === 'settings' && ov.sel < 3 && (k === 'ArrowLeft' || k === 'ArrowRight'))) ovActivate(ov.sel);
+  if (k === 'Enter' || k === ' ' || (ov.kind === 'settings' && ov.sel < 4 && (k === 'ArrowLeft' || k === 'ArrowRight'))) ovActivate(ov.sel);
 }
 function ovPointerDown(p, e) {
   const r = ovRects.find(q => hitBtn(p, q));
@@ -832,12 +891,13 @@ function drawOverlay() {
 }
 function drawPauseButton() {   // top-left so it never clashes with the scorecard
   if (!GAME_STATES.includes(state) || paused) return;
-  ctx.globalAlpha = 0.55; rect(3, 3, 14, 14, '#000'); ctx.globalAlpha = 1;
-  rect(3, 3, 14, 1, COL.white); rect(3, 16, 14, 1, COL.white); rect(3, 3, 1, 14, COL.white); rect(16, 3, 1, 14, COL.white);
-  rect(7, 6, 2, 8, COL.white); rect(11, 6, 2, 8, COL.white);
+  const ox = (SAFE.l || 0) + 3, oy = (SAFE.t || 0) + 3;
+  ctx.globalAlpha = 0.55; rect(ox, oy, 14, 14, '#000'); ctx.globalAlpha = 1;
+  rect(ox, oy, 14, 1, COL.white); rect(ox, oy + 13, 14, 1, COL.white); rect(ox, oy, 1, 14, COL.white); rect(ox + 13, oy, 1, 14, COL.white);
+  rect(ox + 4, oy + 3, 2, 8, COL.white); rect(ox + 8, oy + 3, 2, 8, COL.white);
 }
 function drawFsButton() {   // title screen, top-right
-  const on = isFs(), x = W - 17, y = 3;
+  const on = isFs(), x = FS_BTN.x + 5, y = FS_BTN.y + 3;
   ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
   const c = COL.white;
   if (!on) { rect(x + 2, y + 2, 4, 1, c); rect(x + 2, y + 2, 1, 4, c); rect(x + 8, y + 2, 4, 1, c); rect(x + 11, y + 2, 1, 4, c);
@@ -846,7 +906,7 @@ function drawFsButton() {   // title screen, top-right
          rect(x + 4, y + 8, 1, 4, c); rect(x + 2, y + 8, 3, 1, c); rect(x + 9, y + 8, 1, 4, c); rect(x + 9, y + 8, 3, 1, c); }
 }
 function drawGearButton() {   // title settings gear, left of the fullscreen icon
-  const x = GEAR_BTN.x + 3, y = 3, c = COL.white;
+  const x = GEAR_BTN.x + 3, y = GEAR_BTN.y + 3, c = COL.white;
   ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
   // pixel gear: hub + teeth
   rect(x + 5, y + 5, 4, 4, c); rect(x + 6, y + 6, 2, 2, '#000');
@@ -986,10 +1046,10 @@ function czDone() {
 function czCancel() { hideNameOverlay(); cz = null; SFX.click(); setState('title'); }   // BACK: leave customize, keep saved player choices
 function customKey(e) {
   const k = e.key;
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', ' ', 'Backspace'].includes(k)) e.preventDefault();
-  if (k === 'Escape') { if (cz.kb) closeKb(false); else czCancel(); return; }
-  if (k === 'Backspace' && !cz.kb) { czCancel(); return; }   // Esc/Backspace = BACK (name edits use the HTML input)
-  if (cz.kb) return;   // HTML <input> owns keys while the name overlay is open
+  // Name overlay / focused fields: never steal keys (Backspace must delete). Esc/Enter handled by #nameInput.
+  if (cz.kb || isTypingTarget(document.activeElement) || isTypingTarget(e.target)) return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', ' '].includes(k)) e.preventDefault();
+  if (k === 'Escape') { czCancel(); return; }
   {
     if (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) { cz.row = (cz.row + CZ_ROWS - 1) % CZ_ROWS; SFX.tick(); return; }
     if (k === 'ArrowDown' || k === 'Tab') { cz.row = (cz.row + 1) % CZ_ROWS; SFX.tick(); return; }
@@ -1075,7 +1135,7 @@ function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y 
 function drawTitleBoard() {
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
   const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
-  const PANEL_A = 0.28;   // clearly see-through: sky, hills, clouds, critters show behind the board
+  const PANEL_A = 0.55;   // soft glass: readable but still see sky/hills behind (phone + desktop)
   const tlbText = (str, tx, ty, col, sc = 1) => {   // crisp 1px dark drop shadow (no heavy blocky outline)
     drawText(str, tx + sc, ty + sc, '#000', sc);
     drawText(str, tx, ty, col, sc);
@@ -1138,6 +1198,7 @@ function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += 
 
 function startRound() { holeIdx = 0; scores = []; startHole(); }
 function startHole() {
+  camY = 0;
   hole = compileHole(HOLES[holeIdx]);
   strokes = 0; lastSpot = TEE_X;
   wind = clamp(hole.wind + Math.round(rnd(-2, 2)), -14, 14);
@@ -1162,12 +1223,51 @@ function autoClub() {
   angle = CLUBS[clubIdx].def;
 }
 function setClub(i) { clubIdx = (i + 4) % 4; angle = CLUBS[clubIdx].def; SFX.click(); }
+const CAM_MIN = -120;   // allow portrait zoom to frame the tee golfer with left margin
+const WORLD_Z_PORTRAIT = 1.35;   // mild portrait zoom — keep sky + full golfer on screen
+let camY = 0;                    // screen-space Y shift (positive = show higher ball)
+function isPortraitPlay() { return H > W * 1.15 && GAME_STATES.includes(state); }
+function worldZoom() { return isPortraitPlay() ? WORLD_Z_PORTRAIT : 1; }
+function camMax() { return hole ? Math.max(CAM_MIN, hole.len - W + 40) : CAM_MIN; }
+/** camX so world X maps to screen sx after zoom about W/2. */
+function camForScreenX(worldX, sx) {
+  const Z = worldZoom();
+  return worldX - W / 2 - (sx - W / 2) / Z;
+}
 function camTarget() {
   if (!ball) return 0;
-  const want = facing > 0 ? ball.x - 80 : ball.x - (W - 80);
-  return clamp(want, CAM_MIN, Math.max(CAM_MIN, hole.len - W + 40));
+  const Z = worldZoom(), max = camMax();
+  // Green: keep ball + cup framed together
+  const onGreen = hole && (surfAt(hole, ball.x) === 'green' || clubIdx === 3);
+  if (onGreen && hole) {
+    const mid = (ball.x + hole.cup) / 2;
+    const span = Math.abs(hole.cup - ball.x);
+    const viewW = W / Math.max(Z, 1);
+    if (span < viewW * 0.75) return clamp(camForScreenX(mid, W / 2), CAM_MIN, max);
+    // prefer keeping the ball in-frame with the cup ahead
+    const ahead = hole.cup >= ball.x ? 0.38 : 0.62;
+    return clamp(camForScreenX(ball.x, ahead * W), CAM_MIN, max);
+  }
+  if (Z > 1.001) {
+    // Address: keep the full golfer on-screen (~12% left margin). Ball sits a bit right of the sprite.
+    const golferEdge = facing >= 0 ? 0.12 * W : 0.88 * W;
+    const ballSx = facing >= 0 ? golferEdge + 18 : golferEdge - 18;
+    return clamp(camForScreenX(ball.x, ballSx), CAM_MIN, max);
+  }
+  const lead = 80;
+  const want = facing > 0 ? ball.x - (W / 2 - lead) : ball.x - (W / 2 + lead);
+  return clamp(want, CAM_MIN, max);
 }
-const CAM_MIN = -40;
+function camYTarget() {
+  if (!isPortraitPlay() || !ball) return 0;
+  const Z = worldZoom();
+  // Ball screen Y after zoom about BASE (before camY): BASE - Z * ball.h
+  const raw = BASE - Z * ball.h;
+  const topKeep = 36;                 // below pause / mini-card
+  const botKeep = BASE - 12;          // stay above ground a bit when very high
+  if (raw >= topKeep) return 0;
+  return Math.min(botKeep - raw, Math.round(PLAY_H * 0.35));   // shift world down
+}
 function showMsg(text, col = COL.white, dur = 1.4) { msg = { text, col, t: 0, dur }; }
 
 /* --- shot celebrations: visual only, never touch the ball or the physics --- */
@@ -1278,6 +1378,7 @@ function celebrateHoleOut() {   // hole in one or a chip-in from off the green
 /* --- swing flow --- */
 function action() {
   audioOn();
+  if (state === 'splash') { dismissSplash(); return; }
   if (state === 'title') { menuActivate(titleSel); return; }
   if (state === 'board') { if (st > 0.3) closeBoard(); return; }
   if (state === 'intro') { if (st > 0.3) { setState('aim'); if (holeIdx === 0) openRoundTip(); } return; }
@@ -1369,6 +1470,14 @@ function finishRound() {
 
 /* ---------------- input ---------------- */
 function toLogical(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function toWorld(e) {
+  const p = toLogical(e), Z = worldZoom();
+  // undo camY then undo zoom about BASE
+  const py = p.y - camY;
+  if (Z <= 1.001) return { x: p.x, y: py };
+  const ax = W * 0.5, ay = BASE;
+  return { x: ax + (p.x - ax) / Z, y: ay + (py - ay) / Z };
+}
 function cssScale() { const r = cv.getBoundingClientRect(); return { sx: r.width / Math.max(1, W), sy: r.height / Math.max(1, H) }; }
 /** Expand a logical hit rect so it is at least minCss x minCss on screen (Apple HIG ~44). */
 function hitExpand(r, minCss = 44) {
@@ -1391,10 +1500,56 @@ function openRoundTip(forceTouch) {
   tipOkR = { x: Math.round((W - bw) / 2), y: 0, w: bw, h: bh };   // y set while drawing
 }
 function closeRoundTip() { if (!roundTip) return; roundTip = false; lockInput(280); SFX.click(); }
+function dismissSplash() {
+  audioOn(); SFX.click(); hap(12);
+  setState('title');
+  // one-time Add to Home Screen hint (iOS Safari, not already standalone)
+  try {
+    const seen = localStorage.getItem('dlg_a2hs_v1');
+    if (!seen && isIOS && !isStandalone() && !window.matchMedia('(display-mode: standalone)').matches) {
+      a2hs = { show: true, dismissAt: 0 };
+    }
+  } catch (e) {}
+}
+function dismissA2HS() {
+  a2hs.show = false; SFX.click();
+  try { localStorage.setItem('dlg_a2hs_v1', '1'); } catch (e) {}
+}
+function renderSplash() {
+  drawSkyScene(TITLE_FAIR);
+  if (LOGO_BIG.complete) {
+    const lw = Math.min(LOGO_DRAW.w || 160, W - 16), lh = Math.round((LOGO_BIG.height || 111) * lw / (LOGO_BIG.width || 160));
+    ctx.drawImage(LOGO_BIG, Math.round((W - lw) / 2), Math.round(H * 0.18), lw, lh);
+  }
+  const t = usingTouch ? 'TAP TO START' : 'CLICK OR PRESS ENTER';
+  const blink = Math.floor(st * 2.2) % 2 === 0;
+  outlined(t, Math.round((W - textW(t, 2)) / 2), Math.round(H * 0.58), blink ? '#f8d878' : '#c8a858', 2);
+  drawTextC('DUMB LUCK GOLF', Math.round(H * 0.72), COL.white);
+}
+function drawFade() {
+  if (!fade.a) return;
+  fade.a = Math.max(0, fade.a - 0.08);
+  if (fade.a > 0) { ctx.globalAlpha = fade.a; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1; }
+  else fade.going = null;
+}
+function drawA2HS() {
+  if (!a2hs.show) return;
+  const lines = ['INSTALL THIS APP', 'TAP SHARE, THEN', 'ADD TO HOME SCREEN'];
+  const pw = Math.max(...lines.map(l => textW(l))) + 20, ph = lines.length * 12 + 36;
+  const x = Math.round((W - pw) / 2), y = Math.round(H * 0.62);
+  rect(x, y, pw, ph, COL.white); rect(x + 1, y + 1, pw - 2, ph - 2, '#000');
+  lines.forEach((l, i) => drawTextC(l, y + 8 + i * 12, i ? COL.white : '#f8d878'));
+  const ok = 'GOT IT', ow = textW(ok) + 16;
+  a2hs.okR = { x: Math.round((W - ow) / 2), y: y + ph - 22, w: ow, h: 16 };
+  const dim = pressDim('a2hs');
+  rect(a2hs.okR.x, a2hs.okR.y, a2hs.okR.w, a2hs.okR.h, dim ? '#f8d878' : COL.lime);
+  drawText(ok, a2hs.okR.x + 8, a2hs.okR.y + 4, '#000');
+}
 function canUiTap() { const now = performance.now(); return now >= inputLockUntil && now - lastUiTapAt >= 300; }
 function armUiTap(key, act, still, e) {
   if (!canUiTap()) return;
   uiTap = { key, act, still, cx: e.clientX, cy: e.clientY };
+  uiPress = { key, until: performance.now() + 140 };
 }
 function fireUiTap(e) {
   if (!uiTap) return false;
@@ -1403,9 +1558,12 @@ function fireUiTap(e) {
   if (!canUiTap()) return false;
   if (t.still && !t.still(e)) return false;   // must release inside the same control
   lastUiTapAt = performance.now();
+  uiPress = { key: t.key, until: performance.now() + 120 };
   t.act();
   return true;
 }
+function pressScale(key) { return (uiPress && uiPress.key === key && performance.now() < uiPress.until) ? 0.92 : 1; }
+function pressDim(key) { return (uiPress && uiPress.key === key && performance.now() < uiPress.until); }
 function aimAt(px, py) {
   if (state !== 'aim' || clubIdx === 3 || py >= PLAY_H) return;
   const bx = ball.x - camX, by = BASE - ball.h - 2;
@@ -1444,10 +1602,11 @@ cv.addEventListener('pointermove', e => {
   tlbHover = state === 'title' && !menuPopup && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
   cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
-  if (e.pointerType === 'mouse') aimAt(p.x, p.y);
+  const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
+  if (e.pointerType === 'mouse') aimAt(wp.x, wp.y);
   else if (touchDown) {
-    if (!touchDown.drag && Math.hypot(p.x - touchDown.x, p.y - touchDown.y) > 6) { touchDown.drag = true; touchDown.y0 = p.y; touchDown.ang0 = angle; }
-    if (touchDown.drag) dragAim(p);
+    if (!touchDown.drag && Math.hypot(wp.x - touchDown.x, wp.y - touchDown.y) > 6) { touchDown.drag = true; touchDown.y0 = wp.y; touchDown.ang0 = angle; }
+    if (touchDown.drag) dragAim(wp);
   }
 });
 cv.addEventListener('pointerdown', e => {
@@ -1455,6 +1614,12 @@ cv.addEventListener('pointerdown', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
   uiTap = null;
   if (performance.now() < inputLockUntil) { touchDown = null; return; }   // ignore carry-over taps after a screen change
+  if (state === 'splash') { armUiTap('splash', () => dismissSplash(), () => true, e); touchDown = null; return; }
+  if (a2hs.show) {
+    if (a2hs.okR && hitBtn(p, a2hs.okR)) armUiTap('a2hs', () => dismissA2HS(), (up) => hitBtn(toLogical(up), a2hs.okR), e);
+    else armUiTap('a2hsbg', () => dismissA2HS(), () => true, e);
+    touchDown = null; return;
+  }
   if (roundTip) {
     if (hitBtn(p, tipOkR)) armUiTap('tipok', () => closeRoundTip(), (up) => hitBtn(toLogical(up), tipOkR), e);
     touchDown = null; return;
@@ -1513,8 +1678,9 @@ cv.addEventListener('pointerdown', e => {
   }
   if (state === 'power' || state === 'accuracy') { action(); touchDown = null; return; }
   if (e.pointerType === 'mouse' && state === 'aim') { action(); touchDown = null; return; }
-  // touch aim: drag to loft / face; tap (no drag) swings on pointerup
-  touchDown = { x: p.x, y: p.y, y0: p.y, ang0: angle, drag: false };
+  // touch aim: drag to loft / face; tap (no drag) swings on pointerup (world space when zoomed)
+  { const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
+    touchDown = { x: wp.x, y: wp.y, y0: wp.y, ang0: angle, drag: false }; }
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
 cv.addEventListener('pointerup', e => {
@@ -1525,13 +1691,17 @@ cv.addEventListener('pointerup', e => {
 cv.addEventListener('pointercancel', () => { uiTap = null; touchDown = null; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', e => {
+  // Desktop name entry: while an input/textarea/contenteditable is focused, leave keys alone
+  // (except Enter/Esc which #nameInput handles). No preventDefault, no game actions.
+  if (isTypingTarget(document.activeElement) || isTypingTarget(e.target)) return;
   audioOn(); usingTouch = false;
   const k = e.key;
+  if (state === 'splash') { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissSplash(); } return; }
   if (roundTip) {
     if (k === 'Enter' || k === ' ' || k === 'Escape') { e.preventDefault(); if (!e.repeat) closeRoundTip(); }
     return;
   }
-  if (ov) { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab', 'Backspace'].includes(k)) e.preventDefault(); ovKey(e); return; }
+  if (ov) { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(k)) e.preventDefault(); ovKey(e); return; }
   if (state === 'custom') { if (cz) customKey(e); return; }
   if (k === 'm' || k === 'M') { muted = !muted; settings.sound = !muted; saveSettings(); return; }
   if ((k === 'Escape' || k === 'p' || k === 'P') && GAME_STATES.includes(state)) { pauseGame(); return; }
@@ -1589,6 +1759,7 @@ function update(dt) {
   }
   case 'aim': {
     camX = lerp(camX, camTarget(), Math.min(1, dt * 5));
+    camY = lerp(camY, camYTarget(), Math.min(1, dt * 6));
     swingAng = lerp(swingAng, SWING_ADDR + (clubIdx === 3 ? 1 : 2.5) * Math.sin(st * 3), Math.min(1, dt * 12));   // settle + gentle waggle
     for (const ak in held) {                                   // hold to aim faster: 1 deg tap, then ramps to 45 deg/s
       held[ak] += dt;
@@ -1635,8 +1806,19 @@ function update(dt) {
       ball.events.length = 0;
       if (ball.mode === 'air' && (trailT += STEP) >= 0.06) { trailT = 0; trail.push([ball.x, ball.h]); if (trail.length > 60) trail.shift(); }
     }
-    const want = clamp(ball.x - (ball.vx >= 0 ? 110 : W - 110), CAM_MIN, Math.max(CAM_MIN, hole.len - W + 40));
-    camX = lerp(camX, want, Math.min(1, dt * 4));
+    const Z = worldZoom(), max = camMax();
+    let want;
+    if (Z > 1.001) {
+      // Keep ball in frame with look-ahead; never let it leave left/right edges
+      const goingR = ball.vx >= 0;
+      const sx = goingR ? 0.36 * W : 0.64 * W;
+      want = clamp(camForScreenX(ball.x, sx), CAM_MIN, max);
+    } else {
+      const lead = 110;
+      want = clamp(ball.x - (ball.vx >= 0 ? (W / 2 - lead) : (W / 2 + lead)), CAM_MIN, max);
+    }
+    camX = lerp(camX, want, Math.min(1, dt * (Z > 1 ? 7 : 4)));
+    camY = lerp(camY, camYTarget(), Math.min(1, dt * 8));
     if (r) resolveBall(r);
     break;
   }
@@ -1697,7 +1879,12 @@ function drawCloud(x, y) {
 }
 /* ---------------- golf cart: background decoration only (never touches the ball or physics) ---------------- */
 const sceneRidge = sx => Math.round(201 + 5 * Math.sin(sx / 23) + 3 * Math.sin(sx / 9 + 1));     // menu-screen hills
-const courseRidge = wx => Math.round(132 + 9 * Math.sin(wx / 41) + 5 * Math.sin(wx / 17 + 1));   // in-game far hills
+const courseRidge = wx => {
+  // Keep hills as a short band just behind the fairway (desktop ~y132 with BASE0=172).
+  // On tall portrait, follow BASE so teal hills don't fill the entire sky.
+  const band = isPortraitPlay() ? Math.max(28, Math.round(BASE - 42)) : 132;
+  return Math.round(band + 9 * Math.sin(wx / 41) + 5 * Math.sin(wx / 17 + 1));
+};
 const CART_W = 26, CART_H = 20, CART_SPEED = 24;
 const CART_SPR = (() => {
   const out = {};
@@ -2275,7 +2462,7 @@ function drawMeter() {
   if (state === 'power') meterMarker(mx(meter.pos), COL.white);
   if (state === 'accuracy') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), COL.white); }
   if (state === 'swing' || state === 'flight') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange); }
-  let label = usingTouch ? 'TAP=SWING DRAG=AIM' : 'SPACE/CLICK = SWING', lc = COL.white;
+  let label = usingTouch ? 'TAP = SWING' : 'SPACE/CLICK = SWING', lc = COL.white;
   if (state === 'aim' && shortGameNow()) { label = (clubIdx === 3 ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
   if (state === 'power') label = meter.short ? 'STOP NEAR THE FLAG' : usingTouch ? 'TAP = SET POWER' : 'SET POWER';
   else if (state === 'accuracy') { label = 'STOP IN THE GREEN!'; lc = COL.lime; }
@@ -2377,24 +2564,34 @@ const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
 function drawSkyScene(fairTop) {
   if (fairTop == null) fairTop = TITLE_FAIR;
   rect(0, 0, W, H, COL.sky);
-  // clouds: original positions + extras to fill tall/wide skies
-  for (const [x, y] of TITLE_CLOUDS) drawCloud(x % W, Math.min(y, Math.max(6, fairTop - 40)));
-  if (W > 280) { drawCloud(W - 60, 18); drawCloud(Math.round(W * 0.45), 10); }
-  if (H > 280) { drawCloud(40, Math.round(Math.min(fairTop * 0.2, H * 0.12))); drawCloud(W - 90, Math.round(Math.min(fairTop * 0.28, H * 0.18))); }
-  const ridgeBase = Math.max(8, fairTop - 26);
+  // slow cloud drift behind the logo (wrap)
+  const drift = (st * 3.2) % W;
+  const clouds = TITLE_CLOUDS.slice();
+  if (W > 280) { clouds.push([W - 60, 18], [Math.round(W * 0.45), 10]); }
+  if (H > 280) { clouds.push([40, Math.round(Math.min(fairTop * 0.2, H * 0.12))], [W - 90, Math.round(Math.min(fairTop * 0.28, H * 0.18))]); }
+  for (const [x, y] of clouds) {
+    const cx = ((x - drift) % W + W) % W;
+    drawCloud(cx, Math.min(y, Math.max(6, fairTop - 40)));
+  }
+  const ridgeBase = (fairTop === TITLE_FAIR) ? TITLE_RIDGE : Math.max(8, fairTop - 26);
   for (let sx = 0; sx < W; sx++) {                       // distant hills (sit above the fairway)
-    const hh = Math.min(sceneRidge(sx % GW) - 201 + ridgeBase, fairTop - 8);
+    // Do not let ridge peaks climb above ridgeBase into the board/sky gap
+    let hh = sceneRidge(sx % GW) - 201 + ridgeBase;
+    hh = Math.max(ridgeBase, Math.min(hh, fairTop - 8));
     rect(sx, hh, 1, fairTop - hh, COL.hill); rect(sx, hh, 1, 1, '#000');
     if ((sx * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, COL.hillL);
   }
   drawCart('scene', 0);
-  rect(0, fairTop - 1, W, 1, '#000');                    // fairway strip at bottom
+  rect(0, fairTop - 1, W, 1, '#000');                    // fairway strip — fills to canvas bottom (full viewport)
   for (let sx = 0; sx < W; sx += 16) rect(sx, fairTop, Math.min(16, W - sx), H - fairTop, (sx >> 4) & 1 ? COL.grass : COL.fair2);
 }
 function renderTitle() {
   drawSkyScene(TITLE_FAIR);
-  // logo: centered hero below the top chrome, sized by layoutChrome (near-full-width on phone)
-  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_DRAW.x, LOGO_Y, LOGO_DRAW.w, LOGO_DRAW.h);
+  // logo: floating bob (~2–3px over ~3s, ease in/out); never rise into the gear/FS icons
+  const iconClear = (SAFE.t || 0) + 22 + 2;
+  let bob = Math.round(Math.sin(st * (Math.PI * 2 / 3)) * 2.5);
+  if (LOGO_Y + bob < iconClear) bob = iconClear - LOGO_Y;
+  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_DRAW.x, LOGO_Y + bob, LOGO_DRAW.w, LOGO_DRAW.h);
   // PLAY / SHOP as a compact row clearly under the whole logo
   menuRects = [];
   const GAP = 36, widths = MENU.map(l => textW(l, 2));
@@ -2402,15 +2599,23 @@ function renderTitle() {
   let mx = Math.round((W - rowW) / 2);
   MENU.forEach((label, i) => {
     const w = widths[i], sel = i === titleSel && !menuPopup && !ov, x = mx, y = MENU_Y0;
-    outlined(label, x, y, sel ? '#f8d878' : COL.white, 2);
+    const key = 'menu' + i, dim = pressDim(key);
+    const sc = pressScale(key);
+    ctx.save();
+    if (sc !== 1) { const cx = x + w / 2, cy = y + 7; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
+    outlined(label, x, y, dim ? '#f8d878' : (sel ? '#f8d878' : COL.white), 2);
     if (sel) outlined('>', x - 15 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
+    ctx.restore();
     menuRects.push({ x: x - 10, y: y - 2, w: w + 20, h: MENU_DY, i });
     mx += w + GAP;
   });
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
-  ctx.drawImage(SPR[k], Math.round(d.x), TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2)));
+  const dogY = (H > W * 1.15)
+    ? Math.round(H * 0.88) - 8
+    : TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2));
+  ctx.drawImage(SPR[k], Math.round(d.x), dogY);
   drawMenuPopup();
 }
 function drawMenuPopup() {
@@ -2579,15 +2784,33 @@ function render() {
   drawPauseButton();
   drawOverlay();
   drawToast();
-  if (ov || toast) drawCursor();
+  drawA2HS();
+  drawFade();
+  if (ov || toast || a2hs.show) drawCursor();
+}
+function beginWorldZoom() {
+  const Z = worldZoom();
+  if (Z <= 1.001) { if (camY) { ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, PLAY_H); ctx.clip(); ctx.translate(0, Math.round(camY)); return true; } return false; }
+  // fill play sky first (unscaled) so zoom crop doesn't show garbage
+  rect(0, 0, W, PLAY_H, hole ? themeOf(hole).sky : COL.sky);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, W, PLAY_H); ctx.clip();
+  ctx.imageSmoothingEnabled = false;
+  // Pin fairway at BASE (~64% H); mild zoom; camY shifts view down when the ball flies high
+  const ax = W * 0.5, ay = BASE;
+  ctx.translate(0, Math.round(camY));
+  ctx.translate(ax, ay); ctx.scale(Z, Z); ctx.translate(-ax, -ay);
+  return true;
 }
 function renderScene() {
+  if (state === 'splash') { renderSplash(); drawCursor(); return; }
   if (state === 'title') { renderTitle(); drawCursor(); return; }
   if (state === 'card') { renderCard(); drawCursor(); return; }
   if (state === 'custom') { renderCustom(); drawCursor(); return; }
   if (state === 'board') { renderBoard(); drawCursor(); return; }
   const shaking = fx.shake > 0;
-  if (shaking) { rect(0, 0, W, PLAY_H, themeOf(hole).sky); ctx.save(); const a = fx.shakeAmp * clamp(fx.shake / 0.2, 0, 1); ctx.translate(Math.round(rnd(-a, a)), Math.round(rnd(-a, a))); }
+  const zoomed = beginWorldZoom();
+  if (shaking) { if (!zoomed) rect(0, 0, W, PLAY_H, themeOf(hole).sky); ctx.save(); const a = fx.shakeAmp * clamp(fx.shake / 0.2, 0, 1); ctx.translate(Math.round(rnd(-a, a)), Math.round(rnd(-a, a))); }
   drawCourse(hole, camX);
   drawWildlife();
   drawWildBark();
@@ -2601,6 +2824,7 @@ function renderScene() {
   if (shaking) ctx.restore();
   if (fx.flash > 0) { ctx.globalAlpha = clamp(fx.flash / 0.18, 0, 1) * 0.7; rect(0, 0, W, PLAY_H, fx.flashCol); ctx.globalAlpha = 1; }
   drawDogPop();
+  if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   drawHUD();
   drawMiniCard();
   if (state === 'intro') {
@@ -2646,6 +2870,10 @@ function frame(now) {
 refreshTitleLB(true);
 requestAnimationFrame(frame);
 
+/* ---------------- PWA service worker ---------------- */
+if ('serviceWorker' in navigator && !/^#(test|preview)/.test(location.hash)) {
+  addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
   window.__golf = {
@@ -2692,7 +2920,9 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); },
-    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR) }; },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, dismissSplash() { dismissSplash(); },
+    showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
+    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE) }; },
     startRoundTip() { startRound(); },
     openNameKb() { openKb(); },
     closeNameKb(save) { closeKb(save !== false); },
