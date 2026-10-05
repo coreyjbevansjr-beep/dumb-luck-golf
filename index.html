@@ -592,8 +592,8 @@ const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y +
    SETTINGS is the gear icon. CUSTOMIZE opens as a pre-round step from PLAY.
    GALLERY stays in the menu only when GALLERY_ITEMS is non-empty (hook kept for later). */
 const MENU = GALLERY_ITEMS.length ? ['PLAY', 'GALLERY', 'SHOP'] : ['PLAY', 'SHOP'];
-const MENU_ROWS = MENU.map((_, i) => [i]);
-const LOGO_Y = 2, LOGO_X = 1, MENU_Y0 = 138, MENU_DY = 20;   // fewer items -> logo + board get the hero space
+const MENU_ROWS = [MENU.map((_, i) => i)];              // one row: left/right between items
+const LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;   // logo centered hero; PLAY/SHOP sit just under it
 let titleSel = 0, menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
 const menuRowOf = i => MENU_ROWS.findIndex(r => r.includes(i));
 function menuMove(dr, dc) {
@@ -830,7 +830,7 @@ function openBoard(entry) {
 function closeBoard() { board = null; SFX.click(); setState('title'); }
 /* --- home-screen leaderboard ("TOP GOLFERS"): top 5 from loadScores(), refreshed each time the title shows ---
    Click/tap it to open the full LEADERBOARD screen. */
-const TLB_R = { x: 164, y: 24, w: 90, h: 94 };
+const TLB_R = { x: 10, y: 142, w: 236, h: 66 };   // wide short board under PLAY/SHOP — logo stays uncrowded
 let titleLB = { rows: null, src: '', t: -1e9, busy: false }, tlbHover = false;
 function refreshTitleLB(force) {
   const now = performance.now();
@@ -870,48 +870,48 @@ const CROWN = pixArt([
 const TLB_TONES = [null, ['#fcfcfc', '#bcbcbc', '#7c7c7c'], ['#f0b080', '#c87c3c', '#7c3c00'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#a8b8d0', '#6c7c94', '#3c4c64']];
 function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y - r, 1, 2 * r + 1, col); }
 function drawTitleBoard() {
-  const { x, y, w, h } = TLB_R, lit = (tlbHover || titleSel === 2) && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
+  const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
   const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
-  // gold frame: black / bevelled gold / black, dark navy inside
-  if (lit) { rect(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878'); }   // selected / hovered: glowing edge
+  if (lit) { rect(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878'); }
   rect(x, y, w, h, '#000'); rect(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
   rect(x + 2, y + 2, w - 4, h - 4, G1); rect(x + 3, y + 3, w - 6, h - 6, '#000'); rect(x + 4, y + 4, w - 8, h - 8, '#0c1848');
-  for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);   // rivets
-  // title: trophy + TOP GOLFERS with a shimmer sweeping across
-  ctx.drawImage(TROPHY, x + 6, y + 5);
+  for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
+  // header strip
+  ctx.drawImage(TROPHY, x + 7, y + 6);
   const title = 'TOP GOLFERS', band = (st * 9) % (title.length + 14);
-  [...title].forEach((ch, i) => drawText(ch, x + 19 + i * 6, y + 7, Math.abs(i - band) < 1.2 ? COL.white : G1));
-  rect(x + 5, y + 18, w - 10, 1, '#a87000');
-  const rows = titleLB.rows;
-  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawText('LOADING...', x + Math.round((w - textW('LOADING...')) / 2), y + 50, COL.gray); return; }
-  if (!rows.length) {   // empty state
-    ctx.imageSmoothingEnabled = false; ctx.drawImage(TROPHY, x + 34, y + 23, 22, 24);
-    drawSpark(x + 28, y + 27, 1 + (Math.floor(st * 3) % 2), '#fce4a0'); drawSpark(x + 62, y + 38, 2 - (Math.floor(st * 3) % 2), '#fce4a0');
-    for (const [str, yy, col] of [['BE THE FIRST', 52, COL.white], ['ON THE BOARD!', 62, COL.white]]) drawText(str, x + Math.round((w - textW(str)) / 2), y + yy, col);
+  [...title].forEach((ch, i) => drawText(ch, x + 21 + i * 6, y + 8, Math.abs(i - band) < 1.2 ? COL.white : G1));
+  rect(x + 5, y + 19, w - 10, 1, '#a87000');
+  const rows = titleLB.rows, bodyY = y + 22, bodyH = h - 27;
+  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawText('LOADING...', x + Math.round((w - textW('LOADING...')) / 2), y + 38, COL.gray); return; }
+  if (!rows.length) {
+    ctx.drawImage(TROPHY, x + 18, y + 28);
+    drawSpark(x + 14, y + 30, 1 + (Math.floor(st * 3) % 2), '#fce4a0');
+    drawText('BE THE FIRST ON THE BOARD!', x + 36, y + 34, COL.white);
     const pr = usingTouch ? 'TAP PLAY!' : 'PRESS PLAY!';
-    if (Math.floor(st * 2.5) % 2 === 0) drawText(pr, x + Math.round((w - textW(pr)) / 2), y + 77, G1);
+    if (Math.floor(st * 2.5) % 2 === 0) drawText(pr, x + 36, y + 46, G1);
     return;
   }
-  // #1: big gold row with a crown, shimmering name and sparkles
-  const top = rows[0];
-  rect(x + 5, y + 21, w - 10, 28, '#000'); rect(x + 6, y + 22, w - 12, 26, '#3c2800'); rect(x + 6, y + 22, w - 12, 1, '#7c5800');
-  ctx.drawImage(CROWN, x + 8, y + 25);
-  drawText('1ST', x + 7, y + 37, '#d8a000');
+  // LEFT: #1 big
+  const leftW = 124, top = rows[0];
+  rect(x + 5, bodyY, leftW, bodyH, '#000'); rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#3c2800'); rect(x + 6, bodyY + 1, leftW - 2, 1, '#7c5800');
+  ctx.drawImage(CROWN, x + 10, bodyY + 4);
+  drawText('1ST', x + 9, bodyY + 16, '#d8a000');
   const nm = top.name, nb = (st * 7) % (nm.length + 10);
-  [...nm].forEach((ch, i) => drawText(ch, x + 28 + i * 6, y + 25, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
+  [...nm].forEach((ch, i) => drawText(ch, x + 30 + i * 6, bodyY + 5, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
   const sc = fmtRel(top.to_par);
-  drawText(sc, x + 29, y + 34, '#000', 2); drawText(sc, x + 28, y + 33, '#f8d878', 2);
-  const sp = Math.abs(Math.floor(st * 2.2)) % 3, SPK = [[x + 7, y + 22], [x + w - 9, y + 25], [x + w - 14, y + 44]];
+  drawText(sc, x + 31, bodyY + 18, '#000', 2); drawText(sc, x + 30, bodyY + 17, '#f8d878', 2);
+  const sp = Math.abs(Math.floor(st * 2.2)) % 3, SPK = [[x + 8, bodyY + 2], [x + leftW - 4, bodyY + 6], [x + leftW - 10, bodyY + bodyH - 6]];
   drawSpark(SPK[sp][0], SPK[sp][1], 1 + (Math.floor(st * 8) % 2), COL.white);
-  // #2-#5 in silver, bronze, then steel
+  // RIGHT: #2-#5 compact column
+  const rx = x + 5 + leftW + 4;
   for (let i = 1; i < 5; i++) {
-    const r = rows[i], ry = y + 51 + (i - 1) * 10, [c1, c2, c3] = TLB_TONES[i];
-    rect(x + 6, ry, 7, 7, c3); rect(x + 7, ry, 5, 7, c2); rect(x + 6, ry + 1, 7, 5, c2); rect(x + 7, ry + 1, 2, 1, c1);   // medal
-    text3(ctx, String(i + 1), x + 8, ry + 1, '#000');
-    if (!r) { const first = !rows[i - 1] ? false : true; if (first && Math.floor(st * 2) % 2 === 0) drawText('YOU NEXT?', x + 17, ry, '#d8a000'); else drawText('---', x + 17, ry, '#3c4c64'); continue; }
-    const s2 = fmtRel(r.to_par), sw = textW(s2), room = w - 6 - sw - 3 - (x + 17 - x);
+    const r = rows[i], ry = bodyY + (i - 1) * 10, [c1, c2, c3] = TLB_TONES[i];
+    rect(rx, ry, 7, 7, c3); rect(rx + 1, ry, 5, 7, c2); rect(rx, ry + 1, 7, 5, c2); rect(rx + 1, ry + 1, 2, 1, c1);
+    text3(ctx, String(i + 1), rx + 2, ry + 1, '#000');
+    if (!r) { drawText('---', rx + 10, ry, '#3c4c64'); continue; }
+    const s2 = fmtRel(r.to_par), sw = textW(s2), room = (x + w - 6) - (rx + 10) - sw - 2;
     let n = r.name; while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
-    drawText(n, x + 17, ry, c1); drawText(s2, x + w - 6 - sw, ry, c1);
+    drawText(n, rx + 10, ry, c1); drawText(s2, x + w - 6 - sw, ry, c1);
   }
 }
 function fmtDate(s) { const d = new Date(s); if (!s || isNaN(d)) return '--'; const p = n => String(n).padStart(2, '0'); return p(d.getMonth() + 1) + '/' + p(d.getDate()) + '/' + p(d.getFullYear() % 100); }
@@ -1432,27 +1432,225 @@ const WMAP = { k: '#000', b: '#b86c28', d: '#6c3410', t: '#fcd8a8', w: '#fcfcfc'
 const WILD_FR = {};
 (function buildWild() {
   const mkF = (rows) => { const a = wildSpr(rows, WMAP); return { R: a, L: flipSpr(a) }; };
+  // Side-profile walkers face RIGHT in the source art (head on the right). Slim silhouettes + contrast so they read at 2x.
+  // DEER (buck): long legs, raised neck/head, ears, antlers, white belly + tail patch
   WILD_FR.deer = [
-    mkF(['......kkkk........','.....kbbbkk.......','....kbbbbbk.......','....kbbbbbk.......','...kkbbbbbkk......','..kbbbbbbbbbk.....','..kbwbbbbbbbk.....','..kbbbbbbbbbk.....','...kkbbbbbbk......','....kbbbbbbk......','....kbk..kbk......','....kdk..kdk......','....kk...kk.......']),
-    mkF(['......kkkk........','.....kbbbkk.......','....kbbbbbk.......','....kbbbbbk.......','...kkbbbbbkk......','..kbbbbbbbbbk.....','..kbwbbbbbbbk.....','..kbbbbbbbbbk.....','...kkbbbbbbk......','....kbbbbbbk......','...kbk....kbk.....','...kdk....kdk.....','...kk.....kk......'])];
+    mkF([
+      '................k...k.....',
+      '...............k.k.k.k....',
+      '................k.k.k.....',
+      '.................kbk......',
+      '................kbwbk.....',
+      '................kbbbk.....',
+      '...............kkbbbk.....',
+      '..............kbbbbk......',
+      '......kk.....kbbbbbk......',
+      '.....kwbkkkkkbbbbbbk......',
+      '.....kbbbbbbbbbbbbk.......',
+      '......kwbbbbbbbbbk........',
+      '.....kwk..kbbbbbk.........',
+      '.....kk....kb..kb.........',
+      '...........k....k.........',
+      '...........k....k.........',
+      '...........k....k.........']),
+    mkF([
+      '................k...k.....',
+      '...............k.k.k.k....',
+      '................k.k.k.....',
+      '.................kbk......',
+      '................kbwbk.....',
+      '................kbbbk.....',
+      '...............kkbbbk.....',
+      '..............kbbbbk......',
+      '......kk.....kbbbbbk......',
+      '.....kwbkkkkkbbbbbbk......',
+      '.....kbbbbbbbbbbbbk.......',
+      '......kwbbbbbbbbbk........',
+      '.....kwk..kbbbbbk.........',
+      '.....kk...kb....kb........',
+      '..........k......k........',
+      '..........k......k........',
+      '..........k......k........'])];
+  // DOE: same body language, no antlers, softer head
+  WILD_FR.doe = [
+    mkF([
+      '.................kbk......',
+      '................kbwbk.....',
+      '................kbbbk.....',
+      '...............kkbbbk.....',
+      '..............kbbbbk......',
+      '......kk.....kbbbbbk......',
+      '.....kwbkkkkkbbbbbbk......',
+      '.....kbbbbbbbbbbbbk.......',
+      '......kwbbbbbbbbbk........',
+      '.....kwk..kbbbbbk.........',
+      '.....kk....kb..kb.........',
+      '...........k....k.........',
+      '...........k....k.........',
+      '...........k....k.........']),
+    mkF([
+      '.................kbk......',
+      '................kbwbk.....',
+      '................kbbbk.....',
+      '...............kkbbbk.....',
+      '..............kbbbbk......',
+      '......kk.....kbbbbbk......',
+      '.....kwbkkkkkbbbbbbk......',
+      '.....kbbbbbbbbbbbbk.......',
+      '......kwbbbbbbbbbk........',
+      '.....kwk..kbbbbbk.........',
+      '.....kk...kb....kb........',
+      '..........k......k........',
+      '..........k......k........',
+      '..........k......k........'])];
+  // FOX: orange body, pointy ears, white chest/muzzle, bushy tail with white tip
   WILD_FR.fox = [
-    mkF(['....kkk...........','...koookk.........','..kooowook........','..koooooook.......','..koooooook.......','...kooooook.......','....kkkkook.......','....ko..kok.......','....kk..kk........']),
-    mkF(['....kkk...........','...koookk.........','..kooowook........','..koooooook.......','..koooooook.......','...kooooook.......','....kkkkook.......','...kok..kok.......','...kk...kk........'])];
+    mkF([
+      '...............k.k....',
+      '..............kokok...',
+      '..............kowok...',
+      '..............koook...',
+      '....k........kooook...',
+      '...kwkkkkkkkkoooook...',
+      '...kooooooooooooook...',
+      '....kooooooooooook....',
+      '...kook..kooook.......',
+      '..kooook..kok.kok.....',
+      '..kowwook.kk..kk......',
+      '...kkkkkk.............',
+      '....kok.kok...........',
+      '....kk..kk............']),
+    mkF([
+      '...............k.k....',
+      '..............kokok...',
+      '..............kowok...',
+      '..............koook...',
+      '....k........kooook...',
+      '...kwkkkkkkkkoooook...',
+      '...kooooooooooooook...',
+      '....kooooooooooook....',
+      '...kook.kooook........',
+      '..kooook.kok...kok....',
+      '..kowwook.kk...kk.....',
+      '...kkkkkk.............',
+      '...kok...kok..........',
+      '...kk....kk...........'])];
+  // TURKEY: round body, red wattle/head, big fanned tail behind
   WILD_FR.turkey = [
-    mkF(['..........rrr.....','.........ryyr.....','........kbbbkk....','.......kbbbbbbk...','......kkbbbbbbkk..','......kbbbbbbbbk..','.....kkbbbbbbbbk..','.....kbbbbbbbbbk..','......kkbbbbbbk...','......kbk..kbk....','......kdk..kdk....','......kk...kk.....']),
-    mkF(['.........rrr......','........ryyr......','.......kbbbkk.....','......kbbbbbbk....','.....kkbbbbbbkk...','.....kbbbbbbbbk...','....kkbbbbbbbbk...','....kbbbbbbbbbk...','.....kkbbbbbbk....','....kbk....kbk....','....kdk....kdk....','....kk.....kk.....'])];
+    mkF([
+      '....y.y.y.y...........',
+      '...yryryryryy.........',
+      '..yrybbbbbryry........',
+      '.yrybbbbbbbryry.......',
+      '.yrbbbbbbbbbbry.......',
+      '..ybbbbbbbkbbry.......',
+      '...ybbbbkrrrkby.......',
+      '....kbbbkrwrkbk.......',
+      '.....kbbkrrrk.........',
+      '......kbbbbk..........',
+      '......kbk.kbk.........',
+      '......kk...kk.........']),
+    mkF([
+      '.....y.y.y.y..........',
+      '....yryryryryy........',
+      '...yrybbbbbryry.......',
+      '..yrybbbbbbbryry......',
+      '..yrbbbbbbbbbbry......',
+      '...ybbbbbbbkbbry......',
+      '....ybbbbkrrrkby......',
+      '.....kbbbkrwrkbk......',
+      '......kbbkrrrk........',
+      '.......kbbbbk.........',
+      '......kbk..kbk........',
+      '......kk....kk........'])];
+  // GATOR: longer snout, visible eye, scutes, clearer silhouette in water
   WILD_FR.gator = [
-    mkF(['......................','.....kkkkkkkkkkk......','....kGGGGGGGGGGGk.....','...kGGwGGGGGGGGGGk....','...kGGGGGGGGGGGGGk....','....kGGGaGGGaGGGGk....','.....kkkkkkkkkkkk.....','.......k...k..........']),
-    mkF(['......................','.....kkkkkkkkkkk......','....kGGGGGGGGGGGk.....','...kGGwGGGGGGGGGGk....','...kGGGGGGGGGGGGGk....','....kGGaGGGaGGGGGk....','.....kkkkkkkkkkkk.....','......k...k...........'])];
+    mkF([
+      '........................',
+      '........kkkkkkkkkkk.....',
+      '.......kGGGGGGGGGGGk....',
+      '......kGGwGGGaGaGGGGk...',
+      '...kkkGGGGGGGGGGGGGGk...',
+      '..kGGGGaGGGGGGGGGGGGk...',
+      '...kkkkkkkkkkkkkkkkk....',
+      '......k..k...k..k.......']),
+    mkF([
+      '........................',
+      '........kkkkkkkkkkk.....',
+      '.......kGGGGGGGGGGGk....',
+      '......kGGwGGGaGaGGGGk...',
+      '...kkkGGGGGGGGGGGGGGk...',
+      '..kGGGaGGGGGGGGGGGGGk...',
+      '...kkkkkkkkkkkkkkkkk....',
+      '.....k..k...k..k........'])];
+  // GOOSE: white body, black neck/head, orange beak — flock uses these
   WILD_FR.goose = [
-    mkF(['...kk........','..kwwk.......','..kwwskk.....','..ksssssk....','...kssssk....','....kkssk....','....k..kk....']),
-    mkF(['...kk........','..kwwk.......','..kwwskk.....','..ksssssk....','...kssssk....','....kskkk....','....kk.k.....'])];
+    mkF([
+      '........kk......',
+      '.......knnk.....',
+      '......knnook....',
+      '......knnnnk....',
+      '.....kwwwwwwk...',
+      '....kwwwwwwwwk..',
+      '.....kwwwwwwk...',
+      '......kk.k.kk...']),
+    mkF([
+      '........kk......',
+      '.......knnk.....',
+      '......knnook....',
+      '......knnnnk....',
+      '.....kwwwwwwk...',
+      '....kwwwwwwwwk..',
+      '.....kwwkwwk....',
+      '......kk..kk....'])];
+  // RABBIT: long upright ears, round body, hopping hind legs, white belly/tail
   WILD_FR.rabbit = [
-    mkF(['..k..k....','..kk.kk...','..kswsk...','..kssssk..','...ksssk..','...kbssk..','....kkkk..','....k..k..']),
-    mkF(['.k..k.....','kk.kk.....','kswsk.....','kssssk....','.ksssk....','.kbssk....','..kkkk....','.k....k...'])];
+    mkF([
+      '....k..k......',
+      '....kt.kt.....',
+      '....kt.kt.....',
+      '....kb.bk.....',
+      '....kbbbk.....',
+      '...kwbbbbk....',
+      '...kbbbbbk....',
+      '....kbbbk.....',
+      '...kwk.kbk....',
+      '...kk...kk....']),
+    mkF([
+      '...k..k.......',
+      '...kt.kt......',
+      '...kt.kt......',
+      '...kb.bk......',
+      '...kbbbk......',
+      '..kwbbbbk.....',
+      '..kbbbbbk.....',
+      '...kbbbk......',
+      '..kbk.kwk.....',
+      '..kk...kk.....'])];
+  // SQUIRREL: small body, pointy ears, big curled bushy tail over the back
   WILD_FR.squirrel = [
-    mkF(['......kk..','.....kbbk.','....kbbbk.','.kkkbbbbk.','kbbbbbbbk.','kbbbbbbk..','.kkbbbk...','..kbbk....','..kbk.....','..kk......']),
-    mkF(['......kk..','.....kbbk.','....kbbbk.','.kkkbbbbk.','kbbbbbbbk.','kbbbbbbk..','.kkbbbk...','..kbk.....','..k.bk....','..k.kk....'])];
+    mkF([
+      '..kk..........',
+      '.kbbkk........',
+      'kbbbbbk.......',
+      'kbbbbbbk..kk..',
+      '.kbbbbbk.kbbk.',
+      '..kbbbbkkbbbk.',
+      '..kbwbbbbbbk..',
+      '...kbbbbbbk...',
+      '....kbk.kbk...',
+      '....kk...kk...']),
+    mkF([
+      '..kk..........',
+      '.kbbkk........',
+      'kbbbbbk.......',
+      'kbbbbbbk.kk...',
+      '.kbbbbbkkbbk..',
+      '..kbbbbkbbbk..',
+      '..kbwbbbbbk...',
+      '...kbbbbbk....',
+      '...kbk..kbk...',
+      '...kk....kk...'])];
 })();
 const WILD_LABEL = { deer: 'A WILD DEER APPEARS!', fox: 'A SLY FOX TROTS BY!', turkey: 'A WILD TURKEY!', gator: 'A GATOR SURFACES!', geese: 'GEESE OVERHEAD!', rabbit: 'A RABBIT HOPS BY!', squirrel: 'A SQUIRREL!' };
 const WILD_SPEED = { deer: 26, fox: 38, turkey: 16, gator: 10, geese: 52, rabbit: 30, squirrel: 18 };
@@ -1502,7 +1700,7 @@ function beginWildlife(kind) {
   } else {
     wx = dir > 0 ? left : right;
   }
-  wildlife = { pending: false, kind, dir, wx, wy, t: 0, speed: WILD_SPEED[kind] || 20, reacted: false, captionT: 1.6, flock, hop, linger: kind === 'gator' ? rnd(3.5, 6) : (kind === 'squirrel' ? rnd(2.5, 4.5) : 0) };
+  wildlife = { pending: false, kind, dir, wx, wy, t: 0, speed: WILD_SPEED[kind] || 20, reacted: false, captionT: 1.6, flock, hop, linger: kind === 'gator' ? rnd(3.5, 6) : (kind === 'squirrel' ? rnd(2.5, 4.5) : 0), doe: kind === 'deer' && Math.random() < 0.45 };
   // soft caption (skipped while a shot message is up)
 }
 function updateWildlife(dt) {
@@ -1549,10 +1747,10 @@ function updateWildlife(dt) {
   if (gone && wildlife.t > 1) clearWildlife();
 }
 function wildFrame(kind, t) {
-  const key = kind === 'geese' ? 'goose' : kind;
+  const key = kind === 'geese' ? 'goose' : (kind === 'deer' && wildlife && wildlife.doe ? 'doe' : kind);
   const fr = WILD_FR[key]; if (!fr) return null;
-  const fps = kind === 'turkey' ? 3 : kind === 'gator' ? 2 : kind === 'geese' ? 6 : kind === 'rabbit' ? 8 : 5;
-  return fr[Math.floor(t * fps) % fr.length];
+  const fps = kind === 'turkey' ? 3 : kind === 'gator' ? 2 : kind === 'geese' ? 6 : kind === 'rabbit' ? 8 : kind === 'deer' ? 4 : 5;
+  return fr[Math.floor(Math.abs(t) * fps) % fr.length];
 }
 function decoNear(hl, x, pad) {
   for (const [kind, dx] of hl.deco || []) {
@@ -1633,15 +1831,39 @@ function drawWildCaption() {
   ctx.globalAlpha = 1;
 }
 function forceWildlife(kind) {
-  const k = kind && WILD_LABEL[kind] ? kind : pickWildlifeKind(hole || compileHole(HOLES[0]));
+  const wantDoe = kind === 'doe';
+  const k = (kind === 'doe' ? 'deer' : (kind && WILD_LABEL[kind] ? kind : pickWildlifeKind(hole || compileHole(HOLES[0]))));
   if (!hole) { holeIdx = 0; hole = compileHole(HOLES[0]); }
   beginWildlife(k);
   if (!wildlife || wildlife.pending) return wildlife ? wildlife.kind : null;
-  if (wildlife.kind === 'geese') wildlife.wx = camX + (wildlife.dir > 0 ? 20 : W - 40);
+  if (wildlife.kind === 'deer') wildlife.doe = !!wantDoe;       // screenshots default to buck unless 'doe'
+  if (wildlife.kind === 'geese') { wildlife.wx = camX + 70; wildlife.wy = 40; wildlife.dir = 1; }
   else if (wildlife.kind === 'gator') { /* already in water */ }
-  else if (wildlife.kind === 'squirrel') { /* stays near its tree */ }
-  else wildlife.wx = fairwayWX(camX, ball ? ball.x : TEE_X);
+  else { wildlife.wx = fairwayWX(camX, ball ? ball.x : TEE_X); wildlife.dir = 1; }
+  wildlife.t = 0.35; wildlife.captionT = 1.5;
   return wildlife.kind;
+}
+function wildSheetData(kind) {
+  const key = kind === 'geese' ? 'goose' : kind;
+  const fr = WILD_FR[key]; if (!fr) return null;
+  const sc = 4, pad = 6, fw = fr[0].R.width * sc, fh = fr[0].R.height * sc;
+  const c = mk(pad * 2 + fw * fr.length + pad * (fr.length - 1), pad * 2 + fh + 8);
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.fillStyle = '#63adff'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#80d010'; g.fillRect(0, c.height - 12, c.width, 12);
+  g.fillStyle = '#00a800'; g.fillRect(0, c.height - 12, c.width, 2);
+  fr.forEach((f, i) => {
+    const img = f.R, x = pad + i * (fw + pad), y = pad + fh - img.height * sc;
+    if (!img._sil) {
+      const s = mk(img.width, img.height), sg = s.getContext('2d'); sg.drawImage(img, 0, 0);
+      const d = sg.getImageData(0, 0, img.width, img.height);
+      for (let p = 0; p < d.data.length; p += 4) if (d.data[p + 3] > 20) { d.data[p] = d.data[p + 1] = d.data[p + 2] = 0; d.data[p + 3] = 255; }
+      sg.putImageData(d, 0, 0); img._sil = s;
+    }
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) g.drawImage(img._sil, x + ox, y + oy, fw, fh);
+    g.drawImage(img, x, y, fw, fh);
+  });
+  return c.toDataURL('image/png');
 }
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000;
@@ -1956,7 +2178,7 @@ function outlined(str, x, y, col, s = 1) {
   drawText(str, x, y, col, s);
 }
 function drawTextR(str, xr, y, col) { drawText(str, xr - textW(str), y, col); }
-const TITLE_CLOUDS = [[190, 6], [8, 160], [224, 150]];
+const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
 function drawSkyScene() {
   rect(0, 0, W, H, COL.sky);
   for (const [x, y] of TITLE_CLOUDS) drawCloud(x, y);
@@ -1971,16 +2193,21 @@ function drawSkyScene() {
 }
 function renderTitle() {
   drawSkyScene();
-  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_X, LOGO_Y);
-  drawTitleBoard();
+  // logo: centered hero at the top with clear breathing room
+  if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, Math.round((W - LOGO_BIG.width) / 2), LOGO_Y);
+  // PLAY / SHOP (and GALLERY if enabled) as a compact row under the logo
   menuRects = [];
+  const GAP = 36, widths = MENU.map(l => textW(l, 2));
+  const rowW = widths.reduce((a, b) => a + b, 0) + GAP * Math.max(0, MENU.length - 1);
+  let mx = Math.round((W - rowW) / 2);
   MENU.forEach((label, i) => {
-    const w = textW(label, 2), sel = i === titleSel && !menuPopup && !ov;
-    const x = Math.round((W - w) / 2), y = MENU_Y0 + i * MENU_DY;
+    const w = widths[i], sel = i === titleSel && !menuPopup && !ov, x = mx, y = MENU_Y0;
     outlined(label, x, y, sel ? '#f8d878' : COL.white, 2);
-    if (sel) outlined('>', x - 17 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
-    menuRects.push({ x: 36, y: y - 1, w: W - 72, h: MENU_DY, i });
+    if (sel) outlined('>', x - 15 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
+    menuRects.push({ x: x - 10, y: y - 2, w: w + 20, h: MENU_DY, i });
+    mx += w + GAP;
   });
+  drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
   ctx.drawImage(SPR[k], Math.round(d.x), 216);
@@ -2264,8 +2491,8 @@ if (/test/.test(location.hash)) {
       return parts.join('  ');
     },
     goHole(i) { holeIdx = i; startHole(); setState('aim'); camX = camTarget(); },
-    get wildlife() { return wildlife ? { kind: wildlife.kind, pending: !!wildlife.pending, t: wildlife.t || 0, wx: wildlife.wx, sx: wildlife.wx - camX, captionT: wildlife.captionT || 0, reacted: !!wildlife.reacted } : null; },
-    spawnWildlife(kind) { return forceWildlife(kind); }, clearWildlife() { clearWildlife(); }
+    get wildlife() { return wildlife ? { kind: wildlife.kind, doe: !!wildlife.doe, pending: !!wildlife.pending, t: wildlife.t || 0, wx: wildlife.wx, sx: wildlife.wx - camX, captionT: wildlife.captionT || 0, reacted: !!wildlife.reacted } : null; },
+    spawnWildlife(kind) { return forceWildlife(kind); }, clearWildlife() { clearWildlife(); }, wildSheet(kind) { return wildSheetData(kind); }
   };
 }
 (function preview() {
