@@ -37,7 +37,8 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    SHOP_URL       ''  -> SHOP shows a "coming soon" popup.
                   set -> SHOP opens that address in a new tab, e.g. 'https://dumbluckgolf.com/shop'.
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
-                  Until that viewer is built, GALLERY shows a "coming soon" popup. */
+                  When non-empty, GALLERY appears on the title menu automatically.
+                  Until the real viewer is built, GALLERY shows a "coming soon" popup. */
 const SHOP_URL = '';
 const GALLERY_ITEMS = [];
 /* =========================================================
@@ -553,6 +554,7 @@ const SFX = {
   sad()    { [392, 370, 349, 330].forEach((f, i) => tone(f, 0.22, 'square', 0.05, i * 0.22)); },
   fanfare(){ [523, 523, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'square', 0.05, i * 0.15)); },
   click()  { tone(880, 0.04, 'square', 0.04); },
+  bark()   { tone(180, 0.07, 'square', 0.07); tone(140, 0.1, 'square', 0.05, 0.08); tone(200, 0.06, 'square', 0.04, 0.2); },
   luck()   { tone(220, 0.25, 'square', 0.05, 0, 880); [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.1, 'square', 0.045, 0.25 + i * 0.06)); },
   perfect(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.09, 'square', 0.045, i * 0.05)); tone(2637, 0.35, 'triangle', 0.05, 0.2); noise(0.06, 0.05); }
 };
@@ -586,9 +588,12 @@ const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews
 const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
 /* --- title menu --- */
-const MENU = ['PLAY', 'CUSTOMIZE', 'LEADERBOARD', 'GALLERY', 'SHOP', 'SETTINGS'];
-const MENU_ROWS = [[0], [1], [2], [3, 4], [5]];              // GALLERY + SHOP sit side by side
-const LOGO_Y = 6, LOGO_X = 1, MENU_Y0 = 124, MENU_DY = 16;
+/* Title menu: PLAY + SHOP as the main items. LEADERBOARD is the TOP GOLFERS board (tap/click).
+   SETTINGS is the gear icon. CUSTOMIZE opens as a pre-round step from PLAY.
+   GALLERY stays in the menu only when GALLERY_ITEMS is non-empty (hook kept for later). */
+const MENU = GALLERY_ITEMS.length ? ['PLAY', 'GALLERY', 'SHOP'] : ['PLAY', 'SHOP'];
+const MENU_ROWS = MENU.map((_, i) => [i]);
+const LOGO_Y = 2, LOGO_X = 1, MENU_Y0 = 138, MENU_DY = 20;   // fewer items -> logo + board get the hero space
 let titleSel = 0, menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
 const menuRowOf = i => MENU_ROWS.findIndex(r => r.includes(i));
 function menuMove(dr, dc) {
@@ -596,22 +601,18 @@ function menuMove(dr, dc) {
   const r = (menuRowOf(titleSel) + dr + MENU_ROWS.length) % MENU_ROWS.length; titleSel = MENU_ROWS[r][0]; SFX.tick();
 }
 function menuActivate(i) {
-  SFX.click();
-  if (i === 0) { if (!player.name) openCustomize('play'); else startRound(); }
-  else if (i === 1) openCustomize('menu');
-  else if (i === 2) openBoard(null);
-  else if (i === 3) menuPopup = { kind: 'gallery', t: 0 };    // GALLERY_ITEMS viewer goes here later
-  else if (i === 4) {
+  const label = MENU[i]; SFX.click();
+  if (label === 'PLAY') openCustomize('play');               // always the pre-round customize / tee-off step
+  else if (label === 'SHOP') {
     if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} }
     else menuPopup = { kind: 'shop', t: 0 };
-  }
-  else if (i === 5) openSettings('title');
+  } else if (label === 'GALLERY') menuPopup = { kind: 'gallery', t: 0 };   // real viewer goes here later
 }
 /* --- pause menu + settings (overlay). While paused nothing updates: ball, wind, cart, timers all freeze. --- */
 let paused = false, ov = null, ovRects = [], fsArmed = false;   // ov: { kind: 'pause' | 'settings', sel, back, t }
 const GAME_STATES = ['intro', 'aim', 'power', 'accuracy', 'swing', 'flight', 'penalty', 'holed', 'done'];
 const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'RESTART HOLE', 'QUIT TO MENU'];
-const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: W - 22, y: 0, w: 22, h: 22 };
+const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: W - 22, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: W - 44, y: 0, w: 20, h: 22 };
 function settingsRows() {
   return [['SOUND', settings.sound ? 'ON' : 'OFF'], ['AIM LINE', settings.aim ? 'ON' : 'OFF'],
           ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['BACK', null]];
@@ -627,9 +628,10 @@ function pauseGame() {
 function resumeGame() { paused = false; ov = null; SFX.click(); }
 function restartHole() {
   strokes = 0; lastSpot = TEE_X; placeBall(TEE_X); msg = null; dogPop = null; fxClear(); trail = [];
-  camX = camTarget(); showMsg('RESTART HOLE', COL.white, 1); setState('aim');
+  camX = camTarget(); scheduleWildlife();
+  showMsg('RESTART HOLE', COL.white, 1); setState('aim');
 }
-function quitToMenu() { paused = false; ov = null; board = null; dogPop = null; msg = null; fxClear(); setState('title'); }
+function quitToMenu() { paused = false; ov = null; board = null; dogPop = null; msg = null; fxClear(); clearWildlife(); setState('title'); }
 function ovBack() {
   if (ov.kind === 'pause') resumeGame();
   else if (ov.back === 'pause') ov = { kind: 'pause', sel: 1, t: 0 }, SFX.click();
@@ -697,11 +699,19 @@ function drawPauseButton() {   // top-left so it never clashes with the scorecar
 function drawFsButton() {   // title screen, top-right
   const on = isFs(), x = W - 17, y = 3;
   ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
-  const c = COL.white, a = on ? [[x + 3, y + 3, 1], [x + 10, y + 3, -1], [x + 3, y + 10, 1], [x + 10, y + 10, -1]] : null;
+  const c = COL.white;
   if (!on) { rect(x + 2, y + 2, 4, 1, c); rect(x + 2, y + 2, 1, 4, c); rect(x + 8, y + 2, 4, 1, c); rect(x + 11, y + 2, 1, 4, c);
              rect(x + 2, y + 11, 4, 1, c); rect(x + 2, y + 8, 1, 4, c); rect(x + 8, y + 11, 4, 1, c); rect(x + 11, y + 8, 1, 4, c); }
   else { rect(x + 4, y + 2, 1, 4, c); rect(x + 2, y + 5, 3, 1, c); rect(x + 9, y + 2, 1, 4, c); rect(x + 9, y + 5, 3, 1, c);
          rect(x + 4, y + 8, 1, 4, c); rect(x + 2, y + 8, 3, 1, c); rect(x + 9, y + 8, 1, 4, c); rect(x + 9, y + 8, 3, 1, c); }
+}
+function drawGearButton() {   // title settings gear, left of the fullscreen icon
+  const x = GEAR_BTN.x + 3, y = 3, c = COL.white;
+  ctx.globalAlpha = 0.5; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  // pixel gear: hub + teeth
+  rect(x + 5, y + 5, 4, 4, c); rect(x + 6, y + 6, 2, 2, '#000');
+  rect(x + 6, y + 2, 2, 2, c); rect(x + 6, y + 10, 2, 2, c); rect(x + 2, y + 6, 2, 2, c); rect(x + 10, y + 6, 2, 2, c);
+  rect(x + 3, y + 3, 2, 2, c); rect(x + 9, y + 3, 2, 2, c); rect(x + 3, y + 9, 2, 2, c); rect(x + 9, y + 9, 2, 2, c);
 }
 function drawToast() {
   if (!toast) return;
@@ -722,14 +732,16 @@ const ARROW_L = r => ({ x: 120, y: CZ_Y[r] - 3, w: 26, h: 20 });
 const ARROW_R = r => ({ x: 178, y: CZ_Y[r] - 3, w: 26, h: 20 });
 const SWATCH_R = r => ({ x: 146, y: CZ_Y[r] - 3, w: 32, h: 20 });
 const ROW_R = r => ({ x: 40, y: CZ_Y[r] - 3, w: 176, h: 20 });
-const DONE_R = { x: 76, y: CZ_Y[CZ_DONE] - 4, w: 104, h: 22 };
+const DONE_R = { x: 60, y: CZ_Y[CZ_DONE] - 4, w: 136, h: 22 };
 const KB = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ0123'], ['4', '5', '6', '7', '8', '9', 'SPC', 'DEL'], ['OK']];
 const KB_X0 = 28, KB_Y0 = 124, KB_CW = 20, KB_CH = 15, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 function kbCells(r) { let c = 0; return KB[r].map(lab => { const w = lab === 'OK' ? 10 : lab.length > 1 ? 2 : 1; const o = { lab, x: KB_X0 + c * KB_CW, y: KB_Y0 + r * KB_CH, w: w * KB_CW - 2, h: KB_CH - 2 }; c += w; return o; }); }
 let cz = null, usingTouch = false;
 function openCustomize(from) {
   const needName = !player.name;
-  cz = { from, skin: player.skin, shirt: player.shirt, hat: player.hat | 0, pants: player.pants | 0, name: player.name, row: needName ? 0 : 1, warn: from === 'play' && needName ? 3 : 0, kb: false, kr: 0, kc: 0 };
+  // from 'play': pre-round step — saved look/name pre-filled; row on TEE OFF so one Enter/tap starts
+  cz = { from, skin: player.skin, shirt: player.shirt, hat: player.hat | 0, pants: player.pants | 0, name: player.name,
+         row: needName ? 0 : (from === 'play' ? CZ_DONE : 1), warn: from === 'play' && needName ? 3 : 0, kb: false, kr: 0, kc: 0 };
   if (needName && usingTouch) openKb();
   setState('custom');
 }
@@ -920,6 +932,7 @@ function startHole() {
   introFrom = clamp(hole.cup - 128, CAM_MIN, hole.len - W + 40);
   introTo = camTarget();
   camX = introFrom; msg = null; dogPop = null; fxClear();
+  scheduleWildlife();
   setState('intro'); SFX.jingle();
 }
 function placeBall(x) {
@@ -1180,7 +1193,7 @@ cv.addEventListener('pointermove', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
   if (ov) { if (e.pointerType === 'mouse') { const r = ovRects.find(q => hit(p, q)); if (r) ov.sel = r.i; } return; }
   tlbHover = state === 'title' && !menuPopup && e.pointerType === 'mouse' && hit(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || menuRects.some(r => hit(p, r)) || hit(p, FS_BTN)) ? 'pointer' : '';
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || menuRects.some(r => hit(p, r)) || hit(p, FS_BTN) || hit(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   if (e.pointerType === 'mouse') aimAt(p.x, p.y);
   else if (touchDown) {
@@ -1194,8 +1207,9 @@ cv.addEventListener('pointerdown', e => {
   if (ov) { ovPointerDown(p, e); touchDown = null; return; }
   if (GAME_STATES.includes(state) && hit(p, PAUSE_BTN)) { pauseGame(); touchDown = null; return; }
   if (state === 'card' && hit(p, SHARE_BTN)) { if (e.pointerType === 'mouse') shareScore(); else shareArmed = true; touchDown = null; return; }
+  if (state === 'title' && !menuPopup && hit(p, GEAR_BTN)) { openSettings('title'); touchDown = null; return; }
   if (state === 'title' && !menuPopup && hit(p, FS_BTN)) { if (e.pointerType === 'mouse') toggleFullscreen(); else fsArmed = true; touchDown = null; return; }
-  if (state === 'title' && !menuPopup && hit(p, TLB_R)) { SFX.click(); titleSel = 2; tlbHover = false; cv.style.cursor = ''; openBoard(null); touchDown = null; return; }
+  if (state === 'title' && !menuPopup && hit(p, TLB_R)) { SFX.click(); tlbHover = false; cv.style.cursor = ''; openBoard(null); touchDown = null; return; }
   if (state === 'title') { if (menuPopup) closePopup(); else { const m = menuRects.find(r => hit(p, r)); if (m) { titleSel = m.i; menuActivate(m.i); } } touchDown = null; return; }
   if (state === 'custom') { if (cz) customPointer(p); touchDown = null; return; }
   if (state === 'board') { if (st > 0.3) closeBoard(); touchDown = null; return; }
@@ -1253,6 +1267,8 @@ function update(dt) {
   if (msg) { msg.t += dt; if (msg.t > msg.dur) msg = null; }
   if (dogPop) dogPop.t += dt;
   if (angFlash > 0) angFlash -= dt;
+  updateWildlife(dt);
+  if (wildBark) { wildBark.t += dt; if (wildBark.t > wildBark.hold + 0.25) wildBark = null; }
   switch (state) {
   case 'title': {
     if (menuPopup) menuPopup.t += dt;
@@ -1404,6 +1420,228 @@ function drawCart(layer, viewX) {
   const by = Math.max(ridge(sx + 6), ridge(sx + 13), ridge(sx + 20)) + (layer === 'scene' ? 5 : 3);
   const bounce = Math.floor(cart.t * 5) % 3 === 0 ? 1 : 0;
   ctx.drawImage(CART_SPR[(cart.dir > 0 ? 'R' : 'L') + (Math.floor(cart.t * 8) % 2)], sx, by - CART_H - bounce);
+}
+
+/* ---------------- wildlife: cosmetic only (never touches the ball, scoring, or physics) ----------------
+   ~1/6 chance per hole at start, at most once. Pause freezes them (updateWildlife runs inside update). */
+const WILD_CHANCE = 1 / 6;
+const wildSpr = (rows, map) => { const c = mk(rows[0].length, rows.length), g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) { g.fillStyle = map[ch]; g.fillRect(x, y, 1, 1); } })); return c; };
+const flipSpr = img => { const c = mk(img.width, img.height), g = c.getContext('2d'); g.translate(img.width, 0); g.scale(-1, 1); g.drawImage(img, 0, 0); return c; };
+const WMAP = { k: '#000', b: '#b86c28', d: '#6c3410', t: '#fcd8a8', w: '#fcfcfc', o: '#fc9838', r: '#f83800', g: '#58d854', G: '#00a800', n: '#3c3c3c', s: '#bcbcbc', y: '#f8d878', p: '#f85898', a: '#80d010' };
+const WILD_FR = {};
+(function buildWild() {
+  const mkF = (rows) => { const a = wildSpr(rows, WMAP); return { R: a, L: flipSpr(a) }; };
+  WILD_FR.deer = [
+    mkF(['......kkkk........','.....kbbbkk.......','....kbbbbbk.......','....kbbbbbk.......','...kkbbbbbkk......','..kbbbbbbbbbk.....','..kbwbbbbbbbk.....','..kbbbbbbbbbk.....','...kkbbbbbbk......','....kbbbbbbk......','....kbk..kbk......','....kdk..kdk......','....kk...kk.......']),
+    mkF(['......kkkk........','.....kbbbkk.......','....kbbbbbk.......','....kbbbbbk.......','...kkbbbbbkk......','..kbbbbbbbbbk.....','..kbwbbbbbbbk.....','..kbbbbbbbbbk.....','...kkbbbbbbk......','....kbbbbbbk......','...kbk....kbk.....','...kdk....kdk.....','...kk.....kk......'])];
+  WILD_FR.fox = [
+    mkF(['....kkk...........','...koookk.........','..kooowook........','..koooooook.......','..koooooook.......','...kooooook.......','....kkkkook.......','....ko..kok.......','....kk..kk........']),
+    mkF(['....kkk...........','...koookk.........','..kooowook........','..koooooook.......','..koooooook.......','...kooooook.......','....kkkkook.......','...kok..kok.......','...kk...kk........'])];
+  WILD_FR.turkey = [
+    mkF(['..........rrr.....','.........ryyr.....','........kbbbkk....','.......kbbbbbbk...','......kkbbbbbbkk..','......kbbbbbbbbk..','.....kkbbbbbbbbk..','.....kbbbbbbbbbk..','......kkbbbbbbk...','......kbk..kbk....','......kdk..kdk....','......kk...kk.....']),
+    mkF(['.........rrr......','........ryyr......','.......kbbbkk.....','......kbbbbbbk....','.....kkbbbbbbkk...','.....kbbbbbbbbk...','....kkbbbbbbbbk...','....kbbbbbbbbbk...','.....kkbbbbbbk....','....kbk....kbk....','....kdk....kdk....','....kk.....kk.....'])];
+  WILD_FR.gator = [
+    mkF(['......................','.....kkkkkkkkkkk......','....kGGGGGGGGGGGk.....','...kGGwGGGGGGGGGGk....','...kGGGGGGGGGGGGGk....','....kGGGaGGGaGGGGk....','.....kkkkkkkkkkkk.....','.......k...k..........']),
+    mkF(['......................','.....kkkkkkkkkkk......','....kGGGGGGGGGGGk.....','...kGGwGGGGGGGGGGk....','...kGGGGGGGGGGGGGk....','....kGGaGGGaGGGGGk....','.....kkkkkkkkkkkk.....','......k...k...........'])];
+  WILD_FR.goose = [
+    mkF(['...kk........','..kwwk.......','..kwwskk.....','..ksssssk....','...kssssk....','....kkssk....','....k..kk....']),
+    mkF(['...kk........','..kwwk.......','..kwwskk.....','..ksssssk....','...kssssk....','....kskkk....','....kk.k.....'])];
+  WILD_FR.rabbit = [
+    mkF(['..k..k....','..kk.kk...','..kswsk...','..kssssk..','...ksssk..','...kbssk..','....kkkk..','....k..k..']),
+    mkF(['.k..k.....','kk.kk.....','kswsk.....','kssssk....','.ksssk....','.kbssk....','..kkkk....','.k....k...'])];
+  WILD_FR.squirrel = [
+    mkF(['......kk..','.....kbbk.','....kbbbk.','.kkkbbbbk.','kbbbbbbbk.','kbbbbbbk..','.kkbbbk...','..kbbk....','..kbk.....','..kk......']),
+    mkF(['......kk..','.....kbbk.','....kbbbk.','.kkkbbbbk.','kbbbbbbbk.','kbbbbbbk..','.kkbbbk...','..kbk.....','..k.bk....','..k.kk....'])];
+})();
+const WILD_LABEL = { deer: 'A WILD DEER APPEARS!', fox: 'A SLY FOX TROTS BY!', turkey: 'A WILD TURKEY!', gator: 'A GATOR SURFACES!', geese: 'GEESE OVERHEAD!', rabbit: 'A RABBIT HOPS BY!', squirrel: 'A SQUIRREL!' };
+const WILD_SPEED = { deer: 26, fox: 38, turkey: 16, gator: 10, geese: 52, rabbit: 30, squirrel: 18 };
+const WILD_SCALE = { deer: 2, fox: 2, turkey: 2, rabbit: 2, squirrel: 2, gator: 2, geese: 2 };   // ~2x so they read against the course
+let wildlife = null;   // null | { pending, delay, kind, dir, wx, wy, t, speed, reacted, captionT, flock, hop }
+let wildBark = null;   // tiny WOOF! peek — never the big dogPop
+function holeHasWater(hl) { for (let i = 0; i < hl.Ss.length; i++) if (hl.Ss[i] === 'water') return true; return false; }
+function holeTreeXs(hl) { return (hl.deco || []).filter(d => d[0] === 'tree' || d[0] === 'oak').map(d => d[1]); }
+function waterSpan(hl) {
+  let a = -1, b = -1;
+  for (let i = 0; i < hl.Ss.length; i++) if (hl.Ss[i] === 'water') { if (a < 0) a = i; b = i; }
+  return a < 0 ? null : { a, b };
+}
+function pickWildlifeKind(hl) {
+  const pool = ['deer', 'fox', 'turkey', 'rabbit', 'geese'];
+  if (holeTreeXs(hl).length) pool.push('squirrel', 'squirrel');
+  if (holeHasWater(hl)) pool.push('gator', 'gator', 'gator');
+  if (hl.theme === 'desert') return (['fox', 'rabbit', 'geese', 'fox'])[Math.floor(Math.random() * 4)];
+  if (hl.theme === 'night') return (['deer', 'fox', 'geese', 'rabbit', 'gator'].filter(k => k !== 'gator' || holeHasWater(hl)))[Math.floor(Math.random() * 5)];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function clearWildlife() { wildlife = null; }   // leave wildBark alone so WOOF! can finish
+function scheduleWildlife(forceKind) {
+  clearWildlife();
+  if (!hole) return;
+  if (forceKind) { beginWildlife(forceKind); return; }
+  if (Math.random() >= WILD_CHANCE) return;
+  wildlife = { pending: true, delay: rnd(1.2, 4.5), kind: pickWildlifeKind(hole) };
+}
+function beginWildlife(kind) {
+  if (!hole || !WILD_FR[kind === 'geese' ? 'goose' : kind]) return;
+  let dir = Math.random() < 0.5 ? 1 : -1;
+  const cam = camX, left = cam - 30, right = cam + W + 30;
+  let wx, wy = 0, flock = null, hop = 0;
+  if (kind === 'geese') {
+    wx = dir > 0 ? left - 20 : right + 20;
+    wy = 28 + Math.floor(Math.random() * 36);
+    flock = [0, 14, 28, 42].map((dx, i) => ({ dx: dir > 0 ? -dx : dx, dy: (i % 2) * 5 - 2 }));
+  } else if (kind === 'gator') {
+    const sp = waterSpan(hole); if (!sp) { kind = 'deer'; return beginWildlife(kind); }
+    wx = rnd(sp.a + 4, Math.max(sp.a + 8, sp.b - 8));
+    dir = Math.random() < 0.5 ? 1 : -1;
+  } else if (kind === 'squirrel') {
+    const xs = holeTreeXs(hole); if (!xs.length) { kind = 'rabbit'; return beginWildlife(kind); }
+    wx = xs[Math.floor(Math.random() * xs.length)] + rnd(8, 18);
+    dir = Math.random() < 0.5 ? 1 : -1;
+  } else {
+    wx = dir > 0 ? left : right;
+  }
+  wildlife = { pending: false, kind, dir, wx, wy, t: 0, speed: WILD_SPEED[kind] || 20, reacted: false, captionT: 1.6, flock, hop, linger: kind === 'gator' ? rnd(3.5, 6) : (kind === 'squirrel' ? rnd(2.5, 4.5) : 0) };
+  // soft caption (skipped while a shot message is up)
+}
+function updateWildlife(dt) {
+  if (!wildlife || !hole) return;
+  if (wildlife.pending) {
+    if (!['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) return;
+    wildlife.delay -= dt;
+    if (wildlife.delay <= 0) beginWildlife(wildlife.kind);
+    return;
+  }
+  wildlife.t += dt;
+  if (wildlife.captionT > 0) wildlife.captionT -= dt;
+  const k = wildlife.kind, dir = wildlife.dir;
+  if (k === 'geese') {
+    wildlife.wx += dir * wildlife.speed * dt;
+  } else if (k === 'gator') {
+    wildlife.wx += dir * wildlife.speed * 0.35 * Math.sin(wildlife.t * 1.4) * dt * 8;
+    const sp = waterSpan(hole);
+    if (sp) wildlife.wx = clamp(wildlife.wx, sp.a + 2, sp.b - 2);
+    if (wildlife.t > wildlife.linger) wildlife.wx += dir * wildlife.speed * dt;   // swim off after lingering
+  } else if (k === 'squirrel') {
+    if (wildlife.t < wildlife.linger) {
+      wildlife.hop = Math.abs(Math.sin(wildlife.t * 9)) * 2;
+      if (Math.floor(wildlife.t * 2) !== Math.floor((wildlife.t - dt) * 2)) wildlife.wx += dir * rnd(2, 5);
+    } else wildlife.wx += dir * wildlife.speed * dt;
+  } else if (k === 'rabbit') {
+    wildlife.wx += dir * wildlife.speed * dt;
+    wildlife.hop = Math.max(0, Math.sin(wildlife.t * 10)) * 7;
+  } else {
+    wildlife.wx += dir * wildlife.speed * dt;
+    if (k === 'deer' && Math.floor(wildlife.t) % 4 === 2) wildlife.wx -= dir * wildlife.speed * dt * 0.7;   // brief pause in the walk
+  }
+  // tiny WOOF! reaction (never the big dogPop — that covers the golfer)
+  const sx = wildlife.wx - camX;
+  const onScreen = k === 'geese' ? (sx > -40 && sx < W + 40) : (sx > -10 && sx < W + 10);
+  if (onScreen && !wildlife.reacted) {
+    wildlife.reacted = true;
+    SFX.bark();
+    const golferSx = (ball ? ball.x : TEE_X) - camX;
+    wildBark = { t: 0, hold: 1.15, side: golferSx < W * 0.55 ? 1 : -1 };   // opposite corner from the golfer
+  }
+  
+  const gone = k === 'geese' ? (sx < -80 || sx > W + 80) : (sx < -50 || sx > W + 50);
+  if (gone && wildlife.t > 1) clearWildlife();
+}
+function wildFrame(kind, t) {
+  const key = kind === 'geese' ? 'goose' : kind;
+  const fr = WILD_FR[key]; if (!fr) return null;
+  const fps = kind === 'turkey' ? 3 : kind === 'gator' ? 2 : kind === 'geese' ? 6 : kind === 'rabbit' ? 8 : 5;
+  return fr[Math.floor(t * fps) % fr.length];
+}
+function decoNear(hl, x, pad) {
+  for (const [kind, dx] of hl.deco || []) {
+    if (kind === 'board') continue;
+    const w = kind === 'oak' ? 44 : kind === 'tree' || kind === 'cactus' ? 28 : 18;
+    if (Math.abs(dx + w / 2 - x) < (pad || 20) + w / 2) return true;
+  }
+  return false;
+}
+function fairwayWX(cam, avoidX) {
+  for (let n = 0; n < 48; n++) {
+    const x = cam + 36 + (n * 17 + 11) % Math.max(40, W - 72);
+    const s = surfAt(hole, x);
+    if ((s === 'fair' || s === 'tee' || s === 'rough') && !decoNear(hole, x, 16) && Math.abs(x - avoidX) > 48) return x;
+  }
+  for (let x = cam + 40; x < cam + W - 40; x += 8) {
+    const s = surfAt(hole, x);
+    if (s === 'fair' || s === 'tee') return x;
+  }
+  return cam + Math.round(W * 0.62);
+}
+function drawWildImg(img, sx, sy, sc) {
+  const w = img.width * sc, h = img.height * sc;
+  // dark outline so the sprite pops against grass/bushes
+  if (!img._sil) {
+    const c = mk(img.width, img.height), g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height);
+    for (let i = 0; i < d.data.length; i += 4) if (d.data[i + 3] > 20) { d.data[i] = 0; d.data[i + 1] = 0; d.data[i + 2] = 0; d.data[i + 3] = 255; }
+    g.putImageData(d, 0, 0); img._sil = c;
+  }
+  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1]]) ctx.drawImage(img._sil, sx + ox, sy + oy, w, h);
+  ctx.drawImage(img, sx, sy, w, h);
+}
+function drawWildlife() {
+  if (!wildlife || wildlife.pending || !hole) return;
+  const k = wildlife.kind, fr = wildFrame(k, wildlife.t); if (!fr) return;
+  const img = wildlife.dir > 0 ? fr.R : fr.L, sc = WILD_SCALE[k] || 2;
+  if (k === 'geese') {
+    for (const f of wildlife.flock) {
+      const sx = Math.round(wildlife.wx + f.dx * sc - camX), sy = Math.round(wildlife.wy + f.dy + Math.sin(wildlife.t * 4 + f.dx) * 1.5);
+      if (sx < -30 || sx > W + 30) continue;
+      drawWildImg(img, sx, sy, sc);
+    }
+    return;
+  }
+  const gy = Math.round(BASE - groundH(hole, wildlife.wx)) + (k === 'gator' ? 1 : 1);   // feet sit on the visible ground strip (foreground)
+  const hop = (wildlife.hop || 0) * sc;
+  const sx = Math.round(wildlife.wx - camX), sy = Math.round(gy - img.height * sc + 3 - hop);
+  if (sx < -40 || sx > W + 16) return;
+  drawWildImg(img, sx, sy, sc);
+}
+function drawWildBark() {
+  if (!wildBark) return;
+  const up = clamp(wildBark.t / 0.12, 0, 1);
+  const down = wildBark.t > wildBark.hold ? clamp((wildBark.t - wildBark.hold) / 0.2, 0, 1) : 0;
+  if (down >= 1) return;
+  const face = SPR.laugh, fw = 20, fh = 18;
+  const x = wildBark.side > 0 ? W - fw - 6 : 6;
+  const y = PLAY_H - 4 - Math.round((fh + 2) * up) + Math.round((fh + 2) * down);
+  ctx.drawImage(face, x, y, fw, fh);
+  const label = 'WOOF!', lw = textW(label) + 6;
+  const bx = wildBark.side > 0 ? x - lw - 2 : x + fw + 2, by = y + 2;
+  rect(bx, by, lw, 9, '#000'); rect(bx + 1, by + 1, lw - 2, 7, COL.white);
+  drawText(label, bx + 3, by + 1, '#000');
+  // little tail on the bubble toward the face
+  rect(wildBark.side > 0 ? bx + lw : bx - 2, by + 4, 2, 2, '#000');
+}
+function drawWildCaption() {
+  if (!wildlife || wildlife.pending || wildlife.captionT <= 0) return;
+  const text = WILD_LABEL[wildlife.kind]; if (!text) return;
+  // sit under the mini-scorecard / intro band, left-leaning so it never covers the top-right card
+  const w = textW(text) + 10, x = Math.max(4, Math.min(W - w - 4, 8)), y = 48;
+  const a = clamp(wildlife.captionT / 0.25, 0, 1);
+  ctx.globalAlpha = a;
+  rect(x, y, w, 11, COL.white); rect(x + 1, y + 1, w - 2, 9, '#000');
+  drawText(text, x + 5, y + 2, '#f8d878');
+  ctx.globalAlpha = 1;
+}
+function forceWildlife(kind) {
+  const k = kind && WILD_LABEL[kind] ? kind : pickWildlifeKind(hole || compileHole(HOLES[0]));
+  if (!hole) { holeIdx = 0; hole = compileHole(HOLES[0]); }
+  beginWildlife(k);
+  if (!wildlife || wildlife.pending) return wildlife ? wildlife.kind : null;
+  if (wildlife.kind === 'geese') wildlife.wx = camX + (wildlife.dir > 0 ? 20 : W - 40);
+  else if (wildlife.kind === 'gator') { /* already in water */ }
+  else if (wildlife.kind === 'squirrel') { /* stays near its tree */ }
+  else wildlife.wx = fairwayWX(camX, ball ? ball.x : TEE_X);
+  return wildlife.kind;
 }
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000;
@@ -1736,15 +1974,12 @@ function renderTitle() {
   if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, LOGO_X, LOGO_Y);
   drawTitleBoard();
   menuRects = [];
-  const GAP = 34, last = MENU_ROWS[3], lastW = textW(MENU[last[0]], 2) + GAP + textW(MENU[last[1]], 2);
   MENU.forEach((label, i) => {
-    const row = menuRowOf(i), w = textW(label, 2), sel = i === titleSel && !menuPopup;
-    let x = Math.round((W - w) / 2), y = MENU_Y0 + row * MENU_DY;
-    if (row === 3) x = Math.round((W - lastW) / 2) + (i === last[0] ? 0 : textW(MENU[last[0]], 2) + GAP);
+    const w = textW(label, 2), sel = i === titleSel && !menuPopup && !ov;
+    const x = Math.round((W - w) / 2), y = MENU_Y0 + i * MENU_DY;
     outlined(label, x, y, sel ? '#f8d878' : COL.white, 2);
     if (sel) outlined('>', x - 17 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
-    if (row !== 3) menuRects.push({ x: 36, y: y - 1, w: W - 72, h: MENU_DY, i });
-    else menuRects.push(i === last[0] ? { x: 14, y: y - 1, w: 114, h: MENU_DY, i } : { x: 128, y: y - 1, w: 114, h: MENU_DY, i });
+    menuRects.push({ x: 36, y: y - 1, w: W - 72, h: MENU_DY, i });
   });
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
@@ -1789,7 +2024,8 @@ function renderCustom() {
     rect(146, y - 1, 32, 16, '#000'); rect(147, y, 30, 14, f ? YEL : COL.white); rect(149, y + 2, 26, 10, '#000'); rect(150, y + 3, 24, 8, c);
   });
   // done / play
-  const dl = cz.from === 'play' ? 'PLAY' : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === CZ_DONE && !cz.kb;
+  if (cz.from === 'play' && !cz.kb) { const t = 'CUSTOMIZE'; outlined(t, Math.round((W - textW(t)) / 2), 2, COL.gray); }
+  const dl = cz.from === 'play' ? 'TEE OFF' : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === CZ_DONE && !cz.kb;
   outlined(dl, dx, CZ_Y[CZ_DONE], df ? YEL : COL.white, 2);
   if (df) outlined('>', dx - 17 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
   // on-screen keyboard (only while open)
@@ -1914,7 +2150,7 @@ function renderCard() {
 }
 function render() {
   renderScene();
-  if (state === 'title') drawFsButton();
+  if (state === 'title') { drawGearButton(); drawFsButton(); }
   drawPauseButton();
   drawOverlay();
   drawToast();
@@ -1928,6 +2164,8 @@ function renderScene() {
   const shaking = fx.shake > 0;
   if (shaking) { rect(0, 0, W, PLAY_H, themeOf(hole).sky); ctx.save(); const a = fx.shakeAmp * clamp(fx.shake / 0.2, 0, 1); ctx.translate(Math.round(rnd(-a, a)), Math.round(rnd(-a, a))); }
   drawCourse(hole, camX);
+  drawWildlife();
+  drawWildBark();
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookOf(player), golferPose());
@@ -1952,6 +2190,7 @@ function renderScene() {
     msgBox(lines, 36, cols);
   }
   if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2); rect(x, 36, w, 13, COL.white); rect(x + 1, 37, w - 2, 11, '#000'); drawText(msg.text, x + 6, 39, msg.col); }
+  else drawWildCaption();
   drawBanner();
   if (state === 'done') {
     const x = 34, y = 34, w = 188, h = 92;
@@ -2024,7 +2263,9 @@ if (/test/.test(location.hash)) {
       for (let c = 0; c < 4; c++) { let cups = 0, n = 0, wet = 0; for (let p = 0.05; p <= 1; p += 0.001) { n++; const r = simulateShot(hole, 0, x, c, CLUBS[c].def, p, 0, dir); if (r.res === 'cup') cups++; if (r.res === 'water' || r.res === 'ob') wet++; } parts.push(CLUBS[c].name + ' ' + (100 * cups / n).toFixed(2) + '%'); }
       return parts.join('  ');
     },
-    goHole(i) { holeIdx = i; startHole(); setState('aim'); camX = camTarget(); }
+    goHole(i) { holeIdx = i; startHole(); setState('aim'); camX = camTarget(); },
+    get wildlife() { return wildlife ? { kind: wildlife.kind, pending: !!wildlife.pending, t: wildlife.t || 0, wx: wildlife.wx, sx: wildlife.wx - camX, captionT: wildlife.captionT || 0, reacted: !!wildlife.reacted } : null; },
+    spawnWildlife(kind) { return forceWildlife(kind); }, clearWildlife() { clearWildlife(); }
   };
 }
 (function preview() {
