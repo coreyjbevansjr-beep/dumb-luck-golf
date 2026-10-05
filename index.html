@@ -38,9 +38,8 @@ function resize() {
 addEventListener('resize', resize); resize();
 
 /* ---------------- brand logo (embedded) ---------------- */
-const LOGO_BIG = new Image(), LOGO_SMALL = new Image();
+const LOGO_BIG = new Image();
 LOGO_BIG.src = 'data:image/png;base64,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';
-LOGO_SMALL.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAWCAYAAAChWZ5EAAACh0lEQVR42uWVP0szQRDGf7PuKvinElFBrLSxETsLC60sopWIgpV+DuGwExs/hZV+ATsbQWwstEhjEBQUYnIoiiZ33ryFviEmt+Zi4G3egYPbu9mdmed5Zhb+renXUzPDf2RN1QOIxzGL328SaDrTpjiIJ3PpIKh3r3gcW63JiFx9nFRkTYtNrQJpRtrqC/j23bRZyW+0Ij/RYjoUki+QD/ImKo0HmqwmHko+f4rQ1dWlzjnx6E6yVKkNXPseRESttaqqmedBYzbtdIMCWGtlYGCAMAy/Rdnb26NUKvH8/Kw3NzccHx+jqnwlJ40QShv81uCtr3RjYwPnHNVqVUWEKIqIoogkSQjDUK6uriiXy00H2/rKrLUYY6Rarab2fX1QVWVoaIj5+Xl6enrUOUcURTw9PVEqleTs7MwHf7rWRkZGvq2N+d4gq6urtfexsTHW1tZ0fX1dV1ZWdHl5WYeHh5vODIIAVUVE/HeBiDA9Pa0Ai4uLOOc4OjqSfD5PEAQA7OzsALC1tcXBwYGqKnNzc1QqFTk9Pa1VJyJYayWOY1KEqGmUytLSEpeXl7qwsMDMzAxxHPPx8UG5XGZ3d1cANjc3ubu705eXFy4uLnh/f6+JcnR0VB4eHlRVxQOx/tS+dnJyknw+T3d3N29vb4RhSG9vL319fWxvb+vr6yuPj49cX19TKBSkjiJNkoT7+/tMt15KR31Owv39feI4xlpLpVIhiqK/7cPs7CxRFHFyckKhUJB6XSRJIm2Mbu+wMkEQUCwWpVgsYoxhcHAQ5xz9/f2cn59zeHgot7e3MjU1RZIktHE7NipfWk7c8fFxcrkcuVyOiYmJ1A7wTDWlU0sbn8aYLME7SuQPM4w2mFqu+JAAAAAASUVORK5CYII=';
 
 /* ---------------- palette ---------------- */
 const COL = {
@@ -69,15 +68,21 @@ const SHIRTS = [   // [main, shade]
   ['#fcfcfc', '#bcbcbc'], ['#f83800', '#a81000'], ['#fc9838', '#c84c0c'], ['#f8d878', '#d8a000'], ['#58d854', '#00a800'],
   ['#3cbcfc', '#0078f8'], ['#0058f8', '#00288c'], ['#9878f8', '#6844fc'], ['#f878f8', '#b800b8'], ['#585858', '#2c2c2c']
 ];
+const HATS = [     // [main, brim]
+  ['#f83800', '#a81000'], ['#fcfcfc', '#bcbcbc'], ['#24188c', '#00105c'], ['#3c3c3c', '#1c1c1c'], ['#58d854', '#00a800'],
+  ['#f8d878', '#d8a000'], ['#3cbcfc', '#0078f8'], ['#fc9838', '#c84c0c'], ['#f878f8', '#b800b8'], ['#9878f8', '#6844fc']
+];
+const PANTS = ['#24188c', '#fcfcfc', '#d8a868', '#585858', '#3c3c3c', '#00a800', '#f83800', '#3cbcfc', '#a84000', '#f878f8', '#9878f8'];
 const NAME_MAX = 10;
 const cleanName = s => String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/ {2,}/g, ' ').trim().slice(0, NAME_MAX).trim();
-let player = { name: '', skin: 1, shirt: 0 };
+let player = { name: '', skin: 1, shirt: 0, hat: 0, pants: 0 };
 try {
   const v = JSON.parse(localStorage.getItem('dlg_golf_player') || 'null');
-  if (v) player = { name: cleanName(v.name), skin: clamp(v.skin | 0, 0, SKINS.length - 1), shirt: clamp(v.shirt | 0, 0, SHIRTS.length - 1) };
+  if (v) player = { name: cleanName(v.name), skin: clamp(v.skin | 0, 0, SKINS.length - 1), shirt: clamp(v.shirt | 0, 0, SHIRTS.length - 1),
+                    hat: clamp(v.hat | 0, 0, HATS.length - 1), pants: clamp(v.pants | 0, 0, PANTS.length - 1) };
 } catch (e) {}
 function savePlayer() { try { localStorage.setItem('dlg_golf_player', JSON.stringify(player)); } catch (e) {} }
-const lookOf = p => ({ skin: SKINS[p.skin], shirt: SHIRTS[p.shirt][0], shirtD: SHIRTS[p.shirt][1] });
+const lookOf = p => ({ skin: SKINS[p.skin], shirt: SHIRTS[p.shirt][0], shirtD: SHIRTS[p.shirt][1], hat: HATS[p.hat | 0][0], hatD: HATS[p.hat | 0][1], pants: PANTS[p.pants | 0] });
 
 /* ================= LEADERBOARD STORAGE (all score storage lives in this block) =================
    saveScore(entry)  entry = { name, strokes, to_par, created_at }
@@ -159,7 +164,7 @@ const FONT = {
 "'":["  #  ","  #  ","     ","     ","     ","     ","     "],'(':["   # ","  #  "," #   "," #   "," #   ","  #  ","   # "],
 ')':[" #   ","  #  ","   # ","   # ","   # ","  #  "," #   "],'>':["#    "," #   ","  #  ","   # ","  #  "," #   ","#    "],
 '<':["    #","   # ","  #  "," #   ","  #  ","   # ","    #"],'+':["     ","  #  ","  #  ","#####","  #  ","  #  ","     "],
-'/':["    #","    #","   # ","  #  "," #   ","#    ","#    "],
+'/':["    #","    #","   # ","  #  "," #   ","#    ","#    "],'%':["##   ","##  #","   # ","  #  "," #   ","#  ##","   ##"],
 ',':["     ","     ","     ","     ","  ## ","   # ","  #  "],' ':["     ","     ","     ","     ","     ","     ","     "]
 };
 function textW(str, sx = 1) { return String(str).length * 6 * sx - sx; }
@@ -418,7 +423,8 @@ const SFX = {
   jingle() { [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, 'square', 0.045, i * 0.14)); },
   sad()    { [392, 370, 349, 330].forEach((f, i) => tone(f, 0.22, 'square', 0.05, i * 0.22)); },
   fanfare(){ [523, 523, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, 'square', 0.05, i * 0.15)); },
-  click()  { tone(880, 0.04, 'square', 0.04); }
+  click()  { tone(880, 0.04, 'square', 0.04); },
+  perfect(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.09, 'square', 0.045, i * 0.05)); tone(2637, 0.35, 'triangle', 0.05, 0.2); noise(0.06, 0.05); }
 };
 
 /* ---------------- game state ---------------- */
@@ -426,6 +432,11 @@ let state = 'title', st = 0;
 let holeIdx = 0, hole = null, scores = [], strokes = 0, wind = 0;
 let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
+// 3-click meter: power, then stop the returning marker in the green SWEET zone for clean contact.
+// PERFECT = power in the gold zone + marker dead on the line (not for putts).
+const SWEET_ERR = 4, PERFECT_ERR = 2, PERFECT_POW = 0.9;
+let shotSweet = false, shotPerfect = false, angFlash = 0;
+const held = {};   // aim keys currently held -> seconds held (hold to speed up)
 let errPx = 0, swingAng = 75, camX = 0, introFrom = 0, introTo = 0;
 let trail = [], trailT = 0;
 let msg = null, dogPop = null, penaltyKind = '', doneInfo = null, cardInfo = null;
@@ -452,30 +463,32 @@ function menuActivate(i) {
 }
 
 /* --- customize screen ---
-   rows: 0 name, 1 skin, 2 shirt, 3 done. Typing on a keyboard always edits the name;
+   rows: 0 name, 1 hat, 2 skin, 3 shirt, 4 pants, 5 done. Typing on a keyboard always edits the name;
    tapping the name opens a small on-screen keyboard for touch screens. */
-const CZ_ROWS = 4, CZ_Y = [14, 50, 72, 98];
+const CZ_ROWS = 6, CZ_Y = [14, 46, 66, 86, 106, 128], CZ_DONE = 5;
+const CZ_OPTS = [null, ['hat', HATS], ['skin', SKINS], ['shirt', SHIRTS], ['pants', PANTS]];   // row -> [player key, choices]
 const NAME_RECT = { x: 52, y: 6, w: 152, h: 36 };
-const ARROW_L = r => ({ x: 120, y: CZ_Y[r] - 5, w: 26, h: 24 });
-const ARROW_R = r => ({ x: 178, y: CZ_Y[r] - 5, w: 26, h: 24 });
-const SWATCH_R = r => ({ x: 146, y: CZ_Y[r] - 5, w: 32, h: 24 });
-const ROW_R = r => ({ x: 40, y: CZ_Y[r] - 5, w: 176, h: 24 });
-const DONE_R = { x: 76, y: CZ_Y[3] - 5, w: 104, h: 24 };
+const ARROW_L = r => ({ x: 120, y: CZ_Y[r] - 3, w: 26, h: 20 });
+const ARROW_R = r => ({ x: 178, y: CZ_Y[r] - 3, w: 26, h: 20 });
+const SWATCH_R = r => ({ x: 146, y: CZ_Y[r] - 3, w: 32, h: 20 });
+const ROW_R = r => ({ x: 40, y: CZ_Y[r] - 3, w: 176, h: 20 });
+const DONE_R = { x: 76, y: CZ_Y[CZ_DONE] - 4, w: 104, h: 22 };
 const KB = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ0123'], ['4', '5', '6', '7', '8', '9', 'SPC', 'DEL'], ['OK']];
 const KB_X0 = 28, KB_Y0 = 124, KB_CW = 20, KB_CH = 15, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 function kbCells(r) { let c = 0; return KB[r].map(lab => { const w = lab === 'OK' ? 10 : lab.length > 1 ? 2 : 1; const o = { lab, x: KB_X0 + c * KB_CW, y: KB_Y0 + r * KB_CH, w: w * KB_CW - 2, h: KB_CH - 2 }; c += w; return o; }); }
 let cz = null, usingTouch = false;
 function openCustomize(from) {
   const needName = !player.name;
-  cz = { from, skin: player.skin, shirt: player.shirt, name: player.name, row: needName ? 0 : 1, warn: from === 'play' && needName ? 3 : 0, kb: false, kr: 0, kc: 0 };
+  cz = { from, skin: player.skin, shirt: player.shirt, hat: player.hat | 0, pants: player.pants | 0, name: player.name, row: needName ? 0 : 1, warn: from === 'play' && needName ? 3 : 0, kb: false, kr: 0, kc: 0 };
   if (needName && usingTouch) openKb();
   setState('custom');
 }
 function openKb() { cz.kb = true; cz.kr = 0; cz.kc = 0; cz.row = 0; SFX.click(); }
-function closeKb() { cz.kb = false; if (cleanName(cz.name)) cz.row = 3; SFX.click(); }
+function closeKb() { cz.kb = false; if (cleanName(cz.name)) cz.row = CZ_DONE; SFX.click(); }
+const czIsOpt = r => r >= 1 && r <= 4;
 function czCycle(r, d) {
-  if (r === 1) cz.skin = (cz.skin + d + SKINS.length) % SKINS.length;
-  else cz.shirt = (cz.shirt + d + SHIRTS.length) % SHIRTS.length;
+  const [key, list] = CZ_OPTS[r];
+  cz[key] = (cz[key] + d + list.length) % list.length;
   SFX.tick();
 }
 function czType(ch) {
@@ -496,7 +509,7 @@ function kbMove(dr, dc) {
 function czDone() {
   const name = cleanName(cz.name);
   if (!name) { cz.warn = 3; cz.row = 0; SFX.sad(); if (usingTouch) openKb(); return; }
-  player = { name, skin: cz.skin, shirt: cz.shirt }; savePlayer();
+  player = { name, skin: cz.skin, shirt: cz.shirt, hat: cz.hat, pants: cz.pants }; savePlayer();
   const from = cz.from; cz = null; SFX.click();
   if (from === 'play') startRound(); else setState('title');
 }
@@ -513,8 +526,8 @@ function customKey(e) {
   } else {
     if (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) { cz.row = (cz.row + CZ_ROWS - 1) % CZ_ROWS; SFX.tick(); return; }
     if (k === 'ArrowDown' || k === 'Tab') { cz.row = (cz.row + 1) % CZ_ROWS; SFX.tick(); return; }
-    if ((k === 'ArrowLeft' || k === 'ArrowRight') && (cz.row === 1 || cz.row === 2)) { czCycle(cz.row, k === 'ArrowLeft' ? -1 : 1); return; }
-    if (k === 'Enter') { if (e.repeat) return; if (cz.row === 0) { cz.row = 1; SFX.tick(); } else if (cz.row === 3) czDone(); else czCycle(cz.row, 1); return; }
+    if ((k === 'ArrowLeft' || k === 'ArrowRight') && czIsOpt(cz.row)) { czCycle(cz.row, k === 'ArrowLeft' ? -1 : 1); return; }
+    if (k === 'Enter') { if (e.repeat) return; if (cz.row === 0) { cz.row = 1; SFX.tick(); } else if (cz.row === CZ_DONE) czDone(); else czCycle(cz.row, 1); return; }
   }
   if (k.length === 1 && /[a-z0-9 ]/i.test(k) && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (k === ' ' && !cz.kb && cz.row !== 0) return;      // space only types while editing the name
@@ -529,12 +542,12 @@ function customPointer(p) {
     return;
   }
   if (hit(p, NAME_RECT)) { openKb(); return; }
-  for (const r of [1, 2]) {
+  for (const r of [1, 2, 3, 4]) {
     if (hit(p, ARROW_L(r))) { cz.row = r; czCycle(r, -1); return; }
     if (hit(p, ARROW_R(r)) || hit(p, SWATCH_R(r))) { cz.row = r; czCycle(r, 1); return; }
     if (hit(p, ROW_R(r))) { cz.row = r; SFX.tick(); return; }
   }
-  if (hit(p, DONE_R)) { cz.row = 3; czDone(); }
+  if (hit(p, DONE_R)) { cz.row = CZ_DONE; czDone(); }
 }
 
 /* --- leaderboard screen --- */
@@ -570,7 +583,7 @@ function startHole() {
   placeBall(TEE_X);
   introFrom = clamp(hole.cup - 128, CAM_MIN, hole.len - W + 40);
   introTo = camTarget();
-  camX = introFrom; msg = null; dogPop = null;
+  camX = introFrom; msg = null; dogPop = null; fxClear();
   setState('intro'); SFX.jingle();
 }
 function placeBall(x) {
@@ -595,18 +608,113 @@ function camTarget() {
 const CAM_MIN = -40;
 function showMsg(text, col = COL.white, dur = 1.4) { msg = { text, col, t: 0, dur }; }
 
+/* --- shot celebrations: visual only, never touch the ball or the physics --- */
+const fx = { flash: 0, flashCol: '#fcfcfc', shake: 0, shakeAmp: 2, parts: [], banner: null, glow: false, glowT: 0 };
+const GOLDS = ['#fcfcfc', '#f8d878', '#fcfc9c', '#fc9838'];
+const CONFETTI = ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8', '#fcfcfc', '#fc9838'];
+function fxClear() { fx.flash = 0; fx.shake = 0; fx.parts.length = 0; fx.banner = null; fx.glow = false; }
+function fxBurst(wx, wh, n, cols, sp, o = {}) {
+  for (let i = 0; i < n; i++) {
+    const a = o.up ? rnd(Math.PI * 0.12, Math.PI * 0.88) : rnd(0, Math.PI * 2), v = rnd(sp * 0.35, sp);
+    fx.parts.push({ x: wx, h: wh, vx: Math.cos(a) * v, vh: Math.sin(a) * v, t: 0, life: rnd(0.5, 1.1) * (o.life || 1),
+      col: cols[i % cols.length], star: Math.random() < (o.stars == null ? 0.4 : o.stars), g: o.g == null ? 40 : o.g, conf: !!o.conf });
+  }
+}
+function fxBanner(text, cols, dur, y) { fx.banner = { text, cols, t: 0, dur, y }; }
+function updateFx(dt) {
+  if (fx.flash > 0) fx.flash -= dt;
+  if (fx.shake > 0) fx.shake -= dt;
+  if (fx.banner && (fx.banner.t += dt) > fx.banner.dur) fx.banner = null;
+  if (state !== 'flight') fx.glow = false;
+  else if (fx.glow && ball && ball.mode === 'air' && (fx.glowT += dt) > 0.025) {   // golden sparkle trail behind the ball
+    fx.glowT = 0;
+    fx.parts.push({ x: ball.x + rnd(-1, 1), h: ball.h + 2 + rnd(-1, 1), vx: rnd(-8, 8), vh: rnd(-4, 10), t: 0, life: rnd(0.3, 0.55), col: GOLDS[(Math.random() * 3) | 0], star: Math.random() < 0.3, g: 10 });
+  }
+  for (let i = fx.parts.length - 1; i >= 0; i--) {
+    const p = fx.parts[i];
+    p.t += dt; if (p.t >= p.life) { fx.parts.splice(i, 1); continue; }
+    p.vx *= 1 - 1.5 * dt; p.vh -= p.g * dt; if (p.conf) p.vh = Math.max(p.vh, -16);
+    p.x += p.vx * dt; p.h += p.vh * dt;
+  }
+}
+function drawFxParts() {
+  for (const p of fx.parts) {
+    const sx = Math.round(p.x - camX), sy = Math.round(BASE - p.h), k = p.t / p.life;
+    if (sy < 1 || sy >= PLAY_H || sx < -2 || sx > W + 2) continue;
+    if (k > 0.75 && Math.floor(p.t * 20) % 2) continue;                 // blink out
+    if (p.conf) { rect(sx, sy, 2, Math.floor(p.t * 10 + p.vx) % 2 ? 1 : 2, p.col); continue; }   // fluttering confetti
+    if (p.star && k < 0.6) { rect(sx - 1, sy, 3, 1, p.col); rect(sx, sy - 1, 1, 3, p.col); rect(sx, sy, 1, 1, COL.white); }
+    else rect(sx, sy, k < 0.4 ? 2 : 1, k < 0.4 ? 2 : 1, p.col);
+  }
+}
+function drawBanner() {
+  const b = fx.banner; if (!b) return;
+  if (b.t > b.dur - 0.3 && Math.floor(b.t * 16) % 2) return;
+  const fit = Math.max(1, Math.floor((W - 8) / (b.text.length * 6 - 1)));
+  const sx = Math.min(b.t < 0.05 ? 2 : b.t < 0.14 ? 4 : 3, fit);      // pop: small -> big -> settle
+  const w = textW(b.text, sx), x0 = Math.round((W - w) / 2), y = Math.round(b.y - (sx - 3) * 3.5 + Math.sin(b.t * 7) * 1.5);
+  drawText(b.text, x0 + sx, y + sx, '#000', sx);
+  for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [2, -2], [-2, 2], [-1, 0], [1, 0], [0, -1], [0, 1]]) drawText(b.text, x0 + ox, y + oy, '#000', sx);
+  const shift = Math.floor(b.t * 12);
+  [...b.text].forEach((ch, i) => drawText(ch, x0 + i * 6 * sx, y, b.cols[(i + shift) % b.cols.length], sx));
+  const tw = Math.floor(b.t * 8);                                       // twinkles at the corners
+  for (const [tx, ty, ph] of [[x0 - 8, y - 4, 0], [x0 + w + 6, y + 2, 1], [x0 + 10, y + 7 * sx + 5, 1], [x0 + w - 12, y - 6, 0]]) {
+    if ((tw + ph) % 2) continue;
+    rect(tx - 2, ty, 5, 1, '#f8d878'); rect(tx, ty - 2, 1, 5, '#f8d878'); rect(tx, ty, 1, 1, COL.white);
+  }
+}
+function celebratePerfect() {
+  const wx = ball.x, wh = ball.h + 3;
+  fx.flash = 0.18; fx.flashCol = '#fcfcfc'; fx.shake = 0.3; fx.shakeAmp = 2;
+  fxBurst(wx, wh, 26, GOLDS, 70, { stars: 0.6 });
+  fxBurst(wx, wh, 10, GOLDS, 40, { up: true, stars: 1, life: 1.3 });
+  fx.glow = true; fx.glowT = 0;
+  fxBanner('PERFECT!', ['#f8d878', '#fcfcfc', '#fc9838', '#fcfc9c'], 1.5, 42);   // sits below the message box
+  const gsx = Math.round(ball.x - camX) - facing * 7;                    // the dog pops up beside the golfer to cheer
+  const behind = facing > 0 ? gsx - 62 : gsx + 14, front = facing > 0 ? gsx + 18 : gsx - 66;
+  dogPop = { x: clamp(behind >= 4 && behind <= W - 52 ? behind : front, 4, W - 52), kind: 'cheer', t: 0, hold: 1.0 };
+  SFX.perfect();
+}
+let holedDur = 0.9;
+function celebrateHoleOut() {   // hole in one or a chip-in from off the green
+  const gh = groundH(hole, hole.cup) + 2;
+  fxBurst(hole.cup, gh, 40, CONFETTI, 75, { up: true, conf: true, g: 50, life: 1.7, stars: 0 });
+  fxBurst(hole.cup, gh, 16, GOLDS, 55, { stars: 1 });
+  fx.flash = 0.2; fx.flashCol = '#fcfcfc'; fx.shake = 0.35; fx.shakeAmp = 2;
+  fxBanner(strokes === 1 ? 'HOLE IN ONE!' : 'CHIP IN!', ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8'], 2.0, 42);
+  msg = null; SFX.perfect();
+  holedDur = 2.1;
+}
+
 /* --- swing flow --- */
 function action() {
   audioOn();
   if (state === 'title') { menuActivate(titleSel); return; }
   if (state === 'board') { if (st > 0.3) closeBoard(); return; }
   if (state === 'intro') { if (st > 0.3) setState('aim'); return; }
-  if (state === 'aim') { meter.pos = 0; meter.dir = 1; setState('power'); SFX.tick(); return; }
-  if (state === 'power') { meter.power = Math.max(0.02, meter.pos); meter.acc = meter.pos; setState('accuracy'); SFX.tick(); return; }
-  if (state === 'accuracy') { errPx = meter.acc * 128; setState('swing'); return; }
+  if (state === 'aim') { meter.pos = 0; meter.dir = 1; for (const k in held) delete held[k]; setState('power'); SFX.tick(); return; }
+  if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }
+  if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
   if (state === 'card' && st > 1.2) { openBoard(lastEntry); return; }
 }
+// where the meter marker is right now: input arrives between frames, so add the time since the last update
+function meterLive() {
+  const lag = clamp((performance.now() - last) / 1000, 0, 1 / 20) * TIME_SCALE;
+  if (state === 'power') { let p = meter.pos + meter.dir * PW_SPEED * lag; if (p > 1) p = 2 - p; return clamp(p, 0, 1); }
+  if (state === 'accuracy') return Math.max(ACC_MIN, meter.acc - ACC_SPEED * lag);
+  return 0;
+}
+function commitAccuracy(acc) {
+  const raw = acc * 128;
+  meter.acc = acc;
+  shotSweet = Math.abs(raw) <= SWEET_ERR;                      // inside the green zone = clean contact, no hook/slice
+  shotPerfect = clubIdx !== 3 && meter.power >= PERFECT_POW && Math.abs(raw) <= PERFECT_ERR;
+  errPx = shotSweet ? 0 : clamp(raw, ACC_MIN * 128, -ACC_MIN * 128);   // a wild early click is a big slice, never a backwards shot
+  SFX.tick(); setState('swing');
+}
+const SWING_ADDR = 75, DOWN_T = 0.13, FOLLOW_T = 0.45;
+const backswingTop = p => clubIdx === 3 ? SWING_ADDR + 75 * p : SWING_ADDR + 215 * p;
 function launch() {
   strokes++; lastSpot = ball.x;
   const lie = surfAt(hole, ball.x);
@@ -615,14 +723,15 @@ function launch() {
   trail = []; trailT = 0;
   if (clubIdx === 3) SFX.putt(); else SFX.hit();
   if (clubIdx !== 3) {
-    if (Math.abs(errPx) <= 1.5) showMsg('NICE SHOT!', COL.lime, 1.0);
-    else if (errPx > 4) showMsg('SLICE!', COL.orange, 1.0);
-    else if (errPx < -4) showMsg('HOOK!', COL.orange, 1.0);
+    if (shotPerfect) celebratePerfect();
+    else if (shotSweet) showMsg('NICE SHOT!', COL.lime, 1.0);
+    else if (errPx > SWEET_ERR) showMsg('SLICE!', COL.orange, 1.0);
+    else if (errPx < -SWEET_ERR) showMsg('HOOK!', COL.orange, 1.0);
   }
   setState('flight');
 }
 function resolveBall(r) {
-  if (r === 'cup') { SFX.cup(); setState('holed'); return; }
+  if (r === 'cup') { SFX.cup(); holedDur = 0.9; if (strokes === 1 || clubIdx !== 3) celebrateHoleOut(); setState('holed'); return; }
   if (r === 'water' || r === 'ob') {
     strokes++;
     penaltyKind = r;
@@ -641,6 +750,7 @@ function resolveBall(r) {
   setState('aim'); swingAng = 75;
 }
 function finishHole() {
+  fx.banner = null;
   scores[holeIdx] = Math.min(strokes, 10);
   const d = scores[holeIdx] - hole.par;
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
@@ -668,7 +778,7 @@ function finishRound() {
 
 /* ---------------- input ---------------- */
 function toLogical(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
-const CLUB_BOX = { x: 2, y: 201, w: 55, h: 11 };
+const CLUB_BOX = { x: 2, y: 201, w: 66, h: 11 };
 let touchDown = null;
 function aimAt(px, py) {
   if (state !== 'aim' || clubIdx === 3 || py >= PLAY_H) return;
@@ -677,16 +787,39 @@ function aimAt(px, py) {
   if (dx < 3 && dy < 3) return;
   const a = Math.atan2(dy, Math.max(dx, 0.001)) * 180 / Math.PI;
   const c = CLUBS[clubIdx];
-  angle = Math.round(clamp(a, c.min, c.max));
+  const na = Math.round(clamp(a, c.min, c.max));
+  if (na !== Math.round(angle)) angFlash = 0.3;
+  angle = na;
   const f = px >= bx ? 1 : -1;
   if (Math.abs(px - bx) > 12) facing = f;
 }
+// touch: drag up/down = loft (relative, fine-grained), drag left/right = direction
+function dragAim(p) {
+  if (state !== 'aim' || !touchDown) return;
+  const dx = p.x - touchDown.x;
+  if (Math.abs(dx) > 28 && Math.sign(dx) !== facing) { facing = Math.sign(dx); SFX.tick(); }
+  if (clubIdx === 3) return;
+  const c = CLUBS[clubIdx], na = clamp(touchDown.ang0 + (touchDown.y0 - p.y) * 0.4, c.min, c.max);
+  if (Math.round(na) !== Math.round(angle)) { angFlash = 0.3; if (Math.round(na) % 5 === 0) SFX.tick(); }
+  angle = na;
+}
+function nudgeAngle(d) {
+  if (clubIdx === 3) return;
+  const c = CLUBS[clubIdx];
+  angle = clamp(Math.round(angle) + d, c.min, c.max); angFlash = 0.3; SFX.tick();
+}
+const aimKey = k => (k === 'ArrowUp' || k === 'w' || k === 'W') ? 'up' : (k === 'ArrowDown' || k === 's' || k === 'S') ? 'down' : null;
+addEventListener('keyup', e => { const a = aimKey(e.key); if (a) delete held[a]; });
+addEventListener('blur', () => { for (const k in held) delete held[k]; });
 function inClubBox(p) { return p.x >= CLUB_BOX.x && p.x < CLUB_BOX.x + CLUB_BOX.w && p.y >= CLUB_BOX.y && p.y < CLUB_BOX.y + CLUB_BOX.h; }
 cv.addEventListener('pointermove', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
   if (state === 'title' && e.pointerType === 'mouse') { const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   if (e.pointerType === 'mouse') aimAt(p.x, p.y);
-  else if (touchDown) { if (Math.hypot(p.x - touchDown.x, p.y - touchDown.y) > 6) touchDown.drag = true; if (touchDown.drag) aimAt(p.x, p.y); }
+  else if (touchDown) {
+    if (!touchDown.drag && Math.hypot(p.x - touchDown.x, p.y - touchDown.y) > 6) { touchDown.drag = true; touchDown.y0 = p.y; touchDown.ang0 = angle; }
+    if (touchDown.drag) dragAim(p);
+  }
 });
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); audioOn(); usingTouch = e.pointerType !== 'mouse';
@@ -696,19 +829,21 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'board') { if (st > 0.3) closeBoard(); touchDown = null; return; }
   if ((state === 'aim') && inClubBox(p)) { setClub(clubIdx + 1); return; }
   if (state === 'power' || state === 'accuracy' || e.pointerType === 'mouse') { action(); return; }
-  touchDown = { x: p.x, y: p.y, drag: false };
+  touchDown = { x: p.x, y: p.y, y0: p.y, ang0: angle, drag: false };
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
 cv.addEventListener('pointerup', e => {
   if (touchDown && !touchDown.drag) action();
   touchDown = null;
 });
+cv.addEventListener('pointercancel', () => { touchDown = null; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', e => {
   audioOn(); usingTouch = false;
   const k = e.key;
   if (state === 'custom') { if (cz) customKey(e); return; }
   if (k === 'm' || k === 'M') { muted = !muted; return; }
-  if (k === 'Escape') { board = null; setState('title'); dogPop = null; msg = null; return; }
+  if (k === 'Escape') { board = null; setState('title'); dogPop = null; msg = null; fxClear(); return; }
   if ([' ', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
   if (state === 'title') {
     if (k === 'ArrowUp' || k === 'w' || k === 'W') { titleSel = (titleSel + MENU.length - 1) % MENU.length; SFX.tick(); }
@@ -719,9 +854,8 @@ addEventListener('keydown', e => {
   if (k === ' ' || k === 'Enter') { if (!e.repeat) action(); return; }
   if ((k === 'r' || k === 'R') && hole && ['aim', 'power', 'accuracy', 'flight', 'penalty'].includes(state)) { strokes = 0; lastSpot = TEE_X; placeBall(TEE_X); msg = null; dogPop = null; showMsg('RESTART HOLE', COL.white, 1); setState('aim'); return; }
   if (state === 'aim') {
-    const c = CLUBS[clubIdx];
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') { angle = clamp(angle + 1, c.min, c.max); }
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') { angle = clamp(angle - 1, c.min, c.max); }
+    const ak = aimKey(k);
+    if (ak) { if (!(ak in held)) { nudgeAngle(ak === 'up' ? 1 : -1); held[ak] = 0; } }   // tap = 1 degree, hold = speeds up
     else if (k === 'ArrowLeft' || k === 'a' || k === 'A') facing = -1;
     else if (k === 'ArrowRight' || k === 'd' || k === 'D') facing = 1;
     else if (k === 'q' || k === 'Q') setClub(clubIdx - 1);
@@ -731,11 +865,13 @@ addEventListener('keydown', e => {
 });
 
 /* ---------------- update ---------------- */
-const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.3, ACC_MIN = -0.12;
+const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.1, ACC_MIN = -0.12;
 function update(dt) {
   st += dt;
+  updateFx(dt);
   if (msg) { msg.t += dt; if (msg.t > msg.dur) msg = null; }
   if (dogPop) dogPop.t += dt;
+  if (angFlash > 0) angFlash -= dt;
   switch (state) {
   case 'title': {
     titleCam += dt * 14; if (titleCam > titleHole.len - W) titleCam = 0;
@@ -751,25 +887,44 @@ function update(dt) {
     if (st > 3.0) setState('aim');
     break;
   }
-  case 'aim': camX = lerp(camX, camTarget(), Math.min(1, dt * 5)); break;
+  case 'aim': {
+    camX = lerp(camX, camTarget(), Math.min(1, dt * 5));
+    swingAng = lerp(swingAng, SWING_ADDR + (clubIdx === 3 ? 1 : 2.5) * Math.sin(st * 3), Math.min(1, dt * 12));   // settle + gentle waggle
+    for (const ak in held) {                                   // hold to aim faster: 1 deg tap, then ramps to 45 deg/s
+      held[ak] += dt;
+      const t = held[ak] - 0.22;
+      if (t > 0 && clubIdx !== 3) {
+        const c = CLUBS[clubIdx], prev = angle, rate = Math.min(45, 8 + 60 * t);
+        angle = clamp(angle + (ak === 'up' ? 1 : -1) * rate * dt, c.min, c.max);
+        if (Math.floor(prev / 5) !== Math.floor(angle / 5)) SFX.tick();
+        if (angle !== prev) angFlash = 0.3;
+      }
+    }
+    break;
+  }
   case 'power':
     meter.pos += meter.dir * PW_SPEED * dt;
-    if (meter.pos >= 1) { meter.pos = 1; meter.dir = -1; }
+    if (meter.pos >= 1) { meter.pos = 2 - meter.pos; meter.dir = -1; }
     if (meter.dir < 0 && meter.pos <= 0) { meter.pos = 0; setState('aim'); showMsg('SWING CANCELLED', COL.white, 0.8); }
-    swingAng = 75 + 215 * meter.pos;
+    swingAng = lerp(swingAng, backswingTop(meter.pos), Math.min(1, dt * 22));
     break;
   case 'accuracy':
     meter.acc -= ACC_SPEED * dt;
-    if (meter.acc <= ACC_MIN) { meter.acc = ACC_MIN; errPx = ACC_MIN * 128; setState('swing'); }
+    swingAng = lerp(swingAng, backswingTop(meter.power), Math.min(1, dt * 22));
+    if (meter.acc <= ACC_MIN) commitAccuracy(ACC_MIN);
     break;
-  case 'swing': {
-    const top = 75 + 215 * meter.power;
-    swingAng = lerp(top, 75, clamp(st / 0.12, 0, 1));
-    if (st >= 0.12) { SFX.whoosh(); launch(); }
+  case 'swing': {                                             // downswing: accelerates into the ball
+    const t = clamp(st / DOWN_T, 0, 1);
+    swingAng = lerp(backswingTop(meter.power), SWING_ADDR, t * t);
+    if (st >= DOWN_T) { swingAng = SWING_ADDR; SFX.whoosh(); launch(); }
     break;
   }
   case 'flight': {
-    if (st < 0.4) swingAng = lerp(75, clubIdx === 3 ? 40 : -110, st / 0.4);
+    if (st < FOLLOW_T + 0.05) {                               // follow-through eases out into the finish pose
+      const t = clamp(st / FOLLOW_T, 0, 1), e = 1 - (1 - t) ** 3;
+      const fin = clubIdx === 3 ? SWING_ADDR - 40 * Math.min(1, meter.power + 0.3) : lerp(15, -110, clamp(meter.power * 1.3, 0, 1));
+      swingAng = lerp(SWING_ADDR, fin, e);
+    }
     let r = null;
     const n = Math.round(dt / STEP);
     for (let i = 0; i < n && !r; i++) {
@@ -791,7 +946,7 @@ function update(dt) {
     }
     break;
   case 'holed':
-    if (st > 0.9) finishHole();
+    if (st > holedDur) finishHole();
     break;
   case 'custom': if (cz && cz.warn > 0) cz.warn -= dt; break;
   case 'done': case 'card': case 'board': break;
@@ -810,10 +965,6 @@ function msgBox(lines, y, cols) {
   const w = Math.max(...lines.map(l => textW(l))) + 16, h = lines.length * 11 + 8, x = Math.round((W - w) / 2);
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   lines.forEach((l, i) => drawTextC(l, y + 6 + i * 11, cols ? cols[i] : COL.white));
-}
-function logoBadge(x, y) {   // small logo on a sky-blue badge so the black lettering reads
-  rect(x, y, 36, 26, COL.white); rect(x + 1, y + 1, 34, 24, COL.sky);
-  if (LOGO_SMALL.complete) ctx.drawImage(LOGO_SMALL, x + 2, y + 2);
 }
 
 const CLOUDS = [[20, 22], [120, 40], [210, 16], [330, 34], [440, 20]];
@@ -930,21 +1081,32 @@ function drawCourse(hl, cam) {
     rect(fx + 2, fgy - 29, 13, 1, '#000');
   }
 }
-function drawGolfer(sx, gy, dir, ang, look = lookOf(player)) {
+function drawGolfer(sx, gy, dir, ang, look = lookOf(player), pose = {}) {
   // feet at (sx, gy); facing dir; ang = club angle in degrees (screen space, facing right)
+  // pose.finish (0..1): rear heel up + hips turned to the target; pose.smear: angle the club head swept from
   const X = dx => sx + dir * dx;
   const r = (dx, dy, w, h, c) => { const x0 = dir > 0 ? X(dx) : X(dx) - w + 1; rect(x0, gy + dy, w, h, c); };
-  r(-5, -1, 4, 1, '#000'); r(1, -1, 4, 1, '#000');                  // shoes
-  r(-4, -9, 3, 8, COL.pants); r(1, -9, 3, 8, COL.pants);             // legs
-  r(-5, -9, 1, 8, '#000'); r(4, -9, 1, 8, '#000');
+  const fin = (pose.finish || 0) > 0.5;
+  if (fin) { r(-3, -2, 2, 2, '#000'); r(-3, -9, 3, 7, look.pants); r(-4, -9, 1, 7, '#000'); }   // rear foot up on its toe, knee in
+  else { r(-5, -1, 4, 1, '#000'); r(-4, -9, 3, 8, look.pants); r(-5, -9, 1, 8, '#000'); }
+  r(1, -1, 4, 1, '#000');                                            // front shoe
+  r(1, -9, 3, 8, look.pants); r(4, -9, 1, 8, '#000');                // front leg
   r(-4, -10, 8, 1, '#000');                                          // belt
   r(-4, -17, 8, 7, look.shirt); r(-5, -17, 1, 7, '#000'); r(4, -16, 1, 6, '#000'); // shirt
-  r(-3, -16, 1, 5, look.shirtD);
+  r(fin ? 2 : -3, -16, 1, 5, look.shirtD);
   r(-1, -22, 5, 5, look.skin); r(-2, -22, 1, 5, '#000'); r(4, -21, 1, 3, '#000'); r(-1, -18, 5, 1, '#000'); // head
   r(2, -21, 1, 1, '#000');                                            // eye
-  r(-2, -24, 6, 2, COL.cap); r(3, -23, 3, 1, COL.cap); r(-2, -25, 6, 1, '#000'); // cap + brim
+  r(-2, -24, 6, 2, look.hat); r(3, -23, 3, 1, look.hatD); r(-2, -25, 6, 1, '#000'); r(6, -23, 1, 1, '#000'); // cap + brim
   const a = ang * Math.PI / 180;
   const shx = X(2), shy = gy - 15;
+  if (pose.smear != null) {                                          // motion arc behind the club head
+    const a2 = Math.min(pose.smear, ang + 130);
+    for (let b = ang + 7; b <= a2; b += 7) {
+      const k = (b - ang) / 130, rr = b * Math.PI / 180;
+      if (k > 0.6 && Math.round(b / 7) % 2) continue;
+      rect(shx + dir * Math.cos(rr) * 17, shy + Math.sin(rr) * 17, k < 0.3 ? 2 : 1, k < 0.3 ? 2 : 1, k < 0.3 ? COL.white : k < 0.6 ? '#bcf0fc' : COL.gray);
+    }
+  }
   const hx = shx + dir * Math.cos(a) * 6, hy = shy + Math.sin(a) * 6;
   const cx = hx + dir * Math.cos(a) * 11, cy = hy + Math.sin(a) * 11;
   line(hx, hy, cx, cy, COL.grayD);
@@ -953,23 +1115,51 @@ function drawGolfer(sx, gy, dir, ang, look = lookOf(player)) {
   line(shx, shy + 1, hx, hy + 1, look.skin);
 }
 function drawTrail() {
-  trail.forEach(([x, h], i) => { const sx = Math.round(x - camX), sy = Math.round(BASE - h) - 2; if (sy > 0) rect(sx, sy, 1, 1, i % 2 ? COL.white : '#bcf0fc'); });
+  const gold = shotPerfect;                                    // perfect shots leave a glowing gold trail
+  trail.forEach(([x, h], i) => {
+    const sx = Math.round(x - camX), sy = Math.round(BASE - h) - 2; if (sy <= 1) return;
+    if (gold) { rect(sx - 1, sy - 1, 3, 3, i % 2 ? '#fc9838' : '#f8d878'); rect(sx, sy, 1, 1, COL.white); }
+    else rect(sx, sy, 1, 1, i % 2 ? COL.white : '#bcf0fc');
+  });
 }
 function drawBall() {
   const sx = Math.round(ball.x - camX), sy = Math.round(BASE - ball.h) - 4;
   if (state === 'holed') return;
   if (ball.mode === 'air') { const gy = Math.round(BASE - groundH(hole, ball.x)); rect(sx - 1, gy - 1, 3, 1, '#000'); }
   if (sy < 0) { rect(sx - 2, 1, 5, 1, COL.white); rect(sx - 1, 2, 3, 1, COL.white); rect(sx, 3, 1, 1, COL.white); drawText(Math.round(ball.h) + '', sx + 4, 1, COL.white); return; }
+  if (fx.glow && ball.mode === 'air') { const c = Math.floor(performance.now() / 70) % 2 ? '#f8d878' : COL.white; rect(sx - 3, sy + 1, 7, 3, c); rect(sx - 1, sy - 1, 3, 7, c); }
   ctx.drawImage(SPR.golfball, sx - 2, sy);
 }
+function aimDot(wx, wh, k, col) {   // k: 0 near the ball .. 1 at the far end
+  const x = Math.round(wx - camX), y = Math.round(BASE - wh);
+  if (y < 1 || y >= PLAY_H) return;
+  if (k < 0.7) { rect(x, y, 2, 2, col); rect(x + 1, y + 2, 2, 1, '#000'); rect(x + 2, y + 1, 1, 1, '#000'); }
+  else rect(x, y, 1, 1, col);
+}
 function drawAim() {
-  const bx = ball.x - camX, by = BASE - ball.h - 2;
-  const a = angle * Math.PI / 180;
-  const n = clubIdx === 3 ? 6 : 9;
-  for (let i = 2; i < n; i++) {
-    const d = i * 4, x = bx + facing * Math.cos(a) * d, y = by - Math.sin(a) * d;
-    rect(x, y, 2, 2, i % 2 ? COL.white : '#000');
+  const pw = state === 'power' ? meter.pos : state === 'accuracy' ? meter.power : 1;
+  const lenK = state === 'aim' ? 1 : 0.3 + 0.7 * pw;
+  const col = state !== 'aim' && pw >= PERFECT_POW ? '#f8d878' : COL.white;
+  const phase = (performance.now() / 1000 * 1.6) % 1, gap = 6;
+  if (clubIdx === 3) {                                     // putt: dots roll along the green
+    const len = 34 * lenK;
+    for (let d = 5 + gap * phase; d < len; d += gap) { const wx = ball.x + facing * d; aimDot(wx, groundH(hole, wx) + 3, d / len, col); }
+    return;
   }
+  const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, 0);
+  const len = [80, 68, 56][clubIdx] * lenK, dt = 1 / 120;
+  let x = ball.x, h = ball.h + 3, vy = lv.vy, run = 0, next = 6 + gap * phase;
+  for (let i = 0; i < 400 && run < len; i++) {
+    const nx = x + lv.vx * dt, nh = h + vy * dt; vy -= G * dt;
+    run += Math.hypot(nx - x, nh - h); x = nx; h = nh;
+    if (h < groundH(hole, x)) break;
+    if (run >= next) { aimDot(x, h, run / len, col); next += gap; }
+  }
+}
+function golferPose() {
+  if (state === 'swing') return { smear: backswingTop(meter.power) };
+  if (state === 'flight') return { finish: clubIdx === 3 ? 0 : clamp((st - 0.04) / 0.2, 0, 1), smear: st < 0.1 && clubIdx !== 3 ? backswingTop(meter.power) : null };
+  return {};
 }
 function drawDogPop() {
   if (!dogPop) return;
@@ -981,48 +1171,68 @@ function drawDogPop() {
   dimg(SPR.front, x, y + hop);
   dimg(SPR.paw, x + 42, y + 24 + hop); ctx.drawImage(SPR.bigball, x + 41, y + 12 + hop);
 }
+const HUD_COLS = [[2, 66], [70, 52], [124, 70], [196, 58]];   // [x, w], shared by HUD rows 1 + 2
+function hudCell(i, y, text, col, border) {
+  const [x, w] = HUD_COLS[i]; box(x, y, w, 11, border);
+  drawText(text, x + Math.round((w - textW(text)) / 2), y + 2, col);
+}
+const MZ = 20, ML = 112;                                       // meter: x of the sweet-spot line, pixels for 100% power
+function meterMarker(x, col) { rect(x - 2, 223, 5, 14, '#000'); rect(x - 1, 224, 3, 12, col); }
+function drawMeter() {
+  box(2, 214, 138, 24);
+  const mx = p => Math.round(MZ + p * ML), y0 = 226, gz = mx(PERFECT_POW), ge = mx(1);
+  const sw = Math.round(SWEET_ERR / 128 * ML), blink = Math.floor(performance.now() / 120) % 2;
+  rect(5, y0 - 1, 133, 11, '#000'); rect(6, y0, 131, 9, '#2c2c2c');
+  rect(6, y0, MZ - 6, 9, '#5c1c00');                           // late = hook side
+  rect(gz, y0, ge - gz + 1, 9, '#4c3c00');                     // gold PERFECT power zone
+  for (const q of [0.25, 0.5, 0.75]) { rect(mx(q), y0, 1, 2, COL.grayD); rect(mx(q), y0 + 7, 1, 2, COL.grayD); }
+  const showP = state === 'power' ? meter.pos : (['accuracy', 'swing', 'flight'].includes(state) ? meter.power : 0);
+  const n = Math.round(showP * ML);
+  for (let i = 0; i < n; i++) { const f = i / ML; rect(MZ + i, y0 + 1, 1, 7, f >= PERFECT_POW ? (blink ? '#fcfc9c' : '#f8d878') : f > 0.6 ? '#b8f818' : COL.lime); }
+  if (n > 0) rect(MZ, y0 + 1, n, 1, 'rgba(255,255,255,0.45)');
+  rect(MZ - sw, y0, 2 * sw + 1, 9, 'rgba(0,200,0,0.55)');         // green SWEET zone
+  rect(MZ - sw, y0 - 2, 2 * sw + 1, 1, COL.lime); rect(MZ - sw, y0 + 10, 2 * sw + 1, 1, COL.lime);
+  rect(gz, y0 - 2, ge - gz + 1, 1, '#f8d878'); rect(gz, y0 + 10, ge - gz + 1, 1, '#f8d878');
+  rect(MZ, y0 - 2, 1, 13, COL.white);                          // dead-center line
+  if (state === 'power') meterMarker(mx(meter.pos), COL.white);
+  if (state === 'accuracy') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), COL.white); }
+  if (state === 'swing' || state === 'flight') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange); }
+  let label = usingTouch ? 'TAP=SWING DRAG=AIM' : 'SPACE/CLICK = SWING', lc = COL.white;
+  if (state === 'power') label = usingTouch ? 'TAP = SET POWER' : 'SET POWER';
+  else if (state === 'accuracy') { label = 'STOP IN THE GREEN!'; lc = COL.lime; }
+  else if (state === 'swing' || state === 'flight') {
+    label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === 3 ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === 3 ? 'OFF LINE' : errPx > 0 ? 'SLICE' : 'HOOK');
+    lc = shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange;
+  }
+  drawText(label, 6, 216, lc);
+  if (['power', 'accuracy', 'swing', 'flight'].includes(state)) drawTextR(Math.round(showP * 100) + '%', 136, 216, showP >= PERFECT_POW ? '#f8d878' : COL.white);
+}
 function drawHUD() {
   rect(0, PLAY_H, W, H - PLAY_H, COL.dirt); rect(0, PLAY_H, W, 1, '#000');
   for (let i = 0; i < 90; i++) rect(Math.floor(hash(i * 3) * W), 188 + Math.floor(hash(i * 5 + 1) * 52), 2, 1, i % 2 ? COL.dirtD : COL.dirtL);
   if (!hole) return;
   const rel = relSoFar();
-  const cells = [['HOLE ' + (holeIdx + 1), COL.white], ['PAR ' + hole.par, COL.white], ['STROKE ' + strokes, COL.white], ['TOTAL ' + fmtRel(rel), rel <= 0 ? COL.lime : COL.orange]];
-  let x = 2;
-  for (const [t, c] of cells) { const w = textW(t) + 7; box(x, 188, w, 11); drawText(t, x + 4, 190, c); x += w + 2; }
-  // row 2: club, angle, wind, lie
-  box(CLUB_BOX.x, CLUB_BOX.y, CLUB_BOX.w, CLUB_BOX.h, state === 'aim' ? COL.white : COL.lime);
-  drawText(CLUBS[clubIdx].name, CLUB_BOX.x + (CLUB_BOX.w - textW(CLUBS[clubIdx].name)) / 2, 203, COL.orange);
-  x = 59;
-  const at = clubIdx === 3 ? 'R=' + puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y' : 'ANG ' + angle;
-  box(x, 201, 41, 11); drawText(at, x + 4, 203, COL.white); x += 43;
-  const wt = wind === 0 ? 'CALM' : (wind > 0 ? '>' : '<') + Math.abs(wind) + 'MPH';
-  box(x, 201, 59, 11); drawText('W', x + 4, 203, COL.blue); drawText(wt, x + 12, 203, COL.white); x += 61;
+  // row 1: hole, par, stroke, total
+  hudCell(0, 188, 'HOLE ' + (holeIdx + 1), COL.white);
+  hudCell(1, 188, 'PAR ' + hole.par, COL.white);
+  hudCell(2, 188, 'STROKE ' + strokes, COL.white);
+  hudCell(3, 188, 'TOTAL ' + fmtRel(rel), rel <= 0 ? COL.lime : COL.orange);
+  // row 2: club (tap to change), angle, wind, lie
+  hudCell(0, 201, CLUBS[clubIdx].name, COL.orange, state === 'aim' ? COL.white : COL.lime);
+  const at = clubIdx === 3 ? 'R=' + puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y' : 'ANG ' + Math.round(angle);
+  hudCell(1, 201, at, angFlash > 0 ? '#f8d878' : COL.white, angFlash > 0 ? COL.white : COL.lime);
+  const wt = wind === 0 ? 'CALM' : (wind > 0 ? '>' : '<') + Math.abs(wind) + 'MPH', [wx, ww] = HUD_COLS[2], wtx = wx + Math.round((ww - textW(wt) - 8) / 2);
+  box(wx, 201, ww, 11); drawText('W', wtx, 203, COL.blue); drawText(wt, wtx + 8, 203, COL.white);
   const lie = surfAt(hole, ball.x);
   const lieName = { tee:'TEE', fair:'FAIRWAY', rough:'ROUGH', sand:'SAND', green:'GREEN', water:'WATER', ob:'O.B.' }[lie] || '';
-  box(x, 201, 53, 11); drawText(lieName, x + (53 - textW(lieName)) / 2, 203, lie === 'sand' ? COL.sand : COL.lime);
-  logoBadge(218, 188);
-  // power meter
-  box(2, 214, 150, 24);
-  const z = 22, mx = (p) => z + p * 126;     // screen x for meter value
-  rect(6, 227, 144, 7, '#3c3c3c');
-  rect(6, 227, z - 6, 7, '#7c2800');           // accuracy zone (left of the line)
-  const showP = state === 'power' ? meter.pos : (['accuracy', 'swing', 'flight'].includes(state) ? meter.power : 0);
-  for (let i = 0; i < Math.round(showP * 126); i++) rect(z + i, 228, 1, 5, i < 70 ? COL.lime : i < 105 ? '#f8d878' : COL.red);
-  rect(z, 225, 1, 11, COL.white);              // sweet-spot line
-  rect(mx(1), 225, 1, 11, COL.grayD);
-  if (state === 'power') rect(mx(meter.pos) - 1, 225, 3, 11, COL.white);
-  if (state === 'accuracy') rect(mx(meter.acc) - 1, 225, 3, 11, COL.white);
-  if (['swing', 'flight'].includes(state)) rect(mx(errPx / 128), 225, 1, 11, COL.orange);
-  let label = 'SPACE/CLICK = SWING';
-  if (state === 'power') label = 'CLICK TO SET POWER';
-  else if (state === 'accuracy') label = 'CLICK ON THE LINE!';
-  else if (state === 'flight' || state === 'swing') label = 'POWER ' + Math.round(meter.power * 100) + '%';
-  drawText(label, 6, 217, COL.white);
-  // minimap + yardage
-  box(154, 214, 100, 24);
+  hudCell(3, 201, lieName, lie === 'sand' ? COL.sand : COL.lime);
+  drawMeter();
+  // minimap + yardage (wider now that the logo badge is gone)
+  const mbx = 142, mbw = 112;
+  box(mbx, 214, mbw, 24);
   const yd = Math.round(Math.abs(hole.cup - ball.x));
-  drawText('PIN ' + yd + 'Y', 158, 217, COL.white);
-  const mmx = 157, mmw = 94, mmy = 235, sc = mmw / hole.len;
+  drawText('PIN ' + yd + 'Y', mbx + 4, 216, COL.white);
+  const mmx = mbx + 3, mmw = mbw - 6, mmy = 235, sc = mmw / hole.len;
   for (let i = 0; i < mmw; i++) {
     const wx = Math.floor(i / sc), s = surfAt(hole, wx), hh = Math.round(groundH(hole, wx) * 0.15);
     const c = { water: COL.water, sand: COL.sand, green: COL.green2, rough: COL.grassD }[s] || COL.grass;
@@ -1076,29 +1286,29 @@ function renderCustom() {
   drawSkyScene();
   const blink = Math.floor(st * 4) % 2 === 0, YEL = '#f8d878';
   // golfer preview, large and centered, standing on the fairway
-  ctx.save(); ctx.translate(124, 222); ctx.scale(4, 4);
+  ctx.save(); ctx.translate(125, 222); ctx.scale(3, 3);
   drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
   ctx.restore();
-  ctx.drawImage(SPR.golfball, 146, 218);
+  ctx.drawImage(SPR.golfball, 144, 218);
   // name
   const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
   if (cz.name) outlined(cz.name, Math.round((W - textW(cz.name, 2)) / 2), ny, nf ? YEL : COL.white, 2);
   else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round((W - textW(ph, 2)) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
   rect(66, ny + 17, 124, 2, '#000'); rect(67, ny + 17, 122, 1, nf ? YEL : COL.white);
   if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round((W + textW(cz.name, 2)) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
-  if (cz.row === 0 && !cz.kb) { const hint = usingTouch ? 'TAP NAME TO TYPE' : 'TYPE YOUR NAME'; outlined(hint, Math.round((W - textW(hint)) / 2), ny + 24, COL.white); }
-  // skin + shirt toggles:  LABEL  <  [color]  >
-  [['SKIN', 1], ['SHIRT', 2]].forEach(([lab, r]) => {
+  if (cz.row === 0 && !cz.kb) { const hint = usingTouch ? 'TAP NAME TO TYPE' : 'TYPE YOUR NAME'; outlined(hint, Math.round((W - textW(hint)) / 2), ny + 21, COL.white); }
+  // look toggles:  LABEL  <  [color]  >
+  [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4]].forEach(([lab, r]) => {
     const y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
     outlined(lab, 122 - textW(lab, 2), y, col, 2);
     outlined('<', 132 - nudge, y, col, 2); outlined('>', 182 + nudge, y, col, 2);
-    const c = r === 1 ? SKINS[cz.skin] : SHIRTS[cz.shirt][0];
+    const lk = lookOf(cz), c = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r];
     rect(146, y - 1, 32, 16, '#000'); rect(147, y, 30, 14, f ? YEL : COL.white); rect(149, y + 2, 26, 10, '#000'); rect(150, y + 3, 24, 8, c);
   });
   // done / play
-  const dl = cz.from === 'play' ? 'PLAY' : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === 3 && !cz.kb;
-  outlined(dl, dx, CZ_Y[3], df ? YEL : COL.white, 2);
-  if (df) outlined('>', dx - 17 + (Math.floor(st * 4) % 2), CZ_Y[3], YEL, 2);
+  const dl = cz.from === 'play' ? 'PLAY' : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === CZ_DONE && !cz.kb;
+  outlined(dl, dx, CZ_Y[CZ_DONE], df ? YEL : COL.white, 2);
+  if (df) outlined('>', dx - 17 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
   // on-screen keyboard (only while open)
   if (cz.kb) {
     const P = KB_PANEL;
@@ -1143,7 +1353,6 @@ function renderCard() {
   drawCourse(hole, camX);
   rect(0, PLAY_H, W, H - PLAY_H, COL.dirt); rect(0, PLAY_H, W, 1, '#000');
   rect(6, 6, 244, 176, COL.white); rect(7, 7, 242, 174, '#000');
-  logoBadge(210, 10);
   drawTextC('FINAL SCORECARD', 14, COL.orange);
   drawText('PLAYER ' + (player.name || '--'), 14, 26, COL.blue);
   const x0 = 12, cw = 19, y0 = 44;
@@ -1174,27 +1383,36 @@ function render() {
   if (state === 'card') { renderCard(); drawCursor(); return; }
   if (state === 'custom') { renderCustom(); drawCursor(); return; }
   if (state === 'board') { renderBoard(); drawCursor(); return; }
+  const shaking = fx.shake > 0;
+  if (shaking) { rect(0, 0, W, PLAY_H, COL.sky); ctx.save(); const a = fx.shakeAmp * clamp(fx.shake / 0.2, 0, 1); ctx.translate(Math.round(rnd(-a, a)), Math.round(rnd(-a, a))); }
   drawCourse(hole, camX);
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
-  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) drawGolfer(gsx, ggy, facingForGolfer(), swingAng);
+  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookOf(player), golferPose());
   if (state === 'flight' || state === 'holed') drawTrail();
+  if (['aim', 'power', 'accuracy'].includes(state)) drawAim();
   drawBall();
-  if (state === 'aim') drawAim();
+  drawFxParts();
+  if (shaking) ctx.restore();
+  if (fx.flash > 0) { ctx.globalAlpha = clamp(fx.flash / 0.18, 0, 1) * 0.7; rect(0, 0, W, PLAY_H, fx.flashCol); ctx.globalAlpha = 1; }
   drawDogPop();
   drawHUD();
   if (state === 'intro') {
     const yards = Math.round(Math.abs(hole.cup - TEE_X));
     const lines = ['HOLE ' + (holeIdx + 1), 'PAR ' + hole.par, yards + ' YARDS', wind === 0 ? 'WIND CALM' : 'WIND ' + (wind > 0 ? '>' : '<') + ' ' + Math.abs(wind) + ' MPH'];
     const cols = [COL.white, COL.orange, COL.white, COL.blue];
-    if (holeIdx === 0) { lines.push('', 'UP/DOWN OR MOUSE = AIM', 'Q/E OR 1-4 = CLUB', 'CLICK/SPACE 3X = SWING'); cols.push(COL.white, COL.lime, COL.lime, COL.lime); }
+    if (holeIdx === 0) {
+      if (usingTouch) lines.push('', 'DRAG UP/DOWN = AIM', 'TAP CLUB BOX = CLUB', 'TAP 3X = SWING', 'GOLD POWER + GREEN = PERFECT');
+      else lines.push('', 'UP/DOWN (HOLD) OR MOUSE = AIM', 'Q/E OR 1-4 = CLUB', 'CLICK/SPACE 3X = SWING', 'GOLD POWER + GREEN = PERFECT');
+      cols.push(COL.white, COL.lime, COL.lime, COL.lime, '#f8d878');
+    }
     msgBox(lines, 22, cols);
   }
   if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2); rect(x, 20, w, 13, COL.white); rect(x + 1, 21, w - 2, 11, '#000'); drawText(msg.text, x + 6, 23, msg.col); }
+  drawBanner();
   if (state === 'done') {
     const x = 34, y = 14, w = 188, h = 92;
     rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
-    logoBadge(x + w - 40, y + 4);
     drawText('HOLE ' + (holeIdx + 1), x + 8, y + 8, COL.white);
     drawText('PAR ' + hole.par, x + 8, y + 19, COL.white);
     const nm = doneInfo.name;
@@ -1243,10 +1461,15 @@ if (/test/.test(location.hash)) {
         let cost = r.res === 'cup' ? -1 : (r.res === 'water' || r.res === 'ob') ? 1e6 : Math.abs(r.x - hole.cup) + (surfAt(hole, r.x) === 'sand' ? 25 : 0) + (surfAt(hole, r.x) === 'rough' ? 6 : 0);
         if (!bestShot || cost < bestShot.cost) bestShot = { c, a, p, cost };
       }
-      clubIdx = bestShot.c; angle = bestShot.a; facing = dir; meter.power = bestShot.p; errPx = 0; shotFacing = dir;
+      clubIdx = bestShot.c; angle = bestShot.a; facing = dir; meter.power = bestShot.p; errPx = 0; shotFacing = dir; shotSweet = true; shotPerfect = false;
       launch(); return bestShot;
     },
-    forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; launch(); },
+    forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); },
+    // drive the real meter commit path: set power, then stop the accuracy marker at acc (0 = dead center)
+    meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
+    get fx() { return { parts: fx.parts.length, banner: fx.banner ? fx.banner.text : null, glow: fx.glow, flash: fx.flash, dog: dogPop ? dogPop.kind : null }; },
+    get shot() { return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
+    setAngle(a) { angle = a; }, get held() { return Object.assign({}, held); },
     windowScan(x) {   // fraction of the power range (per club, default loft, perfect contact) that holes out
       const dir = hole.cup >= x ? 1 : -1, parts = [];
       for (let c = 0; c < 4; c++) { let cups = 0, n = 0, wet = 0; for (let p = 0.05; p <= 1; p += 0.001) { n++; const r = simulateShot(hole, 0, x, c, CLUBS[c].def, p, 0, dir); if (r.res === 'cup') cups++; if (r.res === 'water' || r.res === 'ob') wet++; } parts.push(CLUBS[c].name + ' ' + (100 * cups / n).toFixed(2) + '%'); }
