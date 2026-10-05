@@ -13,10 +13,10 @@
 <meta name="description" content="Play Dumb Luck Golf, a free retro 9-hole golf game. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
 <link rel="canonical" href="https://dumbluckgolf.com/">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=81">
+<link rel="manifest" href="manifest.webmanifest?v=81">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <meta property="og:title" content="Dumb Luck Golf">
 <meta property="og:description" content="Play Dumb Luck Golf, a free retro 9-hole golf game. Post your score on the leaderboard.">
@@ -33,10 +33,10 @@
 <style>
   html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-  /* Canvas paints the full visual viewport (incl. home-indicator / notch). Grass can fill to the bottom edge — no sky strip below. */
-  body{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;box-sizing:border-box;padding:0;
+  /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
+  body{position:fixed;inset:0;width:100%;height:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:0;
     --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
-  canvas{display:block;position:absolute;left:0;top:0;width:100%;height:100%;
+  canvas{display:block;position:absolute;inset:0;width:100% !important;height:100% !important;
     image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;touch-action:manipulation}
   #rot{display:none !important}
   #nameOverlay{display:none;position:fixed;left:0;right:0;top:0;z-index:50;padding:12px 12px calc(12px + env(safe-area-inset-top));
@@ -97,10 +97,16 @@ ctx.imageSmoothingEnabled = false;
 // the aspect ratio so we extend sky/grass (portrait) or the course sideways (wide), keeping crisp nearest-neighbor pixels. Integer device-pixel snap when it costs <8%.
 function cssPx(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
 function viewportCssSize() {
-  // Prefer visualViewport (Safari toolbars) then innerHeight/Width — full bleed including safe areas.
+  // Fill the layout / dvh box so grass reaches the bottom edge (no body-blue strip under Safari toolbars).
+  // Prefer the larger of visualViewport and layout viewport; never shorter than the fixed body.
   const vv = window.visualViewport;
-  const aw = Math.max(1, Math.round((vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || 1));
-  const ah = Math.max(1, Math.round((vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || 1));
+  const iw = Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || 1));
+  const ih = Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || 1));
+  const vw = vv ? Math.round(vv.width) : iw;
+  const vh = vv ? Math.round(vv.height) : ih;
+  // When Safari chrome shrinks visualViewport, still paint the full dvh body so no blue gap shows below the canvas.
+  const aw = Math.max(1, iw, vw);
+  const ah = Math.max(1, ih, vh);
   return { aw, ah };
 }
 function safeCssInsets() {
@@ -126,7 +132,7 @@ function resize() {
   const inset = safeCssInsets();
   SAFE = { t: Math.round(inset.t / sc), r: Math.round(inset.r / sc), b: Math.round(inset.b / sc), l: Math.round(inset.l / sc) };
   if (lw === W && lh === H && cv.width === lw && cv.height === lh) {
-    cv.style.width = aw + 'px'; cv.style.height = ah + 'px';
+    // CSS keeps canvas inset:0 / 100% — do not shrink style height below the body
     layoutChrome();
     return;
   }
@@ -145,7 +151,6 @@ function resize() {
   }
   cv.width = W; cv.height = H;
   ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
-  cv.style.width = aw + 'px'; cv.style.height = ah + 'px';
   layoutChrome();
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
@@ -336,6 +341,104 @@ async function loadScores(mode) {
 }
 /* ================= end leaderboard storage ================= */
 
+/* ================= anonymous play analytics (game_events) =================
+   Fire-and-forget inserts. Never blocks gameplay. Skipped in #test / #preview
+   (LEADERBOARD_CONFIG cleared) and whenever Supabase is unreachable. */
+const TRACK_VISITOR_KEY = 'dlg_visitor_v1';
+function trackEnabled() { return lbOnline() && !/^#(test|preview)/.test(location.hash || ''); }
+function trackVisitorId() {
+  try {
+    let id = localStorage.getItem(TRACK_VISITOR_KEY);
+    if (id && /^[a-zA-Z0-9_-]{8,64}$/.test(id)) return id;
+    const a = new Uint8Array(16);
+    (crypto.getRandomValues ? crypto.getRandomValues(a) : a).forEach((_, i) => { if (!crypto.getRandomValues) a[i] = (Math.random() * 256) | 0; });
+    id = Array.from(a, b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    localStorage.setItem(TRACK_VISITOR_KEY, id);
+    return id;
+  } catch (e) { return 'anon'; }
+}
+function trackDevice() {
+  const w = Math.min(screen.width || W, screen.height || H);
+  if (w <= 520) return 'phone';
+  if (w <= 900) return 'tablet';
+  return 'desktop';
+}
+function trackOs() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Android/i.test(ua)) return 'android';
+  if (/Mac OS X|Macintosh/i.test(ua)) return 'macos';
+  if (/Windows/i.test(ua)) return 'windows';
+  if (/Linux/i.test(ua)) return 'linux';
+  return 'other';
+}
+function trackBrowser() {
+  const ua = navigator.userAgent || '';
+  if (/Edg\//.test(ua)) return 'edge';
+  if (/OPR\/|Opera/i.test(ua)) return 'opera';
+  if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'chrome';
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'safari';
+  if (/Firefox\//.test(ua)) return 'firefox';
+  return 'other';
+}
+function trackStandalone() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (navigator.standalone) return true;
+  } catch (e) {}
+  return false;
+}
+function trackReferrerHost() {
+  try {
+    if (!document.referrer) return '';
+    return String(new URL(document.referrer).host || '').slice(0, 120);
+  } catch (e) { return ''; }
+}
+function trackScreen() {
+  try { return String((screen.width | 0) + 'x' + (screen.height | 0)).slice(0, 32); } catch (e) { return ''; }
+}
+function trackTz() {
+  try { return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 64); } catch (e) { return ''; }
+}
+function trackEndpoint() {
+  return String(LEADERBOARD_CONFIG.supabaseUrl).trim().replace(/\/+$/, '') + '/rest/v1/game_events';
+}
+function trackEvent(event, extra) {
+  if (!trackEnabled()) return;
+  try {
+    const body = {
+      event: String(event).slice(0, 24),
+      visitor_id: trackVisitorId(),
+      mode: extra && extra.mode != null ? String(extra.mode).slice(0, 40) : null,
+      course: extra && extra.course != null ? String(extra.course).slice(0, 40) : null,
+      strokes: extra && extra.strokes != null && isFinite(extra.strokes) ? Math.round(extra.strokes) : null,
+      device: trackDevice(),
+      os: trackOs(),
+      browser: trackBrowser(),
+      standalone: trackStandalone(),
+      referrer_host: trackReferrerHost() || null,
+      screen: trackScreen() || null,
+      tz: trackTz() || null
+    };
+    // strip nulls that PostgREST is fine with either way; keep for clarity on optional fields
+    const headers = lbHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' });
+    // fire-and-forget; never await in gameplay paths
+    Promise.resolve(lbFetch(trackEndpoint(), { method: 'POST', headers, body: JSON.stringify(body) })).catch(() => {});
+  } catch (e) { /* never throw into game */ }
+}
+function trackVisitOnce() {
+  if (!trackEnabled()) return;
+  try {
+    if (sessionStorage.getItem('dlg_visit_sent') === '1') return;
+    sessionStorage.setItem('dlg_visit_sent', '1');
+  } catch (e) {}
+  trackEvent('visit', { mode: null, course: null });
+}
+function trackRoundMeta() {
+  return { mode: scoreModeForSave(), course: courseKind || null };
+}
+/* ================= end analytics ================= */
+
 /* ---------------- 5x7 pixel font ---------------- */
 const FONT = {
 'A':[" ### ","#   #","#   #","#####","#   #","#   #","#   #"],'B':["#### ","#   #","#   #","#### ","#   #","#   #","#### "],
@@ -433,14 +536,7 @@ const LAUGH_HALF = FACE_HALF.slice();
 LAUGH_HALF[5] = " kddddbbkkkb"; LAUGH_HALF[6] = " kddddbbbbbb"; LAUGH_HALF[10] = "  kdddbbtkkk";
 LAUGH_HALF[11] = "  kdddbbtkpp"; LAUGH_HALF[12] = "   kddkbbtkp"; LAUGH_HALF[13] = "    kk kbbtk";
 SPR.front = makeSprite(mirror(FACE_HALF)); SPR.laugh = makeSprite(mirror(LAUGH_HALF));
-(function touchIcon() {   // 'Add to Home Screen' icon
-  try {
-    const c = mk(180, 180), g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-    g.fillStyle = '#63adff'; g.fillRect(0, 0, 180, 180); g.fillStyle = '#80d010'; g.fillRect(0, 146, 180, 34);
-    g.drawImage(SPR.front, 18, 12, 144, 132);
-    const l = document.createElement('link'); l.rel = 'apple-touch-icon'; l.href = c.toDataURL('image/png'); document.head.appendChild(l);
-  } catch (e) {}
-})();
+/* Home Screen icon: static apple-touch-icon.png / icon-*.png (no runtime override) */
 SPR.paw = makeSprite([" kkkk ","kbbbbk","kbtbbk","kbbbbk"," kkkk "]);
 SPR.golfball = makeSprite([" kkk ","kwwwk","kwwgk","kwggk"," kkk "]);
 // big golf ball the dog holds up
@@ -970,37 +1066,44 @@ function layoutChrome() {
   const lh0 = (LOGO_BIG.complete && LOGO_BIG.height) ? LOGO_BIG.height : 111;
   let ldW = lw0, ldH = lh0;
   if (portrait) {
-    // Portrait title (% of real viewport H). Icons occupy the top chrome; logo starts below them.
-    // logo ~9–33% H (≈82% W), PLAY/SHOP ~39%, board ~46–62%, hills ~72%, grass ~78%→bottom, dog ~88%.
-    const iconBot = st + 22;                         // gear / fullscreen row
-    const bobPad = 8;                                // logo bob amplitude + air gap under icons
-    TITLE_FAIR = Math.round(H * 0.78);               // grass top
-    TITLE_RIDGE = Math.round(H * 0.72);              // hill-line top
-    // Prefer ~82% width; keep top under icons. Aspect may land the bottom near ~33–35% H.
-    ldW = Math.min(W - 56, Math.round(W * 0.78));   // leave room so logo does not sit under gear/FS
+    // Portrait title: spread logo / menu / board through the upper sky, then hills+grass fill the lower third to the bottom edge.
+    // Short Safari toolbars (e.g. 390x664) previously left a huge empty sky gap under a cramped top stack.
+    const iconBot = st + 22;
+    const bobPad = 6;
+    // Ground band ~ bottom 30–34% so grass always reaches H (no blue strip)
+    TITLE_FAIR = Math.round(H * 0.68);
+    TITLE_RIDGE = Math.round(H * 0.62);
+    ldW = Math.min(W - 48, Math.round(W * 0.76));
     ldH = Math.round(lh0 * ldW / lw0);
-    let logoTop = Math.max(iconBot + bobPad, Math.round(H * 0.10));
-    const logoBotMax = Math.round(H * 0.35);
-    if (logoTop + ldH > logoBotMax) {
-      ldH = Math.max(Math.round(lh0 * 0.5), logoBotMax - logoTop);
-      ldW = Math.min(Math.round(W * 0.78), Math.round(lw0 * ldH / lh0));
+    const skyTop = iconBot + bobPad;
+    const skyBot = TITLE_RIDGE - 6;           // UI must end above hills
+    const boardH = Math.max(62, Math.min(84, Math.round(H * 0.145)));
+    const boardW = Math.min(236, W - 20);
+    const menuH = 16;
+    const gap = 8;
+    // Cap logo so logo+menu+board+gaps fit in skyTop..skyBot
+    const maxLogoH = Math.max(48, skyBot - skyTop - menuH - boardH - gap * 3);
+    if (ldH > maxLogoH) {
+      ldH = maxLogoH;
+      ldW = Math.min(Math.round(W * 0.76), Math.round(lw0 * ldH / lh0));
     }
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    LOGO_Y = logoTop;
-    MENU_Y0 = Math.round(H * 0.39);
-    const boardH = Math.max(66, Math.min(90, Math.round(H * 0.16)));
-    const boardW = Math.min(236, W - 24);
+    // Evenly distribute remaining slack between logo→menu→board→hills
+    const used = ldH + menuH + boardH;
+    const slack = Math.max(0, (skyBot - skyTop) - used);
+    const g1 = gap + Math.floor(slack / 3);
+    const g2 = gap + Math.floor(slack / 3);
+    const g3 = gap + (slack - 2 * Math.floor(slack / 3));
+    LOGO_Y = skyTop;
+    MENU_Y0 = LOGO_Y + ldH + g1;
     TLB_R.w = boardW; TLB_R.h = boardH;
     TLB_R.x = Math.round((W - boardW) / 2);
-    TLB_R.y = Math.round(H * 0.46);
-    // keep even sky gaps: logo→menu, menu→board, board→hills (nudge if stacked too tight)
-    if (MENU_Y0 < LOGO_Y + ldH + 10) MENU_Y0 = LOGO_Y + ldH + 10;
-    if (TLB_R.y < MENU_Y0 + MENU_DY + 10) TLB_R.y = MENU_Y0 + MENU_DY + 10;
+    TLB_R.y = MENU_Y0 + menuH + g2;
+    // Hills start mid-board so glass shows ridge through the panel; grass fills to canvas bottom.
     const boardBot = TLB_R.y + boardH;
-    if (TITLE_RIDGE - boardBot < 10) {
-      TITLE_RIDGE = Math.min(Math.round(H * 0.74), boardBot + Math.round(H * 0.08));
-      TITLE_FAIR = Math.min(H - Math.round(H * 0.16), TITLE_RIDGE + Math.round(H * 0.06));
-    }
+    TITLE_RIDGE = Math.max(TLB_R.y + Math.round(boardH * 0.35), Math.min(boardBot - 4, Math.round(H * 0.55)));
+    TITLE_FAIR = Math.min(H - Math.max(28, (SAFE.b || 0) + 8), Math.max(TITLE_RIDGE + Math.round(H * 0.05), Math.round(H * 0.66)));
+    if (H - TITLE_FAIR < 28) TITLE_FAIR = H - 28;
   } else {
     // desktop / landscape: keep the existing solid short-grass look
     const groundFrac = Math.min(0.14, 26 / Math.max(H, 1));
@@ -1022,12 +1125,13 @@ function layoutChrome() {
     TLB_R.y = boardY + Math.min(Math.floor(leftSky * 0.35), 12);
   }
   // customize: center the option list; raise ground so the golfer stands closer
-  CZ_FAIR = portrait ? Math.round(H * 0.52) : TITLE_FAIR;
-  const czGap = portrait ? 18 : 20;
-  let czTop = Math.round((CZ_FAIR - (5 * czGap + 40)) / 2);
-  if (czTop < 28) czTop = 28;
-  CZ_Y = [czTop, czTop + czGap + 10, czTop + 2 * czGap + 10, czTop + 3 * czGap + 10, czTop + 4 * czGap + 10, czTop + 5 * czGap + 10, czTop + 6 * czGap + 16];
-  if (CZ_Y[6] > CZ_FAIR - 28) { const sh = CZ_Y[6] - (CZ_FAIR - 28); for (let i = 0; i < CZ_Y.length; i++) CZ_Y[i] -= sh; }
+  CZ_FAIR = portrait ? Math.round(H * 0.50) : TITLE_FAIR;
+  const czGap = portrait ? (H < 420 ? 15 : 17) : 20;
+  // name + 5 option rows + lock-hint band (~14) + TEE OFF must fit above fairway
+  const hintBand = 14;
+  let czTop = Math.max(22, Math.round((CZ_FAIR - (6 * czGap + 36 + hintBand)) / 2));
+  CZ_Y = [czTop, czTop + czGap + 8, czTop + 2 * czGap + 8, czTop + 3 * czGap + 8, czTop + 4 * czGap + 8, czTop + 5 * czGap + 8, czTop + 6 * czGap + 8 + hintBand];
+  if (CZ_Y[6] > CZ_FAIR - 24) { const sh = CZ_Y[6] - (CZ_FAIR - 24); for (let i = 0; i < CZ_Y.length; i++) CZ_Y[i] -= sh; }
   DONE_R.x = Math.round((W - 136) / 2); DONE_R.y = CZ_Y[6] - 4; DONE_R.w = 136; DONE_R.h = 22;
   CZ_BACK_R.x = 2; CZ_BACK_R.y = 2; CZ_BACK_R.w = 66; CZ_BACK_R.h = 22;
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
@@ -1172,6 +1276,7 @@ const KB = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ0123'], ['4', '5', 
 /* KB_* via layoutChrome; KB_CW/CH constants above */
 function kbCells(r) { let c = 0; return KB[r].map(lab => { const w = lab === 'OK' ? 10 : lab.length > 1 ? 2 : 1; const o = { lab, x: KB_X0 + c * KB_CW, y: KB_Y0 + r * KB_CH, w: w * KB_CW - 2, h: KB_CH - 2 }; c += w; return o; }); }
 let cz = null, usingTouch = false;
+function isTouchUi() { return usingTouch || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0); }
 function openCustomize(from) {
   const needName = !player.name;
   // from 'play': pre-round step — saved look/name pre-filled; row on TEE OFF so one Enter/tap starts
@@ -1386,7 +1491,7 @@ function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y 
 function drawTitleBoard() {
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
   const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
-  const PANEL_A = 0.55;   // soft glass: readable but still see sky/hills behind (phone + desktop)
+  const PANEL_A = 0.48;   // soft glass ~0.55 intent; low enough that hills/sky read through on phone LCD
   const tlbText = (str, tx, ty, col, sc = 1) => {   // crisp 1px dark drop shadow (no heavy blocky outline)
     drawText(str, tx + sc, ty + sc, '#000', sc);
     drawText(str, tx, ty, col, sc);
@@ -1396,7 +1501,7 @@ function drawTitleBoard() {
   // gold frame stays fully opaque (drawn as rings — the inside is glass)
   ring(x, y, w, h, '#000'); ring(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
   ring(x + 2, y + 2, w - 4, h - 4, G1); ring(x + 3, y + 3, w - 6, h - 6, '#000');
-  ctx.globalAlpha = PANEL_A; rect(x + 4, y + 4, w - 8, h - 8, '#0c1848'); ctx.globalAlpha = 1;
+  ctx.globalAlpha = PANEL_A; rect(x + 4, y + 4, w - 8, h - 8, '#102860'); ctx.globalAlpha = 1;
   for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
   // header strip (opaque)
   ctx.drawImage(TROPHY, x + 7, y + 6);
@@ -1416,7 +1521,7 @@ function drawTitleBoard() {
   // LEFT: #1 big — translucent fill, opaque accents + text
   const leftW = 124, top = rows[0];
   ring(x + 5, bodyY, leftW, bodyH, '#000');
-  ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#3c2800'); ctx.globalAlpha = 1;
+  ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#2c2040'); ctx.globalAlpha = 1;
   rect(x + 6, bodyY + 1, leftW - 2, 1, '#7c5800');
   ctx.drawImage(CROWN, x + 10, bodyY + 4);
   tlbText('1ST', x + 9, bodyY + 16, '#d8a000');
@@ -1447,7 +1552,7 @@ function scoreName(strk, par) {
 }
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
-function startRound() { holeIdx = 0; scores = []; if (courseKind !== 'daily') weather = weather.id ? weather : pickWeather(); startHole(); }
+function startRound() { holeIdx = 0; scores = []; if (courseKind !== 'daily') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
   camY = 0; shotFx = null;
   hole = compileHole(HOLES[holeIdx]);
@@ -1784,6 +1889,11 @@ function finishRound() {
     saveWhere = 'saving';
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
+  try {
+    const meta = Object.assign(trackRoundMeta(), { strokes: total });
+    trackEvent('round_finish', meta);
+    if (!(NO_SAVE || practice)) trackEvent('score_submit', meta);
+  } catch (e) {}
   dogPop = null;
   setState('card'); SFX.fanfare();
 }
@@ -2922,7 +3032,7 @@ function drawMiniCard() {
   ctx.globalAlpha = 1;
 }
 function drawCursor() {
-  if (!mouse.seen) return;
+  if (!mouse.seen || isTouchUi()) return;   // never leave a stuck '+' crosshair on phones
   const x = Math.round(mouse.x), y = Math.round(mouse.y);
   ctx.fillStyle = '#000'; ctx.fillRect(x - 3, y, 7, 1); ctx.fillRect(x, y - 3, 1, 7);
   ctx.fillStyle = COL.white; ctx.fillRect(x - 3, y - 1, 3, 1); ctx.fillRect(x + 1, y - 1, 3, 1); ctx.fillRect(x - 1, y - 3, 1, 3); ctx.fillRect(x - 1, y + 1, 1, 3);
@@ -2956,7 +3066,8 @@ function drawSkyScene(fairTop) {
   }
   drawCart('scene', 0);
   rect(0, fairTop - 1, W, 1, '#000');                    // fairway strip — fills to canvas bottom (full viewport)
-  for (let sx = 0; sx < W; sx += 16) rect(sx, fairTop, Math.min(16, W - sx), H - fairTop, (sx >> 4) & 1 ? COL.grass : COL.fair2);
+  const grassH = Math.max(1, H - fairTop + 2);            // +2 covers subpixel / rounding so no body-blue fringe
+  for (let sx = 0; sx < W; sx += 16) rect(sx, fairTop, Math.min(16, W - sx), grassH, (sx >> 4) & 1 ? COL.grass : COL.fair2);
 }
 function renderTitle() {
   drawSkyScene(TITLE_FAIR);
@@ -2986,7 +3097,7 @@ function renderTitle() {
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
   const dogY = (H > W * 1.15)
-    ? Math.round(H * 0.88) - 8
+    ? Math.min(H - 20 - (SAFE.b || 0), TITLE_FAIR + Math.max(8, Math.round((H - TITLE_FAIR) * 0.45)))
     : TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2));
   ctx.drawImage(SPR[k], Math.round(d.x), dogY);
   drawMenuPopup();
@@ -3027,17 +3138,19 @@ function renderCustom() {
   rect(66, ny + 17, 124, 2, '#000'); rect(67, ny + 17, 122, 1, nf ? YEL : COL.white);
   if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round((W + textW(cz.name, 2)) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
   if (cz.row === 0 && !cz.kb) { const hint = 'TAP NAME TO TYPE'; outlined(hint, Math.round((W - textW(hint)) / 2), ny + 21, COL.white); }
-  // look toggles:  LABEL  <  [color]  >
+  // look toggles:  LABEL  <  [color]  >   (lock status never overlaps neighboring rows)
   [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4]].forEach(([lab, r]) => {
     const y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
     outlined(lab, 122 - textW(lab, 2), y, col, 2);
     outlined('<', 132 - nudge, y, col, 2); outlined('>', 182 + nudge, y, col, 2);
     const lk = lookOf(cz), c = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r];
-    rect(146, y - 1, 32, 16, '#000'); rect(147, y, 30, 14, f ? YEL : COL.white); rect(149, y + 2, 26, 10, '#000'); rect(150, y + 3, 24, 8, c);
-    if (r === 1 && !hatUnlocked(cz.hat)) {
-      outlined('LOCK', 186, y + 2, COL.orange);
-      const h = hatEarnHint(cz.hat); if (h) outlined(h, Math.round((W - textW(h)) / 2), y + 16, COL.gray);
-    }
+    const hatLock = r === 1 && !hatUnlocked(cz.hat);
+    rect(146, y - 1, 32, 16, '#000'); rect(147, y, 30, 14, f ? YEL : COL.white); rect(149, y + 2, 26, 10, '#000');
+    if (hatLock) {
+      // lock badge inside the swatch only — never to the right of '>'
+      rect(150, y + 3, 24, 8, '#183848');
+      outlined('LK', 154, y + 3, COL.orange);
+    } else rect(150, y + 3, 24, 8, c);
   });
   {
     const r = 5, y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
@@ -3045,8 +3158,23 @@ function renderCustom() {
     outlined('<', 132 - nudge, y, col, 2); outlined('>', 182 + nudge, y, col, 2);
     const tid = (cz.trail || 'white').toUpperCase().slice(0, 5);
     const locked = !trailUnlocked(cz.trail || 'white');
-    outlined(locked ? 'LOCK' : tid, 148, y + 2, locked ? COL.orange : col);
-    if (locked) { const h = trailEarnHint(cz.trail); if (h) outlined(h, Math.round((W - textW(h)) / 2), y + 16, COL.gray); }
+    // value stays between the arrows (same column as swatches)
+    if (locked) outlined('LK', 155, y + 2, COL.orange);
+    else outlined(tid, 148, y + 2, col);
+  }
+  // One centered unlock hint under the option list (above TEE OFF) — roomy, never overlaps rows
+  {
+    let hint = '';
+    if (cz.row === 1 && !hatUnlocked(cz.hat)) hint = 'LOCKED - ' + (hatEarnHint(cz.hat) || 'EARN TO UNLOCK');
+    else if (cz.row === 5 && !trailUnlocked(cz.trail || 'white')) hint = 'LOCKED - ' + (trailEarnHint(cz.trail) || 'EARN TO UNLOCK');
+    if (hint) {
+      const hy = Math.min(CZ_Y[CZ_DONE] - 14, CZ_Y[5] + 18);
+      const hw = textW(hint) + 10;
+      const hx = Math.round((W - hw) / 2);
+      rect(hx, hy - 1, hw, 11, '#000');
+      rect(hx + 1, hy, hw - 2, 9, '#183848');
+      drawText(hint, hx + 5, hy + 1, COL.orange);
+    }
   }
   // done / play
   if (cz.from === 'play' && !cz.kb) { const t = 'CUSTOMIZE'; outlined(t, Math.round((W - textW(t)) / 2), 2, COL.gray); }   // BACK sits top-left
@@ -3253,7 +3381,7 @@ function renderCourseSelect() {
     outlined(lab, Math.round((W - textW(lab, 2)) / 2), y, col, 2);
     if (sel) outlined('>', Math.round((W - textW(lab, 2)) / 2) - 16 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
   });
-  const hint = usingTouch ? 'TAP TO CHOOSE' : 'ENTER = SELECT   ESC = BACK';
+  const hint = isTouchUi() ? 'TAP TO CHOOSE' : 'ENTER = SELECT   ESC = BACK';
   drawTextC(hint, Math.round(H * 0.88), COL.gray);
 }
 function courseActivate(i) {
@@ -3334,6 +3462,7 @@ refreshTitleLB(true);
 requestAnimationFrame(frame);
 
 /* ---------------- PWA service worker ---------------- */
+try { trackVisitOnce(); } catch (e) {}
 if ('serviceWorker' in navigator && !/^#(test|preview)/.test(location.hash)) {
   addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
@@ -3376,7 +3505,7 @@ if (/test/.test(location.hash)) {
       return parts.join('  ');
     },
     goHole(i) { holeIdx = i; startHole(); setState('aim'); camX = camTarget(); },
-    openCustomize(from) { openCustomize(from || 'play'); },
+    openCustomize(from) { openCustomize(from || 'play'); }, patchCz(p) { if (!cz) return null; Object.assign(cz, p || {}); return Object.assign({}, cz); },
     quitToMenu() { quitToMenu(); },
     setPlayer(p) { player = Object.assign({}, player, p || {}); savePlayer(); },
     clearPlayer() { player = { name: '', skin: 0, shirt: 0, hat: 0, pants: 0 }; try { localStorage.removeItem('dlg_golf_player_v1'); } catch (e) {} },
