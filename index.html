@@ -1098,46 +1098,50 @@ function layoutChrome() {
   const lh0 = (LOGO_BIG.complete && LOGO_BIG.height) ? LOGO_BIG.height : 111;
   let ldW = lw0, ldH = lh0;
   if (portrait) {
-    // Portrait title: spread logo / menu / board through the upper sky, then hills+grass fill the lower third to the bottom edge.
-    // Short Safari toolbars (e.g. 390x664) previously left a huge empty sky gap under a cramped top stack.
+    // Portrait title (v8.4): big logo up top; board sits low over a short dog-grass strip; PLAY/DAILY/SHOP
+    // is vertically centered between logo bottom and board top (equal gaps). Row count adapts — never shrink
+    // the logo just to force more rows.
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
-    // Ground band ~ bottom 30–34% so grass always reaches H (no blue strip)
-    TITLE_FAIR = Math.round(H * 0.68);
-    TITLE_RIDGE = Math.round(H * 0.62);
-    ldW = Math.min(W - 48, Math.round(W * 0.76));
-    ldH = Math.round(lh0 * ldW / lw0);
     const skyTop = iconBot + bobPad;
-    const skyBot = TITLE_RIDGE - 6;           // UI must end above hills
-    const boardH = Math.max(62, Math.min(84, Math.round(H * 0.145)));
-    const boardW = Math.min(236, W - 20);
-    const menuH = 16;
-    const gap = 8;
-    // Cap logo so logo+menu+board+gaps fit in skyTop..skyBot
-    const maxLogoH = Math.max(48, skyBot - skyTop - menuH - boardH - gap * 3);
-    if (ldH > maxLogoH) {
-      ldH = maxLogoH;
-      ldW = Math.min(Math.round(W * 0.76), Math.round(lw0 * ldH / lh0));
-    }
-    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    // Evenly distribute remaining slack between logo→menu→board→hills
-    const used = ldH + menuH + boardH;
-    const slack = Math.max(0, (skyBot - skyTop) - used);
-    const g1 = gap + Math.floor(slack / 3);
-    const g2 = gap + Math.floor(slack / 3);
-    const g3 = gap + (slack - 2 * Math.floor(slack / 3));
+    const menuH = 14; // matches scale-2 PLAY/DAILY/SHOP glyph height
+    const minGap = 10; // equal logo↔menu and menu↔board padding
+    const safeBot = (SAFE.b || 0) + 4;
+    const dogStrip = Math.max(36, 28 + safeBot);
+    TITLE_FAIR = H - dogStrip;
+    // Logo near v8.3 size — do NOT shrink for leaderboard row count
+    ldW = Math.min(W - 40, Math.round(W * 0.78));
+    ldH = Math.round(lh0 * ldW / lw0);
     LOGO_Y = skyTop;
-    MENU_Y0 = LOGO_Y + ldH + g1;
-    TLB_R.w = boardW; TLB_R.h = boardH;
-    TLB_R.x = Math.round((W - boardW) / 2);
-    TLB_R.y = MENU_Y0 + menuH + g2;
-    // Hills start mid-board so glass shows ridge through the panel; grass fills to canvas bottom.
-    const boardBot = TLB_R.y + boardH;
-    TITLE_RIDGE = Math.max(TLB_R.y + Math.round(boardH * 0.35), Math.min(boardBot - 4, Math.round(H * 0.55)));
-    TITLE_FAIR = Math.min(H - Math.max(28, (SAFE.b || 0) + 8), Math.max(TITLE_RIDGE + Math.round(H * 0.05), Math.round(H * 0.60)));
-    if (H - TITLE_FAIR < 36) TITLE_FAIR = H - 36;
+    const sidePad = 8;
+    const boardW = W - sidePad * 2;
+    const minBoardH = 26 + 40 + 4 + 4 * 14 + 6; // head + champ + 4 list rows
+    let logoBot = LOGO_Y + ldH;
+    // Reserve equal gaps + menu; board takes the rest and sits on the fairway (low)
+    let maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap;
+    if (maxBoardH < minBoardH && ldH > 80) {
+      const cut = Math.min(minBoardH - maxBoardH, ldH - 80);
+      if (cut > 0) {
+        ldH -= cut;
+        ldW = Math.min(W - 40, Math.round(lw0 * ldH / lh0));
+        logoBot = LOGO_Y + ldH;
+        maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap;
+      }
+    }
+    let boardH = Math.max(minBoardH, maxBoardH);
+    let boardY = TITLE_FAIR - boardH;
+    // Center PLAY/DAILY/SHOP between logo bottom and board top
+    MENU_Y0 = logoBot + Math.round((boardY - logoBot - menuH) / 2);
+    if (MENU_Y0 < logoBot + minGap) MENU_Y0 = logoBot + minGap;
+    if (MENU_Y0 + menuH + minGap > boardY) MENU_Y0 = Math.max(logoBot + 4, boardY - menuH - minGap);
+    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
+    TLB_R.w = boardW; TLB_R.h = Math.max(minBoardH, boardH);
+    TLB_R.x = sidePad;
+    TLB_R.y = boardY;
+    TITLE_RIDGE = Math.max(MENU_Y0 + menuH + 8, TLB_R.y + Math.round(TLB_R.h * 0.35));
+    if (TITLE_RIDGE > TITLE_FAIR - 8) TITLE_RIDGE = TITLE_FAIR - 8;
   } else {
-    // desktop / landscape: keep logo near v8.2 native size; clear menu via gaps + shorter board + modest grass
+    // desktop / landscape: restore v8.3 layout exactly (logo size, menu gap, board 52px). Draw path clamps rows inside the frame.
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
@@ -1158,7 +1162,8 @@ function layoutChrome() {
     TLB_R.x = Math.round((W - boardW) / 2);
     TLB_R.y = boardY;
   }
-  // Customize: TOP-DOWN stack, then ground BELOW the UI (never squeeze UI into a fixed fairway).
+
+    // Customize: TOP-DOWN stack, then ground BELOW the UI (never squeeze UI into a fixed fairway).
   // Order: header → name+underline → gap G → 5 rows @ pitch P → LOCKED band → TEE OFF → gap → ridge/fairway → golfer.
   const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
   const minPitch = Math.max(Math.ceil(44 / sy), 22); // ≥44 CSS centers + scale-2 labels (~14px) never touch
@@ -1576,63 +1581,172 @@ const CROWN = pixArt([
   'kyybyyyryyybyyk',
   'koooooooooooook',
   'kkkkkkkkkkkkkkk'], GOLD);
-const TLB_TONES = [null, ['#fcfcfc', '#bcbcbc', '#7c7c7c'], ['#f0b080', '#c87c3c', '#7c3c00'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#a8b8d0', '#6c7c94', '#3c4c64']];
+const TLB_TONES = [null, ['#fcfcfc', '#bcbcbc', '#7c7c7c'], ['#f0b080', '#c87c3c', '#7c3c00'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#98a8c0', '#5c6c84', '#2c3c54'], ['#98a8c0', '#5c6c84', '#2c3c54']];
 function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y - r, 1, 2 * r + 1, col); }
 function drawTitleBoard() {
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
   const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
-  const PANEL_A = 0.48;   // soft glass ~0.55 intent; low enough that hills/sky read through on phone LCD
-  const tlbText = (str, tx, ty, col, sc = 1) => {   // crisp 1px dark drop shadow (no heavy blocky outline)
+  const PANEL_A = 0.48;
+  const tlbText = (str, tx, ty, col, sc = 1) => {
     drawText(str, tx + sc, ty + sc, '#000', sc);
     drawText(str, tx, ty, col, sc);
   };
   const ring = (rx, ry, rw, rh, c) => { rect(rx, ry, rw, 1, c); rect(rx, ry + rh - 1, rw, 1, c); rect(rx, ry, 1, rh, c); rect(rx + rw - 1, ry, 1, rh, c); };
   if (lit) ring(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878');
-  // gold frame stays fully opaque (drawn as rings — the inside is glass)
   ring(x, y, w, h, '#000'); ring(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
   ring(x + 2, y + 2, w - 4, h - 4, G1); ring(x + 3, y + 3, w - 6, h - 6, '#000');
   ctx.globalAlpha = PANEL_A; rect(x + 4, y + 4, w - 8, h - 8, '#102860'); ctx.globalAlpha = 1;
   for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
-  // header strip (opaque)
-  ctx.drawImage(TROPHY, x + 7, y + 6);
-  const title = 'TOP GOLFERS', band = (st * 9) % (title.length + 14);
-  [...title].forEach((ch, i) => tlbText(ch, x + 21 + i * 6, y + 8, Math.abs(i - band) < 1.2 ? COL.white : G1));
-  rect(x + 5, y + 19, w - 10, 1, '#a87000');
-  const rows = titleLB.rows, bodyY = y + 22, bodyH = h - 27;
-  if (!rows) { if (Math.floor(st * 3) % 2 === 0) tlbText('LOADING...', x + Math.round((w - textW('LOADING...')) / 2), y + 38, COL.gray); return; }
-  if (!rows.length) {
-    ctx.drawImage(TROPHY, x + 18, y + 28);
-    drawSpark(x + 14, y + 30, 1 + (Math.floor(st * 3) % 2), '#fce4a0');
-    tlbText('BE THE FIRST ON THE BOARD!', x + 36, y + 34, COL.white);
-    const pr = usingTouch ? 'TAP PLAY!' : 'PRESS PLAY!';
-    if (Math.floor(st * 2.5) % 2 === 0) tlbText(pr, x + 36, y + 46, G1);
+
+  const tall = h >= 100;   // portrait prominent board
+  // Header: use scale-1 on the tall board so glyphs + shadow sit fully inside the band (no clip on the divider)
+  const headH = tall ? 26 : 19;
+  const title = 'TOP GOLFERS', tSc = 1;
+  const tGlyph = 7 * tSc, tShadow = tSc;
+  const divY = y + headH - 2;
+  const tY = y + Math.max(5, Math.round((divY - y - tGlyph - tShadow) / 2));
+  ctx.drawImage(TROPHY, x + 7, y + Math.max(5, Math.round((divY - y - 12) / 2)));
+  const tX = x + (tSc === 2 ? 24 : 21);
+  const band = (st * 9) % (title.length + 14);
+  [...title].forEach((ch, i) => tlbText(ch, tX + i * 6 * tSc, tY, Math.abs(i - band) < 1.2 ? COL.white : G1, tSc));
+  rect(x + 5, divY, w - 10, 1, '#a87000');
+
+  const rows = titleLB.rows, bodyY = y + headH, bodyH = Math.max(8, h - headH - 5);
+  if (!rows) {
+    if (Math.floor(st * 3) % 2 === 0) tlbText('LOADING...', x + Math.round((w - textW('LOADING...', tSc)) / 2), y + Math.round(h / 2) - 4, COL.gray, tSc);
     return;
   }
-  // LEFT: #1 big — translucent fill, opaque accents + text
-  const leftW = 124, top = rows[0];
-  ring(x + 5, bodyY, leftW, bodyH, '#000');
-  ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#2c2040'); ctx.globalAlpha = 1;
-  rect(x + 6, bodyY + 1, leftW - 2, 1, '#7c5800');
-  ctx.drawImage(CROWN, x + 10, bodyY + 4);
-  tlbText('1ST', x + 9, bodyY + 16, '#d8a000');
-  const nm = top.name, nb = (st * 7) % (nm.length + 10);
-  [...nm].forEach((ch, i) => tlbText(ch, x + 30 + i * 6, bodyY + 5, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
-  const sc = fmtRel(top.to_par);
-  tlbText(sc, x + 30, bodyY + 17, '#f8d878', 2);
-  const sp = Math.abs(Math.floor(st * 2.2)) % 3, SPK = [[x + 8, bodyY + 2], [x + leftW - 4, bodyY + 6], [x + leftW - 10, bodyY + bodyH - 6]];
-  drawSpark(SPK[sp][0], SPK[sp][1], 1 + (Math.floor(st * 8) % 2), COL.white);
-  // RIGHT: #2-#5 compact column
-  const rx = x + 5 + leftW + 4;
-  for (let i = 1; i < 5; i++) {
-    const r = rows[i], ry = bodyY + (i - 1) * 10, [c1, c2, c3] = TLB_TONES[i];
-    rect(rx, ry, 7, 7, c3); rect(rx + 1, ry, 5, 7, c2); rect(rx, ry + 1, 7, 5, c2); rect(rx + 1, ry + 1, 2, 1, c1);
-    text3(ctx, String(i + 1), rx + 2, ry + 1, '#000');
-    if (!r) { tlbText('---', rx + 10, ry, '#3c4c64'); continue; }
-    const s2 = fmtRel(r.to_par), sw = textW(s2), room = (x + w - 6) - (rx + 10) - sw - 2;
-    let n = r.name; while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
-    tlbText(n, rx + 10, ry, c1); tlbText(s2, x + w - 6 - sw, ry, c1);
+
+  if (!tall) {
+    // Desktop / compact: left champion + only the right-column ranks that fit inside the frame
+    const leftW = Math.min(124, Math.round(w * 0.55)), top = rows[0];
+    ring(x + 5, bodyY, leftW, bodyH, '#000');
+    ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#2c2040'); ctx.globalAlpha = 1;
+    rect(x + 6, bodyY + 1, leftW - 2, 1, '#7c5800');
+    ctx.drawImage(CROWN, x + 10, bodyY + 3);
+    tlbText('1ST', x + 9, bodyY + 15, '#d8a000');
+    if (top) {
+      const nm = top.name, nb = (st * 7) % (nm.length + 10);
+      [...nm].forEach((ch, i) => tlbText(ch, x + 30 + i * 6, bodyY + 4, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
+      const sc = fmtRel(top.to_par);
+      tlbText(sc, x + 30, bodyY + Math.min(bodyH - 16, 16), '#f8d878', 2);
+    } else {
+      tlbText('---', x + 30, bodyY + 5, '#3c4c64');
+    }
+    // Single spark by the crown tip — never near the score digits at x+30
+    drawSpark(x + 9, bodyY + 2, 1 + (Math.floor(st * 8) % 2), COL.white);
+    const rx = x + 5 + leftW + 4;
+    // Fit ranks 2–4 (or 2–5) inside the v8.3 52px board — never draw past the frame
+    const glyphH = 8;
+    const fitN = Math.max(1, Math.min(4, Math.floor(bodyH / glyphH)));
+    const rowH = Math.floor(bodyH / fitN);
+    for (let i = 1; i <= fitN; i++) {
+      const r = rows[i], ry = bodyY + (i - 1) * rowH;
+      if (ry + glyphH > bodyY + bodyH) break;
+      const tone = TLB_TONES[Math.min(i, TLB_TONES.length - 1)] || TLB_TONES[3];
+      const [c1, c2, c3] = tone;
+      rect(rx, ry, 7, 7, c3); rect(rx + 1, ry, 5, 7, c2); rect(rx, ry + 1, 7, 5, c2); rect(rx + 1, ry + 1, 2, 1, c1);
+      text3(ctx, String(i + 1), rx + 2, ry + 1, '#000');
+      if (!r) { tlbText('---', rx + 10, ry, '#3c4c64'); continue; }
+      const s2 = fmtRel(r.to_par), sw = textW(s2), room = (x + w - 6) - (rx + 10) - sw - 2;
+      let n = r.name; while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
+      tlbText(n, rx + 10, ry, c1); tlbText(s2, x + w - 6 - sw, ry, c1);
+    }
+    return;
+  }
+
+  // Portrait tall board: adaptive list length. Prefer champ+4 .. top 10 from available height.
+  // Drop rows before looking cramped; only show "---" when a drawn slot has no data.
+  const listPad0 = 4;
+  const minChamp = 40, maxChamp = 56;
+  const minPitch = 14, maxPitch = 20;
+  const minList = 4, maxList = 9; // champion + 4 .. champion + 9 (= top 10)
+  let nList = maxList;
+  while (nList > minList) {
+    const pitchTry = Math.min(maxPitch, Math.max(minPitch, Math.floor((bodyH - listPad0 - minChamp) / nList)));
+    if (listPad0 + minChamp + nList * pitchTry <= bodyH) break;
+    nList--;
+  }
+  let listPad = listPad0;
+  let pitch = Math.floor((bodyH - listPad - minChamp) / nList);
+  pitch = Math.max(minPitch, Math.min(maxPitch, pitch));
+  let champH = bodyH - listPad - nList * pitch;
+  if (champH > maxChamp) {
+    champH = maxChamp;
+    pitch = Math.min(maxPitch, Math.floor((bodyH - listPad - champH) / nList));
+  }
+  if (champH < minChamp) champH = minChamp;
+  while (nList * pitch + listPad + champH > bodyH && pitch > minPitch) pitch--;
+  if (listPad + nList * pitch + champH > bodyH) champH = Math.max(36, bodyH - listPad - nList * pitch);
+  while (nList > minList && listPad + nList * pitch + champH > bodyH) {
+    nList--;
+    pitch = Math.max(minPitch, Math.min(maxPitch, Math.floor((bodyH - listPad - minChamp) / nList)));
+    champH = Math.min(maxChamp, Math.max(minChamp, bodyH - listPad - nList * pitch));
+  }
+  // Spend leftover height so the board never shows a dead empty glass band under the last row
+  let left = bodyH - listPad - champH - nList * pitch;
+  while (left >= minPitch && nList < maxList) {
+    nList++;
+    left -= minPitch;
+  }
+  if (left > 0 && pitch < maxPitch) {
+    const bump = Math.min(maxPitch - pitch, Math.floor(left / nList));
+    pitch += bump;
+    left -= bump * nList;
+  }
+  if (left > 0 && champH < maxChamp) {
+    const bump = Math.min(maxChamp - champH, left);
+    champH += bump;
+    left -= bump;
+  }
+  if (left > 0) listPad += left; // absorb remainder between champ and list
+  const SLOTS = nList + 1;
+
+  const top = rows[0];
+  ring(x + 5, bodyY, w - 10, champH, '#000');
+  ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, w - 12, champH - 2, '#2c2040'); ctx.globalAlpha = 1;
+  rect(x + 6, bodyY + 1, w - 12, 1, '#7c5800');
+  const crownY = bodyY + Math.max(4, Math.round((champH - 24) / 2));
+  ctx.drawImage(CROWN, x + 10, crownY);
+  tlbText('1ST', x + 10, Math.min(crownY + 18, bodyY + champH - 10), '#d8a000', 1);
+  {
+    const nameSc = 2;
+    const nameY = bodyY + Math.max(5, Math.round((champH - 14 * nameSc) / 2) - 2);
+    if (top) {
+      const nm = top.name, nb = (st * 7) % (nm.length + 10);
+      let shown = nm;
+      while (shown.length > 1 && textW(shown, nameSc) > w - 110) shown = shown.slice(0, -1);
+      [...shown].forEach((ch, i) => tlbText(ch, x + 32 + i * 6 * nameSc, nameY, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878', nameSc));
+      const sc = fmtRel(top.to_par);
+      const scY = Math.min(nameY, bodyY + champH - 16);
+      tlbText(sc, x + w - 12 - textW(sc, 2), scY, '#f8d878', 2);
+    } else {
+      tlbText('BE THE FIRST!', x + 32, nameY + 4, COL.white, 1);
+    }
+  }
+  drawSpark(x + 12, bodyY + 3, 1 + (Math.floor(st * 8) % 2), COL.white);
+
+  const listTop = bodyY + champH + listPad;
+  for (let i = 1; i < SLOTS; i++) {
+    const r = rows[i], ry = listTop + (i - 1) * pitch;
+    if (ry + 12 > y + h - 4) break;
+    const tone = TLB_TONES[Math.min(i, TLB_TONES.length - 1)] || ['#a8b8d0', '#6c7c94', '#3c4c64'];
+    const [c1, c2, c3] = tone;
+    const badge = Math.min(10, Math.max(8, pitch - 6));
+    const by = ry + Math.max(0, Math.round((Math.min(14, pitch) - badge) / 2));
+    rect(x + 8, by, badge, badge, c3); rect(x + 9, by, badge - 2, badge, c2); rect(x + 8, by + 1, badge, badge - 2, c2); rect(x + 9, by + 1, 2, 1, c1);
+    text3(ctx, String(i + 1), x + 10, by + 2, '#000');
+    const ty = by + Math.max(0, Math.round((badge - 7) / 2));
+    if (!r) { tlbText('---', x + 22, ty, '#3c4c64'); continue; }
+    const s2 = fmtRel(r.to_par), sw = textW(s2, 1);
+    let n = r.name;
+    const room = (x + w - 8 - sw - 4) - (x + 22);
+    while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
+    tlbText(n, x + 22, ty, c1, 1);
+    tlbText(s2, x + w - 8 - sw, ty, r.to_par < 0 ? COL.lime : (r.to_par === 0 ? COL.white : c1), 1);
   }
 }
+
 function fmtDate(s) { const d = new Date(s); if (!s || isNaN(d)) return '--'; const p = n => String(n).padStart(2, '0'); return p(d.getMonth() + 1) + '/' + p(d.getDate()) + '/' + p(d.getFullYear() % 100); }
 const fmtRel = d => d === 0 ? 'E' : (d > 0 ? '+' + d : String(d));
 function scoreName(strk, par) {
@@ -3196,7 +3310,7 @@ function renderTitle() {
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
   const dogBot = H - 4 - (SAFE.b || 0);
   const dogY = (H > W * 1.15)
-    ? Math.min(dogBot - 18, TITLE_FAIR + Math.max(8, Math.round((H - TITLE_FAIR) * 0.45)))
+    ? Math.min(dogBot - 18, TITLE_FAIR + Math.max(4, Math.round((H - TITLE_FAIR - 18) * 0.35)))
     : Math.min(dogBot - 18, TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2)));
   ctx.drawImage(SPR[k], Math.max(2, Math.min(W - 28, Math.round(d.x))), dogY);
   drawMenuPopup();
@@ -3205,14 +3319,24 @@ function drawMenuPopup() {
   const p = menuPopup; if (!p) return;
   const shop = p.kind === 'shop', YEL = '#f8d878';
   ctx.globalAlpha = 0.55; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
+  if (shop) {
+    // v8.4: shop popup is just "COMING SOON" — no merch line / extra copy
+    const msg = 'COMING SOON';
+    const w = Math.max(168, textW(msg, 2) + 36), h = 52;
+    const x = Math.round((W - w) / 2), y = Math.round(72 + 10 * (1 - Math.min(1, p.t / 0.12)));
+    rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
+    rect(x + 3, y + 3, w - 6, h - 6, COL.orange); rect(x + 4, y + 4, w - 8, h - 8, '#000');
+    outlined(msg, Math.round((W - textW(msg, 2)) / 2), y + Math.round((h - 14) / 2) - 1, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
+    return;
+  }
   const w = 212, h = 104, x = (W - w) / 2, y = Math.round(66 + 10 * (1 - Math.min(1, p.t / 0.12)));   // small slide-in
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
-  rect(x + 3, y + 3, w - 6, h - 6, shop ? COL.orange : COL.blue); rect(x + 4, y + 4, w - 8, h - 8, '#000');
-  const title = shop ? 'SHOP' : 'GALLERY', tw = textW(title, 2);
-  drawTextC(title, y + 11, shop ? COL.orange : COL.blue, 2);
+  rect(x + 3, y + 3, w - 6, h - 6, COL.blue); rect(x + 4, y + 4, w - 8, h - 8, '#000');
+  const title = 'GALLERY', tw = textW(title, 2);
+  drawTextC(title, y + 11, COL.blue, 2);
   ctx.drawImage(SPR.golfball, Math.round((W - tw) / 2) - 13, y + 15); ctx.drawImage(SPR.golfball, Math.round((W + tw) / 2) + 8, y + 15);
   outlined('COMING SOON!', Math.round((W - textW('COMING SOON!', 2)) / 2), y + 35, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
-  drawTextC(shop ? 'MERCH DROPPING SOON' : 'PHOTOS + HIGHLIGHTS SOON', y + 60, COL.lime);
+  drawTextC('PHOTOS + HIGHLIGHTS SOON', y + 60, COL.lime);
   if (Math.floor(p.t * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP TO CLOSE' : 'CLICK OR ANY KEY TO CLOSE', y + 82, COL.gray);
 }
 function renderCustom() {
@@ -3581,7 +3705,7 @@ if (/test/.test(location.hash)) {
     get ball() { return ball ? { x: ball.x, h: ball.h, mode: ball.mode, lie: surfAt(hole, ball.x) } : null; }, get cup() { return hole ? hole.cup : null; },
     get player() { return Object.assign({}, player); }, get board() { return board ? { rows: board.rows, hi: board.hi } : null; },
     get saveWhere() { return saveWhere; }, get titleSel() { return titleSel; }, get popup() { return menuPopup ? menuPopup.kind : null; }, get menuRects() { return menuRects.map(r => Object.assign({}, r)); }, get cz() { return cz ? Object.assign({}, cz) : null; },
-    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get titleLB() { return { rows: titleLB.rows, src: titleLB.src, busy: titleLB.busy }; }, refreshTitleLB(f) { refreshTitleLB(f); }, TLB_R, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
+    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get titleLB() { return { rows: titleLB.rows, src: titleLB.src, busy: titleLB.busy }; }, refreshTitleLB(f) { refreshTitleLB(f); }, seedTitleLB(rows) { titleLB.rows = Array.isArray(rows) ? rows.slice().sort(lbSort) : []; titleLB.src = 'local'; titleLB.busy = false; }, TLB_R, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
     // pick the best shot by simulating the real physics, then fire it through the normal launch path
     autoShot() {
       if (state !== 'aim') return null;
