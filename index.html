@@ -1361,21 +1361,33 @@ function layoutChrome() {
   KB_PANEL.x = KB_X0 - 6; KB_PANEL.y = KB_Y0 - 7; KB_PANEL.w = 212; KB_PANEL.h = 87;
   SHARE_BTN = { x: Math.round(W / 2 - 98), y: Math.min(H - 30, 161 + Math.max(0, H - 240)), w: 86, h: 15 };
   LB_BTN = { x: SHARE_BTN.x + 94, y: SHARE_BTN.y, w: 102, h: 15 };
-  // Club swap: left side under pause, ≥44 CSS tap + dead-zone pad — never near the power meter
+  // Club swap: dirt/soil strip under the grass (above HUD) — never near the power meter
   {
-    const clubGap = Math.max(8, Math.round(10 / cssSy));
-    const cw = Math.max(tap, Math.ceil(52 / cssSy));   // wide enough for DRIVER label
-    const ch = tap;
+    const clubGap = Math.max(6, Math.round(8 / cssSy));
+    // Fit the longest club name (DRIVER/PUTTER) with padding — never clip the label
+    const nameNeed = Math.max(...CLUBS.map(c => textW(c.name))) + 8;
+    const cw = Math.max(tap, nameNeed);
+    const ch = tap;                                 // ≥44 CSS via tap
     CLUB_BTN.w = cw; CLUB_BTN.h = ch;
+    // Left side of the dirt band; keep clear of mini-scorecard (top-right) and wind tag (bottom-right)
     CLUB_BTN.x = sl + pad;
-    CLUB_BTN.y = PAUSE_BTN.y + PAUSE_BTN.h + clubGap;
-    // Keep clear of the fairway HUD / power meter
-    const maxY = HUD_Y0 - ch - Math.max(12, Math.round(16 / cssSy));
-    if (CLUB_BTN.y > maxY) CLUB_BTN.y = Math.max(PAUSE_BTN.y + PAUSE_BTN.h + 4, maxY);
+    const dirtTop = BASE + Math.max(1, Math.round(2 / cssSy));
+    const dirtBot = PLAY_H - Math.max(1, Math.round(2 / cssSy));
+    const dirtH = Math.max(0, dirtBot - dirtTop);
+    let cy = dirtTop + Math.floor((dirtH - ch) / 2);
+    if (dirtH < ch) cy = Math.max(0, PLAY_H - ch - Math.max(1, Math.round(2 / cssSy)));
+    // Prefer sitting under the grass line when dirt is tall enough
+    const minY = BASE - Math.max(2, Math.round(3 / cssSy));
+    if (dirtH >= ch && cy < minY) cy = minY;
+    // HUD wins: never overlap the power-meter band
+    if (cy + ch > PLAY_H - 1) cy = Math.max(0, PLAY_H - ch - 1);
+    CLUB_BTN.y = cy;
     CLUB_PAD.x = Math.max(0, CLUB_BTN.x - clubGap);
     CLUB_PAD.y = Math.max(0, CLUB_BTN.y - clubGap);
     CLUB_PAD.w = CLUB_BTN.w + clubGap * 2;
     CLUB_PAD.h = CLUB_BTN.h + clubGap * 2;
+    // Keep pad out of the HUD (power meter lives there)
+    if (CLUB_PAD.y + CLUB_PAD.h > PLAY_H) CLUB_PAD.h = Math.max(CLUB_BTN.h, PLAY_H - CLUB_PAD.y);
     PAUSE_PAD.x = Math.max(0, PAUSE_BTN.x - pad);
     PAUSE_PAD.y = Math.max(0, PAUSE_BTN.y - pad);
     PAUSE_PAD.w = PAUSE_BTN.w + pad * 2;
@@ -1470,16 +1482,18 @@ function drawPauseButton() {   // top-left so it never clashes with the scorecar
   rect(ox, oy, 14, 1, COL.white); rect(ox, oy + 13, 14, 1, COL.white); rect(ox, oy, 1, 14, COL.white); rect(ox + 13, oy, 1, 14, COL.white);
   rect(ox + 4, oy + 3, 2, 8, COL.white); rect(ox + 8, oy + 3, 2, 8, COL.white);
 }
-function drawClubButton() {   // left-side club swap — clear of power meter / swing zone
+function drawClubButton() {   // dirt-band club swap — clear of power meter / swing zone
   if (!GAME_STATES.includes(state) || paused || !hole) return;
   const b = CLUB_BTN;
   ctx.globalAlpha = 0.55; rect(b.x, b.y, b.w, b.h, '#000'); ctx.globalAlpha = 1;
   rect(b.x, b.y, b.w, 1, '#f8d878'); rect(b.x, b.y + b.h - 1, b.w, 1, '#f8d878');
   rect(b.x, b.y, 1, b.h, '#f8d878'); rect(b.x + b.w - 1, b.y, 1, b.h, '#f8d878');
   const nm = CLUBS[clubIdx].name;
-  let label = nm;
-  while (label.length > 3 && textW(label) > b.w - 6) label = label.slice(0, -1);
-  drawText(label, b.x + Math.round((b.w - textW(label)) / 2), b.y + Math.round((b.h - 7) / 2), state === 'aim' ? '#f8d878' : COL.white);
+  // Full name always — button width is sized for the longest club in layoutChrome
+  let sx = 1;
+  while (sx > 0.5 && textW(nm, sx) > b.w - 6) sx -= 0.25;
+  const tw = textW(nm, sx), th = Math.round(7 * sx);
+  drawText(nm, b.x + Math.round((b.w - tw) / 2), b.y + Math.round((b.h - th) / 2), state === 'aim' ? '#f8d878' : COL.white, sx, sx);
 }
 function drawFsButton() {   // title screen, top-right (glyph centered in ≥44 CSS hit box)
   const on = isFs();
