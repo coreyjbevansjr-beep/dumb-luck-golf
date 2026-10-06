@@ -334,6 +334,12 @@ async function saveScore(entry) {
   lbLocalSaveMode(e, isClassic ? null : mode);
   return { ok: true, where: 'device' };
 }
+function lbModeFilter(mode) {
+  const isClassic = !mode || mode === 'front9';
+  if (isClassic) return 'or=(mode.eq.front9,mode.is.null)';
+  if (!/^[a-z0-9-]+$/i.test(mode)) return null;
+  return 'mode=eq.' + mode;
+}
 async function loadScores(mode) {
   const want = mode || null;   // null/'front9' = main board
   const isClassic = !want || want === 'front9';
@@ -342,9 +348,16 @@ async function loadScores(mode) {
       await lbProbeMode();
       let q = '?select=name,strokes,to_par,created_at&order=to_par.asc,strokes.asc&limit=10';
       if (lbModeOk === true) {
-        q = '?select=name,strokes,to_par,created_at,mode&order=to_par.asc,strokes.asc&limit=40';
+        const filt = lbModeFilter(isClassic ? 'front9' : want);
+        q = filt
+          ? '?select=name,strokes,to_par,created_at,mode&' + filt + '&order=to_par.asc,strokes.asc&limit=10'
+          : '?select=name,strokes,to_par,created_at,mode&order=to_par.asc,strokes.asc&limit=40';
       }
-      const r = await lbFetch(lbEndpoint() + q, { headers: lbHeaders() });
+      let r = await lbFetch(lbEndpoint() + q, { headers: lbHeaders() });
+      // Older APIs reject the mode filter — fall back to a mixed top slice and filter here.
+      if (!r.ok && lbModeOk === true) {
+        r = await lbFetch(lbEndpoint() + '?select=name,strokes,to_par,created_at,mode&order=to_par.asc,strokes.asc&limit=40', { headers: lbHeaders() });
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       let rows = await r.json();
       if (!Array.isArray(rows)) throw new Error('bad data');
@@ -1166,7 +1179,9 @@ const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews
 const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
 /* --- title menu --- */
-/* Title menu: PLAY + SHOP as the main items. LEADERBOARD is the TOP GOLFERS board (tap/click).
+/* Title menu: PLAY + SHOP as the main items. The home leaderboard sits under them.
+   < > on that board cycles FRONT 9, BACK 9, FULL 18, and today's DAILY.
+   Tap the board itself to open the full LEADERBOARD screen for the selected one.
    SETTINGS is the gear icon. CUSTOMIZE opens as a pre-round step from PLAY.
    GALLERY stays in the menu only when GALLERY_ITEMS is non-empty (hook kept for later). */
 const MENU = GALLERY_ITEMS.length ? ['PLAY', 'DAILY', 'GALLERY', 'SHOP'] : ['PLAY', 'DAILY', 'SHOP'];
@@ -1708,17 +1723,79 @@ function openBoard(entry, mode) {
   });
 }
 function closeBoard() { board = null; SFX.click(); setState('title'); }
-/* --- home-screen leaderboard ("TOP GOLFERS"): top 5 from loadScores(), refreshed each time the title shows ---
-   Click/tap it to open the full LEADERBOARD screen. */
-let titleLB = { rows: null, src: '', t: -1e9, busy: false }, tlbHover = false;
+/* --- home-screen leaderboard: top scores for the selected board, refreshed each time the title shows.
+   < > cycles FRONT 9 / BACK 9 / FULL 18 / today's DAILY. Tap the board (not the arrows) for the full list. */
+const TITLE_BOARDS = [
+  { id: 'front9', label: 'FRONT 9' },
+  { id: 'back9', label: 'BACK 9' },
+  { id: 'full18', label: 'FULL 18' },
+  { id: 'daily', label: 'DAILY' }
+];
+let titleBoardI = 0;
+let titleLB = { rows: null, src: '', t: -1e9, busy: false, mode: 'front9', pendingMode: false, gen: 0, cache: {} }, tlbHover = false, tlbArrow = null;
+function titleBoardSpec() { return TITLE_BOARDS[titleBoardI] || TITLE_BOARDS[0]; }
+function titleBoardMode() {
+  const b = titleBoardSpec();
+  return b.id === 'daily' ? ('daily-' + nyDateStr()) : b.id;
+}
+function titleBoardLabel() { return titleBoardSpec().label; }
+function tlbHeaderLayout() {
+  const { x, y, w, h } = TLB_R;
+  const headH = h >= 100 ? 26 : 19;
+  const divY = y + headH - 2;
+  const innerTop = y + 4;
+  const innerBot = divY - 1;
+  const tGlyph = 7, tShadow = 1, dotH = 2, dotGap = 1;
+  const blockH = tGlyph + tShadow + dotGap + dotH;
+  const tY = innerTop + Math.max(0, Math.round((Math.max(0, innerBot - innerTop) - blockH) / 2));
+  const dotY = tY + tGlyph + tShadow + dotGap;
+  const label = titleBoardLabel();
+  const tw = textW(label, 1);
+  const aw = 14;
+  const ay = Math.max(innerTop, tY);
+  const ah = Math.max(8, Math.min(12, divY - ay));
+  const prev = { x: x + 5, y: ay, w: aw, h: ah };
+  const next = { x: x + w - 5 - aw, y: ay, w: aw, h: ah };
+  const trophyX = prev.x + prev.w + 2;
+  const titleLeft = trophyX + 13;
+  const titleRight = next.x - 3;
+  let tX = titleLeft + Math.max(0, Math.round((titleRight - titleLeft - tw) / 2));
+  if (tX + tw > titleRight) tX = Math.max(x + 4, titleRight - tw);
+  const n = TITLE_BOARDS.length, dotsW = n * 2 + (n - 1) * 2;
+  const dotX = tX + Math.round((tw - dotsW) / 2);
+  const trophyY = Math.max(innerTop, tY - 2);
+  return { headH, divY, label, tX, tY, tw, prev, next, trophyX, trophyY, dotX, dotY };
+}
+function hitTlbArrow(p, r) {
+  if (!r || !p) return false;
+  if (hit(p, r)) return true;
+  return hitBtn(p, r) && hit(p, TLB_R);
+}
+function cycleTitleBoard(dir) {
+  titleBoardI = (titleBoardI + (dir || 1) + TITLE_BOARDS.length) % TITLE_BOARDS.length;
+  SFX.tick();
+  const mode = titleBoardMode();
+  const cached = titleLB.cache[mode];
+  titleLB.mode = mode;
+  if (cached) { titleLB.rows = cached.rows; titleLB.src = cached.src; titleLB.pendingMode = !!cached.pendingMode; }
+  else { titleLB.rows = null; titleLB.pendingMode = false; }
+  refreshTitleLB(true);
+}
 function refreshTitleLB(force) {
   const now = performance.now();
-  if (titleLB.busy || (!force && now - titleLB.t < 1500)) return;
-  titleLB.busy = true; titleLB.t = now;
-  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadScores(null)).catch(() => null).then(res => {
-    titleLB.busy = false;
+  const mode = titleBoardMode();
+  if (!force && titleLB.mode === mode && (titleLB.busy || now - titleLB.t < 1500)) return;
+  titleLB.busy = true; titleLB.t = now; titleLB.mode = mode;
+  const gen = ++titleLB.gen;
+  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadScores(mode)).catch(() => null).then(res => {
+    if (titleLB.gen === gen) titleLB.busy = false;
+    if (gen !== titleLB.gen) return;
     const rows = res && (res.rows || (Array.isArray(res) ? res : null));
-    if (rows) { titleLB.rows = rows; titleLB.src = lbSource; } else if (!titleLB.rows) titleLB.rows = [];
+    if (rows) {
+      titleLB.rows = rows; titleLB.src = lbSource; titleLB.mode = mode;
+      titleLB.pendingMode = !!(res && res.pendingMode);
+      titleLB.cache[mode] = { rows, src: lbSource, pendingMode: titleLB.pendingMode };
+    } else if (titleLB.mode === mode && !titleLB.rows) titleLB.rows = [];
   });
 }
 const pixArt = (rows, map) => { const c = mk(rows[0].length, rows.length), g = c.getContext('2d');
@@ -1765,16 +1842,20 @@ function drawTitleBoard() {
   for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
 
   const tall = h >= 100;   // portrait prominent board
-  // Header: use scale-1 on the tall board so glyphs + shadow sit fully inside the band (no clip on the divider)
-  const headH = tall ? 26 : 19;
-  const title = 'TOP GOLFERS', tSc = 1;
-  const tGlyph = 7 * tSc, tShadow = tSc;
-  const divY = y + headH - 2;
-  const tY = y + Math.max(5, Math.round((divY - y - tGlyph - tShadow) / 2));
-  ctx.drawImage(TROPHY, x + 7, y + Math.max(5, Math.round((divY - y - 12) / 2)));
-  const tX = x + (tSc === 2 ? 24 : 21);
+  // Header: board name + < > to cycle FRONT 9 / BACK 9 / FULL 18 / DAILY. Glyphs stay above the divider.
+  const hd = tlbHeaderLayout();
+  const headH = hd.headH, title = hd.label, tSc = 1, divY = hd.divY, tY = hd.tY, tX = hd.tX;
+  ctx.drawImage(TROPHY, hd.trophyX, hd.trophyY);
   const band = (st * 9) % (title.length + 14);
   [...title].forEach((ch, i) => tlbText(ch, tX + i * 6 * tSc, tY, Math.abs(i - band) < 1.2 ? COL.white : G1, tSc));
+  for (let i = 0; i < TITLE_BOARDS.length; i++) rect(hd.dotX + i * 4, hd.dotY, 2, 2, i === titleBoardI ? COL.white : '#8c9cb4');
+  const drawArrow = (r, dir) => {
+    const hot = tlbArrow === (dir < 0 ? 'prev' : 'next');
+    const nudge = hot && Math.floor(st * 6) % 2 === 0 ? dir : 0;
+    const ch = dir < 0 ? '<' : '>';
+    tlbText(ch, r.x + Math.round((r.w - textW(ch)) / 2) + nudge, r.y + Math.max(0, Math.round((r.h - 7) / 2)), hot ? COL.white : G1, 1);
+  };
+  drawArrow(hd.prev, -1); drawArrow(hd.next, 1);
   rect(x + 5, divY, w - 10, 1, '#a87000');
 
   const rows = titleLB.rows, bodyY = y + headH, bodyH = Math.max(8, h - headH - 5);
@@ -1796,6 +1877,8 @@ function drawTitleBoard() {
       [...nm].forEach((ch, i) => tlbText(ch, x + 30 + i * 6, bodyY + 4, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
       const sc = fmtRel(top.to_par);
       tlbText(sc, x + 30, bodyY + Math.min(bodyH - 16, 16), '#f8d878', 2);
+    } else if (titleLB.pendingMode) {
+      tlbText('SOON', x + 30, bodyY + 5, COL.orange);
     } else {
       tlbText('---', x + 30, bodyY + 5, '#3c4c64');
     }
@@ -1886,6 +1969,8 @@ function drawTitleBoard() {
       const sc = fmtRel(top.to_par);
       const scY = Math.min(nameY, bodyY + champH - 16);
       tlbText(sc, x + w - 12 - textW(sc, 2), scY, '#f8d878', 2);
+    } else if (titleLB.pendingMode) {
+      tlbText('COMING SOON', x + 32, nameY + 4, COL.orange, 1);
     } else {
       tlbText('BE THE FIRST!', x + 32, nameY + 4, COL.white, 1);
     }
@@ -2407,8 +2492,14 @@ function inClubBox(p) { return hitBtn(p, CLUB_BTN) || hit(p, CLUB_PAD); }
 cv.addEventListener('pointermove', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
   if (ov) { if (e.pointerType === 'mouse') { const r = ovRects.find(q => hit(p, q)); if (r) ov.sel = r.i; } return; }
-  tlbHover = state === 'title' && !menuPopup && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
+  tlbArrow = null;
+  if (state === 'title' && !menuPopup) {
+    const a = tlbHeaderLayout();
+    if (hitTlbArrow(p, a.prev)) tlbArrow = 'prev';
+    else if (hitTlbArrow(p, a.next)) tlbArrow = 'next';
+  }
+  tlbHover = state === 'title' && !menuPopup && !tlbArrow && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
   if (e.pointerType === 'mouse') aimAt(wp.x, wp.y);
@@ -2468,8 +2559,17 @@ cv.addEventListener('pointerdown', e => {
     });
     touchDown = null; return;
   }
+  if (state === 'title' && !menuPopup) {
+    const a = tlbHeaderLayout();
+    if (hitTlbArrow(p, a.prev)) {
+      armUiTap('tlbPrev', () => cycleTitleBoard(-1), (up) => hitTlbArrow(toLogical(up), tlbHeaderLayout().prev), e); touchDown = null; return;
+    }
+    if (hitTlbArrow(p, a.next)) {
+      armUiTap('tlbNext', () => cycleTitleBoard(1), (up) => hitTlbArrow(toLogical(up), tlbHeaderLayout().next), e); touchDown = null; return;
+    }
+  }
   if (state === 'title' && !menuPopup && hitBtn(p, TLB_R)) {
-    armUiTap('tlb', () => { SFX.click(); tlbHover = false; cv.style.cursor = ''; openBoard(null); }, (up) => hitBtn(toLogical(up), TLB_R), e); touchDown = null; return;
+    armUiTap('tlb', () => { SFX.click(); tlbHover = false; tlbArrow = null; cv.style.cursor = ''; openBoard(null, titleBoardMode()); }, (up) => hitBtn(toLogical(up), TLB_R) && !hitTlbArrow(toLogical(up), tlbHeaderLayout().prev) && !hitTlbArrow(toLogical(up), tlbHeaderLayout().next), e); touchDown = null; return;
   }
   if (state === 'title') {
     if (menuPopup) { armUiTap('popup', () => closePopup(), () => true, e); touchDown = null; return; }
@@ -4032,7 +4132,7 @@ if (/test/.test(location.hash)) {
     get ball() { return ball ? { x: ball.x, h: ball.h, mode: ball.mode, lie: surfAt(hole, ball.x) } : null; }, get cup() { return hole ? hole.cup : null; },
     get player() { return Object.assign({}, player); }, get board() { return board ? { rows: board.rows, hi: board.hi } : null; },
     get saveWhere() { return saveWhere; }, get titleSel() { return titleSel; }, get popup() { return menuPopup ? menuPopup.kind : null; }, get menuRects() { return menuRects.map(r => Object.assign({}, r)); }, get cz() { return cz ? Object.assign({}, cz) : null; },
-    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get titleLB() { return { rows: titleLB.rows, src: titleLB.src, busy: titleLB.busy }; }, refreshTitleLB(f) { refreshTitleLB(f); }, seedTitleLB(rows) { titleLB.rows = Array.isArray(rows) ? rows.slice().sort(lbSort) : []; titleLB.src = 'local'; titleLB.busy = false; }, TLB_R, get CLUB_BTN() { return Object.assign({}, CLUB_BTN); }, get CLUB_PAD() { return Object.assign({}, CLUB_PAD); }, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
+    get club() { return clubIdx; }, get audio() { return AC ? AC.state : 'none'; }, get titleLB() { return { rows: titleLB.rows, src: titleLB.src, busy: titleLB.busy, mode: titleBoardMode(), label: titleBoardLabel(), i: titleBoardI, pendingMode: !!titleLB.pendingMode }; }, refreshTitleLB(f) { refreshTitleLB(f); }, seedTitleLB(rows) { const mode = titleBoardMode(); const sorted = Array.isArray(rows) ? rows.slice().sort(lbSort) : []; titleLB.rows = sorted; titleLB.src = 'local'; titleLB.busy = false; titleLB.mode = mode; titleLB.pendingMode = false; titleLB.cache[mode] = { rows: sorted, src: 'local', pendingMode: false }; }, cycleTitleBoard(d) { cycleTitleBoard(d || 1); }, get tlbArrows() { const a = tlbHeaderLayout(); return { prev: Object.assign({}, a.prev), next: Object.assign({}, a.next), label: a.label }; }, TLB_R, get CLUB_BTN() { return Object.assign({}, CLUB_BTN); }, get CLUB_PAD() { return Object.assign({}, CLUB_PAD); }, get menu() { return MENU.slice(); }, get cart() { return { on: cart.on, x: cart.hx - cart.viewX, dir: cart.dir, layer: cart.layer, wait: cart.wait }; }, spawnCart(d) { spawnCart(d); }, get angle() { return angle; }, get wind() { return wind; }, get meter() { return Object.assign({}, meter); },
     // pick the best shot by simulating the real physics, then fire it through the normal launch path
     autoShot() {
       if (state !== 'aim') return null;
