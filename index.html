@@ -357,6 +357,23 @@ function lbLocalKey(mode) {
   if (!mode || mode === 'front9') return LB_LOCAL_KEY;
   return LB_LOCAL_KEY + '__' + mode;
 }
+/* v8.17 one-time score reset: clears personal bests + on-device leaderboards once per device.
+   Keeps unlocks, player/customizer, settings, daily flags, visitor id, swing tip and a2hs flags. */
+(function () {
+  try {
+    if (localStorage.getItem('dlg_scores_reset_v1') === '1') return;
+    ['dlg_golf_best9', 'dlg_golf_best_back9', 'dlg_golf_best_full18'].forEach(k => localStorage.removeItem(k));
+    ['front9', 'back9', 'full18', 'daily'].forEach(m => localStorage.removeItem(lbLocalKey(m)));
+    localStorage.removeItem(LB_LOCAL_KEY);
+    const drop = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === LB_LOCAL_KEY || k.indexOf(LB_LOCAL_KEY + '__') === 0)) drop.push(k);   // incl. daily-YYYY-MM-DD boards
+    }
+    drop.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('dlg_scores_reset_v1', '1');
+  } catch (e) {}
+})();
 function lbLocalAllMode(mode) {
   try { const a = JSON.parse(localStorage.getItem(lbLocalKey(mode)) || '[]'); return Array.isArray(a) ? a.map(lbClean).filter(Boolean) : []; } catch (e) { return []; }
 }
