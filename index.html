@@ -964,6 +964,11 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
 
 const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'BACK'];
 let courseSel = 0;
+/* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
+const COURSE_KINDS = ['front', 'back', 'full'];
+const COURSE_BEST_KEY = { front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18' };
+function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
 
 function compileHole(def) {
   const pts = def.pts, len = pts[pts.length - 1][0];
@@ -1212,7 +1217,7 @@ let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
 // 3-click meter: power, then stop the returning marker in the green SWEET zone for clean contact.
 // PERFECT = power in the gold zone + marker dead on the line (not for putts).
-const SWEET_ERR = 2.6, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 5.2;   // v8.13: sweet zone 35% narrower (was 4 / 8)
+const SWEET_ERR = 3.3, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 6.6;   // v8.15: sweet zone eased halfway back (v8.13 2.6 / 5.2; orig 4 / 8)
 const shortGameNow = () => !!(hole && ball && (clubIdx === 3 || isChip(clubIdx, Math.abs(hole.cup - ball.x))));
 const isShort = () => state === 'aim' ? shortGameNow() : !!meter.short;   // locked in when the swing starts
 const pwSpeed = () => PW_SPEED * (meter.short ? SHORT_SLOW : 1), accSpeed = () => ACC_SPEED * (meter.short ? SHORT_SLOW : 1);
@@ -1280,6 +1285,7 @@ let MM_BOX = { x: 160, y: 173, w: 92, h: 12 }, MM_GAP = 6;   // v8.10: mini map 
 let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 120, h: 14 }, CZ_GOLF = { x: 128, y: 200, s: 3 }, DONE_R = { x: 60, y: 124, w: 136, h: 22 };
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
 let CZ_HEAD_Y = 6, CZ_COLX = 128, CZ_PANEL = { x: 8, y: 200, w: 240, h: 160 }, CZ_PITCH = 29, CZ_CTRL = { al: 122, sw: 152, ar: 214, aw: 28, sww: 60 };   // v8.14 customize layout
+let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
 function layoutChrome() {
@@ -1435,6 +1441,44 @@ function layoutChrome() {
     CZ_OX = CZ_PANEL.x - 8;
     // golfer art spans ~-5..+9 (ball) around its feet x; center the group on gcx
     CZ_GOLF = { x: Math.round(gcx - 3 * gs), y: feetY, s: gs };
+  }
+  // v8.16 Choose Course: '< BACK' top-left (same as customize), gold CHOOSE COURSE header, one gold-framed board holding a
+  // card per course (>=44 CSS px tall), plus a small framed hole preview of the highlighted course.
+  // Portrait: header -> preview -> board (low, thumb reach) -> grass. Landscape: preview left column, header + board right column.
+  {
+    const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
+    const top = SAFE.t || 0, bot = H - (SAFE.b || 0);
+    const cardMin = Math.max(Math.ceil(44 / sy), 22), GAP = 4, PAD = 6;
+    const boardH = ch => PAD * 2 + 3 * ch + 2 * GAP;
+    CS_BACK_R = { x: 2 + (SAFE.l || 0), y: top + 2, w: 66, h: 22 };
+    let bx, by, bw, ch, pv = null;
+    if (portrait) {
+      bw = Math.min(240, W - 16); bx = Math.round((W - bw) / 2);
+      CS_HEAD = { x: Math.round(W / 2), y: top + 30 };
+      CS_FAIR = H - Math.max(36, 28 + (SAFE.b || 0) + 4);          // same grass strip as the title screen
+      const boardBot = CS_FAIR - 8, stageTop = CS_HEAD.y + 14 + 10;
+      ch = Math.max(cardMin, 44);
+      while (ch > Math.max(cardMin, 32) && boardBot - boardH(ch) - 10 - stageTop < 70) ch--;
+      by = boardBot - boardH(ch);
+      const room = by - 10 - stageTop;
+      if (room >= 60) { const ph = Math.min(room, Math.round(bw * 0.52)); pv = { x: bx, y: stageTop + Math.round((room - ph) / 2), w: bw, h: ph }; }
+      CS_HINT_Y = CS_FAIR + Math.max(4, Math.round((H - (SAFE.b || 0) - CS_FAIR - 7) / 2));
+    } else {
+      const cw = Math.min(W - 16, 440), x0 = Math.round((W - cw) / 2), leftW = Math.round(cw * 0.42);
+      bw = Math.min(240, cw - leftW - 6); bx = x0 + leftW + 6 + Math.round((cw - leftW - 6 - bw) / 2);
+      CS_HEAD = { x: bx + Math.round(bw / 2), y: top + 6 };
+      by = top + 26;
+      const fairMax = Math.min(H - 22, bot - 18);
+      ch = Math.max(cardMin, 40);
+      while (ch > Math.max(cardMin, 26) && by + boardH(ch) + 10 > fairMax) ch--;
+      CS_FAIR = Math.min(fairMax, Math.max(by + boardH(ch) + 10, Math.round(H * 0.8)));
+      const pw = leftW - 8, ph = boardH(ch);
+      if (pw >= 100) pv = { x: x0 + 2, y: by, w: pw, h: ph };
+      CS_HINT_Y = CS_FAIR + Math.max(3, Math.round((H - CS_FAIR - 7) / 2));
+    }
+    CS_BOARD = { x: bx, y: by, w: bw, h: boardH(ch) };
+    CS_CARDS = [0, 1, 2].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
+    CS_PREV = pv;
   }
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
   KB_X0 = Math.round((W - 200) / 2);
@@ -2410,8 +2454,9 @@ function finishRound() {
   const isDaily = courseKind === 'daily';
   const practice = isDaily && dailyMeta && dailyMeta.scored;
   if (rel < 0) grantAch('under', 'FIRE TRAIL!');
-  const newBest = !isDaily && (best === null || rel < best);
-  if (newBest && courseKind === 'front') { best = rel; try { localStorage.setItem('dlg_golf_best9', String(rel)); } catch (e) {} }
+  const prevBest = isDaily ? null : courseBest(courseKind);   // v8.16: best per course (FRONT 9 / BACK 9 / FULL 18)
+  const newBest = !isDaily && !!COURSE_BEST_KEY[courseKind] && (prevBest === null || rel < prevBest);
+  if (newBest) { if (courseKind === 'front') best = rel; try { localStorage.setItem(COURSE_BEST_KEY[courseKind], String(rel)); } catch (e) {} }
   cardInfo = { total, rel, newBest, mode, practice: !!practice, pendingMode: false };
   lastEntry = { name: player.name || 'PLAYER', strokes: total, to_par: rel, created_at: new Date().toISOString(), mode };
   if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
@@ -2631,12 +2676,14 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'title' && !menuPopup && hitBtn(p, FS_BTN)) {
     armUiTap('fs', () => toggleFullscreen(), (up) => hitBtn(toLogical(up), FS_BTN), e); touchDown = null; return;
   }
-  if (state === 'course') {
-    COURSE_ITEMS.forEach((lab, i) => {
-      const y = Math.round(H * 0.36) + i * 22, tw = textW(lab, 2);
-      const r = { x: Math.round((W - tw) / 2) - 10, y: y - 2, w: tw + 20, h: 20 };
-      if (hitBtn(p, r)) { courseSel = i; armUiTap('course' + i, () => courseActivate(i), (up) => hitBtn(toLogical(up), r), e); }
-    });
+  if (state === 'course') {   // v8.16: course cards + '< BACK'
+    const hitCs = i => i === 3 ? hitBtn(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
+    for (const i of [0, 1, 2, 3]) {
+      if (!hitCs(i)) continue;
+      courseSel = i;
+      armUiTap('course' + i, () => courseActivate(i), (up) => { const q = toLogical(up); return i === 3 ? hitBtn(q, CS_BACK_R) : hit(q, CS_CARDS[i]); }, e);
+      break;
+    }
     touchDown = null; return;
   }
   if (state === 'title' && !menuPopup) {
@@ -4261,16 +4308,86 @@ function drawShotFx() {
   drawText(shotFx.label, x + 5, y + 2, shotFx.col);
   ctx.globalAlpha = 1;
 }
+/* v8.16 Choose Course: gold-framed board with one card per course + small framed preview of the highlighted course's holes */
+let csPrevSel = 0, csPrevMark = 0;
+const csHoleCache = new Map();
+function csCompiled(def) { let h = csHoleCache.get(def); if (!h) { h = compileHole(def); csHoleCache.set(def, h); } return h; }
+function drawCoursePreview(r, ci) {
+  const list = courseHoleList(ci), n = list.length;
+  const k = Math.floor(Math.max(0, st - csPrevMark) / 2.6) % n, hl = csCompiled(list[k]);
+  const holeNo = ci === 1 ? k + 10 : k + 1, YEL = '#f8d878';
+  czBoard(r.x, r.y, r.w, r.h, 0.9, false);
+  const ix = r.x + 4, iy = r.y + 4, iw = r.w - 8, ih = r.h - 8;
+  // caption: HOLE n (gold) / PAR p  LEN Y ; hole name along the bottom band
+  const capH = 12;
+  drawText('HOLE ' + holeNo, ix + 4, iy + 3, YEL);
+  const info = 'PAR ' + hl.par + '  ' + hl.cup + 'Y';
+  drawText(info, ix + iw - 4 - textW(info), iy + 3, COL.white);
+  const nm = String(hl.name || '').slice(0, Math.max(4, Math.floor((iw - 8) / 6)));
+  drawText(nm, Math.round(ix + (iw - textW(nm)) / 2), iy + ih - capH + 3, COL.white);
+  // scene window: theme sky + side-view terrain silhouette, pin and tee ball
+  const sx0 = ix + 2, sy0 = iy + capH, swd = iw - 4, sh = ih - capH * 2;
+  if (sh < 20) return;
+  const th = themeOf(hl);
+  rect(sx0 - 1, sy0 - 1, swd + 2, sh + 2, '#000');
+  rect(sx0, sy0, swd, sh, th.sky);
+  let lo = 1e9, hi = -1e9;
+  for (let x = 0; x <= hl.len; x++) { lo = Math.min(lo, hl.Hs[x]); hi = Math.max(hi, hl.Hs[x]); }
+  const m = 6, sc = (swd - m * 2) / hl.len, kv = Math.min(1.4, (sh * 0.42) / Math.max(18, hi - lo));
+  const base = sy0 + sh - Math.max(8, Math.round(sh * 0.26));
+  const gyAt = wx => Math.round(base - (groundH(hl, clamp(wx, 0, hl.len)) - lo) * kv);
+  for (let i = 0; i < swd; i++) {
+    const wx = (i - m) / sc, s = wx < 0 ? 'tee' : wx > hl.len ? 'rough' : surfAt(hl, wx), gy = gyAt(wx), x = sx0 + i, hgt = sy0 + sh - gy;
+    if (hgt <= 0) continue;
+    if (s === 'water') { rect(x, gy, 1, hgt, COL.waterD); rect(x, gy, 1, 2, COL.water); continue; }
+    rect(x, gy, 1, hgt, COL.dirt);
+    const top = s === 'green' ? COL.green2 : s === 'sand' ? COL.sand : (s === 'rough' || s === 'end' || s === 'ob') ? COL.grassD : COL.grass;
+    rect(x, gy, 1, Math.min(hgt, 3), top);
+    rect(x, gy - 1, 1, 1, '#000');
+  }
+  const cx = Math.round(sx0 + m + hl.cup * sc), cy = gyAt(hl.cup), ph = Math.min(14, Math.max(8, Math.round(sh * 0.22)));
+  rect(cx - 1, cy - ph - 1, 3, ph + 1, '#000'); rect(cx, cy - ph, 1, ph, COL.white);
+  rect(cx + 1, cy - ph - 1, 6, 5, '#000'); rect(cx + 1, cy - ph, 5, 3, COL.red);
+  const tx = Math.round(sx0 + m + TEE_X * sc), ty = gyAt(TEE_X);
+  rect(tx - 2, ty - 4, 4, 4, '#000'); rect(tx - 1, ty - 3, 2, 2, COL.white);
+}
 function renderCourseSelect() {
-  drawSkyScene(TITLE_FAIR);
-  outlined('CHOOSE COURSE', Math.round((W - textW('CHOOSE COURSE', 2)) / 2), Math.round(H * 0.22), '#f8d878', 2);
-  COURSE_ITEMS.forEach((lab, i) => {
-    const y = Math.round(H * 0.36) + i * 22, sel = i === courseSel, col = sel ? '#f8d878' : COL.white;
-    outlined(lab, Math.round((W - textW(lab, 2)) / 2), y, col, 2);
-    if (sel) outlined('>', Math.round((W - textW(lab, 2)) / 2) - 16 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
+  drawSkyScene(CS_FAIR, true);
+  const YEL = '#f8d878', blink = Math.floor(st * 4) % 2 === 0;
+  const hoverOk = mouse.seen && !isTouchUi();
+  // '< BACK' top-left (same as customize); lit when focused by keyboard (Up from FRONT 9) or hovered
+  {
+    const br = CS_BACK_R, on = courseSel === 3 || (hoverOk && hitBtn(mouse, br));
+    outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
+    if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
+  }
+  const t = 'CHOOSE COURSE';
+  outlined(t, Math.round(CS_HEAD.x - textW(t, 2) / 2), CS_HEAD.y, YEL, 2);
+  // preview follows the highlighted course (keeps the last one while BACK is focused)
+  const ci = courseSel < 3 ? courseSel : csPrevSel;
+  if (ci !== csPrevSel || st < csPrevMark) { csPrevSel = ci; csPrevMark = st; }
+  if (CS_PREV) drawCoursePreview(CS_PREV, ci);
+  // board + course cards
+  const b = CS_BOARD;
+  czBoard(b.x, b.y, b.w, b.h, 0.9, false);
+  CS_CARDS.forEach((r, i) => {
+    const sel = i === courseSel, hov = hoverOk && hit(mouse, r), list = courseHoleList(i);
+    const par = list.reduce((a, h) => a + h.par, 0), pb = courseBest(COURSE_KINDS[i]);
+    if (sel) { ctx.globalAlpha = 0.55; rect(r.x, r.y, r.w, r.h, '#3c64b4'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, YEL); }
+    else { ctx.globalAlpha = 0.35; rect(r.x, r.y, r.w, r.h, '#000'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, '#2c4c8c'); }
+    const twoLine = r.h >= 30, nameY = twoLine ? r.y + Math.round((r.h - 25) / 2) : r.y + Math.round((r.h - 14) / 2);
+    const lx = r.x + 10 + (sel ? 12 : 0);
+    if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
+    outlined(COURSE_ITEMS[i], lx, nameY, sel || hov ? YEL : COL.white, 2);
+    const sub = list.length + ' HOLES  PAR ' + par;
+    if (twoLine) drawText(sub, lx, nameY + 18, sel ? COL.white : COL.gray);
+    // personal best (right side): small BEST label over the score
+    const val = pb === null ? '--' : fmtRel(pb), vcol = pb === null ? COL.grayD : pb <= 0 ? COL.lime : COL.orange;
+    const vw = textW(val, 2), rx = r.x + r.w - 8;
+    if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
+    else outlined(val, rx - vw, nameY, vcol, 2);
   });
-  const hint = isTouchUi() ? 'TAP TO CHOOSE' : 'ENTER = SELECT   ESC = BACK';
-  drawTextC(hint, Math.round(H * 0.88), COL.gray);
+  if (!isTouchUi()) drawTextC('ENTER = SELECT   ESC = BACK', CS_HINT_Y, COL.white);
 }
 function courseActivate(i) {
   SFX.click();
@@ -4406,7 +4523,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
