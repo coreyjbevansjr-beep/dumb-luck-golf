@@ -1848,7 +1848,7 @@ function drawTitleBoard() {
   ctx.drawImage(TROPHY, hd.trophyX, hd.trophyY);
   const band = (st * 9) % (title.length + 14);
   [...title].forEach((ch, i) => tlbText(ch, tX + i * 6 * tSc, tY, Math.abs(i - band) < 1.2 ? COL.white : G1, tSc));
-  for (let i = 0; i < TITLE_BOARDS.length; i++) rect(hd.dotX + i * 4, hd.dotY, 2, 2, i === titleBoardI ? G1 : '#3c4c64');
+  for (let i = 0; i < TITLE_BOARDS.length; i++) rect(hd.dotX + i * 4, hd.dotY, 2, 2, i === titleBoardI ? COL.white : '#8c9cb4');
   const drawArrow = (r, dir) => {
     const hot = tlbArrow === (dir < 0 ? 'prev' : 'next');
     const nudge = hot && Math.floor(st * 6) % 2 === 0 ? dir : 0;
