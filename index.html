@@ -1031,7 +1031,8 @@ const CLUBS = [
   { name:'WEDGE',  v:73,  def:58, min:40, max:75 },
   { name:'PUTTER', v:66,  def:0,  min:0,  max:0  }
 ];
-const G = 60, WIND_K = 0.9;
+const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
+const PUTT_CAPV = 22, CUP_STOP_R = 1.2, LIP_KEEP = 0.7;   // v8.13 putting: drop speed 26->22, lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
 const SURF = {
   tee:   { rest:.30, keep:.60, dec:45 },
   fair:  { rest:.30, keep:.60, dec:45 },
@@ -1050,7 +1051,7 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist) {
   const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), lk = (LIE_K[lie] || LIE_K.fair)[clubIdx];
   if (clubIdx === 3) {
     const v = Math.sqrt(2 * SURF.green.dec * puttRange(dist) * power) * miss * lk;
-    return { vx: dir * v * (1 - 0.01 * errPx), vy: 0, mode: 'roll', rough: false, capV: 26 };
+    return { vx: dir * v * (1 - 0.01 * errPx), vy: 0, mode: 'roll', rough: false, capV: PUTT_CAPV };
   }
   const chip = isChip(clubIdx, dist);
   let v;
@@ -1131,7 +1132,7 @@ function stepBall(b, hl, wind, dt) {
     const ga = -G * slopeAt(hl, b.x) * (s === 'green' ? 0.4 : 0.8), fr = sp.dec * dt / Math.max(0.55, weather.rollMul || 1);   // rain → more friction / less roll
     let v = b.vx + ga * dt;
     if (Math.abs(v) <= fr && Math.abs(ga) < sp.dec) {
-      if (Math.abs(b.x - hl.cup) < 1.5) { b.x = hl.cup; b.vx = 0; b.h = groundH(hl, b.x); return 'cup'; }   // stopping on the lip drops
+      if (Math.abs(b.x - hl.cup) < CUP_STOP_R) { b.x = hl.cup; b.vx = 0; b.h = groundH(hl, b.x); return 'cup'; }   // stopping on the lip drops
       b.vx = 0; b.mode = 'stop'; b.h = groundH(hl, b.x); return 'stop';
     }
     v -= Math.sign(v) * fr;
@@ -1140,7 +1141,7 @@ function stepBall(b, hl, wind, dt) {
     if (!b.overCup && ((b.x - hl.cup) * (nx - hl.cup) <= 0 || Math.abs(nx - hl.cup) < 0.5)) {
       b.overCup = true;                       // one capture/lip check per pass over the hole
       if (Math.abs(v) < (b.capV || 12)) { b.x = hl.cup; b.h = groundH(hl, b.x); b.vx = 0; return 'cup'; }
-      if (Math.abs(v) < 30) { v *= 0.6; b.events.push('lip'); }
+      if (Math.abs(v) < 30) { v *= LIP_KEEP; b.events.push('lip'); }
     }
     b.vx = v; b.x = nx;
     if (b.x < 0 || b.x > hl.len) return 'ob';
@@ -1211,7 +1212,7 @@ let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
 // 3-click meter: power, then stop the returning marker in the green SWEET zone for clean contact.
 // PERFECT = power in the gold zone + marker dead on the line (not for putts).
-const SWEET_ERR = 4, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 8;
+const SWEET_ERR = 2.6, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 5.2;   // v8.13: sweet zone 35% narrower (was 4 / 8)
 const shortGameNow = () => !!(hole && ball && (clubIdx === 3 || isChip(clubIdx, Math.abs(hole.cup - ball.x))));
 const isShort = () => state === 'aim' ? shortGameNow() : !!meter.short;   // locked in when the swing starts
 const pwSpeed = () => PW_SPEED * (meter.short ? SHORT_SLOW : 1), accSpeed = () => ACC_SPEED * (meter.short ? SHORT_SLOW : 1);
@@ -2214,6 +2215,20 @@ function celebratePerfect() {
    near the pin. It only ever helps: if the ball is already closer than the landing spot, nothing happens. */
 const LUCK_MISHIT = 0.10, LUCK_TREE = 0.12;
 let forceLuck = false;
+/* v8.13 PIN BOUNCE: a ball in flight carrying past the hole that meets the flagstick (0-28 above the cup) has a small
+   chance to clank off the pin and drop straight into the cup. Runs only in the live flight loop (never in simulateShot). */
+const PIN_BOUNCE = 0.04, PIN_H = 28;
+let forcePin = false;
+function pinBounce(px) {
+  const cup = hole.cup, dh = ball.h - groundH(hole, cup), dir = Math.sign(cup - (ball.shotFrom != null ? ball.shotFrom : px)) || 1;
+  if ((px - cup) * (ball.x - cup) > 0 || dh <= 0 || dh > PIN_H || Math.sign(ball.vx) !== dir) return false;
+  ball.pinTried = true;
+  if (!forcePin && Math.random() >= PIN_BOUNCE) return false;
+  forcePin = false;
+  ball.x = cup - dir * 0.3; ball.vx = -dir * 0.8; ball.vy = 2;   // dead clank: pops back a hair and drops in
+  ball.noWind = true; ball.hitTree = true; ball.rough = false; ball.luck = false; ball.luckUsed = true; ball.lucky = false;
+  SFX.bounce(); celebrateLuck(); return true;
+}
 function luckyKick() {
   ball.luckUsed = true;
   let g0 = hole.cup, g1 = hole.cup;
@@ -2317,7 +2332,7 @@ function launch() {
   ball.shotFrom = ball.x; ball.carryX = null; ball.maxH = ball.h;
   const lie = surfAt(hole, ball.x);
   const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x));
-  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0;
+  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== 3 && !shotSweet && Math.random() < LUCK_MISHIT); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0;
   if (clubIdx === 3) SFX.putt(); else SFX.hit(); hap(clubIdx === 3 ? 12 : [8, 30, 18]);
@@ -2791,7 +2806,9 @@ function update(dt) {
     let r = null;
     const n = Math.round(dt / STEP);
     for (let i = 0; i < n && !r; i++) {
+      const px0 = ball.x, air0 = ball.mode === 'air';
       r = stepBall(ball, hole, wind, STEP);
+      if (!r && air0 && ball.mode === 'air' && !ball.pinTried && clubIdx !== 3) pinBounce(px0);
       if (ball.events.includes('tree') && !ball.luck && !ball.luckUsed && clubIdx !== 3 && Math.random() < LUCK_TREE) ball.luck = true;
       if (ball.luck && !ball.luckUsed && (r === 'water' || r === 'ob' || ball.events.includes('bounce')) && luckyKick()) r = null;
       for (const ev of ball.events) { if (ev === 'tree') { SFX.bounce(); noise(0.15, 0.12); showMsg('OFF THE OAK!', COL.orange, 1.2); } else if (ev === 'bounce') SFX.bounce(); else if (ev === 'lip') { SFX.click(); showMsg('LIPPED OUT!', COL.orange, 1.0); } }
@@ -4248,7 +4265,9 @@ function renderScene() {
   else drawWildCaption();
   drawBanner();
   if (state === 'done') {
-    const x = 34, y = 34, w = 188, h = 92;
+    // v8.13: size the box to its text (min 188, clamped to screen) and center it on W
+    const w = Math.min(W - 8, Math.max(188, textW(doneInfo.name, 2) + 24, textW('CLICK FOR SCORECARD') + 16, textW('TOTAL ' + fmtRel(relSoFar())) + 16));
+    const x = Math.round((W - w) / 2), y = 34, h = 92;
     rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
     drawText('HOLE ' + displayHoleNum(holeIdx), x + 8, y + 8, COL.white);
     drawText('PAR ' + hole.par, x + 8, y + 19, COL.white);
@@ -4312,7 +4331,7 @@ if (/test/.test(location.hash)) {
     meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
     get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel } : null; }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
     get stTime() { return st; }, get shortTarget() { const t = shortTarget(); return t ? t.p : null; }, get muted() { return muted; },
-    forceLuck() { forceLuck = true; }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
+    forceLuck() { forceLuck = true; }, forcePin() { forcePin = true; }, get pinTried() { return !!(ball && ball.pinTried); }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
     get toast() { return toast ? toast.lines : null; }, set scoresForTest(v) { scores = v.slice(); },
     putTo(x) { placeBall(x); setState('aim'); camX = camTarget(); },
     get fx() { return { parts: fx.parts.length, banner: fx.banner ? fx.banner.text : null, glow: fx.glow, flash: fx.flash, dog: dogPop ? dogPop.kind : null }; },
