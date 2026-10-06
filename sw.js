@@ -1,5 +1,5 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v94';
+const CACHE = 'dlg-golf-v96';
 const PRECACHE = [
   './',
   './manifest.webmanifest',
