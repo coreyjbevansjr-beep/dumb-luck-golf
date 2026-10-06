@@ -3494,15 +3494,22 @@ function golferPose() {
   if (state === 'flight') return { finish: clubIdx === 3 ? 0 : clamp((st - 0.04) / 0.2, 0, 1), smear: st < 0.1 && clubIdx !== 3 ? backswingTop(meter.power) : null };
   return {};
 }
+/* v8.12: the dog is drawn in screen space after the HUD + mini map, popping up from the HUD's top edge
+   (phone: in the dirt gap above the boxes; the world zoom used to push him down behind the HUD) */
 function drawDogPop() {
   if (!dogPop) return;
   const up = clamp(dogPop.t / 0.3, 0, 1);
   const down = dogPop.t > 0.3 + dogPop.hold ? clamp((dogPop.t - 0.3 - dogPop.hold) / 0.3, 0, 1) : 0;
-  const y = PLAY_H - 44 * up + 44 * down, x = dogPop.x;
-  if (dogPop.kind === 'laugh') { dimg(SPR.laugh, x, y + (Math.floor(st * 8) % 2) * 2); return; }
-  const hop = Math.floor(st * 4) % 2 ? 0 : 2;
-  dimg(SPR.front, x, y + hop);
-  dimg(SPR.paw, x + 42, y + 24 + hop); ctx.drawImage(SPR.bigball, x + 41, y + 12 + hop);
+  const Z = worldZoom(), cx = W / 2 + (dogPop.x + 24 - W / 2) * Z;   // follow the zoomed world x (dog is 48px wide)
+  const y = PLAY_H - 44 * up + 44 * down, x = clamp(Math.round(cx - 24), 4, W - 52);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, PLAY_H); ctx.clip();   // still rises from behind the HUD edge
+  if (dogPop.kind === 'laugh') dimg(SPR.laugh, x, y + (Math.floor(st * 8) % 2) * 2);
+  else {
+    const hop = Math.floor(st * 4) % 2 ? 0 : 2;
+    dimg(SPR.front, x, y + hop);
+    dimg(SPR.paw, x + 42, y + 24 + hop); ctx.drawImage(SPR.bigball, x + 41, y + 12 + hop);
+  }
+  ctx.restore();
 }
 const HUD_COLS = [[2, 66], [70, 52], [124, 70], [196, 58]];   // [x, w], shared by HUD rows 1 + 2
 function hudCell(i, y, text, col, border) {
@@ -4220,10 +4227,10 @@ function renderScene() {
   drawFxParts();
   if (shaking) ctx.restore();
   if (fx.flash > 0) { ctx.globalAlpha = clamp(fx.flash / 0.18, 0, 1) * 0.7; rect(0, 0, W, PLAY_H, fx.flashCol); ctx.globalAlpha = 1; }
-  drawDogPop();
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   drawHUD();
+  drawDogPop();   // v8.12: on top of the HUD + mini map so nothing hides him
   drawShotFx();
   drawMiniCard();
   if (state === 'intro') {
