@@ -1279,6 +1279,7 @@ let CLUB_BTN = { x: 2, y: 48, w: 44, h: 44 }, CLUB_PAD = { x: 0, y: 40, w: 56, h
 let MM_BOX = { x: 160, y: 173, w: 92, h: 12 }, MM_GAP = 6;   // v8.10: mini map (hole overview) in the dirt strip, right side
 let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 120, h: 14 }, CZ_GOLF = { x: 128, y: 200, s: 3 }, DONE_R = { x: 60, y: 124, w: 136, h: 22 };
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
+let CZ_HEAD_Y = 6, CZ_COLX = 128, CZ_PANEL = { x: 8, y: 200, w: 240, h: 160 }, CZ_PITCH = 29, CZ_CTRL = { al: 122, sw: 152, ar: 214, aw: 28, sww: 60 };   // v8.14 customize layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
 function layoutChrome() {
@@ -1369,71 +1370,72 @@ function layoutChrome() {
     TLB_R.y = boardY;
   }
 
-    // Customize: TOP-DOWN stack, then ground BELOW the UI (never squeeze UI into a fixed fairway).
-  // Order: header → name+underline → gap G → 5 rows @ pitch P → LOCKED band → TEE OFF → gap → ridge/fairway → golfer.
-  const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
-  const minPitch = Math.max(Math.ceil(44 / sy), 22); // ≥44 CSS centers + scale-2 labels (~14px) never touch
-  let G = Math.max(10, Math.round(minPitch * 0.45));       // name→HAT gap (shrinkable)
-  let lockH = 14;                                          // reserved LOCKED band (always)
-  let afterLock = 6;                                       // LOCKED → TEE
-  let teeH = Math.max(16, Math.round(minPitch * 0.7));
-  let afterTee = 10;                                       // TEE bottom → ridge
-  let grassWant = portrait ? Math.max(56, Math.round(H * 0.22)) : Math.max(48, Math.round(H * 0.24));
-  let P = Math.max(minPitch, Math.ceil(52 / sy));           // comfortable pitch
-  const nameY = (SAFE.t || 0) + 18;                        // below CUSTOMIZE header
-  const nameBlock = 18;                                    // underline at nameY+17
-  const mk = (p, g, lh, al, th, at) => {
-    const first = nameY + nameBlock + g;
-    const trail = first + 4 * p;
-    const trailBot = trail + 15;   // scale-2 label is 14px tall + 1px shadow
-    const lockTop = trailBot + 2;
-    const lockBot = lockTop + lh;
-    const tee = lockBot + al;
-    const teeBot = tee + th;
-    // drawSkyScene paints hills from (fair-26)..fair — keep that whole band BELOW TEE
-    const ridgeH = 26;
-    const ridge = teeBot + at;
-    const fair = ridge + ridgeH;
-    return { first, trail, lockTop, lockBot, tee, teeBot, ridge, fair, p };
-  };
-  let L = mk(P, G, lockH, afterLock, teeH, afterTee);
-  const botLimit = () => H - (SAFE.b || 0) - 4;
-  // Fit: shrink gaps first, then pitch (never < minPitch), then grass
-  // Never let HAT collide with the name underline (label extends ~7px above center)
-  const minG = 10;
-  if (G < minG) G = minG;
-  for (let guard = 0; guard < 80 && L.fair + grassWant > botLimit(); guard++) {
-    if (afterTee > 6) afterTee--;
-    else if (afterLock > 3) afterLock--;
-    else if (G > minG) G--;
-    else if (P > minPitch) P--;
-    else if (grassWant > 36) grassWant -= 4;
-    else break;
-    L = mk(P, G, lockH, afterLock, teeH, afterTee);
-  }
-  // UI always wins: fairway under TEE + gap + full ridge band
-  CZ_FAIR = Math.min(botLimit() - 8, L.fair);
-  if (CZ_FAIR < L.fair) CZ_FAIR = L.fair;
-  CZ_Y = [nameY, L.first, L.first + P, L.first + 2 * P, L.first + 3 * P, L.first + 4 * P, L.tee];
-  CZ_LOCK = { y: L.lockTop, h: lockH };
-  DONE_R.x = Math.round((W - 150) / 2); DONE_R.y = L.tee - 2; DONE_R.w = 150; DONE_R.h = teeH;
-  CZ_ROW_H = Math.max(minPitch, Math.min(P - 2, Math.ceil(48 / sy)));
-  CZ_OX = W > 300 ? Math.round(W / 2 - 156) : 0;
-  // Golfer on fairway below UI; landscape can sit slightly aside
+  // v8.14 Customize: the golfer preview is the focal point (big, integer pixel scale, centered).
+  // Portrait: header -> name -> preview (golfer on a mown tee patch, soft spotlight) -> options board -> LOCKED band -> TEE OFF -> grass.
+  // Landscape: preview fills the left column; header, name, options board and TEE OFF stack in the right column.
   {
-    const grassH = Math.max(8, H - CZ_FAIR - (SAFE.b || 0));
-    let gs = 3;
-    if (grassH < 70) gs = 2;
-    if (grassH < 48) gs = 1.5;
-    const up = Math.ceil(28 * gs);
-    let gy = Math.min(H - 12 - (SAFE.b || 0), CZ_FAIR + Math.max(up + 4, Math.round(grassH * 0.78)));
-    // Keep golfer head below TEE (and below fairway top + a little)
-    if (gy - up < CZ_Y[6] + teeH + 4) gy = Math.min(H - 8 - (SAFE.b || 0), CZ_Y[6] + teeH + 4 + up);
-    if (gy - up < CZ_FAIR + 2) { gs = Math.max(1, gs - 0.5); }
-    const gx = (!portrait && W > 320) ? Math.round(W * 0.72) : Math.round(W / 2 - 3);
-    CZ_GOLF = { x: gx, y: gy, s: gs };
+    const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
+    const top = SAFE.t || 0, bot = H - (SAFE.b || 0);
+    const minPitch = Math.max(Math.ceil(44 / sy), 22);   // >=44 CSS px rows; scale-2 labels (14px) never touch
+    let P = minPitch;
+    const lockH = 14;
+    const teeH = Math.max(22, Math.min(30, minPitch));
+    CZ_BACK_R.x = 2 + (SAFE.l || 0); CZ_BACK_R.y = top + 2; CZ_BACK_R.w = 66; CZ_BACK_R.h = 22;
+    CZ_HEAD_Y = top + 6;
+    const ctrl = (px, pw) => { const aw = 28, sww = 60, ar = px + pw - 6 - aw, sw = ar - 2 - sww, al = sw - 2 - aw; CZ_CTRL = { al, sw, ar, aw, sww }; };
+    let gs, feetY, gcx, nameY, teeY, lockY;
+    if (portrait) {
+      CZ_COLX = Math.round(W / 2);
+      nameY = top + 30;
+      const pw = Math.min(240, W - 16), px = Math.round((W - pw) / 2);
+      teeY = bot - 8 - teeH;
+      lockY = teeY - 4 - lockH;
+      let panelH = 5 * P + 12;
+      let panelY = lockY - 2 - panelH;
+      const stageTop = nameY + 24;
+      // tiny screens: tighten rows before the preview drops below 3x
+      while (P > 22 && panelY - 6 - stageTop < 3 * 31 + 10) { P--; panelH = 5 * P + 12; panelY = lockY - 2 - panelH; }
+      const stageBot = panelY - 6;
+      gs = Math.max(2, Math.min(7, Math.floor((stageBot - stageTop - 10) / 31)));
+      const ry = Math.max(4, Math.round(2.2 * gs));
+      const ext = 28 * gs + ry;
+      feetY = stageTop + Math.max(0, Math.round((stageBot - stageTop - ext) / 2)) + 28 * gs;
+      gcx = CZ_COLX;
+      CZ_PANEL = { x: px, y: panelY, w: pw, h: panelH };
+      ctrl(px, pw);
+      CZ_FAIR = feetY - 3 * gs - 4;
+    } else {
+      const cw = Math.min(W - 16, 440), x0 = Math.round((W - cw) / 2);
+      const leftW = Math.round(cw * 0.42);
+      const pw = Math.min(240, cw - leftW - 6), px = x0 + leftW + 6 + Math.round((cw - leftW - 6 - pw) / 2);
+      CZ_COLX = px + Math.round(pw / 2);
+      nameY = top + 26;
+      let panelY = nameY + 24;
+      let panelH = 5 * P + 12;
+      // keep TEE OFF on screen: shrink row pitch if the window is short
+      while (P > 18 && panelY + panelH + 2 + lockH + 2 + teeH > bot - 4) { P--; panelH = 5 * P + 12; }
+      lockY = panelY + panelH + 2;
+      teeY = lockY + lockH + 2;
+      CZ_PANEL = { x: px, y: panelY, w: pw, h: panelH };
+      ctrl(px, pw);
+      const footRoom = g => Math.max(Math.max(4, Math.round(2.2 * g)), 3 * g) + 4;   // pedestal + club head stay on screen
+      gs = 5;
+      for (; gs > 2; gs--) { if (bot - footRoom(gs) - 28 * gs >= top + 12) break; }
+      feetY = bot - footRoom(gs);
+      CZ_FAIR = Math.min(H - 20, feetY - 2 * gs - 2);   // golfer stands on the fairway (TEE OFF may sit over the hills/grass)
+      gcx = x0 + Math.round(leftW / 2);
+    }
+    CZ_PITCH = P;
+    CZ_ROW_H = P - 2;
+    CZ_Y = [nameY];
+    for (let r = 1; r <= 5; r++) CZ_Y.push(CZ_PANEL.y + 6 + (r - 1) * P + Math.round((P - 14) / 2));
+    CZ_Y.push(teeY + Math.round((teeH - 14) / 2));
+    CZ_LOCK = { y: lockY, h: lockH };
+    DONE_R.w = 150; DONE_R.h = teeH; DONE_R.x = Math.round(CZ_COLX - 75); DONE_R.y = teeY;
+    CZ_OX = CZ_PANEL.x - 8;
+    // golfer art spans ~-5..+9 (ball) around its feet x; center the group on gcx
+    CZ_GOLF = { x: Math.round(gcx - 3 * gs), y: feetY, s: gs };
   }
-  CZ_BACK_R.x = 2; CZ_BACK_R.y = 2; CZ_BACK_R.w = 66; CZ_BACK_R.h = 22;
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
   KB_X0 = Math.round((W - 200) / 2);
   KB_PANEL.x = KB_X0 - 6; KB_PANEL.y = KB_Y0 - 7; KB_PANEL.w = 212; KB_PANEL.h = 87;
@@ -1601,10 +1603,11 @@ function closePopup() { if (menuPopup && menuPopup.t > 0.15) { menuPopup = null;
 const CZ_ROWS = 7, CZ_DONE = 6;   // CZ_Y / DONE_R live in layoutChrome()
 const CZ_OPTS = [null, ['hat', HATS], ['skin', SKINS], ['shirt', SHIRTS], ['pants', PANTS]];   // row -> [player key, choices]
 const NAME_RECT = { x: 52, y: 6, w: 152, h: 36 };
-const ARROW_L = r => { const h = CZ_ROW_H; return { x: 118 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 30, h }; };
-const ARROW_R = r => { const h = CZ_ROW_H; return { x: 176 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 30, h }; };
-const SWATCH_R = r => { const h = CZ_ROW_H; return { x: 144 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 36, h }; };
-const ROW_R = r => { const h = CZ_ROW_H; return { x: 28 + CZ_OX, y: CZ_Y[r] - Math.floor(h / 2) + 4, w: 200, h }; };
+const czRowTop = r => CZ_PANEL.y + 6 + (r - 1) * CZ_PITCH;
+const ARROW_L = r => ({ x: CZ_CTRL.al, y: czRowTop(r) + 1, w: CZ_CTRL.aw, h: CZ_PITCH - 2 });
+const ARROW_R = r => ({ x: CZ_CTRL.ar, y: czRowTop(r) + 1, w: CZ_CTRL.aw, h: CZ_PITCH - 2 });
+const SWATCH_R = r => ({ x: CZ_CTRL.sw, y: czRowTop(r) + 1, w: CZ_CTRL.sww, h: CZ_PITCH - 2 });
+const ROW_R = r => ({ x: CZ_PANEL.x + 4, y: czRowTop(r) + 1, w: CZ_PANEL.w - 8, h: CZ_PITCH - 2 });
 /* DONE_R via layoutChrome */
 const KB = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ0123'], ['4', '5', '6', '7', '8', '9', 'SPC', 'DEL'], ['OK']];
 /* KB_* via layoutChrome; KB_CW/CH constants above */
@@ -1699,6 +1702,7 @@ function czCycle(r, d) {
   cz[key] = (cz[key] + d + n) % n;
   SFX.tick();
 }
+function czStep(r, d) { if (r === 5) cycleTrail(d); else czCycle(r, d); }   // v8.14: rows 1-4 look, 5 trail
 function cycleTrail(d) {
   let i = TRAIL_IDS.indexOf(cz.trail || 'white');
   if (i < 0) i = 0;
@@ -1755,14 +1759,14 @@ function customPointer(p) {
   if (cz.kb) return;
   if (hitBtn(p, CZ_BACK_R)) { czCancel(); return; }
   if (hitBtn(p, nameHitRect())) { openKb(); return; }
-  for (const r of [1, 2, 3, 4]) {
-    if (hitBtn(p, ARROW_L(r))) { cz.row = r; czCycle(r, -1); return; }
-    if (hitBtn(p, ARROW_R(r)) || hitBtn(p, SWATCH_R(r))) { cz.row = r; czCycle(r, 1); return; }
+  for (const r of [1, 2, 3, 4, 5]) {
+    if (hitBtn(p, ARROW_L(r))) { cz.row = r; czStep(r, -1); return; }
+    if (hitBtn(p, ARROW_R(r)) || hitBtn(p, SWATCH_R(r))) { cz.row = r; czStep(r, 1); return; }
     if (hitBtn(p, ROW_R(r))) { cz.row = r; SFX.tick(); return; }
   }
   if (hitBtn(p, DONE_R)) { cz.row = CZ_DONE; czDone(); }
 }
-function nameHitRect() { return { x: Math.round((W - 152) / 2), y: CZ_Y[0] - 4, w: 152, h: 36 }; }
+function nameHitRect() { return { x: Math.round(CZ_COLX - 76), y: CZ_Y[0] - 4, w: 152, h: 26 }; }
 
 /* --- leaderboard screen --- */
 let board = null, pendingSave = null, lastEntry = null, saveWhere = '';
@@ -2663,9 +2667,9 @@ cv.addEventListener('pointerdown', e => {
     if (hitBtn(p, CZ_BACK_R)) { armUiTap('czback', () => czCancel(), (up) => hitBtn(toLogical(up), CZ_BACK_R), e); touchDown = null; return; }
     if (hitBtn(p, nameHitRect())) { armUiTap('czname', () => openKb(), (up) => hitBtn(toLogical(up), nameHitRect()), e); touchDown = null; return; }
     let armed = false;
-    for (const r of [1, 2, 3, 4]) {
-      if (hitBtn(p, ARROW_L(r))) { const rr = r; armUiTap('czL' + rr, () => { cz.row = rr; czCycle(rr, -1); }, (up) => hitBtn(toLogical(up), ARROW_L(rr)), e); armed = true; break; }
-      if (hitBtn(p, ARROW_R(r)) || hitBtn(p, SWATCH_R(r))) { const rr = r; armUiTap('czR' + rr, () => { cz.row = rr; czCycle(rr, 1); }, (up) => hitBtn(toLogical(up), ARROW_R(rr)) || hitBtn(toLogical(up), SWATCH_R(rr)), e); armed = true; break; }
+    for (const r of [1, 2, 3, 4, 5]) {
+      if (hitBtn(p, ARROW_L(r))) { const rr = r; armUiTap('czL' + rr, () => { cz.row = rr; czStep(rr, -1); }, (up) => hitBtn(toLogical(up), ARROW_L(rr)), e); armed = true; break; }
+      if (hitBtn(p, ARROW_R(r)) || hitBtn(p, SWATCH_R(r))) { const rr = r; armUiTap('czR' + rr, () => { cz.row = rr; czStep(rr, 1); }, (up) => hitBtn(toLogical(up), ARROW_R(rr)) || hitBtn(toLogical(up), SWATCH_R(rr)), e); armed = true; break; }
       if (hitBtn(p, ROW_R(r))) { const rr = r; armUiTap('czRow' + rr, () => { cz.row = rr; SFX.tick(); }, (up) => hitBtn(toLogical(up), ROW_R(rr)), e); armed = true; break; }
     }
     if (!armed && hitBtn(p, DONE_R)) armUiTap('czdone', () => { cz.row = CZ_DONE; czDone(); }, (up) => hitBtn(toLogical(up), DONE_R), e);
@@ -3708,7 +3712,7 @@ function drawTitleFairwayScenery() {
 }
 
 const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
-function drawSkyScene(fairTop) {
+function drawSkyScene(fairTop, noCart) {
   if (fairTop == null) fairTop = TITLE_FAIR;
   rect(0, 0, W, H, COL.sky);
   // slow cloud drift behind the logo (wrap)
@@ -3728,7 +3732,7 @@ function drawSkyScene(fairTop) {
     rect(sx, hh, 1, fairTop - hh, COL.hill); rect(sx, hh, 1, 1, '#000');
     if ((sx * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, COL.hillL);
   }
-  drawCart('scene', 0);
+  if (!noCart) drawCart('scene', 0);
   rect(0, fairTop - 1, W, 1, '#000');                    // fairway strip — fills to canvas bottom (full viewport)
   const grassH = Math.max(1, H - fairTop + 2);            // +2 covers subpixel / rounding so no body-blue fringe
   for (let sx = 0; sx < W; sx += 16) rect(sx, fairTop, Math.min(16, W - sx), grassH, (sx >> 4) & 1 ? COL.grass : COL.fair2);
@@ -3936,81 +3940,133 @@ function drawMenuPopup() {
   drawTextC('PHOTOS + HIGHLIGHTS SOON', y + 60, COL.lime);
   if (Math.floor(p.t * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP TO CLOSE' : 'CLICK OR ANY KEY TO CLOSE', y + 82, COL.gray);
 }
+/* v8.14 customize helpers */
+function czEllipse(cx, cy, rx, ry, col) {
+  for (let y = -ry; y <= ry; y++) {
+    const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    if (hw > 0) rect(cx - hw, cy + y, hw * 2, 1, col);
+  }
+}
+function czRing(x, y, w, h, c) { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); }
+function czBoard(x, y, w, h, a, lit) {   // same gold frame + navy glass as the title leaderboard
+  const G1 = lit ? '#fce4a0' : '#f8d878', G2 = lit ? '#f8b800' : '#d8a000';
+  czRing(x, y, w, h, '#000'); czRing(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
+  czRing(x + 2, y + 2, w - 4, h - 4, G1); czRing(x + 3, y + 3, w - 6, h - 6, '#000');
+  ctx.globalAlpha = a; rect(x + 4, y + 4, w - 8, h - 8, '#102860'); ctx.globalAlpha = 1;
+  for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
+}
+function czPadlock(cx, cy, col) {   // 7x9 pixel padlock centered on (cx, cy), black outline
+  const x = Math.round(cx - 3), y = Math.round(cy - 4);
+  rect(x + 1, y - 1, 5, 1, '#000'); rect(x, y, 1, 4, '#000'); rect(x + 6, y, 1, 4, '#000'); rect(x + 2, y + 1, 3, 3, '#000');
+  rect(x - 1, y + 3, 9, 7, '#000');
+  rect(x + 2, y, 3, 1, col); rect(x + 1, y + 1, 1, 3, col); rect(x + 5, y + 1, 1, 3, col);
+  rect(x, y + 4, 7, 5, col); rect(x + 3, y + 5, 1, 2, '#000');
+}
+const CZ_TRAIL_COLS = { white: ['#fcfcfc', '#bcf0fc'], gold: ['#fc9838', '#f8d878'], fire: ['#f83800', '#fc9838', '#f8d878'],
+  rainbow: ['#f83800', '#fc9838', '#f8d878', '#58d854', '#3cbcfc', '#9878f8'], dlg: ['#58d854', '#3cbcfc'] };
 function renderCustom() {
-  drawSkyScene(CZ_FAIR);
+  drawSkyScene(CZ_FAIR, true);
   const blink = Math.floor(st * 4) % 2 === 0, YEL = '#f8d878';
-  const ox = CZ_OX;
-  // '< BACK' top-left (safe-area canvas corner) — returns to title, keeps saved player look
+  const pane = CZ_PANEL, colX = CZ_COLX;
+  // '< BACK' top-left (safe-area corner) — returns without saving changes
   {
     const br = CZ_BACK_R, on = mouse.seen && hitBtn(mouse, br);
-    outlined('< BACK', br.x + 4, br.y + 4, on ? YEL : COL.white);
+    outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
-  // CUSTOMIZE header first (always above the name)
-  if (!cz.kb) {
-    const t = 'CUSTOMIZE';
-    outlined(t, Math.round((W - textW(t)) / 2), 2 + (SAFE.t || 0), COL.gray);
-  }
-  // Golfer on the fairway below the UI stack (position from layoutChrome)
+  if (!cz.kb) { const t = 'CUSTOMIZE'; outlined(t, Math.round(colX - textW(t, 2) / 2), CZ_HEAD_Y, YEL, 2); }
+  // name + underline (tap to edit)
+  const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
+  if (cz.name) outlined(cz.name, Math.round(colX - textW(cz.name, 2) / 2), ny, nf ? YEL : COL.white, 2);
+  else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
+  const uw = 124, ux = Math.round(colX - uw / 2);
+  rect(ux, ny + 17, uw, 2, '#000'); rect(ux + 1, ny + 17, uw - 2, 1, nf ? YEL : COL.white);
+  if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round(colX + textW(cz.name, 2) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
+
+  // Preview: soft spotlight + mown tee patch + golfer at an integer scale (crisp pixels), gentle club waggle
   {
-    const g = CZ_GOLF, gs = g.s || 3;
-    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(gs, gs);
+    const g = CZ_GOLF, s = Math.max(1, Math.round(g.s || 3)), px = g.x + 3 * s;
+    ctx.globalAlpha = 0.07;
+    czEllipse(px, g.y - 14 * s, 17 * s, 18 * s, COL.white);
+    czEllipse(px, g.y - 13 * s, 13 * s, 14 * s, COL.white);
+    czEllipse(px, g.y - 12 * s, 9 * s, 10 * s, COL.white);
+    ctx.globalAlpha = 1;
+    const rx = 12 * s, ry = Math.max(4, Math.round(2.2 * s));
+    czEllipse(px, g.y + 1, rx + 1, ry + 1, '#000');
+    czEllipse(px, g.y, rx, ry, COL.grassL);
+    for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, g.y - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);   // mower stripes
+    ctx.globalAlpha = 0.28; czEllipse(px - s, g.y, 6 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(s, s);
     drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
     ctx.restore();
-    ctx.drawImage(SPR.golfball, g.x + Math.round(10 * gs), g.y - 2);
+    const bs = Math.max(1, Math.floor(s / 2));
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(SPR.golfball, g.x + 9 * s, g.y - 5 * bs + Math.floor(bs / 2), 5 * bs, 5 * bs);
   }
 
-  // name + underline (centered); clear of CUSTOMIZE header and of HAT below
-  const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
-  if (cz.name) outlined(cz.name, Math.round((W - textW(cz.name, 2)) / 2), ny, nf ? YEL : COL.white, 2);
-  else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round((W - textW(ph, 2)) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
-  const uw = 124, ux = Math.round((W - uw) / 2);
-  rect(ux, ny + 17, uw, 2, '#000'); rect(ux + 1, ny + 17, uw - 2, 1, nf ? YEL : COL.white);
-  if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round((W + textW(cz.name, 2)) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
-  // look toggles — larger < > (scale 2); x shifted by CZ_OX so the block is centered on wide screens
-  const arrowSc = 2;
-  [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4]].forEach(([lab, r]) => {
-    const y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
-    outlined(lab, 118 + ox - textW(lab, 2), y, col, 2);
-    outlined('<', 128 + ox - nudge, y - 2, col, arrowSc); outlined('>', 184 + ox + nudge, y - 2, col, arrowSc);
-    const lk = lookOf(cz), c = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r];
-    const hatLock = r === 1 && !hatUnlocked(cz.hat);
-    const sh = Math.max(14, Math.min(20, CZ_ROW_H - 8));
-    const sy0 = y + 4 - Math.floor(sh / 2);
-    rect(146 + ox, sy0 - 1, 34, sh + 2, '#000'); rect(147 + ox, sy0, 32, sh, f ? YEL : COL.white); rect(149 + ox, sy0 + 2, 28, sh - 4, '#000');
-    if (hatLock) {
-      rect(150 + ox, sy0 + 3, 26, sh - 6, '#183848');
-      outlined('LK', 154 + ox, sy0 + Math.max(2, Math.floor((sh - 10) / 2)), COL.orange);
-    } else rect(150 + ox, sy0 + 3, 26, sh - 6, c);
+  // Options board
+  czBoard(pane.x, pane.y, pane.w, pane.h, 0.9, false);
+  const lk = lookOf(cz);
+  const keycap = (r, ch, f, dir) => {
+    const k = Math.min(20, r.h - 2), bx = Math.round(r.x + (r.w - k) / 2), by = Math.round(r.y + (r.h - k) / 2);
+    const on = mouse.seen && !isTouchUi() && hit(mouse, r);
+    rect(bx, by, k, k, '#000'); rect(bx + 1, by + 1, k - 2, k - 2, f || on ? YEL : '#bcbcbc'); rect(bx + 2, by + 2, k - 4, k - 4, f ? '#1c3c7c' : '#102860');
+    const nudge = f && blink ? dir : 0, gx = bx + Math.round((k - 10) / 2) + nudge, gy = by + Math.round((k - 14) / 2);
+    drawText(ch, gx + 1, gy + 1, '#000', 2); drawText(ch, gx, gy, f || on ? YEL : COL.white, 2);
+  };
+  [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4], ['TRAIL', 5]].forEach(([lab, r]) => {
+    const f = cz.row === r && !cz.kb, rr = ROW_R(r), y = CZ_Y[r];
+    if (f) { ctx.globalAlpha = 0.55; rect(rr.x, rr.y, rr.w, rr.h, '#3c64b4'); ctx.globalAlpha = 1; czRing(rr.x, rr.y, rr.w, rr.h, YEL); }
+    outlined(lab, pane.x + 12, y, f ? YEL : COL.white, 2);
+    keycap(ARROW_L(r), '<', f, -1); keycap(ARROW_R(r), '>', f, 1);
+    const sr = SWATCH_R(r), sh = Math.min(20, sr.h - 2), sx0 = sr.x, sy0 = Math.round(sr.y + (sr.h - sh) / 2), sw = sr.w;
+    rect(sx0, sy0, sw, sh, '#000'); rect(sx0 + 1, sy0 + 1, sw - 2, sh - 2, f ? YEL : COL.white); rect(sx0 + 2, sy0 + 2, sw - 4, sh - 4, '#000');
+    const ix = sx0 + 3, iy = sy0 + 3, iw = sw - 6, ih = sh - 6;
+    let locked = false;
+    if (r === 5) {
+      const tid = cz.trail || 'white', cols = CZ_TRAIL_COLS[tid] || CZ_TRAIL_COLS.white;
+      locked = !trailUnlocked(tid);
+      rect(ix, iy, iw, ih, '#102860');
+      if (locked) ctx.globalAlpha = 0.35;
+      const nd = 7, dx0 = ix + Math.round((iw - (nd * 7 - 4)) / 2);
+      const tY = iy + ih - 7, dY = iy + Math.max(1, Math.floor((tY - iy - 4) / 2));
+      for (let i = 0; i < nd; i++) rect(dx0 + i * 7, dY, 3, 3, cols[i % cols.length]);
+      const tn = tid.toUpperCase().slice(0, 7), tw = textW(tn), lockW = locked ? 10 : 0, tx = ix + Math.round((iw - tw - lockW) / 2) + lockW;
+      ctx.globalAlpha = 1;
+      drawText(tn, tx, tY, locked ? COL.gray : (f ? YEL : COL.white));
+      if (locked) czPadlock(tx - 7, sy0 + Math.round(sh / 2), COL.orange);
+      locked = false;   // padlock already drawn beside the name
+    } else {
+      const main = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r], shade = r === 1 ? lk.hatD : r === 3 ? lk.shirtD : null;
+      locked = r === 1 && !hatUnlocked(cz.hat);
+      if (locked) ctx.globalAlpha = 0.35;
+      rect(ix, iy, iw, ih, main);
+      if (shade) rect(ix, iy + ih - Math.max(3, Math.round(ih / 3)), iw, Math.max(3, Math.round(ih / 3)), shade);
+      ctx.globalAlpha = 1;
+    }
+    if (locked) czPadlock(sx0 + Math.round(sw / 2), sy0 + Math.round(sh / 2), COL.orange);
   });
-  {
-    const r = 5, y = CZ_Y[r], f = cz.row === r && !cz.kb, col = f ? YEL : COL.white, nudge = f && blink ? 1 : 0;
-    outlined('TRAIL', 118 + ox - textW('TRAIL', 2), y, col, 2);
-    outlined('<', 128 + ox - nudge, y - 2, col, arrowSc); outlined('>', 184 + ox + nudge, y - 2, col, arrowSc);
-    const tid = (cz.trail || 'white').toUpperCase().slice(0, 5);
-    const locked = !trailUnlocked(cz.trail || 'white');
-    if (locked) outlined('LK', 155 + ox, y, COL.orange);
-    else outlined(tid, 148 + ox, y, col);
-  }
-  // LOCKED bar in the reserved slot between TRAIL and TEE OFF (only when needed)
+  // LOCKED hint in the reserved band under the board (only when the focused choice is locked)
   {
     let hint = '';
     if (cz.row === 1 && !hatUnlocked(cz.hat)) hint = 'LOCKED - ' + (hatEarnHint(cz.hat) || 'EARN TO UNLOCK');
     else if (cz.row === 5 && !trailUnlocked(cz.trail || 'white')) hint = 'LOCKED - ' + (trailEarnHint(cz.trail) || 'EARN TO UNLOCK');
     if (hint) {
-      // Strictly inside the reserved LOCKED band (never overlaps TRAIL or TEE)
       const hy = CZ_LOCK.y + Math.max(0, Math.floor((CZ_LOCK.h - 12) / 2));
-      const hw = Math.min(W - 16, textW(hint) + 12);
-      const hx = Math.round((W - hw) / 2);
-      rect(hx, hy - 1, hw, 12, '#000');
-      rect(hx + 1, hy, hw - 2, 10, '#183848');
+      const hw = Math.min(W - 16, textW(hint) + 12), hx = Math.round(colX - hw / 2);
+      rect(hx, hy - 1, hw, 12, '#000'); rect(hx + 1, hy, hw - 2, 10, '#183848');
       drawText(hint, hx + 6, hy + 1, COL.orange);
     }
   }
-  // TEE OFF / DONE — in the sky above the hills
-  const dl = (cz.from === 'play' || cz.from === 'daily') ? (cz.from === 'daily' ? (dailyMeta && dailyMeta.practice ? 'PRACTICE' : 'PLAY DAILY') : 'TEE OFF') : 'DONE', dw = textW(dl, 2), dx = Math.round((W - dw) / 2), df = cz.row === CZ_DONE && !cz.kb;
-  outlined(dl, dx, CZ_Y[CZ_DONE], df ? YEL : COL.white, 2);
-  if (df) outlined('>', dx - 17 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
+  // TEE OFF / PLAY DAILY / DONE button
+  {
+    const dl = (cz.from === 'play' || cz.from === 'daily') ? (cz.from === 'daily' ? (dailyMeta && dailyMeta.practice ? 'PRACTICE' : 'PLAY DAILY') : 'TEE OFF') : 'DONE';
+    const df = cz.row === CZ_DONE && !cz.kb, on = mouse.seen && !isTouchUi() && hitBtn(mouse, DONE_R), d = DONE_R;
+    czBoard(d.x, d.y, d.w, d.h, 0.9, df && blink);
+    const dw = textW(dl, 2), dx = Math.round(d.x + (d.w - dw) / 2);
+    outlined(dl, dx, CZ_Y[CZ_DONE], df || on ? YEL : COL.white, 2);
+    if (df) outlined('>', d.x + 7 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
+  }
 }
 function renderBoard() {
   drawSkyScene();
@@ -4360,6 +4416,7 @@ if (/test/.test(location.hash)) {
     get czBackHit() { return Object.assign({}, hitExpand(CZ_BACK_R)); },
     get nameHit() { return Object.assign({}, nameHitRect()); },
     get doneHit() { return Object.assign({}, hitExpand(DONE_R)); },
+    czRects() { const o = { panel: Object.assign({}, CZ_PANEL), golf: Object.assign({}, CZ_GOLF), done: Object.assign({}, DONE_R), back: Object.assign({}, CZ_BACK_R), rows: {} }; for (let r = 1; r <= 5; r++) o.rows[r] = { L: ARROW_L(r), R: ARROW_R(r), S: SWATCH_R(r), row: ROW_R(r) }; return o; },
     get cssScale() { return cssScale(); },
     get logicalSize() { return { W, H }; },
     get lbOnline() { return lbOnline(); },
