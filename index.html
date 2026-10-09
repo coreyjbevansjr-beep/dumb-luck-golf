@@ -1271,20 +1271,20 @@ const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y +
 const MENU = GALLERY_ITEMS.length ? ['PLAY', 'CAREER', 'DAILY', 'GALLERY', 'SHOP'] : ['PLAY', 'CAREER', 'DAILY', 'SHOP'];
 /* v8.18: small pixel subheading under each menu item (two short lines, split where the copy has its dash).
    CAREER is a locked placeholder (muted + padlock); tapping it only shows a COMING SOON toast. PLAY stays instant. */
-const MENU_SUB = { PLAY: ['18 HOLES', 'SET A SCORE'], CAREER: ['COMING SOON'], DAILY: ['ONE HOLE', 'GLOBAL LEADERBOARD'], SHOP: ['VISIT THE', 'PRO SHOP'], GALLERY: ['PHOTOS'] };
-const MENU_SUB_NARROW = Object.assign({}, MENU_SUB, { DAILY: ['ONE HOLE', 'GLOBAL', 'LEADERBOARD'] });
+const MENU_SUB = {};          // v8.19: subheadings removed (too cluttered) — labels only
+const MENU_SUB_NARROW = {};
 const MENU_LOCKED = { CAREER: 1 };
 let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
 function menuLayoutCalc() {
-  const SUB_DY = 4, LINE = 9, ROW_GAP = 9, landscape = H <= W * 1.15;
+  const SUB_DY = 4, LINE = 9, ROW_GAP = 12, landscape = H <= W * 1.15;
   const build = subs => MENU.map(l => { const lines = subs[l] || []; return { l, lines, w: Math.max(textW(l, 2) + (MENU_LOCKED[l] ? 11 : 0), ...lines.map(s => textW(s))) }; });
-  const fitGap = its => { const sum = its.reduce((a, it) => a + it.w, 0); return Math.min(14, Math.floor((W - 16 - sum) / Math.max(1, its.length - 1))); };
+  const fitGap = its => { const sum = its.reduce((a, it) => a + it.w, 0); return Math.min(22, Math.floor((W - 16 - sum) / Math.max(1, its.length - 1))); };   // v8.19: 22 = pre-v8.18 gap (room for the '>' cursor)
   let items = build(MENU_SUB), GAP = fitGap(items);
   // narrow landscape (4:3 / 5:4 screens): wrap the long DAILY line once more so a single row still fits under the logo
-  if (GAP < 8 && landscape) { const n = build(MENU_SUB_NARROW); if (fitGap(n) >= 8) { items = n; GAP = fitGap(n); } }
-  const grid = GAP < 8 && items.length > 2;
-  if (grid) GAP = 14;
+  if (GAP < 18 && landscape) { const n = build(MENU_SUB_NARROW); if (fitGap(n) >= 18) { items = n; GAP = fitGap(n); } }
+  const grid = GAP < 18 && items.length > 2;   // v8.19: a row needs >= 18px gaps so the '>' never touches the previous label
+  if (grid) GAP = 22;
   const maxLines = Math.max(0, ...items.map(it => it.lines.length));
   const itemH = 14 + (maxLines ? SUB_DY + (maxLines - 1) * LINE + 7 : 0);
   const rowW = items.reduce((a, it) => a + it.w, 0) + GAP * Math.max(0, items.length - 1);
@@ -1402,10 +1402,10 @@ function layoutChrome() {
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
     LOGO_Y = Math.max(iconBot + 2, Math.max(3, Math.round(H * 0.012)));
-    const boardH = 52, boardW = Math.min(236, W - 24), menuH = menuLayoutCalc().blockH + 2;
-    const gapLogo = 11, gapMenu = 5;   // v8.18: was 14/6 — subheadings need the room; 11px still clears the "Luck" descenders
+    const boardH = 52, boardW = Math.min(236, W - 24), menuH = Math.max(MENU_DY, menuLayoutCalc().blockH) + 2;   // v8.19: single row = pre-v8.18 MENU_DY + 2
+    const gapLogo = 14, gapMenu = 6;   // v8.19: back to the pre-v8.18 14/6 (14px clears the "Luck" descenders)
     {   // v8.18: trim the logo just enough that logo + menu + board fit above the bottom edge
-      const over = LOGO_Y + ldH + gapLogo + menuH + gapMenu + boardH - (H - 5);
+      const over = LOGO_Y + ldH + gapLogo + menuH + gapMenu + boardH - H;   // v8.19: only when the board would actually run off-screen
       if (over > 0) { ldH = Math.max(80, ldH - over); ldW = Math.round(lw0 * ldH / lh0); }
     }
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
