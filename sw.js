@@ -1,14 +1,19 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v99';
+const CACHE = 'dlg-golf-v100';
+// v8.20: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
 const PRECACHE = [
   './',
   './manifest.webmanifest',
+  './manifest.webmanifest?v=81',
   './favicon-32.png',
+  './favicon-32.png?v=81',
   './icon-192.png',
+  './icon-192.png?v=81',
   './icon-512.png',
   './icon-192-maskable.png',
   './icon-512-maskable.png',
   './apple-touch-icon.png',
+  './apple-touch-icon.png?v=81',
   './og-image.png'
 ];
 
