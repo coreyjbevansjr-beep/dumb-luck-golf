@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.28">
+<meta name="dlg-version" content="v8.29">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -155,7 +155,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.28';
+const GAME_VERSION = 'v8.29';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -522,7 +522,10 @@ async function usernameAvailable(name) {
 async function saveUsername(name, marketing) {
   if (!USERNAME_RE.test(name)) return { ok: false, msg: '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' };
   const body = { id: account.user.id, username: name, marketing_opt_in: !!marketing, marketing_opt_in_at: marketing ? new Date().toISOString() : null };
-  const r = await sb('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body }, 'profiles');
+  // v8.29: plain INSERT (an upsert needs table-wide SELECT, which profiles deliberately doesn't grant); if my row already exists, PATCH it
+  let r = await sb('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'return=minimal' }, body }, 'profiles');
+  if (!r.ok && r.data && r.data.code === '23505' && /profiles_pkey/.test(String(r.data.message || '') + String(r.data.details || '')))
+    r = await sb('/rest/v1/profiles?id=eq.' + encodeURIComponent(account.user.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { username: name, marketing_opt_in: body.marketing_opt_in, marketing_opt_in_at: body.marketing_opt_in_at } }, 'profiles');
   if (!r.ok) {
     const code = r.data && r.data.code;
     if (r.missing) return { ok: false, msg: 'ACCOUNTS NOT SET UP YET' };
@@ -723,6 +726,7 @@ async function finishMatchRound(total) {
     const s = JSON.parse(localStorage.getItem(AUTH_STORE) || 'null');
     if (!s || !s.user || !s.user.id) return;
     account.user = s.user; account.profile = s.profile || null; account.email = s.user.email || '';
+    if (!account.profile && authOnline()) setTimeout(() => { loadProfile(); }, 0);   // v8.29: pick up a username saved on another device / by support
     if (authOnline() && (account.user.expires_at || 0) < Date.now() / 1000 + 60) refreshSession().then(ok => { if (!ok && (account.user && account.user.expires_at || 0) < Date.now() / 1000) { account.user = null; account.profile = null; saveSession(); } });
   } catch (e) {}
 })();
