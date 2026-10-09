@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.22">
+<meta name="dlg-version" content="v8.23">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -32,13 +32,16 @@
 <meta name="twitter:description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="twitter:image" content="https://dumbluckgolf.com/og-image.png?v=2">
 <style>
-  html,body{margin:0;width:100%;height:100%;background:#98e020;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
+  html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
   body{position:fixed;inset:0;width:100%;height:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:0;
     --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
   canvas{display:block;position:absolute;inset:0;width:100% !important;height:100% !important;
     image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;touch-action:manipulation}
+  /* v8.23: html/body carry the sky colour (iOS tints the status bar / top safe area from it); #groundFill sits behind the canvas
+     and runs past the bottom edge, so the strip under Safari's toolbar shows the ground instead */
+  #groundFill{position:fixed;left:0;right:0;bottom:-240px;height:calc(50% + 240px);background:#98e020;z-index:-1;pointer-events:none}
   #rot{display:none !important}
   .sr-only{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
   #nameOverlay{display:none;position:fixed;left:0;right:0;top:0;z-index:50;padding:12px 12px calc(12px + env(safe-area-inset-top));
@@ -59,6 +62,7 @@
 </style>
 </head>
 <body>
+<div id="groundFill" aria-hidden="true"></div>
 <canvas id="c" width="256" height="240" role="application" aria-label="Dumb Luck Golf game. Tap, click, or press Space or Enter to start and to swing. Arrow keys aim and move through menus, Q and E change club, Escape pauses." tabindex="0"></canvas>
 <div id="srLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main id="about" class="sr-only">
@@ -104,7 +108,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.22';
+const GAME_VERSION = 'v8.23';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -809,7 +813,7 @@ const BACK_HOLES = [
    pts:[[0,'tee',14],[22,'rough',14],[40,'fair',12],[100,'rough',10],[120,'fair',10],[170,'rough',10],[190,'fair',10],[214,'sand',10],[232,'green',10],[292,'sand',10],[306,'rough',10],[330,'end',14]] },
  // (was a Moonlight copy) forced creek carry off the tee, long climb to a plateau green guarded by a sliding gate
  { name:'LAST CALL', theme:'sunset', par:5, cup:596, pins:[576,596,613], wind:4, windR:[-2,7], deco:[['board',174],['tree',20],['bush',207],['tree',329],['bush',450],['tree',660]],
-   movers:[{ kind:'slide', x:521, w:10, hBot:0, hTop:30, period:2.4, phase:0, amp:14 }],
+   movers:[{ kind:'slide', x:521, w:10, hBot:0, hTop:18, period:2.4, phase:0, amp:14 }],   // v8.23: 30 -> 18
    pts:[[0,'tee',16],[24,'rough',14],[42,'water',12],[128,'rough',12],[143,'fair',12],[284,'fair',16],[373,'fair',20],[397,'sand',22],[417,'fair',24],[483,'fair',26],[545,'green',40],
         [631,'sand',38],[649,'rough',38],[682,'end',38]] }
 ];
@@ -1212,8 +1216,8 @@ const isChip = (c, dist) => c === WEDGE_I && dist <= CHIP_DIST;
 const isSplash = (c, lie, dist) => c === WEDGE_I && lie === 'sand' && dist <= SPLASH_DIST;
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
-const PUTT_STEPS = [[8, 16], [20, 36], [45, 72], [1e9, 120]];
-const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 120; };   // flat-ground roll at 100% putter power
+const PUTT_STEPS = [[8, 20], [1e9, 30]];   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
+const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 30; };   // flat-ground roll at 100% putter power
 const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
 const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
 function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
@@ -1797,6 +1801,7 @@ const HELP_TEXT = [
   '',
   '#PUTTING',
   '-ON THE GREEN YOU GET THE PUTTER. SHORT PUTT = SHORT TAP. THE RED FLAG ON THE METER SHOWS ABOUT HOW HARD TO HIT IT.',
+  '-PUTTS ROLL 30 YARDS AT MOST. FROM FARTHER AWAY THE GAME HANDS YOU THE WEDGE TO CHIP IT CLOSE.',
   '-ROLL IT GENTLY: TOO FAST AND IT LIPS OUT.',
   '',
   '#TIPS',
@@ -2479,7 +2484,11 @@ function placeBall(x) {
 function autoClub() {
   // v8.21: simulate each club at full power from this lie, in this wind, and take the shortest one that gets there
   const lie = surfAt(hole, ball.x), d = Math.abs(hole.cup - ball.x), dir = hole.cup >= ball.x ? 1 : -1;
-  if (lie === 'green') clubIdx = PUTT_I;
+  if (lie === 'green') {   // v8.23: putter when a full putt gets there (max 30Y), otherwise chip it with the wedge
+    let reach = 0;
+    try { reach = (simulateShot(hole, wind, ball.x, PUTT_I, 0, 1, 0, dir).x - ball.x) * dir; } catch (e) {}
+    clubIdx = reach >= d - 1 ? PUTT_I : WEDGE_I;
+  }
   else if (isSplash(WEDGE_I, lie, d)) clubIdx = WEDGE_I;   // greenside bunker: splash it out
   else {
     let pick = -1, best = WEDGE_I, bestReach = -1e9;
@@ -4717,9 +4726,11 @@ function render() {
   syncPageBg();
 }
 /* v8.22: the page background shows wherever the canvas does not reach (iOS Safari draws its toolbar over the page and leaves
-   the strip below 100dvh to the page). Paint html/body with the most common colour in the canvas's bottom row, so the strip
-   continues the fairway on the title, the HUD in play, and the dimmed scene under menus. Sampled ~3x a second from a 1px copy. */
-let pageBgAt = 0, pageBgCol = '', pageBgCv = null, pageBgCtx = null;
+   the strip below 100dvh to the page). v8.23: two fills, each the most common colour of one canvas edge row:
+   top row -> html/body (status bar / top safe area = the sky), bottom row -> #groundFill (fairway on the title, the HUD dirt in
+   play, the dimmed scene under menus). Sampled ~3x a second from a 2px copy. */
+let pageBgAt = 0, pageBgCol = '', pageTopCol = '', pageBgCv = null, pageBgCtx = null, groundFillEl = null;
+const rowMode = (d, off, w) => { const n = new Map(); let best = 0, key = 0; for (let i = off; i < off + w * 4; i += 4) { const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2], c = (n.get(k) || 0) + 1; n.set(k, c); if (c > best) { best = c; key = k; } } return '#' + key.toString(16).padStart(6, '0'); };
 function syncPageBg() {
   const now = performance.now();
   if (now - pageBgAt < 300) return;
@@ -4727,13 +4738,12 @@ function syncPageBg() {
   try {
     const w = cv.width, h = cv.height;
     if (!pageBgCv) { pageBgCv = document.createElement('canvas'); pageBgCtx = pageBgCv.getContext('2d', { willReadFrequently: true }); }
-    if (pageBgCv.width !== w) { pageBgCv.width = w; pageBgCv.height = 1; }
-    pageBgCtx.clearRect(0, 0, w, 1); pageBgCtx.drawImage(cv, 0, h - 1, w, 1, 0, 0, w, 1);
-    const d = pageBgCtx.getImageData(0, 0, w, 1).data, n = new Map();
-    let best = 0, key = 0;
-    for (let i = 0; i < d.length; i += 4) { const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2], c = (n.get(k) || 0) + 1; n.set(k, c); if (c > best) { best = c; key = k; } }
-    const col = '#' + key.toString(16).padStart(6, '0');
-    if (col !== pageBgCol) { pageBgCol = col; document.documentElement.style.backgroundColor = col; document.body.style.backgroundColor = col; }
+    if (pageBgCv.width !== w || pageBgCv.height !== 2) { pageBgCv.width = w; pageBgCv.height = 2; }
+    pageBgCtx.clearRect(0, 0, w, 2); pageBgCtx.drawImage(cv, 0, 0, w, 1, 0, 0, w, 1); pageBgCtx.drawImage(cv, 0, h - 1, w, 1, 0, 1, w, 1);
+    const d = pageBgCtx.getImageData(0, 0, w, 2).data, top = rowMode(d, 0, w), col = rowMode(d, w * 4, w);
+    if (top !== pageTopCol) { pageTopCol = top; document.documentElement.style.backgroundColor = top; document.body.style.backgroundColor = top; }
+    if (!groundFillEl) groundFillEl = document.getElementById('groundFill');
+    if (col !== pageBgCol) { pageBgCol = col; if (groundFillEl) groundFillEl.style.backgroundColor = col; }
   } catch (e) {}
 }
 function beginWorldZoom() {
@@ -4968,7 +4978,7 @@ if (/test/.test(location.hash)) {
     forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); },
     // drive the real meter commit path: set power, then stop the accuracy marker at acc (0 = dead center)
     meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
-    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel, scroll: ov.scroll, max: helpMax } : null; }, helpScroll(d) { helpScroll(d); }, get helpView() { return helpView && Object.assign({}, helpView); }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get pageBg() { return pageBgCol; }, get clubYd() { return clubYards(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
+    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel, scroll: ov.scroll, max: helpMax } : null; }, helpScroll(d) { helpScroll(d); }, get helpView() { return helpView && Object.assign({}, helpView); }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get pageBg() { return pageBgCol; }, get pageTop() { return pageTopCol; }, get clubYd() { return clubYards(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
     get stTime() { return st; }, get shortTarget() { const t = shortTarget(); return t ? t.p : null; }, get muted() { return muted; },
     forceLuck() { forceLuck = true; }, forcePin() { forcePin = true; }, get pinTried() { return !!(ball && ball.pinTried); }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
     get toast() { return toast ? toast.lines : null; }, set scoresForTest(v) { scores = v.slice(); },
