@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.21">
+<meta name="dlg-version" content="v8.22">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -32,7 +32,7 @@
 <meta name="twitter:description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="twitter:image" content="https://dumbluckgolf.com/og-image.png?v=2">
 <style>
-  html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
+  html,body{margin:0;width:100%;height:100%;background:#98e020;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
   body{position:fixed;inset:0;width:100%;height:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:0;
@@ -104,7 +104,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.21';
+const GAME_VERSION = 'v8.22';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1054,8 +1054,6 @@ function shotGrade() {
   if (raw > 22) return { label: 'SHANK', col: COL.orange };
   if (errPx < -6) return { label: 'PULL', col: COL.orange };
   if (errPx > 6) return { label: 'PUSH', col: COL.orange };
-  if (errPx < 0) return { label: 'SOFT HOOK', col: COL.white };
-  if (errPx > 0) return { label: 'SOFT SLICE', col: COL.white };
   return { label: 'OK', col: COL.white };
 }
 /* v8.20: one-line reason under the shot label (lie, wind, loft, what the ball hit) */
@@ -1217,8 +1215,6 @@ const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * s
 const PUTT_STEPS = [[8, 16], [20, 36], [45, 72], [1e9, 120]];
 const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 120; };   // flat-ground roll at 100% putter power
 const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
-// v8.21 sweet zone edge: graded instead of a cliff (0 -> ~8% distance over the first 3px outside the brackets)
-function effErr(raw, sw) { const a = Math.abs(raw), o = a - sw; if (o <= 0) return 0; const e = o <= 3 ? o / 3 * 1.6 : 1.6 + (o - 3) * 1.5; return Math.sign(raw) * Math.min(e, 15.36); }
 const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
 function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   o = o || {};
@@ -1394,7 +1390,7 @@ let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
 // 3-click meter: power, then stop the returning marker in the green SWEET zone for clean contact.
 // PERFECT = power in the gold zone + marker dead on the line (not for putts).
-const SWEET_ERR = 3.6, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 6.6;   // v8.21: full-swing zone 3.3 -> 3.6 and a graded edge (effErr); v8.15 eased (v8.13 2.6 / 5.2; orig 4 / 8)
+const SWEET_ERR = 3.3, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 6.6;   // v8.15: sweet zone eased halfway back (v8.13 2.6 / 5.2; orig 4 / 8)   (v8.22: v8.21's wider zone + graded edge reverted)
 const shortGameNow = () => !!(hole && ball && (clubIdx === PUTT_I || isChip(clubIdx, Math.abs(hole.cup - ball.x))));
 const isShort = () => state === 'aim' ? shortGameNow() : !!meter.short;   // locked in when the swing starts
 const pwSpeed = () => PW_SPEED * (meter.short ? SHORT_SLOW : 1), accSpeed = () => ACC_SPEED * (meter.short ? SHORT_SLOW : 1);
@@ -1724,9 +1720,9 @@ resize();   // boot: after chrome layout vars exist
 function settingsRows() {
   return [['SOUND', settings.sound ? 'ON' : 'OFF'], ['AIM LINE', settings.aim ? 'ON' : 'OFF'],
           ['HAPTICS', settings.haptics ? 'ON' : 'OFF'],
-          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['BACK', null]];
+          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['HOW TO PLAY', null], ['BACK', null]];   // v8.22: HOW TO PLAY page
 }
-const ovCount = () => ov.kind === 'pause' ? PAUSE_ITEMS.length : settingsRows().length;
+const ovCount = () => ov.kind === 'pause' ? PAUSE_ITEMS.length : ov.kind === 'help' ? 1 : settingsRows().length;
 function openSettings(back) { ov = { kind: 'settings', sel: 0, back, t: 0 }; SFX.click(); }
 function pauseGame() {
   if (paused || !GAME_STATES.includes(state)) return;
@@ -1738,10 +1734,12 @@ function resumeGame() { paused = false; ov = null; SFX.click(); }
 function quitToMenu() { paused = false; ov = null; roundTip = false; board = null; dogPop = null; msg = null; fxClear(); clearWildlife(); setState('title'); }
 function ovBack() {
   if (ov.kind === 'pause') resumeGame();
+  else if (ov.kind === 'help') { ov = { kind: 'settings', sel: 4, back: ov.back, t: 0 }; helpDrag = null; SFX.click(); }   // v8.22: back to SETTINGS
   else if (ov.back === 'pause') ov = { kind: 'pause', sel: 1, t: 0 }, SFX.click();
   else { ov = null; SFX.click(); }
 }
 function ovActivate(i, dir = 1) {
+  if (ov.kind === 'help') { ovBack(); return; }   // v8.22: the only button on HOW TO PLAY is BACK
   ov.sel = i;
   if (ov.kind === 'pause') {
     if (i === 0) resumeGame();
@@ -1753,6 +1751,7 @@ function ovActivate(i, dir = 1) {
   else if (i === 1) { settings.aim = !settings.aim; saveSettings(); SFX.click(); }
   else if (i === 2) { settings.haptics = !settings.haptics; saveSettings(); SFX.click(); if (settings.haptics) hap(20); }
   else if (i === 3) { toggleFullscreen(); SFX.click(); }
+  else if (i === 4) openHelp();   // v8.22
   else ovBack();
 }
 function isTypingTarget(el) {
@@ -1764,6 +1763,7 @@ function isTypingTarget(el) {
 }
 function ovKey(e) {
   const k = e.key;
+  if (ov.kind === 'help') { helpKey(e); return; }   // v8.22
   if (k === 'Escape' || k === 'p' || k === 'P') { ovBack(); return; }
   if (k === 'ArrowUp' || k === 'w' || k === 'W') { ov.sel = (ov.sel + ovCount() - 1) % ovCount(); SFX.tick(); return; }
   if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'Tab') { ov.sel = (ov.sel + 1) % ovCount(); SFX.tick(); return; }
@@ -1772,13 +1772,128 @@ function ovKey(e) {
 }
 function ovPointerDown(p, e) {
   const r = ovRects.find(q => hitBtn(p, q));
+  if (ov.kind === 'help' && !r) { helpDrag = { y: p.y, s: ov.scroll, t: performance.now(), ly: p.y, lt: performance.now() }; ov.vel = 0; return; }   // v8.22: drag to scroll
   if (!r) return;
   ov.sel = r.i;
   const i = r.i;
   armUiTap('ov' + i, () => ovActivate(i), (up) => { const cur = ovRects.find(q => q.i === i); return cur && hitBtn(toLogical(up), cur); }, e);
 }
+
+/* v8.22: HOW TO PLAY page (settings menu): a short, friendly guide.
+   Line kinds: '#' header, '-' bullet, '=' table row (LEFT|RIGHT), '' gap, anything else = paragraph. */
+const HELP_TEXT = [
+  '@',
+  '#HOW TO SWING',
+  '-TAP OR CLICK (OR PRESS SPACE) TO START. THE MARKER FILLS THE METER.',
+  '-TAP AGAIN TO SET YOUR POWER. MORE POWER = MORE DISTANCE.',
+  '-THE MARKER SLIDES BACK. TAP A THIRD TIME INSIDE THE SWEET ZONE BRACKETS FOR A CLEAN, STRAIGHT HIT.',
+  '-TOO EARLY = SLICE (HIGH AND SHORT). TOO LATE = HOOK (LOW AND RUNNING).',
+  '-CHANGE THE LAUNCH ANGLE WITH UP/DOWN, THE MOUSE, OR BY DRAGGING UP OR DOWN.',
+  '',
+  '#CLUBS',
+  '-PICK BY DISTANCE: DRIVER GOES FARTHEST, THEN HYBRID, IRON, 9 IRON AND WEDGE.',
+  '-THE GAME PICKS A CLUB FOR YOU EACH SHOT. CHANGE IT WITH KEYS 1-6, Q/E, OR TAP THE CLUB BOX.',
+  '-THE YARDS NEXT TO THE CLUB NAME SHOW A FULL SWING FROM WHERE YOU ARE, WITH THE LIE AND WIND.',
+  '',
+  '#PUTTING',
+  '-ON THE GREEN YOU GET THE PUTTER. SHORT PUTT = SHORT TAP. THE RED FLAG ON THE METER SHOWS ABOUT HOW HARD TO HIT IT.',
+  '-ROLL IT GENTLY: TOO FAST AND IT LIPS OUT.',
+  '',
+  '#TIPS',
+  '-WATCH THE WIND: INTO IT YOU GO SHORTER, WITH IT YOU GO LONGER.',
+  '-ROUGH AND SAND SLOW THE BALL. NEAR THE GREEN, SPLASH OUT OF SAND WITH THE WEDGE.',
+  '-WATER = +1 STROKE AND A DROP.',
+  '-PERFECT: FULL POWER AND A DEAD-CENTER TAP GIVES A LITTLE EXTRA DISTANCE.',
+  '',
+  '#MODES',
+  '-FRONT 9, BACK 9, FULL 18, OR ONE NEW DAILY HOLE FOR EVERYONE. POST YOUR SCORE TO THE LEADERBOARD!',
+  '',
+  'HAVE FUN, AND TRUST YOUR DUMB LUCK!'
+];
+let helpCache = null, helpMax = 0, helpDrag = null, helpView = null, helpLastT = 0;
+function helpLines(cw) {
+  const key = cw + (isTouchUi() ? 't' : 'k');
+  if (helpCache && helpCache.key === key) return helpCache.lines;
+  const cols = Math.floor((cw + 1) / 6), out = [];
+  const wrap = (txt, first, ind) => {
+    const words = txt.split(' '); let cur = '', lim = cols - first.length;
+    let pre = first;
+    for (const w of words) {
+      if (cur && (cur + ' ' + w).length > lim) { out.push({ t: pre + cur, k: 'p' }); cur = w; pre = ind; lim = cols - ind.length; }
+      else cur = cur ? cur + ' ' + w : w;
+    }
+    if (cur) out.push({ t: pre + cur, k: 'p' });
+  };
+  for (const l of HELP_TEXT) {
+    if (l === '@') out.push({ t: isTouchUi() ? 'DRAG TO SCROLL. TAP BACK WHEN DONE.' : 'WHEEL OR UP / DOWN TO SCROLL. ESC = BACK.', k: 'tip' });
+    else if (l === '') out.push({ t: '', k: 'gap' });
+    else if (l[0] === '#') out.push({ t: l.slice(1), k: 'h' });
+    else if (l[0] === '=') { const [a, b] = l.slice(1).split('|'); out.push({ t: a, r: b, k: 'row' }); }
+    else if (l[0] === '-') { const s0 = out.length; wrap(l.slice(1), '- ', '  '); out[s0].bullet = true; }
+    else wrap(l, '', '');
+  }
+  helpCache = { key, lines: out };
+  return out;
+}
+function openHelp() { ov = { kind: 'help', sel: 0, back: ov ? ov.back : 'title', t: 0, scroll: 0, vel: 0 }; helpDrag = null; SFX.click(); }
+function helpScroll(d) { if (!ov || ov.kind !== 'help') return; ov.vel = 0; ov.scroll = clamp(ov.scroll + d, 0, helpMax); }
+function helpKey(e) {
+  const k = e.key, page = helpView ? helpView.h - 20 : 100;
+  if (k === 'Escape' || k === 'p' || k === 'P' || k === 'Backspace' || ((k === 'Enter' || k === ' ') && !e.repeat)) { ovBack(); return; }
+  if (k === 'ArrowUp' || k === 'w' || k === 'W') helpScroll(-12);
+  else if (k === 'ArrowDown' || k === 's' || k === 'S') helpScroll(12);
+  else if (k === 'PageUp') helpScroll(-page);
+  else if (k === 'PageDown') helpScroll(page);
+  else if (k === 'Home') helpScroll(-1e9);
+  else if (k === 'End') helpScroll(1e9);
+}
+function drawHelp() {
+  const YEL = '#f8d878', now = performance.now(), dt = clamp((now - (helpLastT || now)) / 1000, 0, 0.1); helpLastT = now;
+  ov.t += 1 / 60;
+  ctx.globalAlpha = 0.75; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
+  const pw = Math.min(W - 8, 300), x = Math.round((W - pw) / 2), y = 4, ph = H - 8;
+  rect(x, y, pw, ph, COL.white); rect(x + 1, y + 1, pw - 2, ph - 2, '#000'); rect(x + 3, y + 3, pw - 6, ph - 6, COL.blue); rect(x + 4, y + 4, pw - 8, ph - 8, '#000');
+  drawTextC('HOW TO PLAY', y + 9, COL.blue, 2);
+  const vx = x + 9, vy = y + 28, vw = pw - 24, bh = 18, by = y + ph - bh - 7, vh = by - 5 - vy;
+  rect(x + 6, vy - 3, pw - 12, 1, COL.navy); rect(x + 6, by - 4, pw - 12, 1, COL.navy);
+  const lines = helpLines(vw), LH = 10;
+  let total = 0; for (const l of lines) total += l.k === 'h' ? 14 : l.k === 'gap' ? 6 : LH;
+  helpMax = Math.max(0, total - vh + 4);
+  if (!helpDrag && ov.vel) { ov.scroll += ov.vel * dt; ov.vel *= Math.pow(0.04, dt); if (Math.abs(ov.vel) < 4) ov.vel = 0; }
+  ov.scroll = clamp(ov.scroll || 0, 0, helpMax);
+  if (ov.scroll <= 0 || ov.scroll >= helpMax) { if (!helpDrag) ov.vel = 0; }
+  helpView = { x: vx, y: vy, w: vw, h: vh };
+  ctx.save(); ctx.beginPath(); ctx.rect(x + 5, vy - 2, pw - 10, vh + 3); ctx.clip();
+  let cy = vy - Math.round(ov.scroll);
+  for (const l of lines) {
+    const lh = l.k === 'h' ? 14 : l.k === 'gap' ? 6 : LH;
+    if (cy + lh >= vy - 2 && cy <= vy + vh) {
+      if (l.k === 'h') { outlined(l.t, vx, cy + 2, COL.lime); rect(vx, cy + 11, textW(l.t), 1, COL.grassD); }
+      else if (l.k === 'tip') drawText(helpMax > 0 ? l.t : isTouchUi() ? 'TAP BACK WHEN DONE.' : 'ESC OR BACK TO RETURN.', vx, cy, COL.gray);
+      else if (l.k === 'row') { drawText(l.t, vx + 6, cy, COL.white); drawText(l.r, vx + vw - textW(l.r), cy, YEL); }
+      else if (l.bullet) { drawText('-', vx, cy, YEL); drawText(l.t.slice(2), vx + 12, cy, COL.white); }
+      else drawText(l.t, vx, cy, COL.white);
+    }
+    cy += lh;
+  }
+  ctx.restore();
+  // scroll bar
+  if (helpMax > 0) {
+    const tx = x + pw - 10, th = vh, kh = Math.max(12, Math.round(th * vh / (vh + helpMax))), ky = vy + Math.round((th - kh) * ov.scroll / helpMax);
+    rect(tx, vy, 3, th, COL.navy); rect(tx, ky, 3, kh, YEL);
+    if (ov.scroll < helpMax - 1 && Math.floor(ov.t * 2) % 2 === 0) drawText('>', tx - 1, by - 13, YEL, 1);
+  }
+  // BACK button
+  const bw = 72, bx = Math.round((W - bw) / 2), sel = ov.sel === 0;
+  ovRects = [{ x: bx, y: by, w: bw, h: bh, i: 0 }];
+  rect(bx, by, bw, bh, sel ? YEL : COL.white); rect(bx + 1, by + 1, bw - 2, bh - 2, sel ? '#1c2c5c' : '#000');
+  outlined('BACK', Math.round((W - textW('BACK', 2)) / 2), by + 2, sel ? YEL : COL.white, 2);
+  const pct = helpMax > 0 ? Math.round(ov.scroll / helpMax * 100) + '%' : '';
+  if (pct) drawText(pct, x + pw - 10 - textW(pct), by + 6, COL.grayD);
+}
 function drawOverlay() {
   if (!ov) return;
+  if (ov.kind === 'help') { drawHelp(); return; }   // v8.22
   ov.t += 1 / 60;
   const YEL = '#f8d878', pause = ov.kind === 'pause';
   ctx.globalAlpha = 0.6; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
@@ -1814,12 +1929,29 @@ function drawClubButton() {   // v8.10: HUD bottom-right club swap — right of 
   ctx.globalAlpha = 0.55; rect(b.x, b.y, b.w, b.h, '#000'); ctx.globalAlpha = 1;
   rect(b.x, b.y, b.w, 1, '#f8d878'); rect(b.x, b.y + b.h - 1, b.w, 1, '#f8d878');
   rect(b.x, b.y, 1, b.h, '#f8d878'); rect(b.x + b.w - 1, b.y, 1, b.h, '#f8d878');
-  const nm = CLUBS[clubIdx].name;
+  const nm = CLUBS[clubIdx].name, yd = clubYards();
   // Full name always — button width is sized for the longest club in layoutChrome
   let sx = (b.h >= 20 && textW(nm, 2) <= b.w - 12) ? 2 : 1;   // roomy HUD corner: chunky 2x label like the HUD title text
   while (sx > 0.5 && textW(nm, sx) > b.w - 6) sx -= 0.25;
-  const tw = textW(nm, sx), th = Math.round(7 * sx);
-  drawText(nm, b.x + Math.round((b.w - tw) / 2), b.y + Math.round((b.h - th) / 2), state === 'aim' ? '#f8d878' : COL.white, sx, sx);
+  const tw = textW(nm, sx), th = Math.round(7 * sx), yw = yd ? textW(yd) : 0, both = yd && tw + 6 + yw <= b.w - 8;   // v8.22: 'IRON 169Y'
+  const x0 = b.x + Math.round((b.w - (both ? tw + 6 + yw : tw)) / 2), ny = b.y + Math.round((b.h - th) / 2);
+  drawText(nm, x0, ny, state === 'aim' ? '#f8d878' : COL.white, sx, sx);
+  if (both) drawText(yd, x0 + tw + 6, ny + th - 7, state === 'aim' ? COL.white : COL.gray);
+}
+/* v8.22: full-swing yardage for the selected club from this spot: the same sim the auto club uses (lie, slope, wind, current loft).
+   Recomputed only when something changes while aiming; frozen during the swing. The putter shows its range instead. */
+let clubYdCache = null;
+function clubYards() {
+  if (!hole || !ball) return '';
+  if (clubIdx === PUTT_I) return puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y';
+  if (state !== 'aim' && clubYdCache && clubYdCache.c === clubIdx) return clubYdCache.t;
+  const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, wind].join(':');
+  if (!clubYdCache || clubYdCache.key !== key) {
+    let reach = 0;
+    try { reach = Math.abs(simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing).x - ball.x); } catch (e) {}
+    clubYdCache = { key, c: clubIdx, t: Math.round(reach) + 'Y' };
+  }
+  return clubYdCache.t;
 }
 function drawFsButton() {   // title screen, top-right (glyph centered in ≥44 CSS hit box)
   const on = isFs();
@@ -2574,7 +2706,7 @@ function action() {
   if (state === 'intro') { if (st > 0.3) { setState('aim'); if (holeIdx === 0) openRoundTip(); } return; }
   if (roundTip) return;   // swing blocked until OK
   if (state === 'aim') { meter.pos = 0; meter.dir = 1; meter.short = shortGameNow(); for (const k in held) delete held[k]; setState('power'); SFX.tick(); return; }
-  if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = ACC_START; setState('accuracy'); SFX.tick(); return; }   // v8.21: same timing for every power
+  if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
   if (state === 'card' && st > 1.2) { openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
@@ -2591,7 +2723,7 @@ function commitAccuracy(acc) {
   meter.acc = acc;
   shotSweet = Math.abs(raw) <= sweetErr();                     // inside the green zone = clean contact, no hook/slice
   shotPerfect = clubIdx !== PUTT_I && meter.power >= PERFECT_POW && Math.abs(raw) <= PERFECT_ERR;
-  errPx = shotSweet ? 0 : effErr(clamp(raw, ACC_MIN * 128, -ACC_MIN * 128), sweetErr());   // v8.21: just outside the brackets is a small miss, a wild click is a big one (never backwards)
+  errPx = shotSweet ? 0 : clamp(raw, ACC_MIN * 128, -ACC_MIN * 128);   // a wild early click is a big slice, never a backwards shot
   SFX.tick(); setState('swing');
 }
 const SWING_ADDR = 75, DOWN_T = 0.13, FOLLOW_T = 0.45;
@@ -2761,7 +2893,7 @@ function renderSplash() {
     const lw = Math.min(LOGO_DRAW.w || 160, W - 16), lh = Math.round((LOGO_BIG.height || 111) * lw / (LOGO_BIG.width || 160));
     drawLogo(Math.round((W - lw) / 2), Math.round(H * 0.18), lw, lh);
   }
-  const t = usingTouch ? 'TAP TO START' : 'CLICK OR PRESS ENTER';
+  const t = isTouchUi() ? 'TAP TO START' : 'CLICK OR PRESS ENTER';   // v8.22: phones say TAP before the first touch too
   const blink = Math.floor(st * 2.2) % 2 === 0;
   outlined(t, Math.round((W - textW(t, 2)) / 2), Math.round(H * 0.58), blink ? '#f8d878' : '#c8a858', 2);
   drawTextC('DUMB LUCK GOLF', Math.round(H * 0.72), COL.white);
@@ -2838,6 +2970,12 @@ addEventListener('blur', () => { for (const k in held) delete held[k]; });
 function inClubBox(p) { return hitBtn(p, CLUB_BTN) || hit(p, CLUB_PAD); }
 cv.addEventListener('pointermove', e => {
   const p = toLogical(e); mouse.x = p.x; mouse.y = p.y; mouse.seen = true;
+  if (ov && ov.kind === 'help' && helpDrag) {   // v8.22: drag the HOW TO PLAY page
+    const t = performance.now(), dtm = Math.max(1, t - helpDrag.lt);
+    ov.scroll = clamp(helpDrag.s - (p.y - helpDrag.y), 0, helpMax);
+    ov.vel = clamp(-(p.y - helpDrag.ly) / dtm * 1000, -900, 900); helpDrag.ly = p.y; helpDrag.lt = t;
+    return;
+  }
   if (ov) { if (e.pointerType === 'mouse') { const r = ovRects.find(q => hit(p, q)); if (r) ov.sel = r.i; } return; }
   tlbArrow = null;
   if (state === 'title' && !menuPopup) {
@@ -2960,11 +3098,17 @@ cv.addEventListener('pointerdown', e => {
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
 cv.addEventListener('pointerup', e => {
+  if (helpDrag) { if (performance.now() - helpDrag.lt > 90 && ov) ov.vel = 0; helpDrag = null; }   // v8.22: release keeps a little momentum
   if (fireUiTap(e)) { touchDown = null; return; }
   if (touchDown && !touchDown.drag) action();   // swing / continue — not debounced (game feel)
   touchDown = null;
 });
-cv.addEventListener('pointercancel', () => { uiTap = null; touchDown = null; });
+cv.addEventListener('pointercancel', () => { uiTap = null; touchDown = null; helpDrag = null; });
+cv.addEventListener('wheel', e => {   // v8.22: mouse wheel / trackpad scrolls the HOW TO PLAY page
+  if (!ov || ov.kind !== 'help') return;
+  e.preventDefault();
+  helpScroll(e.deltaMode === 1 ? e.deltaY * 10 : e.deltaMode === 2 ? e.deltaY * 150 : e.deltaY * 0.35);
+}, { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', e => {
   // Desktop name entry: while an input/textarea/contenteditable is focused, leave keys alone
@@ -2977,7 +3121,7 @@ addEventListener('keydown', e => {
     if (k === 'Enter' || k === ' ' || k === 'Escape') { e.preventDefault(); if (!e.repeat) closeRoundTip(); }
     return;
   }
-  if (ov) { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(k)) e.preventDefault(); ovKey(e); return; }
+  if (ov) { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(k) || (ov.kind === 'help' && ['PageUp', 'PageDown', 'Home', 'End', 'Backspace'].includes(k))) e.preventDefault(); ovKey(e); return; }
   if (state === 'custom') { if (cz) customKey(e); return; }
   if (k === 'm' || k === 'M') { muted = !muted; settings.sound = !muted; saveSettings(); return; }
   if ((k === 'Escape' || k === 'p' || k === 'P') && GAME_STATES.includes(state)) { pauseGame(); return; }
@@ -3014,7 +3158,7 @@ addEventListener('keydown', e => {
 });
 
 /* ---------------- update ---------------- */
-const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.1, ACC_MIN = -0.12, ACC_START = 0.6;
+const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.1, ACC_MIN = -0.12;
 function update(dt) {
   st += dt;
   updateFx(dt);
@@ -3818,7 +3962,7 @@ function hudCell(i, y, text, col, border) {
 }
 const MZ = 20, ML = 112;                                       // meter: x of the sweet-spot line, pixels for 100% power
 function meterMarker(x, col) { const my = HUD_Y0 + 37; rect(x - 2, my, 5, 14, '#000'); rect(x - 1, my + 1, 3, 12, col); }
-/* v8.21: aim hint under the meter: what the loft does, otherwise the club's full-power carry (power ~ distance) */
+/* v8.21 aim hint (kept for the test probe; v8.22 no longer draws it on the meter) */
 let aimHintCache = null;
 function aimHint() {
   const rel = Math.round(angle) - CLUBS[clubIdx].def;
@@ -3854,12 +3998,11 @@ function drawMeter() {
   if (state === 'accuracy') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), COL.white); }
   if (state === 'swing' || state === 'flight') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange); }
   let label = isTouchUi() ? 'TAP = SWING' : 'SPACE/CLICK = SWING', lc = COL.white;
-  if (state === 'aim' && shortGameNow()) { label = clubIdx !== PUTT_I && isSplash(clubIdx, surfAt(hole, ball.x), Math.abs(hole.cup - ball.x)) ? 'SPLASH: FLAG = HOLE' : (clubIdx === PUTT_I ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
-  else if (state === 'aim' && clubIdx !== PUTT_I) { label = aimHint(); lc = COL.white; }
+  if (state === 'aim' && shortGameNow()) { label = (clubIdx === PUTT_I ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
   if (state === 'power') label = meter.short ? 'STOP NEAR THE FLAG' : isTouchUi() ? 'TAP = SET POWER' : 'SET POWER';
   else if (state === 'accuracy') { label = 'STOP IN BRACKETS!'; lc = COL.lime; }
   else if (state === 'swing' || state === 'flight') {
-    label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === PUTT_I ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === PUTT_I ? 'OFF LINE' : errPx > 0 ? 'SLICE: HIGH' : 'HOOK: LOW');
+    label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === PUTT_I ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === PUTT_I ? 'OFF LINE' : errPx > 0 ? 'SLICE' : 'HOOK');
     lc = shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange;
   }
   drawText(label, 6, HUD_Y0 + 30, lc);
@@ -4283,7 +4426,7 @@ function drawMenuPopup() {
   ctx.drawImage(SPR.golfball, Math.round((W - tw) / 2) - 13, y + 15); ctx.drawImage(SPR.golfball, Math.round((W + tw) / 2) + 8, y + 15);
   outlined('COMING SOON!', Math.round((W - textW('COMING SOON!', 2)) / 2), y + 35, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
   drawTextC('PHOTOS + HIGHLIGHTS SOON', y + 60, COL.lime);
-  if (Math.floor(p.t * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP TO CLOSE' : 'CLICK OR ANY KEY TO CLOSE', y + 82, COL.gray);
+  if (Math.floor(p.t * 2) % 2 === 0) drawTextC(isTouchUi() ? 'TAP TO CLOSE' : 'CLICK OR ANY KEY TO CLOSE', y + 82, COL.gray);
 }
 /* v8.14 customize helpers */
 function czEllipse(cx, cy, rx, ry, col) {
@@ -4571,6 +4714,27 @@ function render() {
   if (ov || toast || a2hs.show) drawCursor();
   syncShopHat();
   syncLogoLayer();
+  syncPageBg();
+}
+/* v8.22: the page background shows wherever the canvas does not reach (iOS Safari draws its toolbar over the page and leaves
+   the strip below 100dvh to the page). Paint html/body with the most common colour in the canvas's bottom row, so the strip
+   continues the fairway on the title, the HUD in play, and the dimmed scene under menus. Sampled ~3x a second from a 1px copy. */
+let pageBgAt = 0, pageBgCol = '', pageBgCv = null, pageBgCtx = null;
+function syncPageBg() {
+  const now = performance.now();
+  if (now - pageBgAt < 300) return;
+  pageBgAt = now;
+  try {
+    const w = cv.width, h = cv.height;
+    if (!pageBgCv) { pageBgCv = document.createElement('canvas'); pageBgCtx = pageBgCv.getContext('2d', { willReadFrequently: true }); }
+    if (pageBgCv.width !== w) { pageBgCv.width = w; pageBgCv.height = 1; }
+    pageBgCtx.clearRect(0, 0, w, 1); pageBgCtx.drawImage(cv, 0, h - 1, w, 1, 0, 0, w, 1);
+    const d = pageBgCtx.getImageData(0, 0, w, 1).data, n = new Map();
+    let best = 0, key = 0;
+    for (let i = 0; i < d.length; i += 4) { const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2], c = (n.get(k) || 0) + 1; n.set(k, c); if (c > best) { best = c; key = k; } }
+    const col = '#' + key.toString(16).padStart(6, '0');
+    if (col !== pageBgCol) { pageBgCol = col; document.documentElement.style.backgroundColor = col; document.body.style.backgroundColor = col; }
+  } catch (e) {}
 }
 function beginWorldZoom() {
   const Z = worldZoom();
@@ -4804,7 +4968,7 @@ if (/test/.test(location.hash)) {
     forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); },
     // drive the real meter commit path: set power, then stop the accuracy marker at acc (0 = dead center)
     meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
-    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel } : null; }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
+    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel, scroll: ov.scroll, max: helpMax } : null; }, helpScroll(d) { helpScroll(d); }, get helpView() { return helpView && Object.assign({}, helpView); }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get pageBg() { return pageBgCol; }, get clubYd() { return clubYards(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
     get stTime() { return st; }, get shortTarget() { const t = shortTarget(); return t ? t.p : null; }, get muted() { return muted; },
     forceLuck() { forceLuck = true; }, forcePin() { forcePin = true; }, get pinTried() { return !!(ball && ball.pinTried); }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
     get toast() { return toast ? toast.lines : null; }, set scoresForTest(v) { scores = v.slice(); },
