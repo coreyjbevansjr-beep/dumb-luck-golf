@@ -1268,18 +1268,44 @@ const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y +
    Tap the board itself to open the full LEADERBOARD screen for the selected one.
    SETTINGS is the gear icon. CUSTOMIZE opens as a pre-round step from PLAY.
    GALLERY stays in the menu only when GALLERY_ITEMS is non-empty (hook kept for later). */
-const MENU = GALLERY_ITEMS.length ? ['PLAY', 'DAILY', 'GALLERY', 'SHOP'] : ['PLAY', 'DAILY', 'SHOP'];
-const MENU_ROWS = [MENU.map((_, i) => i)];              // one row: left/right between items
+const MENU = GALLERY_ITEMS.length ? ['PLAY', 'CAREER', 'DAILY', 'GALLERY', 'SHOP'] : ['PLAY', 'CAREER', 'DAILY', 'SHOP'];
+/* v8.18: small pixel subheading under each menu item (two short lines, split where the copy has its dash).
+   CAREER is a locked placeholder (muted + padlock); tapping it only shows a COMING SOON toast. PLAY stays instant. */
+const MENU_SUB = { PLAY: ['18 HOLES', 'SET A SCORE'], CAREER: ['COMING SOON'], DAILY: ['ONE HOLE', 'GLOBAL LEADERBOARD'], SHOP: ['VISIT THE', 'PRO SHOP'], GALLERY: ['PHOTOS'] };
+const MENU_SUB_NARROW = Object.assign({}, MENU_SUB, { DAILY: ['ONE HOLE', 'GLOBAL', 'LEADERBOARD'] });
+const MENU_LOCKED = { CAREER: 1 };
+let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
+let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
+function menuLayoutCalc() {
+  const SUB_DY = 4, LINE = 9, ROW_GAP = 9, landscape = H <= W * 1.15;
+  const build = subs => MENU.map(l => { const lines = subs[l] || []; return { l, lines, w: Math.max(textW(l, 2) + (MENU_LOCKED[l] ? 11 : 0), ...lines.map(s => textW(s))) }; });
+  const fitGap = its => { const sum = its.reduce((a, it) => a + it.w, 0); return Math.min(14, Math.floor((W - 16 - sum) / Math.max(1, its.length - 1))); };
+  let items = build(MENU_SUB), GAP = fitGap(items);
+  // narrow landscape (4:3 / 5:4 screens): wrap the long DAILY line once more so a single row still fits under the logo
+  if (GAP < 8 && landscape) { const n = build(MENU_SUB_NARROW); if (fitGap(n) >= 8) { items = n; GAP = fitGap(n); } }
+  const grid = GAP < 8 && items.length > 2;
+  if (grid) GAP = 14;
+  const maxLines = Math.max(0, ...items.map(it => it.lines.length));
+  const itemH = 14 + (maxLines ? SUB_DY + (maxLines - 1) * LINE + 7 : 0);
+  const rowW = items.reduce((a, it) => a + it.w, 0) + GAP * Math.max(0, items.length - 1);
+  if (grid) { const per = Math.ceil(items.length / 2); MENU_ROWS = [items.slice(0, per).map((_, i) => i), items.slice(per).map((_, i) => i + per)]; }
+  else MENU_ROWS = [items.map((_, i) => i)];
+  MENU_L = { grid, itemH, subDy: SUB_DY, line: LINE, gap: GAP, rowGap: ROW_GAP, items, rowW, blockH: grid ? itemH * 2 + ROW_GAP : itemH };
+  return MENU_L;
+}
 let titleSel = 0, menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
 const menuRowOf = i => MENU_ROWS.findIndex(r => r.includes(i));
 function menuMove(dr, dc) {
   if (dc) { const row = MENU_ROWS[menuRowOf(titleSel)]; if (row.length < 2) return; titleSel = row[(row.indexOf(titleSel) + dc + row.length) % row.length]; SFX.tick(); return; }
-  const r = (menuRowOf(titleSel) + dr + MENU_ROWS.length) % MENU_ROWS.length; titleSel = MENU_ROWS[r][0]; SFX.tick();
+  const cur = MENU_ROWS[menuRowOf(titleSel)] || MENU_ROWS[0], ci = Math.max(0, cur.indexOf(titleSel));
+  if (MENU_ROWS.length < 2) return;   // v8.18: single row — up/down keeps the selection
+  const r = (menuRowOf(titleSel) + dr + MENU_ROWS.length) % MENU_ROWS.length; titleSel = MENU_ROWS[r][Math.min(ci, MENU_ROWS[r].length - 1)]; SFX.tick();
 }
 function menuActivate(i) {
   const label = MENU[i]; SFX.click();
   if (label === 'PLAY') { courseKind = 'front'; setState('course'); }   // FRONT / BACK / FULL picker
   else if (label === 'DAILY') startDailyFlow();
+  else if (label === 'CAREER') showToast(['CAREER MODE', 'COMING SOON'], 2200);   // v8.18: locked placeholder
   else if (label === 'SHOP') {
     if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} }
     else menuPopup = { kind: 'shop', t: 0 };
@@ -1334,7 +1360,7 @@ function layoutChrome() {
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
     const skyTop = iconBot + bobPad;
-    const menuH = 14; // matches scale-2 PLAY/DAILY/SHOP glyph height
+    const menuH = menuLayoutCalc().blockH; // v8.18: labels + subheadings (2x2 grid on narrow phones)
     const minGap = 10; // equal logo↔menu and menu↔board padding
     const safeBot = (SAFE.b || 0) + 4;
     const dogStrip = Math.max(36, 28 + safeBot);
@@ -1375,10 +1401,14 @@ function layoutChrome() {
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
-    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
     LOGO_Y = Math.max(iconBot + 2, Math.max(3, Math.round(H * 0.012)));
-    const boardH = 52, boardW = Math.min(236, W - 24), menuH = MENU_DY + 2;
-    const gapLogo = 14, gapMenu = 6;   // 14px clears the "Luck" descenders
+    const boardH = 52, boardW = Math.min(236, W - 24), menuH = menuLayoutCalc().blockH + 2;
+    const gapLogo = 11, gapMenu = 5;   // v8.18: was 14/6 — subheadings need the room; 11px still clears the "Luck" descenders
+    {   // v8.18: trim the logo just enough that logo + menu + board fit above the bottom edge
+      const over = LOGO_Y + ldH + gapLogo + menuH + gapMenu + boardH - (H - 5);
+      if (over > 0) { ldH = Math.max(80, ldH - over); ldW = Math.round(lw0 * ldH / lh0); }
+    }
+    LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
     const grassWant = Math.max(30, Math.round(H * 0.125));
     MENU_Y0 = LOGO_Y + ldH + gapLogo;
     let boardY = MENU_Y0 + menuH + gapMenu;
@@ -3809,22 +3839,34 @@ function renderTitle() {
   let bob = Math.round(Math.sin(st * (Math.PI * 2 / 3)) * 2.5);
   if (LOGO_Y + bob < iconClear) bob = iconClear - LOGO_Y;
   drawLogo(LOGO_DRAW.x, LOGO_Y + bob, LOGO_DRAW.w, LOGO_DRAW.h);   // v8.10: clean hi-DPI logo
-  // PLAY / SHOP as a compact row clearly under the whole logo
+  // v8.18: PLAY / CAREER / DAILY / SHOP — label + small subheading; one row on desktop, 2x2 grid on narrow phones
   menuRects = [];
-  const GAP = MENU.length > 2 ? 22 : 36, widths = MENU.map(l => textW(l, 2));
-  const rowW = widths.reduce((a, b) => a + b, 0) + GAP * Math.max(0, MENU.length - 1);
-  let mx = Math.round((W - rowW) / 2);
-  MENU.forEach((label, i) => {
-    const w = widths[i], sel = i === titleSel && !menuPopup && !ov, x = mx, y = MENU_Y0;
+  const ML = MENU_L.items.length === MENU.length ? MENU_L : menuLayoutCalc();
+  const centers = [];
+  if (ML.grid) {
+    MENU_ROWS.forEach((row, ri) => row.forEach((i, ci) => centers[i] = { cx: Math.round(W * (ci * 2 + 1) / (row.length * 2)), y: MENU_Y0 + ri * (ML.itemH + ML.rowGap) }));
+  } else {
+    let mx = Math.round((W - ML.rowW) / 2);
+    ML.items.forEach((it, i) => { centers[i] = { cx: Math.round(mx + it.w / 2), y: MENU_Y0 }; mx += it.w + ML.gap; });
+  }
+  ML.items.forEach((it, i) => {
+    const label = it.l, locked = !!MENU_LOCKED[label], { cx, y } = centers[i];
+    const sel = i === titleSel && !menuPopup && !ov, lw = textW(label, 2) + (locked ? 11 : 0), x = Math.round(cx - lw / 2) + (locked ? 11 : 0);
     const key = 'menu' + i, dim = pressDim(key);
     const sc = pressScale(key);
     ctx.save();
-    if (sc !== 1) { const cx = x + w / 2, cy = y + 7; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
-    outlined(label, x, y, dim ? '#f8d878' : (sel ? '#f8d878' : COL.white), 2);
-    if (sel) outlined('>', x - 15 + (Math.floor(st * 4) % 2), y, '#f8d878', 2);
+    if (sc !== 1) { const cy = y + 7; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
+    const lc = locked ? (sel || dim ? '#d8d8d8' : '#a4a4a4') : (dim || sel ? '#f8d878' : COL.white);
+    outlined(label, x, y, lc, 2);
+    if (locked) czPadlock(x - 7, y + 7, sel ? '#d8d8d8' : '#a4a4a4');
+    if (sel) outlined('>', Math.round(cx - lw / 2) - 15 + (Math.floor(st * 4) % 2), y, locked ? '#d8d8d8' : '#f8d878', 2);
+    it.lines.forEach((s, k) => {
+      const sx = Math.round(cx - textW(s) / 2), sy = y + 14 + ML.subDy + k * ML.line;
+      drawText(s, sx + 1, sy + 1, '#000'); drawText(s, sx - 1, sy, '#000'); drawText(s, sx + 1, sy, '#000'); drawText(s, sx, sy - 1, '#000');
+      drawText(s, sx, sy, locked ? '#bcbcbc' : (sel ? '#fce4a0' : COL.white));
+    });
     ctx.restore();
-    menuRects.push({ x: x - 10, y: y - 2, w: w + 20, h: MENU_DY, i });
-    mx += w + GAP;
+    menuRects.push({ x: Math.round(cx - it.w / 2) - 8, y: y - 3, w: it.w + 16, h: ML.itemH + 6, i });
   });
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
@@ -3906,7 +3948,7 @@ function syncShopHat() {
   const s = shopHatCv.style;
   s.setProperty('left', left + 'px', 'important'); s.setProperty('top', top + 'px', 'important');
   s.setProperty('width', cw + 'px', 'important'); s.setProperty('height', ch + 'px', 'important');
-  s.setProperty('opacity', String(fade.a ? Math.max(0, 1 - fade.a) : 1)); s.setProperty('display', 'block', 'important');
+  s.setProperty('opacity', String((fade.a ? Math.max(0, 1 - fade.a) : 1) * Math.min(1, 0.35 + (r.t || 0) / 0.14 * 0.65))); s.setProperty('display', 'block', 'important');
   if (shopHatCv.width !== bw || shopHatCv.height !== bh) { shopHatCv.width = bw; shopHatCv.height = bh; shopHatMix.width = bw; shopHatMix.height = bh; }
   // --- turn state: critically damped spring toward the pointer target (~250ms settle) ---
   const now = performance.now(), dt = hatTurn.last ? Math.min(0.05, Math.max(0, (now - hatTurn.last) / 1000)) : 0; hatTurn.last = now;
@@ -3972,26 +4014,65 @@ function drawMenuPopup() {
   const shop = p.kind === 'shop', YEL = '#f8d878';
   ctx.globalAlpha = 0.55; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
   if (shop) {
-    // v8.8: shop card — spinning camo snapback (hi-DPI overlay, see syncShopHat), RESTOCKING SOON
+    // v8.18 PRO SHOP: same dark-green card + camo snapback (hi-DPI overlay, see syncShopHat) + RESTOCKING SOON,
+    // dressed as a pro shop — gold frame (Choose Course board), wood-paneled header with a PRO SHOP sign,
+    // the hat on a wood display shelf, and a wood counter with a small brass bell along the bottom.
     const tag = 'RESTOCKING SOON', full = 'DUMB LUCK CAMO SNAPBACK';
     const name = textW(full) + 28 <= W - 8 ? full : 'CAMO SNAPBACK';
     const hatH = 70, hatW = Math.round(hatH * SHOP_HAT_AR), stageH = hatH + 16;
-    const w = Math.max(textW(tag, 2) + 28, textW(name) + 28, hatW + 40), h = 156;
-    const x = Math.round((W - w) / 2), y = Math.round(Math.max(8, (H - h) / 2) + 10 * (1 - Math.min(1, p.t / 0.12)));
-    rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
-    rect(x + 3, y + 3, w - 6, h - 6, COL.orange);
-    {   // v8.10: deep fairway-green -> darker green gradient + soft vignette (was flat black)
-      const ix = x + 4, iy = y + 4, iw = w - 8, ih = h - 8, gr = ctx.createLinearGradient(0, iy, 0, iy + ih);
+    const w = Math.max(textW(tag, 2) + 28, textW(name) + 28, hatW + 40), h = 196, HEAD = 30, CNT = 9;
+    const x = Math.round((W - w) / 2), y = Math.round(Math.max(8, (H - h) / 2) + 8 * (1 - Math.min(1, p.t / 0.14)));
+    const WD = '#5c3214', WM = '#7a4620', WL = '#94592a', WH = '#b87838', G1 = '#f8d878', G2 = '#d8a000', CREAM = '#fce4a0';
+    const ix = x + 4, iy = y + 4, iw = w - 8, ih = h - 8;
+    ctx.save(); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);   // quick fade-in as you walk in
+    czRing(x, y, w, h, '#000'); czRing(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
+    czRing(x + 2, y + 2, w - 4, h - 4, G1); czRing(x + 3, y + 3, w - 6, h - 6, '#000');
+    {   // v8.10 interior kept: deep fairway-green -> darker green gradient + soft vignette
+      const gr = ctx.createLinearGradient(0, iy, 0, iy + ih);
       gr.addColorStop(0, '#1e4f2a'); gr.addColorStop(1, '#0a2311');
       ctx.fillStyle = gr; ctx.fillRect(ix, iy, iw, ih);
-      const cx0 = ix + iw / 2, cy0 = iy + ih * 0.42, vg = ctx.createRadialGradient(cx0, cy0, Math.min(iw, ih) * 0.3, cx0, cy0, Math.max(iw, ih) * 0.72);
+      const cx0 = ix + iw / 2, cy0 = iy + ih * 0.5, vg = ctx.createRadialGradient(cx0, cy0, Math.min(iw, ih) * 0.3, cx0, cy0, Math.max(iw, ih) * 0.72);
       vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
       ctx.fillStyle = vg; ctx.fillRect(ix, iy, iw, ih);
     }
-    drawTextC('SHOP', y + 12, COL.orange, 2);
-    shopHatReq = { x: Math.round((W - hatW) / 2) - 8, y: y + 30, w: hatW + 16, h: stageH, t: p.t };
-    drawTextC(name, y + 119, COL.white);
-    outlined(tag, Math.round((W - textW(tag, 2)) / 2), y + 133, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
+    {   // wood-paneled header: vertical planks, faint grain, dark trim rail underneath
+      rect(ix, iy, iw, HEAD, WM);
+      for (let px = ix, k = 0; px < ix + iw; px += 13, k++) {
+        rect(px, iy, 1, HEAD, WD);
+        if (k % 2) rect(px + 1, iy, Math.min(12, ix + iw - px - 1), HEAD, WL);
+        rect(px + 4 + (k * 5) % 6, iy + 4 + (k * 7) % 9, 1, 6, k % 2 ? WM : WD);
+      }
+      rect(ix, iy, iw, 1, WH); rect(ix, iy + HEAD - 3, iw, 1, WH); rect(ix, iy + HEAD - 2, iw, 2, WD); rect(ix, iy + HEAD, iw, 1, '#000');
+      // PRO SHOP sign: dark-green plaque, gold frame, cream lettering, hung on two short gold chains
+      const sw = textW('PRO SHOP', 2) + 16, sh = 20, sx = Math.round(x + (w - sw) / 2), sy = iy + 4;
+      rect(sx + 8, iy, 1, 4, G2); rect(sx + sw - 9, iy, 1, 4, G2);
+      rect(sx - 1, sy - 1, sw + 2, sh + 2, '#000'); rect(sx, sy, sw, sh, G2); rect(sx, sy, sw - 1, 1, G1); rect(sx, sy, 1, sh - 1, G1);
+      rect(sx + 2, sy + 2, sw - 4, sh - 4, '#000'); rect(sx + 3, sy + 3, sw - 6, sh - 6, '#123d20');
+      drawText('PRO SHOP', sx + 9, sy + 4, '#000', 2); drawText('PRO SHOP', sx + 8, sy + 3, CREAM, 2);
+    }
+    const stY = iy + HEAD + 6;
+    shopHatReq = { x: Math.round((W - hatW) / 2) - 8, y: stY, w: hatW + 16, h: stageH, t: p.t };
+    {   // display shelf the hat rests on: plank top, front edge, two small brackets, soft shadow below
+      const shY = stY + stageH - 10, shX = ix + 10, shW = iw - 20;
+      rect(shX, shY - 1, shW, 3, WH); rect(shX, shY + 2, shW, 4, WM); rect(shX, shY + 5, shW, 1, WD); rect(shX - 1, shY - 1, 1, 7, '#000'); rect(shX + shW, shY - 1, 1, 7, '#000');
+      rect(shX, shY - 2, shW, 1, '#000'); rect(shX, shY + 6, shW, 1, '#000');
+      for (const bx of [shX + 12, shX + shW - 15]) { rect(bx, shY + 7, 3, 5, WD); rect(bx + 1, shY + 12, 2, 2, WD); }
+      ctx.globalAlpha *= 0.35; rect(shX + 2, shY + 7, shW - 4, 3, '#000'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
+    }
+    const nmY = stY + stageH + 14;
+    drawTextC(name, nmY, COL.white);
+    outlined(tag, Math.round((W - textW(tag, 2)) / 2), nmY + 14, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
+    {   // counter along the bottom: wood top lip + front, small brass bell on the right
+      const cy = iy + ih - CNT;
+      rect(ix, cy - 1, iw, 1, '#000'); rect(ix, cy, iw, 2, WH); rect(ix, cy + 2, iw, CNT - 2, WM);
+      for (let px = ix + 9; px < ix + iw; px += 22) rect(px, cy + 3, 1, CNT - 4, WD);
+      const bx = ix + iw - 18, by = cy - 1;   // bell: 9px wide dome + button
+      rect(bx + 3, by - 7, 3, 1, '#000'); rect(bx + 4, by - 8, 1, 1, '#000');
+      rect(bx + 1, by - 6, 7, 1, '#000'); rect(bx, by - 5, 9, 4, '#000'); rect(bx - 1, by - 1, 11, 1, '#000');
+      rect(bx + 2, by - 5, 5, 1, G1); rect(bx + 1, by - 4, 7, 3, G2); rect(bx + 2, by - 4, 2, 1, G1); rect(bx, by - 2, 9, 1, '#a07000');
+      rect(bx + 4, by - 7, 1, 1, G1);
+    }
+    ctx.restore();
     return;
   }
   const w = 212, h = 104, x = (W - w) / 2, y = Math.round(66 + 10 * (1 - Math.min(1, p.t / 0.12)));   // small slide-in
