@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.23">
+<meta name="dlg-version" content="v8.24">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -108,7 +108,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.23';
+const GAME_VERSION = 'v8.24';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -768,7 +768,7 @@ const FRONT_HOLES = [
    pts:[[0,'tee',12],[24,'sand',12],[70,'fair',12],[110,'sand',12],[170,'fair',14],[200,'sand',14],[250,'fair',12],[270,'green',12],[330,'sand',12],[352,'rough',12],[380,'end',14]] },
  // par 5 with a windmill guarding the lay-up zone: time the blades or go over the top
  { name:'BUNKER ALLEY', theme:'day', par:5, cup:640, pins:[618,640,661], wind:5, windR:[2,7], deco:[['board',235],['tree',31],['bush',172],['tree',289],['bush',488],['tree',726]],
-   movers:[{ kind:'windmill', x:383, w:22, hBot:0, hTop:38, period:2.8, phase:0.3 }],
+   movers:[{ kind:'windmill', x:383, w:22, hBot:0, hTop:30, period:2.8, phase:0.3 }],   // v8.24: 38 -> 30
    pts:[[0,'tee',10],[24,'fair',10],[101,'sand',10],[120,'fair',12],[195,'fair',16],[230,'sand',14],[251,'fair',14],[336,'fair',12],[430,'fair',18],
         [477,'sand',18],[498,'fair',16],[559,'fair',14],[571,'sand',14],[595,'green',14],[679,'sand',14],[698,'rough',14],[738,'end',16]] },
  // island green moved off hole 2; water ball -> DROP ZONE short of the green
@@ -880,7 +880,7 @@ const DAILY_HOLES = [
   // Two sliding gates sweep the fairway
   { id: 'slalom', name: 'SLIDER ALLEY', theme: 'day', par: 4, cup: 330, wind: -2,
     deco: [['bush', 50], ['tree', 300], ['bush', 400]],
-    movers: [{ kind: 'slide', x: 140, w: 10, hBot: 0, hTop: 28, period: 2.2, phase: 0, amp: 30 }, { kind: 'slide', x: 238, w: 10, hBot: 0, hTop: 26, period: 3.0, phase: 0.5, amp: 26 }],
+    movers: [{ kind: 'slide', x: 140, w: 10, hBot: 0, hTop: 24, period: 2.2, phase: 0, amp: 30 }, { kind: 'slide', x: 238, w: 10, hBot: 0, hTop: 22, period: 3.0, phase: 0.5, amp: 26 }],   // v8.24: 28/26 -> 24/22
     pts: [[0,'tee',12],[24,'rough',12],[46,'fair',10],[180,'fair',12],[270,'sand',10],[290,'green',10],[370,'rough',12],[400,'end',14]] },
   // Desert cone with a crater green on top
   { id: 'volcano', name: 'THE VOLCANO', theme: 'desert', par: 3, cup: 190, wind: 4,
@@ -1195,7 +1195,7 @@ const CLUBS = [
 const PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;
 [[.02, 1], [.10, 1], [.20, 1], [.32, .85], [.50, .65], [0, 1]].forEach(([sp, wk], i) => { CLUBS[i].spin = sp; CLUBS[i].wk = wk; });   // v8.21   // v8.20: club indexes (HYBRID shifted IRON/WEDGE/PUTTER up by one)
 const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
-const PUTT_CAPV = 6, CUP_STOP_R = 0.5, LIP_KEEP = 0.7;   // v8.21 putting: drop speed 22->6 (max ~0.6y past), lip-stop 1.2->0.5 (v8.13: 26->22, 1.5->1.2), lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
+const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;   // v8.24: stricter cup (was 6 / 0.5)   // v8.21 putting: drop speed 22->6 (max ~0.6y past), lip-stop 1.2->0.5 (v8.13: 26->22, 1.5->1.2), lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
 const SURF = {
   tee:   { rest:.30, keep:.60, dec:45 },
   fair:  { rest:.30, keep:.60, dec:45 },
@@ -1216,7 +1216,7 @@ const isChip = (c, dist) => c === WEDGE_I && dist <= CHIP_DIST;
 const isSplash = (c, lie, dist) => c === WEDGE_I && lie === 'sand' && dist <= SPLASH_DIST;
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
-const PUTT_STEPS = [[8, 20], [1e9, 30]];   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
+const PUTT_STEPS = [[5, 10], [12, 18], [1e9, 30]];   // v8.24: 10Y within 5Y, 18Y within 12Y, 30Y beyond (v8.23: 20 / 30)   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
 const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 30; };   // flat-ground roll at 100% putter power
 const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
 const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
