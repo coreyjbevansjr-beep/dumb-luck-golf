@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.20">
+<meta name="dlg-version" content="v8.21">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -23,14 +23,14 @@
 <meta property="og:description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://dumbluckgolf.com/">
-<meta property="og:image" content="https://dumbluckgolf.com/og-image.png">
+<meta property="og:image" content="https://dumbluckgolf.com/og-image.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="Dumb Luck Golf">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Dumb Luck Golf">
 <meta name="twitter:description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
-<meta name="twitter:image" content="https://dumbluckgolf.com/og-image.png">
+<meta name="twitter:image" content="https://dumbluckgolf.com/og-image.png?v=2">
 <style>
   html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
@@ -66,8 +66,8 @@
   <p>A free retro 8-bit side-view golf game that runs in your browser on phone, tablet or desktop. No download, no sign-up.</p>
   <h2>How to play</h2>
   <ol>
-    <li>Pick a club (driver, hybrid, iron, wedge or putter) and set your launch angle. Higher shots fly higher, roll less and catch more wind.</li>
-    <li>Tap, click or press Space once to start the swing, again to set power, and a third time to stop the marker inside the sweet-spot brackets for a clean hit.</li>
+    <li>Pick a club (driver, hybrid, iron, 9 iron, wedge or putter) and set your launch angle. Higher shots fly higher, roll less and catch more wind; lower shots punch through it and run out.</li>
+    <li>Tap, click or press Space once to start the swing, again to set power, and a third time to stop the marker inside the sweet-spot brackets for a clean hit. Stop a touch early for a high, soft slice or a touch late for a low, running hook.</li>
     <li>Watch the wind, avoid sand, water and trees, and hole out in as few strokes as you can.</li>
     <li>Bad shots sometimes get a lucky bounce toward the pin. That is Dumb Luck.</li>
   </ol>
@@ -104,7 +104,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.20';
+const GAME_VERSION = 'v8.21';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -764,7 +764,7 @@ const FRONT_HOLES = [
    pts:[[0,'tee',12],[24,'sand',12],[70,'fair',12],[110,'sand',12],[170,'fair',14],[200,'sand',14],[250,'fair',12],[270,'green',12],[330,'sand',12],[352,'rough',12],[380,'end',14]] },
  // par 5 with a windmill guarding the lay-up zone: time the blades or go over the top
  { name:'BUNKER ALLEY', theme:'day', par:5, cup:640, pins:[618,640,661], wind:5, windR:[2,7], deco:[['board',235],['tree',31],['bush',172],['tree',289],['bush',488],['tree',726]],
-   movers:[{ kind:'windmill', x:383, w:22, hBot:0, hTop:52, period:2.8, phase:0.3 }],
+   movers:[{ kind:'windmill', x:383, w:22, hBot:0, hTop:38, period:2.8, phase:0.3 }],
    pts:[[0,'tee',10],[24,'fair',10],[101,'sand',10],[120,'fair',12],[195,'fair',16],[230,'sand',14],[251,'fair',14],[336,'fair',12],[430,'fair',18],
         [477,'sand',18],[498,'fair',16],[559,'fair',14],[571,'sand',14],[595,'green',14],[679,'sand',14],[698,'rough',14],[738,'end',16]] },
  // island green moved off hole 2; water ball -> DROP ZONE short of the green
@@ -786,7 +786,7 @@ const FRONT_HOLES = [
 const BACK_HOLES = [
  // blind ridge mid-fairway: carry the crest and run down the far side, or stall on the up-slope
  { name:'RIDGE RUNNER', theme:'day', par:4, cup:368, pins:[352,368,386], wind:3, windR:[-2,5], deco:[['tree',48],['bush',120],['tree',236],['bush',400]],
-   pts:[[0,'tee',12],[24,'rough',12],[48,'fair',10],[130,'fair',14],[172,'fair',36],[214,'fair',12],[290,'sand',10],[312,'fair',10],[334,'green',10],[404,'rough',10],[440,'end',14]] },
+   pts:[[0,'tee',12],[24,'rough',12],[48,'fair',10],[130,'fair',14],[172,'fair',36],[214,'fair',12],[290,'sand',10],[312,'fair',10],[334,'green',10],[392,'sand',10],[408,'rough',10],[440,'end',14]] },
  { name:'PINE NEEDLE', theme:'day', par:3, cup:140, pins:[124,140,156], wind:-5, windR:[-7,1], deco:[['tree',-30],['tree',40],['bush',190],['tree',210]],
    pts:[[0,'tee',18],[22,'rough',16],[40,'fair',12],[90,'rough',10],[110,'green',10],[170,'sand',10],[190,'rough',12],[220,'end',14]] },
  // two river crossings; the second has a tiny bounce-pad island that can hop you across
@@ -801,12 +801,12 @@ const BACK_HOLES = [
  { name:'MIRROR LAKE', theme:'day', par:3, cup:150, pins:[136,150,164], wind:2, windR:[-3,5], deco:[['tree',-30],['bush',70],['tree',250]],
    pts:[[0,'tee',46],[22,'rough',44],[34,'rough',40],[90,'fair',12],[104,'sand',10],[120,'green',10],[178,'water',10],[240,'rough',12],[270,'end',14]] },
  { name:'SWITCHBACK', theme:'day', par:4, cup:360, pins:[344,360,380], wind:-3, windR:[-6,2], deco:[['tree',50],['bush',140],['tree',240],['bush',330],['tree',420]],
-   pts:[[0,'tee',8],[26,'rough',8],[50,'fair',20],[90,'fair',28],[130,'fair',18],[180,'fair',10],[250,'fair',12],[300,'sand',10],[330,'green',10],[400,'rough',12],[440,'end',14]] },
+   pts:[[0,'tee',8],[26,'rough',8],[50,'fair',20],[90,'fair',28],[130,'fair',18],[180,'fair',10],[250,'fair',12],[300,'sand',10],[330,'green',10],[386,'sand',10],[404,'rough',12],[440,'end',14]] },
  { name:'GATOR BAIT', theme:'day', par:4, cup:384, pins:[368,384,400], wind:5, windR:[2,8], deco:[['bush',70],['tree',200],['bush',420]],
-   pts:[[0,'tee',12],[24,'rough',12],[50,'fair',10],[130,'water',10],[176,'fair',12],[240,'fair',16],[300,'fair',14],[330,'sand',14],[350,'green',12],[414,'water',10],[444,'rough',12],[474,'end',14]] },
+   pts:[[0,'tee',12],[24,'rough',12],[50,'fair',10],[130,'water',10],[176,'fair',12],[240,'fair',16],[300,'fair',14],[330,'sand',14],[350,'green',12],[406,'water',10],[444,'rough',12],[474,'end',14]] },
  // back nine's one intentionally driveable par 4: thread the rough strips
  { name:'NARROW MARGIN', theme:'night', par:4, cup:262, pins:[248,262,278], wind:-4, windR:[-6,2], deco:[['tree',30],['tree',90],['tree',150],['tree',220],['bush',300]],
-   pts:[[0,'tee',14],[22,'rough',14],[40,'fair',12],[100,'rough',10],[120,'fair',10],[170,'rough',10],[190,'fair',10],[232,'green',10],[296,'rough',10],[330,'end',14]] },
+   pts:[[0,'tee',14],[22,'rough',14],[40,'fair',12],[100,'rough',10],[120,'fair',10],[170,'rough',10],[190,'fair',10],[214,'sand',10],[232,'green',10],[292,'sand',10],[306,'rough',10],[330,'end',14]] },
  // (was a Moonlight copy) forced creek carry off the tee, long climb to a plateau green guarded by a sliding gate
  { name:'LAST CALL', theme:'sunset', par:5, cup:596, pins:[576,596,613], wind:4, windR:[-2,7], deco:[['board',174],['tree',20],['bush',207],['tree',329],['bush',450],['tree',660]],
    movers:[{ kind:'slide', x:521, w:10, hBot:0, hTop:30, period:2.4, phase:0, amp:14 }],
@@ -876,7 +876,7 @@ const DAILY_HOLES = [
   // Two sliding gates sweep the fairway
   { id: 'slalom', name: 'SLIDER ALLEY', theme: 'day', par: 4, cup: 330, wind: -2,
     deco: [['bush', 50], ['tree', 300], ['bush', 400]],
-    movers: [{ kind: 'slide', x: 140, w: 10, hBot: 0, hTop: 34, period: 2.2, phase: 0, amp: 30 }, { kind: 'slide', x: 238, w: 10, hBot: 0, hTop: 30, period: 3.0, phase: 0.5, amp: 26 }],
+    movers: [{ kind: 'slide', x: 140, w: 10, hBot: 0, hTop: 28, period: 2.2, phase: 0, amp: 30 }, { kind: 'slide', x: 238, w: 10, hBot: 0, hTop: 26, period: 3.0, phase: 0.5, amp: 26 }],
     pts: [[0,'tee',12],[24,'rough',12],[46,'fair',10],[180,'fair',12],[270,'sand',10],[290,'green',10],[370,'rough',12],[400,'end',14]] },
   // Desert cone with a crater green on top
   { id: 'volcano', name: 'THE VOLCANO', theme: 'desert', par: 3, cup: 190, wind: 4,
@@ -885,7 +885,7 @@ const DAILY_HOLES = [
   // Two windmills out of sync
   { id: 'twinmill', name: 'TWIN WINDMILLS', theme: 'autumn', par: 4, cup: 336, wind: -3,
     deco: [['bush', 40], ['tree', 300], ['bush', 410]],
-    movers: [{ kind: 'windmill', x: 120, w: 22, hBot: 0, hTop: 50, period: 2.2, phase: 0 }, { kind: 'windmill', x: 232, w: 22, hBot: 0, hTop: 50, period: 3.1, phase: 0.4 }],
+    movers: [{ kind: 'windmill', x: 120, w: 22, hBot: 0, hTop: 42, period: 2.2, phase: 0 }, { kind: 'windmill', x: 232, w: 22, hBot: 0, hTop: 40, period: 3.1, phase: 0.4 }],
     pts: [[0,'tee',12],[24,'rough',12],[46,'fair',10],[200,'fair',12],[278,'sand',10],[296,'green',10],[376,'rough',12],[410,'end',14]] }
 ];
 
@@ -1054,6 +1054,8 @@ function shotGrade() {
   if (raw > 22) return { label: 'SHANK', col: COL.orange };
   if (errPx < -6) return { label: 'PULL', col: COL.orange };
   if (errPx > 6) return { label: 'PUSH', col: COL.orange };
+  if (errPx < 0) return { label: 'SOFT HOOK', col: COL.white };
+  if (errPx > 0) return { label: 'SOFT SLICE', col: COL.white };
   return { label: 'OK', col: COL.white };
 }
 /* v8.20: one-line reason under the shot label (lie, wind, loft, what the ball hit) */
@@ -1061,11 +1063,15 @@ function shotWhyAtLaunch(lie, lv) {
   const why = [];
   if (!ball || !hole) return why;
   const lk = (LIE_K[lie] || LIE_K.fair)[clubIdx];
-  if (lk < 1) why.push((lie === 'sand' ? 'SAND' : 'ROUGH') + ' -' + Math.round((1 - lk) * 100) + '%');
+  if (lv.splash) why.push('SPLASH SHOT');
+  else if (lk < 1) why.push((lie === 'sand' ? 'SAND' : 'ROUGH') + ' -' + Math.round((1 - lk) * 100) + '%');
+  if (lv.flyer > 1.025) why.push('FLYER!'); else if (lv.flyer < 0.975) why.push('HEAVY LIE');
+  if (clubIdx !== PUTT_I && Math.abs(lv.slope || 0) >= 2) why.push((lv.slope > 0 ? 'UPHILL' : 'DOWNHILL') + ' LIE');
+  if (shotPerfect) why.push('PURE: +4%');
   if (clubIdx !== PUTT_I) {
     if (wind) {
       try {
-        const a = simulateShot(hole, wind, ball.x, clubIdx, angle, meter.power, errPx, facing), b = simulateShot(hole, 0, ball.x, clubIdx, angle, meter.power, errPx, facing);
+        const a = simulateShot(hole, wind, ball.x, clubIdx, angle, meter.power, errPx, facing), b = simulateShot(hole, 0, ball.x, clubIdx, angle, meter.power, errPx, facing);   // (sims skip the perfect/flyer bonus)
         const d = Math.round((a.x - b.x) * facing);
         if (Math.abs(d) >= 3) why.push('WIND ' + (d > 0 ? '+' : '') + d + 'Y');
       } catch (e) {}
@@ -1083,6 +1089,7 @@ function shotWhy(final) {
   if (sn.pad) out.push('BOUNCE PAD');
   if (sn.tree) out.push('CLIPPED THE OAK');
   if (sn.lip) out.push('LIPPED OUT');
+  if (sn.spinback) out.push('SPUN BACK!'); else if (sn.check) out.push('CHECKED UP');
   for (const w of ((ball && ball.why) || [])) out.push(w);
   if (final === 'sand' && !out.length) out.push('SAND: SHORT ROLL');
   let line = out.slice(0, 2).join('  ');
@@ -1176,15 +1183,17 @@ function slopeAt(hl, x) { return (groundH(hl, x + 1) - groundH(hl, x - 1)) / 2; 
 
 /* ---------------- clubs + physics ---------------- */
 const CLUBS = [
-  { name:'DRIVER', v:113, def:35, min:15, max:50 },
+  { name:'DRIVER', v:113, def:35, min:15, max:50 },   // v8.21: spin = backspin at full power, wk = wind sensitivity (set below)
   { name:'HYBRID', v:102, def:38, min:18, max:55 },   // v8.20: fills the driver/iron gap
   { name:'IRON',   v:92,  def:42, min:20, max:60 },
+  { name:'9 IRON', v:82,  def:48, min:28, max:66 },   // v8.21: fills the iron/wedge gap (~140y)
   { name:'WEDGE',  v:73,  def:58, min:40, max:75 },
   { name:'PUTTER', v:66,  def:0,  min:0,  max:0  }
 ];
-const PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;   // v8.20: club indexes (HYBRID shifted IRON/WEDGE/PUTTER up by one)
+const PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;
+[[.02, 1], [.10, 1], [.20, 1], [.32, .85], [.50, .65], [0, 1]].forEach(([sp, wk], i) => { CLUBS[i].spin = sp; CLUBS[i].wk = wk; });   // v8.21   // v8.20: club indexes (HYBRID shifted IRON/WEDGE/PUTTER up by one)
 const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
-const PUTT_CAPV = 22, CUP_STOP_R = 1.2, LIP_KEEP = 0.7;   // v8.13 putting: drop speed 26->22, lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
+const PUTT_CAPV = 6, CUP_STOP_R = 0.5, LIP_KEEP = 0.7;   // v8.21 putting: drop speed 22->6 (max ~0.6y past), lip-stop 1.2->0.5 (v8.13: 26->22, 1.5->1.2), lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
 const SURF = {
   tee:   { rest:.30, keep:.60, dec:45 },
   fair:  { rest:.30, keep:.60, dec:45 },
@@ -1192,35 +1201,52 @@ const SURF = {
   green: { rest:.25, keep:.55, dec:30 },
   sand:  { rest:0,   keep:.2,  dec:240 }   // v8.20: short roll in sand (was a dead stop)
 };
-const LIE_K = { tee:[1,1,1,1,1], fair:[1,1,1,1,1], green:[1,1,1,1,1], rough:[.7,.8,.85,.9,.6], sand:[.4,.5,.6,.85,.35] };
+const LIE_K = { tee:[1,1,1,1,1], fair:[1,1,1,1,1], green:[1,1,1,1,1], rough:[.8,.86,.88,.9,.9,.6], sand:[.4,.5,.6,.7,.85,.35] };   // v8.21: rough eased for long clubs; 9 iron added
+for (const k of ['tee', 'fair', 'green']) LIE_K[k] = [1, 1, 1, 1, 1, 1];
 
 // Short game: putts, and wedge chips from CHIP_DIST yards or closer. Power maps (roughly) linearly to distance,
 // with 100% going about 1.5x the distance to the hole, so mid-meter is a sensible stroke instead of a blast.
-const CHIP_DIST = 60;
+// v8.21: one power curve for every full shot (distance ~ power). The wedge's touch range (65% of a full wedge)
+// fades into the full range between 50 and 90y, so there is no jump at the chip line. The putter uses a few FIXED
+// ranges (R= in the HUD) instead of scaling to the hole, so stroke length has to match the putt.
+const CHIP_DIST = 60, CHIP_RANGE = 0.65, SPLASH_DIST = 40, SPLASH_LIFT = 8, CHIP_CAPV = 12, AIR_CAPV = 8;   // v8.21: cup capture for chips 16 -> 12, full shots 10 -> 8 (spin stops balls near the pin)
 const isChip = (c, dist) => c === WEDGE_I && dist <= CHIP_DIST;
-const puttRange = dist => Math.round(clamp(1.5 * dist, 18, 150));   // flat-ground roll at 100% putter power
-function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist) {
-  const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), lk = (LIE_K[lie] || LIE_K.fair)[clubIdx];
+const isSplash = (c, lie, dist) => c === WEDGE_I && lie === 'sand' && dist <= SPLASH_DIST;
+const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
+const PUTT_STEPS = [[8, 16], [20, 36], [45, 72], [1e9, 120]];
+const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 120; };   // flat-ground roll at 100% putter power
+const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
+// v8.21 sweet zone edge: graded instead of a cliff (0 -> ~8% distance over the first 3px outside the brackets)
+function effErr(raw, sw) { const a = Math.abs(raw), o = a - sw; if (o <= 0) return 0; const e = o <= 3 ? o / 3 * 1.6 : 1.6 + (o - 3) * 1.5; return Math.sign(raw) * Math.min(e, 15.36); }
+const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
+function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
+  o = o || {};
+  const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), splash = isSplash(clubIdx, lie, dist), lk = splash ? 1 : (LIE_K[lie] || LIE_K.fair)[clubIdx];
   if (clubIdx === PUTT_I) {
     const v = Math.sqrt(2 * SURF.green.dec * puttRange(dist) * power) * miss * lk;
     return { vx: dir * v * (1 - 0.01 * errPx), vy: 0, mode: 'roll', rough: false, capV: PUTT_CAPV, windK: 1, rollK: 1 };
   }
-  const chip = isChip(clubIdx, dist);
-  let v;
-  if (chip) { const s2 = Math.max(0.35, Math.sin(2 * angDeg * Math.PI / 180)); v = Math.min(c.v, Math.sqrt(1.5 * Math.max(dist, 12) * G / s2)) * Math.sqrt(power); }
-  else v = c.v * power;
-  v *= miss * lk;
-  const a = (angDeg + errPx * 0.8) * Math.PI / 180;
-  // v8.20 loft: above the club's stock loft = more wind and less roll; below = less wind, more run
+  const chip = isChip(clubIdx, dist), pw = clamp(power, 0, 1);
+  let v = c.v * Math.sqrt(pw * chipK(clubIdx, dist));
+  v *= miss * lk * (o.vMul || 1);
+  const slope = clubIdx === PUTT_I ? 0 : clamp(o.slope || 0, -6, 6);
+  const a = (angDeg + errPx * 0.8 + slope + (splash ? SPLASH_LIFT : 0)) * Math.PI / 180;
+  // v8.20 loft: above the club's stock loft = more wind and less roll; below = less wind, more run (v8.21: punch floor 0.75 -> 0.6)
   const rel = angDeg - c.def;
-  return { vx: dir * v * Math.cos(a), vy: v * Math.sin(a), mode: 'air', rough: Math.abs(errPx) > 4, capV: chip ? 16 : 10, windK: clamp(1 + 0.016 * rel, 0.75, 1.4), rollK: clamp(1 - 0.014 * rel, 0.65, 1.12) };
+  // v8.21 spin: by club, loft and swing length; a slice (early stop, errPx > 0) adds spin and stops, a hook takes it off and runs
+  let spin = c.spin * (0.4 + 0.6 * pw) + 0.008 * rel + 0.012 * errPx;
+  if (lie === 'rough') spin *= 0.3; else if (lie === 'sand' && !splash) spin *= 0.6;
+  let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3);
+  if (splash) { rollK *= 0.45; spin = Math.max(spin, 0.5); }
+  return { vx: dir * v * Math.cos(a), vy: v * Math.sin(a), mode: 'air', rough: Math.abs(errPx) > 4, capV: chip ? CHIP_CAPV : AIR_CAPV, windK: clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1), rollK, spin: clamp(spin, 0, 1.1), splash, slope };
 }
 // Advance a ball by dt. Returns null while moving, otherwise 'stop' | 'cup' | 'water' | 'ob'.
 const iv0 = b => Math.abs(b.vy);
 function stepBall(b, hl, wind, dt) {
   if (b.mode === 'air') {
     const px = b.x;
-    if (!b.noWind) b.vx += wind * WIND_K * (b.windK || 1) * dt;
+    if (!b.noWind) { const wa = wind * WIND_K * (b.windK || 1); b.vx += wa * (wa * b.vx < 0 ? WIND_HEAD : WIND_TAIL) * dt; }
     b.vy -= G * dt;
     b.x += b.vx * dt; b.h += b.vy * dt;
     if (b.x < -60 || b.x > hl.len + 60) return 'ob';
@@ -1261,9 +1287,10 @@ function stepBall(b, hl, wind, dt) {
       if (b.lucky) { b.lucky = false; b.noWind = false; b.h = gh; b.mode = 'roll'; b.vy = 0; b.vx = Math.sign(hl.cup - b.x) * 5; b.events.push('bounce'); return null; }   // lucky hop settles
       if (s === 'water') return 'water';
       if (surfAt(hl, px) === 'water' && gh - b.h > 3) return 'water';     // smacked the far bank
-      if (Math.abs(b.x - hl.cup) < 1.5 && Math.abs(b.vx) < 30 && iv0(b) < 60) { b.x = hl.cup; b.h = gh; return 'cup'; }
+      if (Math.abs(b.x - hl.cup) < DUNK_R && Math.abs(b.vx) < 30 && iv0(b) < 60) { b.x = hl.cup; b.h = gh; return 'cup'; }   // v8.21: dunk window 1.5 -> DUNK_R
       b.h = gh;
       const pad = onBouncePad(hl, b.x) && (b.padHits || 0) < 2;
+      if (b.spin) { const sp0 = b.spin; b.spin = 0; if (!pad) { b.vx *= 1 - sp0; if (sp0 >= 0.45 && s === 'green') b.events.push(sp0 > 1 ? 'spinback' : 'check'); } }   // v8.21 backspin bites on the first landing
       const sp = SURF[b.rough ? 'rough' : s] || SURF.fair;
       b.rough = false;
       const iv = -b.vy;
@@ -1308,8 +1335,8 @@ function stepBall(b, hl, wind, dt) {
 }
 const STEP = 1 / 240;
 function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir) {
-  const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x));
-  const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, windK: lv.windK, rollK: lv.rollK, events: [], rollSteps: 0 };
+  const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir) });
+  const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
   let r = null, n = 0;
   while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; }
   return { res: r || 'stop', x: b.x };
@@ -1367,7 +1394,7 @@ let ball = null, lastSpot = TEE_X, clubIdx = 0, angle = 25, facing = 1;
 let meter = { pos: 0, dir: 1, power: 0, acc: 0 };
 // 3-click meter: power, then stop the returning marker in the green SWEET zone for clean contact.
 // PERFECT = power in the gold zone + marker dead on the line (not for putts).
-const SWEET_ERR = 3.3, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 6.6;   // v8.15: sweet zone eased halfway back (v8.13 2.6 / 5.2; orig 4 / 8)
+const SWEET_ERR = 3.6, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHORT_SWEET = 6.6;   // v8.21: full-swing zone 3.3 -> 3.6 and a graded edge (effErr); v8.15 eased (v8.13 2.6 / 5.2; orig 4 / 8)
 const shortGameNow = () => !!(hole && ball && (clubIdx === PUTT_I || isChip(clubIdx, Math.abs(hole.cup - ball.x))));
 const isShort = () => state === 'aim' ? shortGameNow() : !!meter.short;   // locked in when the swing starts
 const pwSpeed = () => PW_SPEED * (meter.short ? SHORT_SLOW : 1), accSpeed = () => ACC_SPEED * (meter.short ? SHORT_SLOW : 1);
@@ -2318,12 +2345,20 @@ function placeBall(x) {
   autoClub(); swingAng = 75;
 }
 function autoClub() {
-  const lie = surfAt(hole, ball.x), d = Math.abs(hole.cup - ball.x);
+  // v8.21: simulate each club at full power from this lie, in this wind, and take the shortest one that gets there
+  const lie = surfAt(hole, ball.x), d = Math.abs(hole.cup - ball.x), dir = hole.cup >= ball.x ? 1 : -1;
   if (lie === 'green') clubIdx = PUTT_I;
-  else if (d > 225 && lie !== 'sand') clubIdx = 0;
-  else if (d > 185 && lie !== 'sand') clubIdx = 1;
-  else if (d > 95) clubIdx = 2;
-  else clubIdx = WEDGE_I;
+  else if (isSplash(WEDGE_I, lie, d)) clubIdx = WEDGE_I;   // greenside bunker: splash it out
+  else {
+    let pick = -1, best = WEDGE_I, bestReach = -1e9;
+    for (let c = WEDGE_I; c >= 0; c--) {
+      let reach = 0;
+      try { reach = (simulateShot(hole, wind, ball.x, c, CLUBS[c].def, 1, 0, dir).x - ball.x) * dir; } catch (e) {}
+      if (reach >= d - 2) { pick = c; break; }
+      if (reach > bestReach + 3) { bestReach = reach; best = c; }   // a longer club only if it clearly goes further
+    }
+    clubIdx = pick >= 0 ? pick : best;
+  }
   angle = CLUBS[clubIdx].def;
 }
 function setClub(i) { clubIdx = (i + CLUBS.length) % CLUBS.length; angle = CLUBS[clubIdx].def; SFX.click(); }
@@ -2539,7 +2574,7 @@ function action() {
   if (state === 'intro') { if (st > 0.3) { setState('aim'); if (holeIdx === 0) openRoundTip(); } return; }
   if (roundTip) return;   // swing blocked until OK
   if (state === 'aim') { meter.pos = 0; meter.dir = 1; meter.short = shortGameNow(); for (const k in held) delete held[k]; setState('power'); SFX.tick(); return; }
-  if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }
+  if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = ACC_START; setState('accuracy'); SFX.tick(); return; }   // v8.21: same timing for every power
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
   if (state === 'card' && st > 1.2) { openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
@@ -2556,7 +2591,7 @@ function commitAccuracy(acc) {
   meter.acc = acc;
   shotSweet = Math.abs(raw) <= sweetErr();                     // inside the green zone = clean contact, no hook/slice
   shotPerfect = clubIdx !== PUTT_I && meter.power >= PERFECT_POW && Math.abs(raw) <= PERFECT_ERR;
-  errPx = shotSweet ? 0 : clamp(raw, ACC_MIN * 128, -ACC_MIN * 128);   // a wild early click is a big slice, never a backwards shot
+  errPx = shotSweet ? 0 : effErr(clamp(raw, ACC_MIN * 128, -ACC_MIN * 128), sweetErr());   // v8.21: just outside the brackets is a small miss, a wild click is a big one (never backwards)
   SFX.tick(); setState('swing');
 }
 const SWING_ADDR = 75, DOWN_T = 0.13, FOLLOW_T = 0.45;
@@ -2565,9 +2600,10 @@ function launch() {
   strokes++; lastSpot = ball.x;
   ball.shotFrom = ball.x; ball.carryX = null; ball.maxH = ball.h;
   const lie = surfAt(hole, ball.x);
-  const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x));
-  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.seen = {};
-  ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
+  const flyer = lie === 'rough' && clubIdx !== PUTT_I ? 1 + (Math.random() * 2 - 1) * FLYER : 1;   // v8.21 flyer lies
+  const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x), { vMul: (shotPerfect ? PERFECT_V : 1) * flyer, slope: lieSlope(hole, ball.x, facing) });
+  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.spin = lv.spin; ball.seen = {};
+  lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < LUCK_MISHIT); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0;
   if (clubIdx === PUTT_I) SFX.putt(); else SFX.hit(); hap(clubIdx === PUTT_I ? 12 : [8, 30, 18]);
@@ -2973,12 +3009,12 @@ addEventListener('keydown', e => {
     else if (k === 'ArrowRight' || k === 'd' || k === 'D') facing = 1;
     else if (k === 'q' || k === 'Q') setClub(clubIdx - 1);
     else if (k === 'e' || k === 'E' || k === 'Tab') setClub(clubIdx + 1);
-    else if (k >= '1' && k <= '4') setClub(+k - 1);
+    else if (k >= '1' && k <= '6') setClub(+k - 1);
   }
 });
 
 /* ---------------- update ---------------- */
-const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.1, ACC_MIN = -0.12;
+const PW_SPEED = 1 / 0.95, ACC_SPEED = 1.1, ACC_MIN = -0.12, ACC_START = 0.6;
 function update(dt) {
   st += dt;
   updateFx(dt);
@@ -3743,8 +3779,8 @@ function drawAim() {
     if (live) { const ex = Math.round(r.x - camX), ey = Math.round(BASE - groundH(hole, r.x)) - 6; rect(ex - 2, ey - 1, 5, 5, '#000'); rect(ex - 1, ey, 3, 3, dc); }
     return;
   }
-  const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, Math.abs(hole.cup - ball.x));
-  const len = [80, 74, 68, 56][clubIdx] * lenK, dt = 1 / 120;
+  const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, Math.abs(hole.cup - ball.x), { slope: lieSlope(hole, ball.x, facing) });
+  const len = [80, 74, 68, 62, 56][clubIdx] * lenK, dt = 1 / 120;
   let x = ball.x, h = ball.h + 3, vy = lv.vy, run = 0, next = 6 + gap * phase;
   for (let i = 0; i < 400 && run < len; i++) {
     const nx = x + lv.vx * dt, nh = h + vy * dt; vy -= G * dt;
@@ -3782,6 +3818,19 @@ function hudCell(i, y, text, col, border) {
 }
 const MZ = 20, ML = 112;                                       // meter: x of the sweet-spot line, pixels for 100% power
 function meterMarker(x, col) { const my = HUD_Y0 + 37; rect(x - 2, my, 5, 14, '#000'); rect(x - 1, my + 1, 3, 12, col); }
+/* v8.21: aim hint under the meter: what the loft does, otherwise the club's full-power carry (power ~ distance) */
+let aimHintCache = null;
+function aimHint() {
+  const rel = Math.round(angle) - CLUBS[clubIdx].def;
+  if (rel <= -4) return 'LOW: -WIND +ROLL';
+  if (rel >= 4) return 'HIGH: +WIND -ROLL';
+  const key = [holeIdx, clubIdx, ball.x.toFixed(1), Math.round(angle), facing].join(':');
+  if (!aimHintCache || aimHintCache.key !== key) {
+    const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, Math.abs(hole.cup - ball.x), { slope: lieSlope(hole, ball.x, facing) });
+    aimHintCache = { key, t: 'FULL CARRY ' + Math.round(Math.abs(2 * lv.vx * lv.vy / G)) + 'Y' };
+  }
+  return aimHintCache.t;
+}
 function drawMeter() {
   box(2, HUD_Y0 + 28, 138, 24);
   const mx = p => Math.round(MZ + p * ML), y0 = HUD_Y0 + 40, gz = mx(PERFECT_POW), ge = mx(1);
@@ -3805,11 +3854,12 @@ function drawMeter() {
   if (state === 'accuracy') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), COL.white); }
   if (state === 'swing' || state === 'flight') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange); }
   let label = isTouchUi() ? 'TAP = SWING' : 'SPACE/CLICK = SWING', lc = COL.white;
-  if (state === 'aim' && shortGameNow()) { label = (clubIdx === PUTT_I ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
+  if (state === 'aim' && shortGameNow()) { label = clubIdx !== PUTT_I && isSplash(clubIdx, surfAt(hole, ball.x), Math.abs(hole.cup - ball.x)) ? 'SPLASH: FLAG = HOLE' : (clubIdx === PUTT_I ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
+  else if (state === 'aim' && clubIdx !== PUTT_I) { label = aimHint(); lc = COL.white; }
   if (state === 'power') label = meter.short ? 'STOP NEAR THE FLAG' : isTouchUi() ? 'TAP = SET POWER' : 'SET POWER';
   else if (state === 'accuracy') { label = 'STOP IN BRACKETS!'; lc = COL.lime; }
   else if (state === 'swing' || state === 'flight') {
-    label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === PUTT_I ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === PUTT_I ? 'OFF LINE' : errPx > 0 ? 'SLICE' : 'HOOK');
+    label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === PUTT_I ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === PUTT_I ? 'OFF LINE' : errPx > 0 ? 'SLICE: HIGH' : 'HOOK: LOW');
     lc = shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange;
   }
   drawText(label, 6, HUD_Y0 + 30, lc);
@@ -4761,6 +4811,8 @@ if (/test/.test(location.hash)) {
     putTo(x) { placeBall(x); setState('aim'); camX = camTarget(); },
     get fx() { return { parts: fx.parts.length, banner: fx.banner ? fx.banner.text : null, glow: fx.glow, flash: fx.flash, dog: dogPop ? dogPop.kind : null }; },
     get shot() { return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
+    // v8.21 mechanics probes (test hash only)
+    m21: { version: () => GAME_VERSION, clubs: () => CLUBS.map(c => c.name), clubName: () => CLUBS[clubIdx].name, hint: () => aimHint(), shortNow: () => shortGameNow(), puttRange: d => puttRange(d), splash: () => !!(hole && ball && isSplash(clubIdx, surfAt(hole, ball.x), Math.abs(hole.cup - ball.x))), def: () => CLUBS[clubIdx].def, action: () => action(), meter: () => Object.assign({}, meter), commit: a => commitAccuracy(a), grade: () => shotGrade(), fx: () => shotFx ? { label: shotFx.label, reason: shotFx.reason } : null, PUTT_I },
     setAngle(a) { angle = a; }, get held() { return Object.assign({}, held); },
     windowScan(x) {   // fraction of the power range (per club, default loft, perfect contact) that holes out
       const dir = hole.cup >= x ? 1 : -1, parts = [];

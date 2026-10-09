@@ -1,6 +1,6 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v100';
-// v8.20: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
+const CACHE = 'dlg-golf-v101';
+// v8.20+: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
 const PRECACHE = [
   './',
   './manifest.webmanifest',
