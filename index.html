@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.32">
+<meta name="dlg-version" content="v8.33">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -112,6 +112,8 @@
   #acct .kpis b{display:block;font-size:20px;color:#f8d878;margin-bottom:2px}
   #acct .row .btn{flex:1}
   #acct .item .who.wr{white-space:normal;word-break:break-word}
+  #acct .chk.mkt{align-items:flex-start;border:2px solid #3c4c6c;padding:10px;line-height:1.4}
+  #acct .chk.mkt input{flex:none;margin-top:1px}
 </style>
 </head>
 <body>
@@ -162,7 +164,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.32';
+const GAME_VERSION = 'v8.33';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -512,6 +514,24 @@ function signOut() {
   if (typeof admin !== 'undefined') { admin.is = false; admin.unlock = false; admin.names = []; admin.checked = false; }
   saveSession();
 }
+/* ---- v8.33 marketing opt-in: pre-checked for US players only (time zone), unchecked when unsure ---- */
+const US_TZ = /^(America\/(New_York|Detroit|Kentucky\/\w+|Indiana\/\w+|Chicago|Menominee|North_Dakota\/\w+|Denver|Boise|Phoenix|Los_Angeles|Anchorage|Juneau|Sitka|Metlakatla|Yakutat|Nome|Adak|Louisville|Fort_Wayne|Indianapolis|Knox_IN|Puerto_Rico)|Pacific\/Honolulu|US\/(Eastern|Central|Mountain|Pacific|Alaska|Hawaii|Arizona|East-Indiana|Michigan|Aleutian|Indiana-Starke))$/;
+function detectUS() {
+  let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+  if (!US_TZ.test(tz)) return false;                       // Canada/Mexico/other America/* zones, UTC, unknown -> unchecked
+  const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']).map(String);
+  return !langs[0] || /^en(-US)?$/i.test(langs[0]) || langs.some(l => /-US$/i.test(l));   // secondary signal: a non-US-English first language only counts if any -US locale is present
+}
+const MKT_PENDING = 'dlg_mkt_pending';   // sign-up choice survives the confirm-email round trip until the username is saved
+function mktPending() { const v = localStorage.getItem(MKT_PENDING); return v === '1' ? true : v === '0' ? false : null; }
+function mktKnownKey() { return 'dlg_mkt_known_' + (account.user && account.user.id); }
+function mktKnown() { try { const v = localStorage.getItem(mktKnownKey()); return v === '1' ? true : v === '0' ? false : null; } catch (e) { return null; } }
+async function saveMarketing(on) {
+  if (!isSignedIn()) return { ok: false };
+  const r = await sb('/rest/v1/profiles?id=eq.' + encodeURIComponent(account.user.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { marketing_opt_in: !!on, marketing_opt_in_at: on ? new Date().toISOString() : null } }, 'profiles');
+  if (r.ok) try { localStorage.setItem(mktKnownKey(), on ? '1' : '0'); } catch (e) {}
+  return { ok: r.ok };
+}
 /* ---- profile / username ---- */
 async function loadProfile() {
   if (!isSignedIn()) return null;
@@ -540,6 +560,7 @@ async function saveUsername(name, marketing) {
     return { ok: false, msg: code === '23505' ? 'NAME TAKEN' : code === '23514' ? 'NAME NOT ALLOWED' : 'COULD NOT SAVE NAME' };
   }
   account.profile = { username: name, marketing_opt_in: !!marketing };
+  try { localStorage.setItem(mktKnownKey(), marketing ? '1' : '0'); localStorage.removeItem(MKT_PENDING); } catch (e) {}
   saveSession();
   return { ok: true };
 }
@@ -5783,6 +5804,7 @@ function careerLayout() {
       L.grid = { x: gx + colW + 8, y: top, w: colW, h: 166 };
       L.out = { x: gx + colW * 2 + 8 - 84, y: top + 172, w: 84, h: 18 };
       L.adm = { x: gx, y: top + 171, w: 72, h: 20 };
+      L.set = { x: gx + (admin.is ? 80 : 0), y: top + 172, w: 66, h: 18 };
       L.tileH = 26;
     } else {
       const w = Math.min(244, W - 12), x = Math.round((W - w) / 2);
@@ -5792,7 +5814,8 @@ function careerLayout() {
       L.grid = { x, y: top + 106, w, h: 176 };
       L.tour = { x, y: top + 288, w, h: 62 };
       L.fr = { x: x + 8, y: top + 306, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
-      L.out = admin.is ? { x: x + w - 100, y: top + 358, w: 100, h: 20 } : { x: Math.round(W / 2 - 50), y: top + 358, w: 100, h: 20 };
+      L.out = { x: x + w - 74, y: top + 358, w: 74, h: 20 };
+      L.set = admin.is ? { x: x + 84, y: top + 358, w: 66, h: 20 } : { x, y: top + 358, w: 66, h: 20 };
       L.adm = { x, y: top + 356, w: 76, h: 24 };
       L.tileH = 30;
     }
@@ -5924,11 +5947,12 @@ function renderCareer() {
     careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
   }
   if (admin.is && L.adm) careerButton(L.adm, 'ADMIN', false, 'careerAdm');   // v8.30: only when the server says admin
+  if (L.set) { const on = pressDim('careerSet') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.set)); careerSoft('SETTINGS', L.set.x + Math.round((L.set.w - textW('SETTINGS')) / 2), L.set.y + 6, on ? CAREER_YEL : '#e8eef8'); }   // v8.33
   // sign out (tap twice)
   const armed = careerSignOutArm > performance.now();
-  const so = armed ? 'TAP AGAIN TO SIGN OUT' : 'SIGN OUT';
+  const so = armed ? 'TAP TO CONFIRM' : 'SIGN OUT';
   const on = pressDim('careerOut') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.out));
-  careerSoft(so, Math.round(L.out.x + L.out.w - textW(so) - (L.wide ? 0 : (L.out.w - textW(so)) / 2)), L.out.y + 6, armed ? COL.orange : (on ? CAREER_YEL : '#e8eef8'));
+  careerSoft(so, Math.round(L.out.x + L.out.w - textW(so)), L.out.y + 6, armed ? COL.orange : (on ? CAREER_YEL : '#e8eef8'));
   if (careerMsg) {
     careerMsg.t += 1 / 60;
     if (careerMsg.t > 2.2) careerMsg = null;
@@ -5950,6 +5974,7 @@ function careerPointerDown(p, e) {   // returns true when handled
     if (hitBtn(p, L.fr)) { armUiTap('careerFr', () => { SFX.click(); showAcct(hasUsername() ? 'friends' : 'username', {}); }, (up) => hitBtn(toLogical(up), careerLayout().fr), e); return true; }
     if (hasUsername() && hitBtn(p, L.mt)) { armUiTap('careerMt', () => { SFX.click(); showAcct('matches'); }, (up) => hitBtn(toLogical(up), careerLayout().mt), e); return true; }
     if (admin.is && L.adm && hitBtn(p, L.adm)) { armUiTap('careerAdm', () => { SFX.click(); showAcct('admin'); }, (up) => hitBtn(toLogical(up), careerLayout().adm), e); return true; }
+    if (L.set && hitBtn(p, L.set)) { armUiTap('careerSet', () => { SFX.click(); showAcct('prefs'); }, (up) => hitBtn(toLogical(up), careerLayout().set), e); return true; }
     if (hitBtn(p, L.out)) {
       armUiTap('careerOut', () => {
         SFX.click();
@@ -6031,7 +6056,7 @@ const VIEWS = {
     '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
     '<form data-f="signup" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" value="' + esc(account.email) + '">' +
     '<label for="aPass">PASSWORD (8+ CHARACTERS)</label>' + pwField('aPass', 'new-password') +
-    '<label class="chk"><input id="aMkt" type="checkbox"> SEND ME NEWS, DROPS + DEALS</label>' +
+    '<label class="chk mkt"><input id="aMkt" type="checkbox"' + ((mktPending() != null ? mktPending() : detectUS()) ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
     '<button class="btn" type="submit">CREATE ACCOUNT</button></form><div class="msg"></div>' +
     '<button class="link" data-a="go:login">HAVE AN ACCOUNT? LOG IN</button>',
   login: () => head('LOG IN') +
@@ -6053,7 +6078,12 @@ const VIEWS = {
   username: () => head('PICK A USERNAME', 'signout') +
     '<p class="sub">FRIENDS ADD YOU BY THIS NAME.<br>3-12 LETTERS, NUMBERS OR _ . STARTS WITH A LETTER.</p>' +
     '<form data-f="username" novalidate><label for="aUser">USERNAME</label><div class="row"><input id="aUser" type="text" maxlength="12" autocomplete="nickname" autocapitalize="off" spellcheck="false" value="' + esc(acctOpts.draft || '') + '"></div>' +
+    '<label class="chk mkt"><input id="aMkt" type="checkbox"' + ((account.marketing != null ? account.marketing : mktPending() != null ? mktPending() : detectUS()) ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
     '<button class="btn" type="submit">SAVE USERNAME</button></form><div class="msg"></div>',
+  prefs: () => { const k = mktKnown(); return head('SETTINGS') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><form data-f="prefs" novalidate>' +
+    '<label class="chk mkt"><input id="aMkt" type="checkbox"' + (k ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
+    (k == null ? '<p class="sub">YOUR CURRENT CHOICE ISN\'T SAVED ON THIS DEVICE. SAVE TO SET IT.</p>' : '') +
+    '<button class="btn" type="submit">SAVE</button></form><div class="msg"></div>'; },
   friends: () => {
     const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
@@ -6138,7 +6168,7 @@ if (acctEl) {
     try {
       if (f === 'signup') {
         const r = await authSignUp(val('aEmail'), val('aPass'));
-        if (!r.ok) acctMsg(r.msg); else if (r.confirm) showAcct('check', {}); else { account.marketing = document.getElementById('aMkt') && document.getElementById('aMkt').checked; await afterAuth(); }
+        if (!r.ok) acctMsg(r.msg); else { const mk = !!(document.getElementById('aMkt') && document.getElementById('aMkt').checked); account.marketing = mk; try { localStorage.setItem(MKT_PENDING, mk ? '1' : '0'); } catch (e) {} if (r.confirm) showAcct('check', {}); else { await afterAuth(); } }
       } else if (f === 'login') {
         const r = await authLogIn(val('aEmail'), val('aPass')); if (!r.ok) acctMsg(r.msg); else await afterAuth();
       } else if (f === 'forgot') {
@@ -6148,7 +6178,9 @@ if (acctEl) {
       } else if (f === 'username') {
         const nm = val('aUser').trim().replace(/^@/, '');
         const a = await usernameAvailable(nm);
-        if (!a.ok) acctMsg(a.msg); else { const r = await saveUsername(nm, !!account.marketing); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+        if (!a.ok) acctMsg(a.msg); else { const mk = !!(document.getElementById('aMkt') && document.getElementById('aMkt').checked); account.marketing = mk; const r = await saveUsername(nm, mk); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+      } else if (f === 'prefs') {
+        const on = !!document.getElementById('aMkt').checked; const r = await saveMarketing(on); if (!r.ok) acctMsg('COULD NOT SAVE'); else showAcct('prefs', { msg: on ? 'SUBSCRIBED' : 'UNSUBSCRIBED', ok: true });
       } else if (f === 'adminSearch') {
         const q = val('aQ').trim().replace(/^@/, ''); await showAcct('adminPlayers', { q });
       } else if (f === 'adminRename') {
@@ -6201,7 +6233,7 @@ if (acctEl) {
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, detectUS, mktKnown, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
