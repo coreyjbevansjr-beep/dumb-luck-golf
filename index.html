@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.29">
+<meta name="dlg-version" content="v8.30">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -105,6 +105,13 @@
   #acct .big{font-size:22px;letter-spacing:3px;text-align:center;margin:12px 0 4px;color:#f8d878}
   #acct .empty{font-size:12px;color:#bcc8e0;text-align:center;padding:16px 0;letter-spacing:1px;line-height:1.5}
   #acct .at{color:#3cbcfc}
+  #acct .adm{display:inline-block;margin-left:6px;padding:1px 4px;font-size:10px;letter-spacing:1px;background:#fc9838;color:#000;vertical-align:2px;font-weight:700}
+  #acct .ban{display:inline-block;margin-left:6px;padding:1px 4px;font-size:10px;letter-spacing:1px;background:#a81000;color:#fcfcfc;vertical-align:2px}
+  #acct .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px}
+  #acct .kpis div{border:2px solid #3c4c6c;padding:6px 2px;text-align:center;font-size:10px;letter-spacing:1px;color:#bcc8e0}
+  #acct .kpis b{display:block;font-size:20px;color:#f8d878;margin-bottom:2px}
+  #acct .row .btn{flex:1}
+  #acct .item .who.wr{white-space:normal;word-break:break-word}
 </style>
 </head>
 <body>
@@ -155,7 +162,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.29';
+const GAME_VERSION = 'v8.30';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -502,6 +509,7 @@ function signOut() {
   if (authOnline() && isSignedIn()) { try { fetch(authBase() + '/auth/v1/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {} }
   account.user = null; account.profile = null; account.status = '';
   social.friends = []; social.matches = [];
+  if (typeof admin !== 'undefined') { admin.is = false; admin.unlock = false; admin.names = []; admin.checked = false; }
   saveSession();
 }
 /* ---- profile / username ---- */
@@ -726,7 +734,8 @@ async function finishMatchRound(total) {
     const s = JSON.parse(localStorage.getItem(AUTH_STORE) || 'null');
     if (!s || !s.user || !s.user.id) return;
     account.user = s.user; account.profile = s.profile || null; account.email = s.user.email || '';
-    if (!account.profile && authOnline()) setTimeout(() => { loadProfile(); }, 0);   // v8.29: pick up a username saved on another device / by support
+    if (!account.profile && authOnline()) setTimeout(() => { loadProfile(); }, 0);
+    if (authOnline()) setTimeout(() => { loadAdmin(); }, 0);   // v8.30: admin is asked of the server every launch, never stored   // v8.29: pick up a username saved on another device / by support
     if (authOnline() && (account.user.expires_at || 0) < Date.now() / 1000 + 60) refreshSession().then(ok => { if (!ok && (account.user && account.user.expires_at || 0) < Date.now() / 1000) { account.user = null; account.profile = null; saveSession(); } });
   } catch (e) {}
 })();
@@ -745,6 +754,31 @@ async function consumeAuthRedirect() {
   authReturn = q.get('type') === 'recovery' ? 'recovery' : 'signup';
   await loadProfile();
 }
+
+/* ---- v8.30 admin (server decides: public.admin_whoami; nothing about admin is stored client-side) ---- */
+const admin = { is: false, names: [], checked: false, stats: null, scores: [], scoreSort: 'recent', players: [], audit: [], unlock: false };
+function isAdminUser(name) { return !!name && admin.names.some(n => n.toLowerCase() === String(name).replace(/^@/, '').toLowerCase()); }
+function adminUnlockOn() { return admin.unlock && admin.is && isSignedIn(); }
+async function loadAdmin() {
+  if (!isSignedIn()) { admin.is = false; admin.unlock = false; admin.names = []; return false; }
+  const [w, n] = await Promise.all([sb('/rest/v1/rpc/admin_whoami', { method: 'POST', body: {} }, 'admin'), sb('/rest/v1/rpc/admin_usernames', { method: 'POST', body: {} }, 'admin')]);
+  admin.is = !!(w.ok && w.data && w.data.admin === true);
+  admin.banned = !!(w.ok && w.data && w.data.banned === true);
+  admin.names = n.ok && Array.isArray(n.data) ? n.data.map(String) : [];
+  if (!admin.is) admin.unlock = false;
+  admin.checked = true;
+  return admin.is;
+}
+const adminErr = r => { const m = String((r.data && r.data.message) || ''); return r.status === 0 ? 'NETWORK ERROR' : /admin only/.test(m) ? 'NOT AN ADMIN' : /no such/.test(m) ? m.toUpperCase() : /name taken/.test(m) ? 'NAME TAKEN' : /bad username/.test(m) ? '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' : /cannot ban an admin/.test(m) ? "CAN'T BAN AN ADMIN" : 'FAILED: ' + (m || r.status).toString().toUpperCase().slice(0, 40); };
+async function adminRpc(fn, body) { const r = await sb('/rest/v1/rpc/' + fn, { method: 'POST', body: body || {} }, 'admin'); if (r.status === 403 || (r.data && r.data.code === '42501' && /admin only/.test(r.data.message || ''))) { admin.is = false; admin.unlock = false; } return r.ok ? { ok: true, data: r.data } : { ok: false, msg: adminErr(r) }; }
+async function adminLoadStats() { const r = await adminRpc('admin_stats', { p_days: 7 }); admin.stats = r.ok ? r.data : null; return r; }
+async function adminLoadScores() {
+  const ord = admin.scoreSort === 'best' ? 'to_par.asc,strokes.asc' : 'created_at.desc';
+  const r = await sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&order=' + ord + '&limit=40', {}, 'admin');
+  admin.scores = r.ok && Array.isArray(r.data) ? r.data : []; return r;
+}
+async function adminLoadPlayers(qs) { const r = await adminRpc('admin_players', { p_query: qs || '' }); admin.players = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
+async function adminLoadAudit() { const r = await adminRpc('admin_audit_recent'); admin.audit = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
 
 /* ---- career data ---- */
 const CAREER_KEY = 'dlg_career_v1__';
@@ -1468,8 +1502,8 @@ function noteDailyPlayed() {
   if (!unlocks.dailyDays.includes(d)) { unlocks.dailyDays.push(d); if (unlocks.dailyDays.length > 60) unlocks.dailyDays = unlocks.dailyDays.slice(-60); saveUnlocks(); }
   if (unlocks.dailyDays.length >= 3) grantAch('daily3', 'RAINBOW TRAIL!');
 }
-function hatUnlocked(i) { return !HAT_UNLOCK[i] || (unlocks.hats || []).includes(i); }
-function trailUnlocked(id) { return (unlocks.trails || []).includes(id); }
+function hatUnlocked(i) { return adminUnlockOn() || !HAT_UNLOCK[i] || (unlocks.hats || []).includes(i); }
+function trailUnlocked(id) { return adminUnlockOn() || (unlocks.trails || []).includes(id); }
 const ACH_HINT = { birdie: 'GET A BIRDIE', eagle: 'GET AN EAGLE', under: 'SHOOT UNDER PAR', ace: 'SCORE AN ACE', daily3: 'PLAY DAILY 3 DAYS' };
 function hatEarnHint(i) { const a = HAT_UNLOCK[i]; return a ? (ACH_HINT[a] || a.toUpperCase()) : ''; }
 function trailEarnHint(id) { const a = TRAIL_UNLOCK[id]; return a ? (ACH_HINT[a] || a.toUpperCase()) : ''; }
@@ -5503,6 +5537,7 @@ function careerLayout() {
       L.fr = { x: gx + 8, y: top + 106, w: Math.floor((colW - 22) / 2), h: 26 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 26 };
       L.grid = { x: gx + colW + 8, y: top, w: colW, h: 150 };
       L.out = { x: gx + colW * 2 + 8 - 84, y: top + 156, w: 84, h: 18 };
+      L.adm = { x: gx, y: top + 155, w: 72, h: 20 };
       L.tileH = 26;
     } else {
       const w = Math.min(244, W - 12), x = Math.round((W - w) / 2);
@@ -5512,7 +5547,8 @@ function careerLayout() {
       L.grid = { x, y: top + 90, w, h: 176 };
       L.tour = { x, y: top + 272, w, h: 62 };
       L.fr = { x: x + 8, y: top + 290, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
-      L.out = { x: Math.round(W / 2 - 50), y: top + 342, w: 100, h: 20 };
+      L.out = admin.is ? { x: x + w - 100, y: top + 342, w: 100, h: 20 } : { x: Math.round(W / 2 - 50), y: top + 342, w: 100, h: 20 };
+      L.adm = { x, y: top + 340, w: 76, h: 24 };
       L.tileH = 30;
     }
   } else {
@@ -5569,14 +5605,16 @@ function renderCareer() {
     careerSoftC('HAVE ONE? LOG IN', L.signin.x + L.signin.w / 2, L.signin.y + 7, on ? CAREER_YEL : COL.white);
     return;
   }
-  const c = careerLoad(), rk = careerRank(c.xp);
+  const c = careerLoad(), unl = adminUnlockOn(), rk = careerRank(unl ? CAREER_RANKS[CAREER_RANKS.length - 1].xp : c.xp);   // v8.30: admin test unlock (display only, never saved)
   const name = hasUsername() ? '@' + myName() : (player.name || 'PLAYER');
   // career card: golfer + name + DLG Tour rank + XP bar
   const C = L.card;
   czBoard(C.x, C.y, C.w, C.h, 0.9, false);
   careerGolfer(C.x + 26, C.y + C.h - 12, 2);
   const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
-  careerSoft(name, tx, C.y + 10, COL.white, textW(name, 2) <= tw ? 2 : 1);
+  const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
+  careerSoft(name, tx, C.y + 10, COL.white, nsc);
+  if (isAdm) { const bx0 = tx + textW(name, nsc) + 4, by0 = C.y + 10 + (nsc === 2 ? 3 : 0); rect(bx0, by0 - 1, badgeW, 9, '#000'); rect(bx0, by0 - 1, badgeW - 1, 8, COL.orange); drawText('ADMIN', bx0 + 3, by0, '#000'); }
   careerSoft('DLG TOUR', tx, C.y + 30, '#d0d8e8');
   careerSoft(rk.name, tx + textW('DLG TOUR ') + 2, C.y + 30, CAREER_YEL);
   for (let i = 0; i < CAREER_RANKS.length; i++) {   // rank pips
@@ -5587,7 +5625,7 @@ function renderCareer() {
   rect(bx, by, bw, bh, '#000'); rect(bx + 1, by + 1, bw - 2, bh - 2, '#183848');
   const fw = Math.round((bw - 2) * rk.frac);
   if (fw > 0) { rect(bx + 1, by + 1, fw, bh - 2, COL.lime); rect(bx + 1, by + 1, fw, 1, '#b8f818'); }
-  const xpTxt = rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');
+  const xpTxt = unl ? 'TEST UNLOCK ON' : rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');
   careerSoft(xpTxt, bx, by + 12, COL.white);
   careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP RANK', bx, by + 24, '#d0d8e8');
   // lifetime stats grid (2 x 5)
@@ -5630,6 +5668,7 @@ function renderCareer() {
     careerButton(L.fr, req ? 'FRIENDS (' + req + ')' : 'FRIENDS', false, 'careerFr');
     careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
   }
+  if (admin.is && L.adm) careerButton(L.adm, 'ADMIN', false, 'careerAdm');   // v8.30: only when the server says admin
   // sign out (tap twice)
   const armed = careerSignOutArm > performance.now();
   const so = armed ? 'TAP AGAIN TO SIGN OUT' : 'SIGN OUT';
@@ -5652,6 +5691,7 @@ function careerPointerDown(p, e) {   // returns true when handled
     }
     if (hitBtn(p, L.fr)) { armUiTap('careerFr', () => { SFX.click(); showAcct(hasUsername() ? 'friends' : 'username', {}); }, (up) => hitBtn(toLogical(up), careerLayout().fr), e); return true; }
     if (hasUsername() && hitBtn(p, L.mt)) { armUiTap('careerMt', () => { SFX.click(); showAcct('matches'); }, (up) => hitBtn(toLogical(up), careerLayout().mt), e); return true; }
+    if (admin.is && L.adm && hitBtn(p, L.adm)) { armUiTap('careerAdm', () => { SFX.click(); showAcct('admin'); }, (up) => hitBtn(toLogical(up), careerLayout().adm), e); return true; }
     if (hitBtn(p, L.out)) {
       armUiTap('careerOut', () => {
         SFX.click();
@@ -5676,7 +5716,9 @@ function careerKey(e) {   // returns true when handled
 const acctEl = document.getElementById('acct'), acctBox = document.getElementById('acctBox');
 let acctView = null, acctOpts = {};
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const at = n => '<span class="at">@</span>' + esc(String(n || '').toUpperCase());
+const at = n => '<span class="at">@</span>' + esc(String(n || '').toUpperCase()) + (typeof isAdminUser === 'function' && isAdminUser(n) ? '<span class="adm">ADMIN</span>' : '');
+const fmtDay = d => String(d || '').slice(5, 10).replace('-', '/');
+const fmtTs = t => { try { return new Date(t).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }).toUpperCase(); } catch (e) { return ''; } };
 function acctOpen() { return !!(acctEl && acctEl.classList.contains('on')); }
 function hideAcct() {
   if (!acctEl) return;
@@ -5689,6 +5731,41 @@ function acctBusy(on) { acctBox.querySelectorAll('button,input').forEach(b => { 
 const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
 function head(title, back) { return '<div class="top"><button class="back" data-a="' + (back || 'close') + '">&lt; BACK</button><h2>' + title + '</h2><span style="width:66px"></span></div>'; }
 const pwField = (id, ac) => '<div class="pw"><input id="' + id + '" type="password" autocomplete="' + ac + '" minlength="8" autocapitalize="off" spellcheck="false"><button type="button" data-a="pwShow" data-for="' + id + '">SHOW</button></div>';
+const ADMIN_VIEWS = {
+  admin: () => {
+    const S = admin.stats;
+    let h = head('ADMIN') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><div class="msg"></div>';
+    if (!S) return h + '<p class="empty">LOADING STATS...</p>';
+    const m = S.matches || {};
+    h += '<div class="kpis"><div><b>' + S.players_today + '</b>PLAYERS TODAY</div><div><b>' + S.rounds_today + '</b>ROUNDS TODAY</div><div><b>' + S.players_period + '</b>PLAYERS 7D</div>' +
+      '<div><b>' + S.accounts + '</b>ACCOUNTS</div><div><b>' + S.scores_total + '</b>SCORES</div><div><b>' + (S.banned || 0) + '</b>BANNED</div></div>';
+    h += '<p class="sec">DAILY PLAYERS (ET)</p><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
+      (S.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table>';
+    h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · HOME SCREEN ' + (S.home_screen_share || 0) + '%</p>';
+    h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button></div>' +
+      '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
+      '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
+      '<button class="link" data-a="go:adminLog">ADMIN LOG</button>';
+    return h;
+  },
+  adminScores: () => {
+    let h = head('SCORES', 'go:admin') + '<div class="seg"><button type="button" data-a="ssort" data-n="recent" class="' + (admin.scoreSort === 'recent' ? 'on' : '') + '">NEWEST</button><button type="button" data-a="ssort" data-n="best" class="' + (admin.scoreSort === 'best' ? 'on' : '') + '">LOWEST</button></div><div class="msg"></div>';
+    if (!admin.scores.length) return h + '<p class="empty">NO SCORES.</p>';
+    return h + '<div class="list">' + admin.scores.map(s => '<div class="item"><div class="who wr">' + esc(s.name) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span><span class="st">' + esc(String(s.mode || '').toUpperCase()) + ' · ' + fmtTs(s.created_at) + '</span></div>' +
+      '<button class="btn small alt" data-a="sdel" data-id="' + esc(s.id) + '">DELETE</button><button class="btn small alt" data-a="nban" data-id="' + esc(s.name) + '">BAN NAME</button></div>').join('') + '</div>';
+  },
+  adminPlayers: o => {
+    let h = head('PLAYERS', 'go:admin') + '<form data-f="adminSearch" novalidate><div class="row"><input id="aQ" type="text" maxlength="12" placeholder="SEARCH USERNAME" autocapitalize="off" spellcheck="false" value="' + esc(o.q || '') + '"><button class="btn" type="submit">FIND</button></div></form><div class="msg"></div>';
+    if (!admin.players.length) return h + '<p class="empty">NO PLAYERS FOUND.</p>';
+    return h + '<div class="list">' + admin.players.map(p => '<div class="item"><div class="who wr">' + at(p.username) + (p.banned ? '<span class="ban">BANNED</span>' : '') + '<span class="st">' + p.rounds + ' ROUNDS · ' + p.xp + ' XP · ' + p.matches + ' MATCHES</span></div>' +
+      (p.admin ? '' : '<button class="btn small alt" data-a="prename" data-id="' + esc(p.username) + '">RENAME</button><button class="btn small ' + (p.banned ? '' : 'alt') + '" data-a="' + (p.banned ? 'punban' : 'pban') + '" data-id="' + esc(p.username) + '">' + (p.banned ? 'UNBAN' : 'BAN') + '</button>') + '</div>').join('') + '</div>';
+  },
+  adminRename: o => head('RENAME', 'go:adminPlayers') + '<p class="big">' + at(o.user) + '</p><form data-f="adminRename" novalidate><label for="aNew">NEW USERNAME</label><input id="aNew" type="text" maxlength="12" autocapitalize="off" spellcheck="false" value="' + esc(o.draft || '') + '">' +
+    '<button class="btn" type="submit">' + (o.confirm ? 'CONFIRM: @' + esc(String(o.user).toUpperCase()) + ' → @' + esc(String(o.draft).toUpperCase()) : 'RENAME') + '</button></form><div class="msg"></div>',
+  adminBan: o => head('BAN PLAYER', 'go:adminPlayers') + '<p class="big">' + at(o.user) + '</p><p class="sub">THEY CAN\'T POST SCORES, ADD FRIENDS OR PLAY MATCHES UNTIL UNBANNED.</p><form data-f="adminBan" novalidate><label for="aWhy">REASON (OPTIONAL)</label><input id="aWhy" type="text" maxlength="60" autocapitalize="off">' +
+    '<button class="btn" type="submit" style="background:#fc9838">BAN @' + esc(String(o.user).toUpperCase()) + '</button></form><div class="msg"></div>',
+  adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
+};
 const VIEWS = {
   signup: () => head('CREATE ACCOUNT') +
     '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
@@ -5766,7 +5843,18 @@ const VIEWS = {
 };
 async function showAcct(view, opts) {
   if (!acctEl) return;
+  if (ADMIN_VIEWS[view] && !VIEWS[view]) Object.assign(VIEWS, ADMIN_VIEWS);
   acctView = view; acctOpts = opts || {};
+  if (ADMIN_VIEWS[view]) {   // re-ask the server every time the panel opens; non-admins never see it
+    acctBox.innerHTML = '<p class="empty">CHECKING...</p>'; acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false');
+    await loadAdmin(); if (acctView !== view) return;
+    if (!admin.is) { hideAcct(); careerMsg = { text: 'NOT AN ADMIN', t: 0 }; return; }
+    if (view === 'admin') { admin.stats = null; acctBox.innerHTML = VIEWS.admin(); const r = await adminLoadStats(); if (acctView !== view) return; if (!r.ok) acctOpts.msg = r.msg; }
+    if (view === 'adminScores') await adminLoadScores();
+    if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
+    if (view === 'adminLog') await adminLoadAudit();
+    if (acctView !== view) return;
+  }
   if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadFriends(); if (acctView !== 'friends') return; }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
@@ -5779,6 +5867,7 @@ async function afterAuth() {
   if (!hasUsername()) { showAcct('username', { draft: (player.name || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 12) }); return; }
   player.name = cleanName(account.profile.username); savePlayer();
   try { careerAdoptGuest(); await careerPull(); } catch (e) {}
+  try { await loadAdmin(); } catch (e) {}
   hideAcct(); careerMsg = { text: 'WELCOME @' + myName(), t: 0 }; setState('career');
 }
 if (acctEl) {
@@ -5799,6 +5888,15 @@ if (acctEl) {
         const nm = val('aUser').trim().replace(/^@/, '');
         const a = await usernameAvailable(nm);
         if (!a.ok) acctMsg(a.msg); else { const r = await saveUsername(nm, !!account.marketing); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+      } else if (f === 'adminSearch') {
+        const q = val('aQ').trim().replace(/^@/, ''); await showAcct('adminPlayers', { q });
+      } else if (f === 'adminRename') {
+        const nn = val('aNew').trim().replace(/^@/, '');
+        if (!USERNAME_RE.test(nn)) acctMsg('3-12 LETTERS/NUMBERS/_ , START WITH A LETTER');
+        else if (!acctOpts.confirm || acctOpts.draft !== nn) showAcct('adminRename', { user: acctOpts.user, draft: nn, confirm: true, msg: 'TAP AGAIN TO CONFIRM' });
+        else { const r = await adminRpc('admin_rename_user', { p_username: acctOpts.user, p_new: nn }); if (!r.ok) acctMsg(r.msg); else { await loadAdmin(); showAcct('adminPlayers', { q: '', msg: 'RENAMED TO @' + nn.toUpperCase(), ok: true }); } }
+      } else if (f === 'adminBan') {
+        const r = await adminRpc('admin_ban_user', { p_username: acctOpts.user, p_reason: val('aWhy').trim() }); if (!r.ok) acctMsg(r.msg); else showAcct('adminPlayers', { q: '', msg: '@' + String(acctOpts.user).toUpperCase() + ' BANNED', ok: true });
       } else if (f === 'addfriend') {
         const r = await addFriend(val('aFriend')); if (!r.ok) acctMsg(r.msg); else { await showAcct('friends'); acctMsg('REQUEST SENT', true); }
       }
@@ -5825,12 +5923,23 @@ if (acctEl) {
     if (a === 'maccept') { await respondMatch(id, 'accept'); const m = social.matches.find(x => x.id === id); if (m) showAcct('result', { id }); else showAcct('matches'); return; }
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
+    if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
+    if (a === 'ssort') { admin.scoreSort = b.getAttribute('data-n'); showAcct('adminScores'); return; }
+    if (a === 'sdel') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
+      acctBusy(true); const r = await adminRpc('admin_delete_score', { p_id: Number(id) }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct('adminScores', { msg: 'DELETED ' + r.data.name + ' ' + r.data.strokes, ok: true }); return; }
+    if (a === 'nban') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
+      acctBusy(true); const r = await adminRpc('admin_ban_name', { p_name: id, p_reason: 'leaderboard', p_on: true }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct('adminScores', { msg: r.data.name + " CAN'T POST SCORES NOW", ok: true }); return; }
+    if (a === 'prename') { showAcct('adminRename', { user: id, draft: '' }); return; }
+    if (a === 'pban') { showAcct('adminBan', { user: id }); return; }
+    if (a === 'punban') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } const r = await adminRpc('admin_unban_user', { p_username: id }); showAcct('adminPlayers', r.ok ? { msg: '@' + id.toUpperCase() + ' UNBANNED', ok: true } : { msg: r.msg }); return; }
     if (a === 'mresult') { showAcct('result', { id }); return; }
     if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
   });
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); hideAcct(); setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
+if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+  get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s) };   // #test only
 
 /* ================= CAREER v2: ghost ball + 'vs @name' chip (match rounds) ================= */
 function careerRefresh() { if (isSignedIn() && hasUsername() && authOnline()) { loadFriends(); loadMatches(); } }
