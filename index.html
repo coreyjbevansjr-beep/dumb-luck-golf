@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.26">
+<meta name="dlg-version" content="v8.27">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -108,7 +108,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.26';
+const GAME_VERSION = 'v8.27';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1196,7 +1196,10 @@ const CLUBS = [
 const PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;
 [[.02, 1], [.10, 1], [.20, 1], [.32, .85], [.50, .65], [0, 1]].forEach(([sp, wk], i) => { CLUBS[i].spin = sp; CLUBS[i].wk = wk; });   // v8.21   // v8.20: club indexes (HYBRID shifted IRON/WEDGE/PUTTER up by one)
 const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
-const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;   // v8.24: stricter cup (was 6 / 0.5)   // v8.21 putting: drop speed 22->6 (max ~0.6y past), lip-stop 1.2->0.5 (v8.13: 26->22, 1.5->1.2), lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
+const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;
+// v8.27: the cup scales with putt distance: full 'near' forgiveness inside 8Y, easing to the v8.24 strictness by 10.1Y
+const PUTT_NEAR = { capV: 5, stopR: 0.8, lip: 0.7, d0: 8, d1: 10.1 };
+const puttCup = dist => { const f = Math.max(0, Math.min(1, (PUTT_NEAR.d1 - dist) / (PUTT_NEAR.d1 - PUTT_NEAR.d0))); return { capV: PUTT_CAPV + (PUTT_NEAR.capV - PUTT_CAPV) * f, stopR: CUP_STOP_R + (PUTT_NEAR.stopR - CUP_STOP_R) * f, lipK: LIP_KEEP + (PUTT_NEAR.lip - LIP_KEEP) * f }; };   // v8.24: stricter cup (was 6 / 0.5)   // v8.21 putting: drop speed 22->6 (max ~0.6y past), lip-stop 1.2->0.5 (v8.13: 26->22, 1.5->1.2), lip-stop radius 1.5->1.2, lip-out keeps 0.6->0.7 of speed
 const SURF = {
   tee:   { rest:.30, keep:.60, dec:45 },
   fair:  { rest:.30, keep:.60, dec:45 },
@@ -1217,7 +1220,7 @@ const isChip = (c, dist) => c === WEDGE_I && dist <= CHIP_DIST;
 const isSplash = (c, lie, dist) => c === WEDGE_I && lie === 'sand' && dist <= SPLASH_DIST;
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
-const PUTT_STEPS = [[5, 10], [12, 18], [1e9, 30]];   // v8.24: 10Y within 5Y, 18Y within 12Y, 30Y beyond (v8.23: 20 / 30)   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
+const PUTT_STEPS = [[7, 10], [12, 18], [1e9, 30]];   // v8.27: 10Y range out to 7Y (was 5Y) so 6-7Y putts aren't on the coarse 18Y scale   // v8.24: 10Y within 5Y, 18Y within 12Y, 30Y beyond (v8.23: 20 / 30)   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
 const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 30; };   // flat-ground roll at 100% putter power
 const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
 const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
@@ -1226,7 +1229,8 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), splash = isSplash(clubIdx, lie, dist), lk = splash ? 1 : (LIE_K[lie] || LIE_K.fair)[clubIdx];
   if (clubIdx === PUTT_I) {
     const v = Math.sqrt(2 * SURF.green.dec * puttRange(dist) * power) * miss * lk;
-    return { vx: dir * v * (1 - 0.01 * errPx), vy: 0, mode: 'roll', rough: false, capV: PUTT_CAPV, windK: 1, rollK: 1 };
+    const pc = puttCup(Math.abs(dist || 0));
+    return { vx: dir * v * (1 - 0.01 * errPx), vy: 0, mode: 'roll', rough: false, capV: pc.capV, stopR: pc.stopR, lipK: pc.lipK, windK: 1, rollK: 1 };
   }
   const chip = isChip(clubIdx, dist), pw = clamp(power, 0, 1);
   let v = c.v * Math.sqrt(pw * chipK(clubIdx, dist));
@@ -1315,16 +1319,16 @@ function stepBall(b, hl, wind, dt) {
     const ga = -G * slopeAt(hl, b.x) * (s === 'green' ? 0.4 : 0.8), fr = sp.dec * dt / Math.max(0.55, weather.rollMul || 1);   // rain → more friction / less roll
     let v = b.vx + ga * dt;
     if (Math.abs(v) <= fr && Math.abs(ga) < sp.dec) {
-      if (Math.abs(b.x - hl.cup) < CUP_STOP_R) { b.x = hl.cup; b.vx = 0; b.h = groundH(hl, b.x); return 'cup'; }   // stopping on the lip drops
+      if (Math.abs(b.x - hl.cup) < (b.stopR || CUP_STOP_R)) { b.x = hl.cup; b.vx = 0; b.h = groundH(hl, b.x); return 'cup'; }   // stopping on the lip drops
       b.vx = 0; b.mode = 'stop'; b.h = groundH(hl, b.x); return 'stop';
     }
     v -= Math.sign(v) * fr;
     const nx = b.x + v * dt;
-    if (Math.abs(nx - hl.cup) > 3) b.overCup = false;
+    if (Math.abs(nx - hl.cup) > 3 || (b.vx && v && Math.sign(v) !== Math.sign(b.vx))) b.overCup = false;   // v8.27: a ball rolling back over the hole gets a fresh check (was: only after >3Y away)
     if (!b.overCup && ((b.x - hl.cup) * (nx - hl.cup) <= 0 || Math.abs(nx - hl.cup) < 0.5)) {
       b.overCup = true;                       // one capture/lip check per pass over the hole
       if (Math.abs(v) < (b.capV || 12)) { b.x = hl.cup; b.h = groundH(hl, b.x); b.vx = 0; return 'cup'; }
-      if (Math.abs(v) < 30) { v *= LIP_KEEP; b.events.push('lip'); }
+      if (Math.abs(v) < 30) { v *= (b.lipK || LIP_KEEP); b.events.push('lip'); }
     }
     b.vx = v; b.x = nx;
     if (b.x < 0 || b.x > hl.len) return 'ob';
@@ -1337,7 +1341,7 @@ function stepBall(b, hl, wind, dt) {
 const STEP = 1 / 240;
 function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir) {
   const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir) });
-  const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
+  const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
   let r = null, n = 0;
   while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; }
   return { res: r || 'stop', x: b.x };
@@ -2783,7 +2787,7 @@ function launch() {
   const lie = surfAt(hole, ball.x);
   const flyer = lie === 'rough' && clubIdx !== PUTT_I ? 1 + (Math.random() * 2 - 1) * FLYER : 1;   // v8.21 flyer lies
   const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x), { vMul: (shotPerfect ? PERFECT_V : 1) * flyer, slope: lieSlope(hole, ball.x, facing) });
-  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.spin = lv.spin; ball.seen = {};
+  ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.stopR = lv.stopR; ball.lipK = lv.lipK; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.spin = lv.spin; ball.seen = {};
   lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < LUCK_MISHIT); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0;
