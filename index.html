@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.27">
+<meta name="dlg-version" content="v8.28">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -59,6 +59,52 @@
     padding:12px 8px;border:2px solid #fcfcfc;background:#183848;color:#fcfcfc;touch-action:manipulation;-webkit-appearance:none}
   #nameSave{background:#00a800;border-color:#58d854;color:#fcfcfc}
   #nameCancel{background:#585858;border-color:#bcbcbc}
+  /* career v2: account / friends / matches panel (DOM so password managers, iOS autofill and the keyboard just work) */
+  #acct{display:none;position:fixed;inset:0;z-index:40;background:rgba(8,16,40,0.82);overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+    box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;touch-action:pan-y}
+  #acct.on{display:block}
+  #acct .box{max-width:440px;margin:0 auto;background:#000;border:3px solid #fcfcfc;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5);padding:14px 14px 16px}
+  #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px}
+  #acct .back{background:none;border:0;color:#fcfcfc;font:inherit;font-size:14px;letter-spacing:2px;padding:10px 4px;min-height:44px;cursor:pointer}
+  #acct h2{margin:0;font-size:20px;letter-spacing:3px;color:#f8d878;text-shadow:2px 2px 0 #000;text-align:center;flex:1}
+  #acct .sub{font-size:12px;letter-spacing:1px;color:#bcc8e0;line-height:1.5;margin:0 0 12px;text-align:center}
+  #acct label{display:block;font-size:12px;letter-spacing:2px;margin:12px 0 6px;color:#f8d878}
+  #acct input[type=email],#acct input[type=password],#acct input[type=text]{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;
+    letter-spacing:1px;padding:12px 10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;border-radius:0;-webkit-appearance:none;appearance:none;min-height:46px}
+  #acct input:focus{outline:2px solid #f8d878;outline-offset:1px}
+  #acct .pw{position:relative}
+  #acct .pw button{position:absolute;right:4px;top:4px;bottom:4px;min-width:60px;background:#183848;border:2px solid #3cbcfc;color:#fcfcfc;font:inherit;font-size:11px;letter-spacing:1px}
+  #acct .btn{display:block;width:100%;margin-top:14px;min-height:48px;font:inherit;font-weight:700;font-size:16px;letter-spacing:3px;color:#102860;
+    background:#f8d878;border:2px solid #000;box-shadow:inset 0 -3px 0 #d8a000;cursor:pointer}
+  #acct .btn.alt{background:#183848;color:#fcfcfc;box-shadow:inset 0 -3px 0 #0c1848;border-color:#fcfcfc}
+  #acct .btn.small,#acct .row .btn{margin-top:0;min-height:44px;font-size:13px;letter-spacing:2px;width:auto;padding:0 12px}
+  #acct .btn:disabled{opacity:.55}
+  #acct .link{display:block;width:100%;background:none;border:0;color:#fcfcfc;font:inherit;font-size:13px;letter-spacing:1px;margin-top:10px;min-height:44px;cursor:pointer;text-decoration:underline}
+  #acct .msg{min-height:18px;font-size:12px;letter-spacing:1px;margin-top:10px;text-align:center;color:#fc9838;line-height:1.4}
+  #acct .msg.ok{color:#58d854}
+  #acct .chk{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:1px;margin-top:12px;min-height:44px}
+  #acct .chk input{width:22px;height:22px;accent-color:#58d854}
+  #acct .list{margin-top:12px;border-top:2px solid #3c4c6c}
+  #acct .item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:2px solid #1c2c4c;min-height:48px}
+  #acct .item .who{flex:1;font-size:15px;letter-spacing:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #acct .item .st{display:block;font-size:11px;color:#bcc8e0;letter-spacing:1px;margin-top:3px}
+  #acct .item .st.hot{color:#f8d878}
+  #acct .sec{font-size:12px;letter-spacing:2px;color:#fc9838;margin:16px 0 0}
+  #acct .row{display:flex;gap:8px;align-items:stretch}
+  #acct .row input{flex:1}
+  #acct .seg{display:flex;gap:8px;margin-top:6px}
+  #acct .seg button{flex:1;min-height:56px;font:inherit;font-weight:700;font-size:18px;letter-spacing:2px;background:#183848;color:#fcfcfc;border:2px solid #fcfcfc}
+  #acct .seg button small{display:block;font-size:10px;letter-spacing:1px;font-weight:400;color:#bcc8e0}
+  #acct .seg button.on{background:#f8d878;color:#102860;border-color:#000}
+  #acct .seg button.on small{color:#102860}
+  #acct table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;letter-spacing:1px}
+  #acct th,#acct td{border:1px solid #3c4c6c;padding:5px 2px;text-align:center}
+  #acct th{color:#bcc8e0;font-weight:400}
+  #acct td.w{color:#58d854}#acct td.l{color:#fc9838}
+  #acct .big{font-size:22px;letter-spacing:3px;text-align:center;margin:12px 0 4px;color:#f8d878}
+  #acct .empty{font-size:12px;color:#bcc8e0;text-align:center;padding:16px 0;letter-spacing:1px;line-height:1.5}
+  #acct .at{color:#3cbcfc}
 </style>
 </head>
 <body>
@@ -92,6 +138,7 @@
     <div class="row"><button type="button" id="nameSave">SAVE</button><button type="button" id="nameCancel">CANCEL</button></div>
   </div>
 </div>
+<div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
 <script>
 (() => {
 'use strict';
@@ -108,7 +155,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.27';
+const GAME_VERSION = 'v8.28';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -346,6 +393,469 @@ try {
 } catch (e) {}
 function savePlayer() { try { localStorage.setItem('dlg_golf_player', JSON.stringify(player)); } catch (e) {} }
 const lookOf = p => ({ skin: SKINS[p.skin], shirt: SHIRTS[p.shirt][0], shirtD: SHIRTS[p.shirt][1], hat: HATS[p.hat | 0][0], hatD: HATS[p.hat | 0][1], pants: PANTS[p.pants | 0], hatIdx: p.hat | 0 });
+
+/* ================= CAREER v2: accounts (email + password), usernames, friends, async matches + ghosts =================
+   PLAY and DAILY stay instant; nothing here gates them. Sign-in lives under CAREER.
+   Backend = Supabase REST (GoTrue /auth/v1 + PostgREST /rest/v1), tables from career-v2/schema.sql.
+   Every call is guarded: a missing table / function (404, PGRST202/205, 42P01, 42883) flips `net.missing[feature]`
+   and the UI shows "NOT SET UP YET" instead of breaking. #test runs with no network unless the test harness
+   installs window.__DLG_MOCK_SUPABASE (a fetch-level mock of the same endpoints). */
+const AUTH_TEST = /^#test/.test(location.hash);
+const AUTH_STORE = AUTH_TEST ? 'dlg_auth_test_v2' : 'dlg_auth_v2';
+const AUTH_REDIRECT = (location.origin && location.origin !== 'null') ? (location.origin + location.pathname) : 'https://dumbluckgolf.com/';
+const USERNAME_RE = /^[A-Za-z][A-Za-z0-9_]{2,11}$/;
+let account = { user: null, profile: null, email: '', status: '', busy: false };
+const net = { missing: {}, lastError: '' };
+function authOnline() {
+  if (AUTH_TEST) return !!window.__DLG_MOCK_SUPABASE;
+  return !!(LEADERBOARD_CONFIG.supabaseUrl && LEADERBOARD_CONFIG.supabaseAnonKey);
+}
+function authBase() { return AUTH_TEST ? 'https://mock-project.supabase.co' : String(LEADERBOARD_CONFIG.supabaseUrl || '').trim().replace(/\/+$/, ''); }   // #test: config is blanked; only the in-page mock answers
+function anonKey() { return AUTH_TEST ? 'mock-anon-key' : String(LEADERBOARD_CONFIG.supabaseAnonKey || '').trim(); }
+function authHeaders(extra) {
+  return Object.assign({ apikey: anonKey(), Authorization: 'Bearer ' + ((account.user && account.user.access_token) || anonKey()), 'Content-Type': 'application/json' }, extra || {});
+}
+function isSignedIn() { return !!(account.user && account.user.id); }
+function hasUsername() { return !!(account.profile && account.profile.username); }
+function myName() { return hasUsername() ? account.profile.username.toUpperCase() : ''; }
+function saveSession() {
+  try {
+    if (!isSignedIn()) { localStorage.removeItem(AUTH_STORE); return; }
+    const u = account.user;
+    localStorage.setItem(AUTH_STORE, JSON.stringify({ user: { id: u.id, email: u.email || '', access_token: u.access_token, refresh_token: u.refresh_token || null, expires_at: u.expires_at || 0 }, profile: account.profile }));
+  } catch (e) {}
+}
+function setSession(j) {   // GoTrue token response -> account.user
+  const u = j.user || {};
+  account.user = { id: u.id, email: u.email || account.email || '', access_token: j.access_token, refresh_token: j.refresh_token || null,
+                   expires_at: j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600)) };
+  saveSession();
+}
+const isMissing = (status, j) => status === 404 || (j && /PGRST20[25]|42P01|42883/.test(String(j.code || '') + ' ' + String(j.message || '')));
+/* one guarded call: returns { ok, status, data, missing } and never throws */
+async function sb(path, opts, feature) {
+  opts = opts || {};
+  if (!authOnline()) return { ok: false, status: 0, data: null, offline: true };
+  if (isSignedIn() && !opts.noAuth && (account.user.expires_at || 0) < Date.now() / 1000 + 30) await refreshSession();
+  try {
+    const res = await fetch(authBase() + path, { method: opts.method || 'GET', headers: opts.noAuth ? Object.assign({ apikey: anonKey(), 'Content-Type': 'application/json' }, opts.headers || {}) : authHeaders(opts.headers),
+                                                 body: opts.body != null ? JSON.stringify(opts.body) : undefined });
+    let data = null; const txt = await res.text(); try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = txt; }
+    const missing = !res.ok && isMissing(res.status, data);
+    if (missing && feature) net.missing[feature] = true;
+    if (res.ok && feature) net.missing[feature] = false;
+    if (!res.ok) net.lastError = String((data && (data.msg || data.message || data.error_description || data.error)) || res.status);
+    return { ok: res.ok, status: res.status, data, missing };
+  } catch (e) { net.lastError = 'NETWORK'; return { ok: false, status: 0, data: null, error: true }; }
+}
+async function refreshSession() {
+  if (!isSignedIn() || !authOnline() || !account.user.refresh_token) return false;
+  try {
+    const res = await fetch(authBase() + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: anonKey(), 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: account.user.refresh_token }) });
+    if (!res.ok) return false;
+    setSession(await res.json()); return true;
+  } catch (e) { return false; }
+}
+/* ---- auth: email + password ---- */
+const authMsg = (r, dflt) => {
+  const m = String((r.data && (r.data.msg || r.data.error_description || r.data.message || r.data.error)) || '').toLowerCase();
+  if (r.offline) return 'OFFLINE: ACCOUNTS NEED A CONNECTION';
+  if (r.error) return 'NETWORK ERROR. TRY AGAIN';
+  if (/invalid login|invalid_grant|invalid credentials/.test(m)) return 'WRONG EMAIL OR PASSWORD';
+  if (/not confirmed/.test(m)) return 'CONFIRM YOUR EMAIL FIRST (CHECK YOUR INBOX)';
+  if (/already registered|already exists/.test(m)) return 'THAT EMAIL HAS AN ACCOUNT. LOG IN';
+  if (/password/.test(m) && /least|short|weak/.test(m)) return 'PASSWORD TOO SHORT (8+ CHARACTERS)';
+  if (/rate|too many|security purposes/.test(m)) return 'TOO MANY TRIES. WAIT A MINUTE';
+  return dflt;
+};
+async function authSignUp(email, password) {
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, msg: 'ENTER A VALID EMAIL' };
+  if (String(password || '').length < 8) return { ok: false, msg: 'PASSWORD: 8+ CHARACTERS' };
+  account.email = email;
+  const r = await sb('/auth/v1/signup?redirect_to=' + encodeURIComponent(AUTH_REDIRECT), { method: 'POST', noAuth: true, body: { email, password } });
+  if (!r.ok) return { ok: false, msg: authMsg(r, 'COULD NOT SIGN UP') };
+  if (r.data && r.data.access_token) { setSession(r.data); await loadProfile(); return { ok: true, session: true }; }   // confirm-email OFF
+  return { ok: true, confirm: true };   // confirm-email ON: user must click the link, then log in
+}
+async function authLogIn(email, password) {
+  email = String(email || '').trim().toLowerCase();
+  if (!email || !password) return { ok: false, msg: 'ENTER EMAIL AND PASSWORD' };
+  account.email = email;
+  const r = await sb('/auth/v1/token?grant_type=password', { method: 'POST', noAuth: true, body: { email, password } });
+  if (!r.ok || !r.data || !r.data.access_token) return { ok: false, msg: authMsg(r, 'COULD NOT LOG IN') };
+  setSession(r.data); await loadProfile(); return { ok: true };
+}
+async function authForgot(email) {
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, msg: 'ENTER YOUR ACCOUNT EMAIL' };
+  const r = await sb('/auth/v1/recover?redirect_to=' + encodeURIComponent(AUTH_REDIRECT), { method: 'POST', noAuth: true, body: { email } });
+  if (!r.ok) return { ok: false, msg: authMsg(r, 'COULD NOT SEND RESET EMAIL') };
+  return { ok: true };
+}
+async function authSetPassword(password) {   // after a recovery link (session from the URL hash)
+  if (String(password || '').length < 8) return { ok: false, msg: 'PASSWORD: 8+ CHARACTERS' };
+  const r = await sb('/auth/v1/user', { method: 'PUT', body: { password } });
+  return r.ok ? { ok: true } : { ok: false, msg: authMsg(r, 'COULD NOT SET PASSWORD') };
+}
+function signOut() {
+  if (authOnline() && isSignedIn()) { try { fetch(authBase() + '/auth/v1/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {} }
+  account.user = null; account.profile = null; account.status = '';
+  social.friends = []; social.matches = [];
+  saveSession();
+}
+/* ---- profile / username ---- */
+async function loadProfile() {
+  if (!isSignedIn()) return null;
+  const r = await sb('/rest/v1/profiles?id=eq.' + encodeURIComponent(account.user.id) + '&select=username', {}, 'profiles');
+  account.profile = r.ok && Array.isArray(r.data) && r.data[0] ? r.data[0] : null;
+  saveSession();
+  return account.profile;
+}
+async function usernameAvailable(name) {
+  if (!USERNAME_RE.test(name)) return { ok: false, msg: '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' };
+  const r = await sb('/rest/v1/rpc/username_available', { method: 'POST', body: { p_name: name } }, 'profiles');
+  if (r.missing) return { ok: true, unknown: true };   // function not deployed: let the unique index decide on save
+  if (!r.ok) return { ok: false, msg: 'COULD NOT CHECK NAME' };
+  return r.data === true ? { ok: true } : { ok: false, msg: 'NAME TAKEN' };
+}
+async function saveUsername(name, marketing) {
+  if (!USERNAME_RE.test(name)) return { ok: false, msg: '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' };
+  const body = { id: account.user.id, username: name, marketing_opt_in: !!marketing, marketing_opt_in_at: marketing ? new Date().toISOString() : null };
+  const r = await sb('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body }, 'profiles');
+  if (!r.ok) {
+    const code = r.data && r.data.code;
+    if (r.missing) return { ok: false, msg: 'ACCOUNTS NOT SET UP YET' };
+    return { ok: false, msg: code === '23505' ? 'NAME TAKEN' : code === '23514' ? 'NAME NOT ALLOWED' : 'COULD NOT SAVE NAME' };
+  }
+  account.profile = { username: name, marketing_opt_in: !!marketing };
+  saveSession();
+  return { ok: true };
+}
+/* ---- friends ---- */
+const social = { friends: [], matches: [], loaded: false, busy: false };
+async function loadFriends() {
+  const r = await sb('/rest/v1/my_friends?select=id,status,direction,friend_id,friend_username&order=created_at.desc', {}, 'friends');
+  social.friends = r.ok && Array.isArray(r.data) ? r.data : [];
+  return r;
+}
+async function addFriend(username) {
+  username = String(username || '').trim().replace(/^@/, '');
+  if (!USERNAME_RE.test(username)) return { ok: false, msg: 'TYPE THEIR USERNAME' };
+  if (hasUsername() && username.toLowerCase() === account.profile.username.toLowerCase()) return { ok: false, msg: "THAT'S YOU" };
+  const r = await sb('/rest/v1/rpc/request_friend', { method: 'POST', body: { p_username: username } }, 'friends');
+  if (r.ok) { await loadFriends(); return { ok: true }; }
+  if (r.missing) return { ok: false, msg: 'FRIENDS NOT SET UP YET' };
+  const m = String((r.data && r.data.message) || '');
+  return { ok: false, msg: /no such player/.test(m) ? 'NO PLAYER NAMED @' + username.toUpperCase() : /that is you/.test(m) ? "THAT'S YOU" : 'COULD NOT ADD' };
+}
+async function answerFriend(id, accept) {
+  const r = await sb('/rest/v1/friendships?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { status: accept ? 'accepted' : 'declined', responded_at: new Date().toISOString() } }, 'friends');
+  await loadFriends(); return { ok: r.ok };
+}
+async function removeFriend(id) {
+  const r = await sb('/rest/v1/friendships?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }, 'friends');
+  await loadFriends(); return { ok: r.ok };
+}
+/* ---- matches ---- */
+const MATCH_SIZES = [3, 9, 18];
+async function loadMatches() {
+  const r = await sb('/rest/v1/my_matches?select=*&order=updated_at.desc&limit=30', {}, 'matches');
+  social.matches = r.ok && Array.isArray(r.data) ? r.data : [];
+  return r;
+}
+async function createMatch(friend, holes) {
+  const seed = (Math.random() * 2147483647) | 0, plan = matchPlan(seed, holes);
+  const body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: plan.setup };
+  const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
+  if (!r.ok) return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
+  const m = Object.assign({ challenger_username: account.profile.username, opponent_username: friend.friend_username }, (r.data && r.data[0]) || body);
+  social.matches.unshift(m);
+  return { ok: true, match: m };
+}
+async function respondMatch(id, action) {
+  const r = await sb('/rest/v1/rpc/respond_match', { method: 'POST', body: { p_match: id, p_action: action } }, 'matches');
+  await loadMatches(); return { ok: r.ok };
+}
+async function fetchGhosts(id) {
+  const r = await sb('/rest/v1/matches?id=eq.' + encodeURIComponent(id) + '&select=ghost', {}, 'matches');
+  return r.ok && r.data && r.data[0] ? (r.data[0].ghost || {}) : {};
+}
+async function submitMatchRound(id, scoresArr, ghost) {
+  const r = await sb('/rest/v1/rpc/submit_match_round', { method: 'POST', body: { p_match: id, p_scores: scoresArr, p_ghost: ghost } }, 'matches');
+  if (r.ok) await loadMatches();
+  return { ok: r.ok, data: r.data, msg: r.ok ? '' : (r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT SUBMIT (SAVED ON THIS DEVICE)') };
+}
+function matchSide(m) { return m && isSignedIn() && m.challenger === account.user.id ? 'challenger' : 'opponent'; }
+function matchOther(m) { const me = matchSide(m) === 'challenger'; return { id: me ? m.opponent : m.challenger, name: String((me ? m.opponent_username : m.challenger_username) || '?').toUpperCase() }; }
+function matchMine(m) { return m[matchSide(m) + '_scores']; }
+function matchTheirs(m) { return m[(matchSide(m) === 'challenger' ? 'opponent' : 'challenger') + '_scores']; }
+function matchLabel(m) {   // short status line for lists
+  const o = matchOther(m), mine = matchMine(m), theirs = matchTheirs(m);
+  if (m.status === 'complete') { const a = m[matchSide(m) + '_total'], b = m[(matchSide(m) === 'challenger' ? 'opponent' : 'challenger') + '_total']; return a < b ? 'YOU WON ' + a + '-' + b : a > b ? 'LOST ' + a + '-' + b : 'TIE ' + a + '-' + b; }
+  if (m.status === 'declined') return 'DECLINED'; if (m.status === 'cancelled') return 'CANCELLED'; if (m.status === 'expired') return 'EXPIRED';
+  if (m.status === 'pending' && matchSide(m) === 'opponent') return 'NEW CHALLENGE';
+  if (!mine) return 'YOUR TURN';
+  if (!theirs) return 'WAITING FOR @' + o.name;
+  return m.status.toUpperCase();
+}
+/* ---- seeded match plan: same holes, pins, wind and weather for both players ---- */
+function matchPlan(seed, n) {
+  const rng = mulberry32((seed >>> 0) ^ 0x5eed);
+  const pool = FRONT_HOLES.concat(BACK_HOLES);
+  let idx;
+  if (n >= 18) idx = pool.map((_, i) => i);
+  else if (n === 9) idx = rng() < 0.5 ? [0, 1, 2, 3, 4, 5, 6, 7, 8] : [9, 10, 11, 12, 13, 14, 15, 16, 17];
+  else { const all = pool.map((_, i) => i); for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; } idx = all.slice(0, n).sort((a, b) => a - b); }
+  const holesOut = idx.map(i => {
+    const src = pool[i];
+    const pin = src.pins && src.pins.length ? src.pins[Math.floor(rng() * src.pins.length)] : src.cup;
+    const w = src.windR ? Math.round(src.windR[0] + rng() * (src.windR[1] - src.windR[0])) : src.wind + Math.round(rng() * 4 - 2);
+    return { h: i, pin, wind: w };
+  });
+  const wx = pickWeather(rng);
+  return { setup: { v: 1, holes: holesOut, weather: wx.id }, defs: holesOut.map(p => Object.assign({}, pool[p.h], { cup: p.pin, wind: p.wind, pins: null, windR: null, courseNo: p.h + 1 })), weather: wx };
+}
+/* ---- ghost recording (compact: shot inputs + rest point + 10 Hz path, delta-encoded ints) ----
+   Live physics is NOT fully deterministic (DUMB LUCK kicks, rough flyers, moving windmills/sliders),
+   so the path is stored rather than re-simulated. ~40 bytes per second of flight. */
+const GHOST_DT = 0.1;
+let ghostRec = null;          // recording for the current match round
+let ghostPlay = null;         // { name, data, hole: {...} } playback of the opponent
+let matchCtx = null;          // { match, plan, watch, other, submitted, result }
+function ghostRecStart() { ghostRec = { v: 1, holes: [] }; }
+function ghostRecShot() {
+  if (!ghostRec) return;
+  const h = ghostRec.holes[holeIdx] || (ghostRec.holes[holeIdx] = { s: 0, shots: [] });
+  h.shots.push({ c: clubIdx, p: Math.round(meter.power * 1000) / 1000, a: Math.round(errPx * 10) / 10, l: Math.round(angle), f: facing, x0: Math.round(ball.x * 2) / 2, t: [], _px: Math.round(ball.x), _ph: Math.round(ball.h), _acc: 0 });
+}
+function ghostRecSample(dt) {
+  if (!ghostRec) return;
+  const h = ghostRec.holes[holeIdx]; const s = h && h.shots[h.shots.length - 1]; if (!s || s.r) return;
+  s._acc += dt; if (s._acc < GHOST_DT) return; s._acc -= GHOST_DT;
+  const x = Math.round(ball.x), y = Math.round(ball.h);
+  s.t.push(x - s._px, y - s._ph); s._px = x; s._ph = y;
+}
+function ghostRecResolve(r) {
+  if (!ghostRec) return;
+  const h = ghostRec.holes[holeIdx]; const s = h && h.shots[h.shots.length - 1]; if (!s || s.r) return;
+  s.r = r === 'cup' ? 'c' : r === 'water' ? 'w' : r === 'ob' ? 'o' : 's'; s.x = Math.round(ball.x * 2) / 2;
+  delete s._px; delete s._ph; delete s._acc;
+}
+function ghostRecHole(score) { if (!ghostRec) return; const h = ghostRec.holes[holeIdx] || (ghostRec.holes[holeIdx] = { s: 0, shots: [] }); h.s = score; }
+function ghostDecode(shot) {   // -> [[x,h], ...] absolute
+  const out = [[shot.x0, 0]]; let x = Math.round(shot.x0), y = 0;
+  for (let i = 0; i + 1 < shot.t.length; i += 2) { x += shot.t[i]; y += shot.t[i + 1]; out.push([x, y]); }
+  if (shot.x != null) out.push([shot.x, 0]);
+  return out;
+}
+/* ---- ghost playback ---- */
+function ghostStartHole() {
+  if (!ghostPlay) return;
+  const gh = ghostPlay.data && ghostPlay.data.holes && ghostPlay.data.holes[holeIdx];
+  ghostPlay.hole = { shots: gh ? gh.shots : [], score: gh ? gh.s : null, next: 0, anim: null, x: TEE_X, h: 0, trail: [], holed: false, auto: false, doneT: 0 };
+}
+function ghostFire() {   // play the ghost's next shot
+  const G = ghostPlay && ghostPlay.hole; if (!G || G.anim || G.next >= G.shots.length) return false;
+  const shot = G.shots[G.next++]; const path = ghostDecode(shot);
+  G.anim = { path, t: 0, shot }; G.trail = [];
+  return true;
+}
+function ghostOnPlayerSwing() { if (ghostPlay && ghostPlay.hole && !ghostPlay.hole.auto) ghostFire(); }
+function ghostOnPlayerHoled() { if (ghostPlay && ghostPlay.hole) ghostPlay.hole.auto = true; }
+function ghostTick(dt) {
+  const G = ghostPlay && ghostPlay.hole; if (!G) return;
+  if (G.anim) {
+    const A = G.anim; A.t += dt;
+    const k = A.t / GHOST_DT, i = Math.floor(k), f = k - i, P = A.path;
+    if (i >= P.length - 1) {
+      const last = P[P.length - 1]; G.x = last[0]; G.h = 0; G.anim = null;
+      if (A.shot.r === 'c') G.holed = true;
+      if ((A.shot.r === 'w' || A.shot.r === 'o')) { const nx = G.shots[G.next]; if (nx) G.x = nx.x0; }
+    } else {
+      G.x = lerp(P[i][0], P[i + 1][0], f); G.h = lerp(P[i][1], P[i + 1][1], f);
+      if (!G.trail.length || Math.abs(G.trail[G.trail.length - 1][0] - G.x) + Math.abs(G.trail[G.trail.length - 1][1] - G.h) > 3) { G.trail.push([G.x, G.h]); if (G.trail.length > 40) G.trail.shift(); }
+    }
+  } else if (G.auto && G.next < G.shots.length) { G.doneT += dt; if (G.doneT > 0.35) { G.doneT = 0; ghostFire(); } }
+  else if (G.auto) G.doneT += dt;
+}
+function ghostHoleFinished() { const G = ghostPlay && ghostPlay.hole; return !!G && !G.anim && G.next >= G.shots.length; }
+/* running comparison over holes both have completed */
+function ghostCompare() {
+  if (!ghostPlay || !ghostPlay.data) return null;
+  let me = 0, them = 0, n = 0;
+  for (let i = 0; i < holeIdx + (state === 'done' ? 1 : 0); i++) { const g = ghostPlay.data.holes[i]; if (scores[i] == null || !g) continue; me += scores[i]; them += g.s; n++; }
+  return { me, them, n, diff: me - them };
+}
+/* ---- start a match round (play, or watch the opponent's ghost) ---- */
+async function startMatchRound(m, watch) {
+  const plan = matchPlan(Number(m.seed), m.holes);
+  const other = matchOther(m);
+  matchCtx = { match: m, plan, watch: !!watch, other, submitted: false, result: null };
+  ghostPlay = null;
+  let ghosts = m.ghost || null;
+  if (!ghosts) ghosts = await fetchGhosts(m.id);
+  const g = ghosts && ghosts[other.id];
+  if (g && g.holes) ghostPlay = { name: other.name, data: g, hole: null };
+  if (watch && !ghostPlay) { matchCtx = null; return { ok: false, msg: 'NO GHOST YET' }; }
+  setCourseHoles('match', plan.defs);
+  weather = Object.assign({}, plan.weather);
+  if (!watch) ghostRecStart(); else ghostRec = null;
+  hideAcct();
+  if (watch) { startRound(); return { ok: true }; }
+  openCustomize('play');
+  return { ok: true };
+}
+async function finishMatchRound(total) {
+  if (!matchCtx) return;
+  if (matchCtx.watch) return;
+  const arr = HOLES.map((_, i) => scores[i]);
+  const ghost = ghostRec || { v: 1, holes: [] };
+  matchCtx.ghostBytes = JSON.stringify(ghost).length;
+  try { localStorage.setItem('dlg_match_pending_' + matchCtx.match.id, JSON.stringify({ scores: arr, ghost })); } catch (e) {}
+  const r = await submitMatchRound(matchCtx.match.id, arr, ghost);
+  matchCtx.submitted = r.ok; matchCtx.result = r.ok ? (Array.isArray(r.data) ? r.data[0] : r.data) : null; matchCtx.msg = r.msg;
+  if (r.ok) try { localStorage.removeItem('dlg_match_pending_' + matchCtx.match.id); } catch (e) {}
+}
+/* ---- session restore + email-link returns (confirm sign-up / password recovery) ---- */
+(function restoreSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(AUTH_STORE) || 'null');
+    if (!s || !s.user || !s.user.id) return;
+    account.user = s.user; account.profile = s.profile || null; account.email = s.user.email || '';
+    if (authOnline() && (account.user.expires_at || 0) < Date.now() / 1000 + 60) refreshSession().then(ok => { if (!ok && (account.user && account.user.expires_at || 0) < Date.now() / 1000) { account.user = null; account.profile = null; saveSession(); } });
+  } catch (e) {}
+})();
+let authReturn = null;   // 'signup' | 'recovery' when the page was opened from an email link
+async function consumeAuthRedirect() {
+  if (!authOnline()) return;
+  const hash = String(location.hash || '').replace(/^#/, '');
+  if (!/access_token=/.test(hash) && !/error_description=/.test(hash)) return;
+  const q = new URLSearchParams(hash);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  if (q.get('error_description')) { authReturn = 'error'; account.status = 'LINK EXPIRED. LOG IN OR RESET AGAIN'; return; }
+  const access = q.get('access_token'); if (!access) return;
+  const res = await sb('/auth/v1/user', { headers: { Authorization: 'Bearer ' + access } });
+  if (!res.ok || !res.data) return;
+  setSession({ access_token: access, refresh_token: q.get('refresh_token'), expires_in: parseInt(q.get('expires_in') || '3600', 10), user: res.data });
+  authReturn = q.get('type') === 'recovery' ? 'recovery' : 'signup';
+  await loadProfile();
+}
+
+/* ---- career data ---- */
+const CAREER_KEY = 'dlg_career_v1__';
+const CAREER_RANKS = [   // DLG Tour rank by lifetime XP
+  { name: 'AMATEUR', xp: 0 }, { name: 'CLUB PRO', xp: 500 }, { name: 'TOUR PRO', xp: 1500 }, { name: 'LEGEND', xp: 4000 }
+];
+const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ace: 50, luck: 5, even: 20, under: 40, pb: 25, streak: 5 };
+const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
+function careerBlank() {
+  return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
+           best: { front: null, back: null, full: null, daily: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '' };
+}
+function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
+function careerClean(c) {
+  const b = careerBlank();
+  if (!c || typeof c !== 'object') return b;
+  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
+  for (const k of ['front', 'back', 'full', 'daily']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
+  if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
+  if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
+  if (c.look && typeof c.look === 'object') b.look = { skin: clamp(c.look.skin | 0, 0, SKINS.length - 1), shirt: clamp(c.look.shirt | 0, 0, SHIRTS.length - 1),
+                                                   hat: clamp(c.look.hat | 0, 0, HATS.length - 1), pants: clamp(c.look.pants | 0, 0, PANTS.length - 1) };
+  b.updated = String(c.updated || '');
+  return b;
+}
+function careerLoad(id) { try { return careerClean(JSON.parse(localStorage.getItem(CAREER_KEY + (id || careerId())) || 'null')); } catch (e) { return careerBlank(); } }
+function careerSave(c, id) { try { localStorage.setItem(CAREER_KEY + (id || careerId()), JSON.stringify(c)); } catch (e) {} }
+function careerRank(xp) {
+  let i = 0; for (let k = 0; k < CAREER_RANKS.length; k++) if (xp >= CAREER_RANKS[k].xp) i = k;
+  const cur = CAREER_RANKS[i], next = CAREER_RANKS[i + 1] || null;
+  return { i, name: cur.name, next: next ? next.name : null, from: cur.xp, to: next ? next.xp : cur.xp, frac: next ? clamp((xp - cur.xp) / (next.xp - cur.xp), 0, 1) : 1 };
+}
+function dayBefore(d) { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); }
+function careerStreakNow(c) {   // a streak is alive if the last daily was today or yesterday (NY date)
+  const today = nyDateStr();
+  return (c.daily.last === today || c.daily.last === dayBefore(today)) ? c.daily.streak : 0;
+}
+function careerAvg9(c) { return c.nineHoles >= 9 ? c.nineRel / (c.nineHoles / 9) : null; }
+function careerAdoptGuest() {   // first sign-in on this device: keep the rounds played as a guest
+  if (!isSignedIn()) return;
+  const mine = careerLoad(account.user.id), guest = careerLoad('guest');
+  if (mine.rounds === 0 && guest.rounds > 0) {
+    careerSave(guest, account.user.id);
+    try { localStorage.removeItem(CAREER_KEY + 'guest'); } catch (e) {}
+  }
+}
+/* per-round buffer: filled hole by hole, committed only when a scored round finishes (quits never count) */
+let careerRun = null, careerLast = null, careerMsg = null, careerSignOutArm = 0;
+function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0 }; }
+function careerNoteHole(d, strokesOnHole) {
+  if (!careerRun) careerRoundStart();
+  if (strokesOnHole === 1) careerRun.aces++;
+  else if (d <= -2) careerRun.eagles++;
+  else if (d === -1) careerRun.birdies++;
+}
+function careerNoteLuck() { if (!careerRun) careerRoundStart(); careerRun.luck++; }
+function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel, strokes, holes, date, scored }
+  const run = careerRun || { birdies: 0, eagles: 0, aces: 0, luck: 0 };
+  careerRun = null;
+  if (!info || !info.scored) return null;
+  const c = careerLoad(), X = CAREER_XP;
+  let xp = info.kind === 'daily' ? X.daily : info.holes >= 18 ? X.eighteen : X.nine;
+  xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck;
+  c.rounds++; c.holes += info.holes;
+  c.birdies += run.birdies; c.eagles += run.eagles; c.aces += run.aces; c.luck += run.luck;
+  let pb = false;
+  if (info.kind !== 'daily' && info.holes % 9 === 0) {
+    c.nineHoles += info.holes; c.nineRel += info.rel;
+    if (info.rel < 0) xp += X.under; else if (info.rel === 0) xp += X.even;
+  }
+  const b = c.best[info.kind];
+  if (!(info.kind in c.best)) {} else if (!b || info.rel < b.rel || (info.rel === b.rel && info.strokes < b.strokes)) { if (b) pb = true; c.best[info.kind] = { rel: info.rel, strokes: info.strokes }; }
+  if (pb) xp += X.pb;
+  if (info.kind === 'daily' && info.date && c.daily.last !== info.date) {
+    c.daily.streak = c.daily.last === dayBefore(info.date) ? c.daily.streak + 1 : 1;
+    c.daily.last = info.date; c.daily.top = Math.max(c.daily.top, c.daily.streak);
+    xp += X.streak * Math.min(7, c.daily.streak);
+  }
+  const before = careerRank(c.xp).name;
+  c.xp += xp;
+  c.recent.unshift({ kind: info.kind, rel: info.rel, strokes: info.strokes, date: info.date || nyDateStr() });
+  c.recent = c.recent.slice(0, 5);
+  c.look = { skin: player.skin, shirt: player.shirt, hat: player.hat, pants: player.pants };   // your golfer travels with the career
+  c.updated = new Date().toISOString();
+  careerSave(c);
+  careerLast = { xp, rankUp: careerRank(c.xp).name !== before ? careerRank(c.xp).name : null, pb, id: careerId() };
+  careerPush(c);
+  return careerLast;
+}
+/* ---- optional Supabase sync (table public.careers, see career-schema.sql) ---- */
+let careerSync = 'local';   // local | synced | error | missing
+async function careerPush(c) {
+  if (!isSignedIn() || !authOnline()) return;
+  try {
+    if ((account.user.expires_at || 0) < Date.now() / 1000 + 30) await refreshSession();
+    const r = careerRank(c.xp);
+    const res = await fetch(authBase() + '/rest/v1/careers', {
+      method: 'POST', headers: authHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+      body: JSON.stringify({ user_id: account.user.id, xp: c.xp, rank: r.name, rounds: c.rounds, stats: c, updated_at: new Date().toISOString() })
+    });
+    careerSync = res.ok ? 'synced' : (res.status === 404 ? 'missing' : 'error');
+  } catch (e) { careerSync = 'error'; }
+}
+async function careerPull() {   // keep whichever copy has more rounds (device vs cloud), then push the winner
+  if (!isSignedIn() || !authOnline()) return;
+  try {
+    const res = await fetch(authBase() + '/rest/v1/careers?user_id=eq.' + encodeURIComponent(account.user.id) + '&select=stats', { headers: authHeaders() });
+    if (!res.ok) { careerSync = res.status === 404 ? 'missing' : 'error'; return; }
+    const rows = await res.json();
+    const remote = rows && rows[0] ? careerClean(rows[0].stats) : null, local = careerLoad(account.user.id);
+    if (remote && remote.rounds > local.rounds) { careerSave(remote, account.user.id); careerSync = 'synced'; }
+    else if (local.rounds > 0 && (!remote || local.rounds > remote.rounds)) await careerPush(local);
+    else careerSync = 'synced';
+  } catch (e) { careerSync = 'error'; }
+}
 
 /* ================= LEADERBOARD STORAGE (all score storage lives in this block) =================
    saveScore(entry)  entry = { name, strokes, to_par, created_at }
@@ -616,6 +1126,8 @@ const FONT = {
 ',':["     ","     ","     ","     ","  ## ","   # ","  #  "],' ':["     ","     ","     ","     ","     ","     ","     "]
 };
 // 3x5 mini font: small signage (flags, cart, tee sign, billboard). Only what the signs need.
+if (!FONT['@']) FONT['@'] = [' ### ', '#   #', '# ###', '# # #', '# ###', '#    ', ' ####'];   // career v2: @username
+if (!FONT['_']) FONT['_'] = ['     ', '     ', '     ', '     ', '     ', '     ', '#####'];
 const FONT3 = { D:['##.','#.#','#.#','#.#','##.'], L:['#..','#..','#..','#..','###'], G:['.##','#..','#.#','#.#','.##'], U:['#.#','#.#','#.#','#.#','###'],
   M:['#.#','###','###','#.#','#.#'], B:['##.','#.#','##.','#.#','##.'], C:['.##','#..','#..','#..','.##'], K:['#.#','#.#','##.','#.#','#.#'],
   O:['.#.','#.#','#.#','#.#','.#.'], F:['###','#..','##.','#..','#..'], H:['#.#','#.#','###','#.#','#.#'], E:['###','#..','##.','#..','###'], '.':['...','...','...','...','.#.'],
@@ -1044,6 +1556,7 @@ function scoreModeForSave() {
   if (courseKind === 'daily' && dailyMeta) return 'daily-' + dailyMeta.date;
   if (courseKind === 'back') return 'back9';
   if (courseKind === 'full') return 'full18';
+  if (courseKind === 'match') return 'match';
   return 'front9';
 }
 
@@ -1421,7 +1934,7 @@ function setState(s) {
   state = s; st = 0; lockInput(250);
   if (s === 'title') refreshTitleLB();
   // quick fade between major screens (not every swing state)
-  const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board'];
+  const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
   if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s };
 }
 const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews never write scores
@@ -1438,7 +1951,7 @@ const MENU = GALLERY_ITEMS.length ? ['PLAY', 'CAREER', 'DAILY', 'GALLERY', 'SHOP
    CAREER is a locked placeholder (muted + padlock); tapping it only shows a COMING SOON toast. PLAY stays instant. */
 const MENU_SUB = {};          // v8.19: subheadings removed (too cluttered) — labels only
 const MENU_SUB_NARROW = {};
-const MENU_LOCKED = SHOP_URL ? { CAREER: 1 } : { CAREER: 1, SHOP: 1 };   // v8.20: unfinished items render muted + padlock (SHOP still opens its preview)
+const MENU_LOCKED = SHOP_URL ? {} : { SHOP: 1 };   // career v2: CAREER unlocked   // v8.20: unfinished items render muted + padlock (SHOP still opens its preview)
 let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
 function menuLayoutCalc() {
@@ -1470,7 +1983,7 @@ function menuActivate(i) {
   const label = MENU[i]; SFX.click();
   if (label === 'PLAY') { courseKind = 'front'; setState('course'); }   // FRONT / BACK / FULL picker
   else if (label === 'DAILY') startDailyFlow();
-  else if (label === 'CAREER') showToast(['CAREER MODE', 'COMING SOON'], 2200);   // v8.18: locked placeholder
+  else if (label === 'CAREER') { setState('career'); careerRefresh(); }   // career v2: accounts + friends + matches live here
   else if (label === 'SHOP') {
     if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} }
     else menuPopup = { kind: 'shop', t: 0 };
@@ -2501,18 +3014,19 @@ function scoreName(strk, par) {
 }
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
-function startRound() { holeIdx = 0; scores = []; if (courseKind !== 'daily') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
+function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
   camY = 0; shotFx = null;
   const src = HOLES[holeIdx];
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
-  const def = (courseKind !== 'daily' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor(Math.random() * src.pins.length)] }) : src;
+  const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor(Math.random() * src.pins.length)] }) : src;
   hole = compileHole(def);
   strokes = 0; lastSpot = TEE_X; penaltySpot = null;
-  if (courseKind === 'daily') wind = applyWeatherToWind(hole.wind);
+  if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
   else wind = applyWeatherToWind(hole.wind + Math.round(rnd(-2, 2)));
   placeBall(TEE_X);
+  try { ghostStartHole(); } catch (e) {}
   announce('hole ' + displayHoleNum(holeIdx) + ', ' + (hole.name || '') + ', par ' + hole.par + ', ' + Math.round(Math.abs(hole.cup - TEE_X)) + ' yards, wind ' + (wind === 0 ? 'calm' : Math.abs(wind) + (wind > 0 ? ' helping' : ' against')));
   introFrom = clamp(hole.cup - 128, CAM_MIN, hole.len - W + 40);
   introTo = camTarget();
@@ -2681,6 +3195,7 @@ function pinBounce(px) {
   SFX.bounce(); celebrateLuck(); return true;
 }
 function luckyKick() {
+  try { careerNoteLuck(); } catch (e) {}
   ball.luckUsed = true;
   let g0 = hole.cup, g1 = hole.cup;
   while (g0 > 0 && surfAt(hole, g0 - 1) === 'green') g0--;
@@ -2762,7 +3277,7 @@ function action() {
   if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
-  if (state === 'card' && st > 1.2) { openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
+  if (state === 'card' && st > 1.2) { if (courseKind === 'match' && matchAfterRound()) return; openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
 }
 // where the meter marker is right now: input arrives between frames, so add the time since the last update
 function meterLive() {
@@ -2791,6 +3306,7 @@ function launch() {
   lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < LUCK_MISHIT); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0;
+  try { ghostRecShot(); ghostOnPlayerSwing(); } catch (e) {}   // career v2: ghost
   if (clubIdx === PUTT_I) SFX.putt(); else SFX.hit(); hap(clubIdx === PUTT_I ? 12 : [8, 30, 18]);
   if (clubIdx !== PUTT_I) {
     if (shotPerfect) celebratePerfect();
@@ -2799,6 +3315,7 @@ function launch() {
   setState('flight');
 }
 function resolveBall(r) {
+  try { ghostRecResolve(r); } catch (e) {}
   if (r === 'cup') {
     SFX.cup(); hap([20, 40, 20, 40, 60]);
     const left = 0;
@@ -2841,6 +3358,7 @@ function resolveBall(r) {
 function finishHole() {
   fx.banner = null;
   scores[holeIdx] = Math.min(strokes, 10);
+  try { careerNoteHole(scores[holeIdx] - hole.par, scores[holeIdx]); ghostRecHole(scores[holeIdx]); ghostOnPlayerHoled(); } catch (e) {}
   const d = scores[holeIdx] - hole.par;
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
@@ -2860,6 +3378,7 @@ function nextHole() {
   else finishRound();
 }
 function finishRound() {
+  if (courseKind === 'match' && matchCtx && matchCtx.watch) { matchAfterRound(); return; }   // career v2: ghost replay ends at the result panel
   const total = scores.reduce((a, b) => a + b, 0), rel = total - TOTAL_PAR;
   const mode = scoreModeForSave();
   const isDaily = courseKind === 'daily';
@@ -2870,12 +3389,17 @@ function finishRound() {
   if (newBest) { if (courseKind === 'front') best = rel; try { localStorage.setItem(COURSE_BEST_KEY[courseKind], String(rel)); } catch (e) {} }
   cardInfo = { total, rel, newBest, mode, practice: !!practice, pendingMode: false };
   lastEntry = { name: player.name || 'PLAYER', strokes: total, to_par: rel, created_at: new Date().toISOString(), mode };
-  if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
+  if (courseKind === 'match') { saveWhere = 'device'; pendingSave = null; try { finishMatchRound(total); } catch (e) {} }   // career v2: match rounds go to the match, not the leaderboard
+  else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
     saveWhere = 'saving';
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
+  try {   // career: every scored round (guest or signed in) — never practice replays or previews
+    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
+      holes: scores.length, date: isDaily && dailyMeta ? dailyMeta.date : nyDateStr(), scored: !(NO_SAVE || practice) || courseKind === 'match' });
+  } catch (e) {}
   try {
     const meta = Object.assign(trackRoundMeta(), { strokes: total });
     trackEvent('round_finish', meta);
@@ -3061,6 +3585,8 @@ cv.addEventListener('pointerdown', e => {
     if (hitBtn(p, tipOkR)) armUiTap('tipok', () => closeRoundTip(), (up) => hitBtn(toLogical(up), tipOkR), e);
     touchDown = null; return;
   }
+  if (state === 'career' && careerPointerDown(p, e)) { touchDown = null; return; }
+  if (state === 'watch' && !ov) { armUiTap('watchSkip', () => { if (ghostPlay && ghostPlay.hole && ghostPlay.hole.anim) return; nextHole(); }, () => true, e); touchDown = null; return; }
   if (ov) { ovPointerDown(p, e); touchDown = null; return; }
   // UI buttons: arm on down, fire on up inside the same padded hit area
   // In-round chrome: pause / club pads eat the event so a fat finger never starts a swing
@@ -3091,7 +3617,7 @@ cv.addEventListener('pointerdown', e => {
     armUiTap('share', () => shareScore(), (up) => hitBtn(toLogical(up), SHARE_BTN), e); touchDown = null; return;
   }
   if (state === 'card' && hitBtn(p, LB_BTN)) {
-    armUiTap('lb', () => { if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
+    armUiTap('lb', () => { if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && hitBtn(p, GEAR_BTN)) {
     armUiTap('gear', () => openSettings('title'), (up) => hitBtn(toLogical(up), GEAR_BTN), e); touchDown = null; return;
@@ -3177,6 +3703,9 @@ addEventListener('keydown', e => {
   audioOn(); usingTouch = false;
   const k = e.key;
   if (state === 'splash') { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissSplash(); } return; }
+  if (acctOpen()) return;
+  if (state === 'career' && careerKey(e)) { if ([' ', 'Enter'].includes(k)) e.preventDefault(); return; }
+  if (state === 'watch') { if (k === 'Escape') matchAfterRound(); else if ((k === 'Enter' || k === ' ') && !e.repeat) nextHole(); return; }
   if (roundTip) {
     if (k === 'Enter' || k === ' ' || k === 'Escape') { e.preventDefault(); if (!e.repeat) closeRoundTip(); }
     return;
@@ -3228,6 +3757,7 @@ function update(dt) {
   if (dogPop) dogPop.t += dt;
   if (angFlash > 0) angFlash -= dt;
   updateWildlife(dt);
+  if (courseKind === 'match') { try { ghostTick(dt); } catch (e) {} }
   if (wildBark) { wildBark.t += dt; if (wildBark.t > wildBark.hold + 0.25) wildBark = null; }
   switch (state) {
   case 'title': {
@@ -3242,7 +3772,7 @@ function update(dt) {
   case 'intro': {
     const t = clamp((st - 0.6) / 2.0, 0, 1), e = t * t * (3 - 2 * t);
     camX = lerp(introFrom, introTo, e);
-    if (st > 3.0) { setState('aim'); if (holeIdx === 0) openRoundTip(); }
+    if (st > 3.0) { if (matchCtx && matchCtx.watch) { setState('watch'); ghostOnPlayerHoled(); } else { setState('aim'); if (holeIdx === 0) openRoundTip(); } }
     break;
   }
   case 'aim': {
@@ -3285,6 +3815,7 @@ function update(dt) {
       swingAng = lerp(SWING_ADDR, fin, e);
     }
     let r = null;
+    try { ghostRecSample(dt); } catch (e) {}
     const n = Math.round(dt / STEP);
     for (let i = 0; i < n && !r; i++) {
       const px0 = ball.x, air0 = ball.mode === 'air';
@@ -3329,6 +3860,11 @@ function update(dt) {
     if (st > holedDur) finishHole();
     break;
   case 'custom': if (cz && cz.warn > 0) cz.warn -= dt; break;
+  case 'watch': {   // career v2: replay the opponent's ghost, hole by hole
+    const G = ghostPlay && ghostPlay.hole; if (G) { const want = clamp(G.x - W / 2 + 40, CAM_MIN, camMax()); camX = lerp(camX, want, Math.min(1, dt * 4)); }
+    if (ghostHoleFinished() && G.doneT > 1.4) nextHole();
+    break;
+  }
   case 'done': case 'card': case 'board': break;
   }
 }
@@ -3936,6 +4472,7 @@ function drawTrail() {
   });
 }
 function drawBall() {
+  if (state === 'watch') return;
   const sx = Math.round(ball.x - camX), sy = Math.round(BASE - ball.h) - 4;
   if (state === 'holed') return;
   if (ball.mode === 'air') { const gy = Math.round(BASE - groundH(hole, ball.x)); rect(sx - 1, gy - 1, 3, 1, '#000'); }
@@ -4745,7 +5282,8 @@ function renderCard() {
   if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, COL.orange);
   {
     let saveMsg = saveWhere === 'saving' ? 'SAVING SCORE...' : saveWhere === 'error' ? 'SCORE NOT SAVED' : saveWhere === 'practice' ? 'PRACTICE - NOT SCORED' : 'SCORE SAVED TO LEADERBOARD';
-    if (cardInfo.practice) saveMsg = 'PRACTICE - NOT SCORED';
+    if (courseKind === 'match' && matchCtx) saveMsg = matchCtx.submitted ? 'SENT TO MATCH VS @' + matchCtx.other.name : matchCtx.msg ? 'MATCH SAVED ON DEVICE' : 'SENDING TO MATCH...';
+    else if (cardInfo.practice) saveMsg = 'PRACTICE - NOT SCORED';
     else if (cardInfo.pendingMode) saveMsg = 'SAVED LOCAL - BOARD SOON';
     drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice) ? COL.orange : COL.lime);
   }
@@ -4920,6 +5458,416 @@ function courseActivate(i) {
   startCourse(i === 0 ? 'front' : i === 1 ? 'back' : 'full');
 }
 
+/* ================= CAREER screens (state 'career' + 'auth') ================= */
+const CAREER_YEL = '#f8d878';
+function careerSoft(str, x, y, col, sc = 1) { drawText(str, x + sc, y + sc, '#000', sc); drawText(str, x, y, col, sc); }
+function careerSoftC(str, cx, y, col, sc = 1) { careerSoft(str, Math.round(cx - textW(str, sc) / 2), y, col, sc); }
+function careerBackR() { return { x: 2 + (SAFE.l || 0), y: 2 + (SAFE.t || 0), w: 66, h: 22 }; }
+function careerWide() { return !(H > W * 1.15) && W >= 360; }
+function careerDrawBack(key) {
+  const br = careerBackR(), on = mouse.seen && !isTouchUi() && hitBtn(mouse, br);
+  outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), pressDim(key) || on ? CAREER_YEL : COL.white);
+}
+function careerGolfer(cx, feetY, s, look) {   // the player's own golfer on a mown tee patch (same look as CUSTOMIZE)
+  const px = cx;
+  ctx.globalAlpha = 0.08; czEllipse(px, feetY - 14 * s, 16 * s, 17 * s, COL.white); czEllipse(px, feetY - 12 * s, 10 * s, 11 * s, COL.white); ctx.globalAlpha = 1;
+  const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
+  czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
+  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
+  ctx.globalAlpha = 0.28; czEllipse(px - s, feetY, 6 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
+  ctx.save(); ctx.translate(px - 3 * s, feetY); ctx.scale(s, s);
+  drawGolfer(0, 0, 1, 76 + 6 * Math.sin(st * 2.2), look || lookOf(player));
+  ctx.restore();
+}
+function careerButton(r, label, lit, key) {   // gold CTA in the same frame language as the boards
+  const on = lit || pressDim(key) || (mouse.seen && !isTouchUi() && hitBtn(mouse, r));
+  rect(r.x, r.y, r.w, r.h, '#000');
+  rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#fce4a0' : CAREER_YEL);
+  rect(r.x + 2, r.y + r.h - 3, r.w - 4, 1, '#d8a000');
+  const sc = textW(label, 2) <= r.w - 12 ? 2 : 1;
+  drawText(label, Math.round(r.x + (r.w - textW(label, sc)) / 2), Math.round(r.y + (r.h - 7 * sc) / 2), '#102860', sc);
+}
+/* ---- layout (logical px). Phone portrait stacks; desktop/landscape uses two columns. ---- */
+function careerLayout() {
+  const st0 = SAFE.t || 0, sb = SAFE.b || 0, wide = careerWide();
+  const L = { wide, back: careerBackR(), headY: st0 + 8 };
+  if (isSignedIn()) {
+    if (wide) {
+      const colW = Math.min(184, Math.floor((W - 24) / 2)), gx = Math.round((W - colW * 2 - 8) / 2), top = st0 + 28;
+      L.card = { x: gx, y: top, w: colW, h: 84 };
+      L.tour = { x: gx, y: top + 88, w: colW, h: 62 };
+      L.fr = { x: gx + 8, y: top + 106, w: Math.floor((colW - 22) / 2), h: 26 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 26 };
+      L.grid = { x: gx + colW + 8, y: top, w: colW, h: 150 };
+      L.out = { x: gx + colW * 2 + 8 - 84, y: top + 156, w: 84, h: 18 };
+      L.tileH = 26;
+    } else {
+      const w = Math.min(244, W - 12), x = Math.round((W - w) / 2);
+      const total = 84 + 6 + 176 + 6 + 62 + 30;
+      const top = Math.max(st0 + 30, Math.round((H - sb - total) / 2) - 6);
+      L.card = { x, y: top, w, h: 84 };
+      L.grid = { x, y: top + 90, w, h: 176 };
+      L.tour = { x, y: top + 272, w, h: 62 };
+      L.fr = { x: x + 8, y: top + 290, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
+      L.out = { x: Math.round(W / 2 - 50), y: top + 342, w: 100, h: 20 };
+      L.tileH = 30;
+    }
+  } else {
+    if (wide) {
+      const colW = Math.min(184, Math.floor((W - 24) / 2)), gx = Math.round((W - colW * 2 - 8) / 2), top = st0 + 30;
+      L.golf = { cx: gx + Math.round(colW / 2), feet: top + 98, s: 3 };
+      L.note = { cx: gx + Math.round(colW / 2), y: top + 112 };
+      L.pitch = { x: gx + colW + 8, y: top, w: colW, h: 92 };
+      L.cta = { x: gx + colW + 8 + 8, y: top + 102, w: colW - 16, h: 26 };
+      L.sub = { cx: gx + colW + 8 + Math.round(colW / 2), y: top + 133 };
+      L.signin = { x: gx + colW + 8 + 8, y: top + 146, w: colW - 16, h: 20 };
+    } else {
+      const w = Math.min(236, W - 16), x = Math.round((W - w) / 2);
+      const total = 100 + 96 + 30 + 34 + 40;
+      const top = Math.max(st0 + 30, Math.round((H - sb - total) / 2) - 10);
+      L.golf = { cx: Math.round(W / 2), feet: top + 92, s: 3 };
+      L.pitch = { x, y: top + 106, w, h: 92 };
+      L.note = { cx: Math.round(W / 2), y: top + 206 };
+      L.cta = { x: Math.round(W / 2 - 90), y: top + 234, w: 180, h: 26 };
+      L.sub = { cx: Math.round(W / 2), y: top + 265 };
+      L.signin = { x: Math.round(W / 2 - 90), y: top + 280, w: 180, h: 20 };
+    }
+  }
+  return L;
+}
+function careerFair() { return Math.max(Math.round(H * 0.84), H - 40 - (SAFE.b || 0)); }
+function renderCareer() {
+  drawSkyScene(careerFair(), true);
+  const L = careerLayout(), blink = Math.floor(st * 4) % 2 === 0;
+  careerDrawBack('careerBack');
+  outlined('CAREER', Math.round((W - textW('CAREER', 2)) / 2), L.headY, CAREER_YEL, 2);
+  if (!isSignedIn()) {
+    careerGolfer(L.golf.cx, L.golf.feet, L.golf.s);
+    const P = L.pitch;
+    czBoard(P.x, P.y, P.w, P.h, 0.9, false);
+    careerSoftC('YOUR GOLFER. YOUR STATS.', P.x + P.w / 2, P.y + 10, COL.white);
+    const lines = ['SAVE YOUR GOLFER + STATS', 'ADD FRIENDS BY USERNAME', 'CHALLENGE: 3, 9 OR 18', 'RACE THEIR GHOST BALL'];
+    lines.forEach((t, i) => {
+      const y = P.y + 28 + i * 14, x = P.x + 14;
+      rect(x, y + 1, 5, 5, '#000'); rect(x, y, 4, 4, CAREER_YEL);
+      careerSoft(t, x + 10, y - 1, COL.white);
+    });
+    const g = careerLoad('guest');
+    if (g.rounds > 0) {
+      const a = g.rounds + (g.rounds === 1 ? ' ROUND' : ' ROUNDS') + ' PLAYED HERE';
+      careerSoftC(a, L.note.cx, L.note.y, COL.white);
+      careerSoftC('THEY JOIN YOUR CAREER', L.note.cx, L.note.y + 11, COL.lime);
+    } else {
+      careerSoftC('PLAY FIRST. SIGN UP ANYTIME.', L.note.cx, L.note.y + 4, '#e8eef8');
+    }
+    careerButton(L.cta, 'CREATE ACCOUNT', false, 'careerCta');
+    careerSoftC('FREE. EMAIL + PASSWORD.', L.sub.cx, L.sub.y, '#e8eef8');
+    const on = pressDim('careerSignin') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.signin));
+    careerSoftC('HAVE ONE? LOG IN', L.signin.x + L.signin.w / 2, L.signin.y + 7, on ? CAREER_YEL : COL.white);
+    return;
+  }
+  const c = careerLoad(), rk = careerRank(c.xp);
+  const name = hasUsername() ? '@' + myName() : (player.name || 'PLAYER');
+  // career card: golfer + name + DLG Tour rank + XP bar
+  const C = L.card;
+  czBoard(C.x, C.y, C.w, C.h, 0.9, false);
+  careerGolfer(C.x + 26, C.y + C.h - 12, 2);
+  const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
+  careerSoft(name, tx, C.y + 10, COL.white, textW(name, 2) <= tw ? 2 : 1);
+  careerSoft('DLG TOUR', tx, C.y + 30, '#d0d8e8');
+  careerSoft(rk.name, tx + textW('DLG TOUR ') + 2, C.y + 30, CAREER_YEL);
+  for (let i = 0; i < CAREER_RANKS.length; i++) {   // rank pips
+    const px = C.x + C.w - 10 - (CAREER_RANKS.length - i) * 6;
+    rect(px, C.y + 30, 5, 7, '#000'); rect(px, C.y + 30, 4, 6, i <= rk.i ? CAREER_YEL : '#3c4c6c');
+  }
+  const bx = tx, by = C.y + 44, bw = tw, bh = 8;
+  rect(bx, by, bw, bh, '#000'); rect(bx + 1, by + 1, bw - 2, bh - 2, '#183848');
+  const fw = Math.round((bw - 2) * rk.frac);
+  if (fw > 0) { rect(bx + 1, by + 1, fw, bh - 2, COL.lime); rect(bx + 1, by + 1, fw, 1, '#b8f818'); }
+  const xpTxt = rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');
+  careerSoft(xpTxt, bx, by + 12, COL.white);
+  careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP RANK', bx, by + 24, '#d0d8e8');
+  // lifetime stats grid (2 x 5)
+  const G = L.grid;
+  czBoard(G.x, G.y, G.w, G.h, 0.9, false);
+  const best = k => c.best[k] ? fmtRel(c.best[k].rel) : '--';
+  const bestN = k => c.best[k] ? '(' + c.best[k].strokes + ')' : '';
+  const avg = careerAvg9(c), streak = careerStreakNow(c);
+  const tiles = [
+    ['ROUNDS', String(c.rounds), ''],
+    ['AVG SCORE', avg == null ? '--' : (Math.abs(avg) < 0.05 ? 'E' : (avg > 0 ? '+' : '') + avg.toFixed(1)), avg == null ? '' : '/9'],
+    ['BEST FRONT 9', best('front'), bestN('front')],
+    ['BEST BACK 9', best('back'), bestN('back')],
+    ['BEST 18', best('full'), bestN('full')],
+    ['DAILY STREAK', String(streak), c.daily.top ? 'TOP ' + c.daily.top : ''],
+    ['BIRDIES', String(c.birdies), ''],
+    ['EAGLES', String(c.eagles), ''],
+    ['HOLES-IN-ONE', String(c.aces), ''],
+    ['DUMB LUCK', String(c.luck), 'SHOTS']
+  ];
+  const pad = 6, gap = 3, th = L.tileH, tw2 = Math.floor((G.w - pad * 2 - gap) / 2);
+  tiles.forEach((t, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = G.x + pad + col * (tw2 + gap), y = G.y + pad + row * (th + gap);
+    rect(x, y, tw2, th, '#000');
+    ctx.globalAlpha = 0.45; rect(x + 1, y + 1, tw2 - 2, th - 2, '#183848'); ctx.globalAlpha = 1;
+    careerSoft(t[0], x + 4, y + 3, '#d0d8e8');
+    const vs = th >= 28 ? 2 : 2, vy = y + th - 7 * vs - 3;
+    careerSoft(t[1], x + 4, vy, t[1] === '--' ? COL.gray : CAREER_YEL, vs);
+    if (t[2]) careerSoft(t[2], x + tw2 - 4 - textW(t[2]), y + th - 10, '#d0d8e8');
+  });
+  // v2: FRIENDS + MATCHES (replaces the tournament placeholder)
+  const T = L.tour;
+  czBoard(T.x, T.y, T.w, T.h, 0.9, false);
+  if (!hasUsername()) { careerSoft('PICK A USERNAME TO PLAY FRIENDS', T.x + 8, T.y + 7, COL.orange); careerButton(L.fr, 'PICK USERNAME', blink, 'careerFr'); }
+  else {
+    const turn = social.matches.filter(m => /YOUR TURN|NEW CHALLENGE/.test(matchLabel(m))).length;
+    const req = social.friends.filter(f => f.status === 'pending' && f.direction === 'in').length;
+    careerSoft('HEAD TO HEAD', T.x + 8, T.y + 7, COL.orange);
+    careerButton(L.fr, req ? 'FRIENDS (' + req + ')' : 'FRIENDS', false, 'careerFr');
+    careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
+  }
+  // sign out (tap twice)
+  const armed = careerSignOutArm > performance.now();
+  const so = armed ? 'TAP AGAIN TO SIGN OUT' : 'SIGN OUT';
+  const on = pressDim('careerOut') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.out));
+  careerSoft(so, Math.round(L.out.x + L.out.w - textW(so) - (L.wide ? 0 : (L.out.w - textW(so)) / 2)), L.out.y + 6, armed ? COL.orange : (on ? CAREER_YEL : '#e8eef8'));
+  if (careerMsg) {
+    careerMsg.t += 1 / 60;
+    if (careerMsg.t > 2.2) careerMsg = null;
+    else { const m = careerMsg.text; careerSoftC(m, W / 2, L.headY + 18, COL.lime); }
+  }
+}
+function careerPointerDown(p, e) {   // returns true when handled
+  if (state === 'career') {
+    const L = careerLayout();
+    if (hitBtn(p, L.back)) { armUiTap('careerBack', () => { SFX.click(); setState('title'); }, (up) => hitBtn(toLogical(up), careerLayout().back), e); return true; }
+    if (!isSignedIn()) {
+      if (hitBtn(p, L.cta)) { armUiTap('careerCta', () => { SFX.click(); showAcct('signup'); }, (up) => hitBtn(toLogical(up), careerLayout().cta), e); return true; }
+      if (hitBtn(p, L.signin)) { armUiTap('careerSignin', () => { SFX.click(); showAcct('login'); }, (up) => hitBtn(toLogical(up), careerLayout().signin), e); return true; }
+      return true;
+    }
+    if (hitBtn(p, L.fr)) { armUiTap('careerFr', () => { SFX.click(); showAcct(hasUsername() ? 'friends' : 'username', {}); }, (up) => hitBtn(toLogical(up), careerLayout().fr), e); return true; }
+    if (hasUsername() && hitBtn(p, L.mt)) { armUiTap('careerMt', () => { SFX.click(); showAcct('matches'); }, (up) => hitBtn(toLogical(up), careerLayout().mt), e); return true; }
+    if (hitBtn(p, L.out)) {
+      armUiTap('careerOut', () => {
+        SFX.click();
+        if (careerSignOutArm > performance.now()) { careerSignOutArm = 0; signOut(); } else careerSignOutArm = performance.now() + 2500;
+      }, (up) => hitBtn(toLogical(up), careerLayout().out), e);
+    }
+    return true;
+  }
+  return false;
+}
+function careerKey(e) {   // returns true when handled
+  const k = e.key;
+  if (state === 'career') {
+    if (k === 'Escape') { setState('title'); return true; }
+    if ((k === 'Enter' || k === ' ') && !e.repeat && !isSignedIn()) { SFX.click(); showAcct('signup'); }
+    return true;
+  }
+  return false;
+}
+
+/* ================= CAREER v2 panel controller (DOM overlay #acct) ================= */
+const acctEl = document.getElementById('acct'), acctBox = document.getElementById('acctBox');
+let acctView = null, acctOpts = {};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const at = n => '<span class="at">@</span>' + esc(String(n || '').toUpperCase());
+function acctOpen() { return !!(acctEl && acctEl.classList.contains('on')); }
+function hideAcct() {
+  if (!acctEl) return;
+  try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
+  acctEl.classList.remove('on'); acctEl.setAttribute('aria-hidden', 'true'); acctView = null;
+  lockInput(300);
+}
+function acctMsg(t, ok) { const m = acctBox.querySelector('.msg'); if (m) { m.textContent = t || ''; m.classList.toggle('ok', !!ok); } }
+function acctBusy(on) { acctBox.querySelectorAll('button,input').forEach(b => { if (!b.classList.contains('back')) b.disabled = !!on; }); }
+const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
+function head(title, back) { return '<div class="top"><button class="back" data-a="' + (back || 'close') + '">&lt; BACK</button><h2>' + title + '</h2><span style="width:66px"></span></div>'; }
+const pwField = (id, ac) => '<div class="pw"><input id="' + id + '" type="password" autocomplete="' + ac + '" minlength="8" autocapitalize="off" spellcheck="false"><button type="button" data-a="pwShow" data-for="' + id + '">SHOW</button></div>';
+const VIEWS = {
+  signup: () => head('CREATE ACCOUNT') +
+    '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
+    '<form data-f="signup" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" value="' + esc(account.email) + '">' +
+    '<label for="aPass">PASSWORD (8+ CHARACTERS)</label>' + pwField('aPass', 'new-password') +
+    '<label class="chk"><input id="aMkt" type="checkbox"> SEND ME NEWS, DROPS + DEALS</label>' +
+    '<button class="btn" type="submit">CREATE ACCOUNT</button></form><div class="msg"></div>' +
+    '<button class="link" data-a="go:login">HAVE AN ACCOUNT? LOG IN</button>',
+  login: () => head('LOG IN') +
+    '<form data-f="login" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" value="' + esc(account.email) + '">' +
+    '<label for="aPass">PASSWORD</label>' + pwField('aPass', 'current-password') +
+    '<button class="btn" type="submit">LOG IN</button></form><div class="msg"></div>' +
+    '<button class="link" data-a="go:forgot">FORGOT PASSWORD?</button><button class="link" data-a="go:signup">NEW HERE? CREATE ACCOUNT</button>',
+  forgot: () => head('RESET PASSWORD', 'go:login') +
+    '<p class="sub">WE EMAIL YOU A LINK TO SET A NEW PASSWORD.</p>' +
+    '<form data-f="forgot" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" value="' + esc(account.email) + '">' +
+    '<button class="btn" type="submit">SEND RESET LINK</button></form><div class="msg"></div>',
+  check: o => head(o.reset ? 'CHECK EMAIL' : 'CONFIRM EMAIL', 'go:login') +
+    '<p class="big">CHECK YOUR INBOX</p><p class="sub">WE SENT A LINK TO<br><b>' + esc(account.email) + '</b><br><br>' +
+    (o.reset ? 'OPEN IT TO SET A NEW PASSWORD.' : 'OPEN IT TO CONFIRM, THEN LOG IN HERE<br>WITH YOUR EMAIL + PASSWORD.') +
+    '<br><br>HOME SCREEN APP? JUST COME BACK AND LOG IN.</p><button class="btn" data-a="go:login">LOG IN</button>',
+  newpass: () => head('NEW PASSWORD') +
+    '<form data-f="newpass" novalidate><label for="aPass">NEW PASSWORD (8+ CHARACTERS)</label>' + pwField('aPass', 'new-password') +
+    '<button class="btn" type="submit">SAVE PASSWORD</button></form><div class="msg"></div>',
+  username: () => head('PICK A USERNAME', 'signout') +
+    '<p class="sub">FRIENDS ADD YOU BY THIS NAME.<br>3-12 LETTERS, NUMBERS OR _ . STARTS WITH A LETTER.</p>' +
+    '<form data-f="username" novalidate><label for="aUser">USERNAME</label><div class="row"><input id="aUser" type="text" maxlength="12" autocomplete="nickname" autocapitalize="off" spellcheck="false" value="' + esc(acctOpts.draft || '') + '"></div>' +
+    '<button class="btn" type="submit">SAVE USERNAME</button></form><div class="msg"></div>',
+  friends: () => {
+    const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
+    let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
+    if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
+    if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
+    return h;
+  },
+  challenge: o => {
+    const f = social.friends.find(x => x.id === o.fid); const n = o.holes || 9;
+    return head('CHALLENGE', 'go:friends') + '<p class="big">' + at(f ? f.friend_username : '?') + '</p>' +
+      '<p class="sub">YOU BOTH PLAY THE SAME HOLES, PINS AND WIND.<br>YOU GO FIRST; THEY RACE YOUR GHOST.</p><label>HOLES</label><div class="seg">' +
+      MATCH_SIZES.map(k => '<button type="button" data-a="holes" data-n="' + k + '" class="' + (k === n ? 'on' : '') + '">' + k + '<small>' + (k === 3 ? 'QUICK' : k === 9 ? 'NINE' : 'FULL') + '</small></button>').join('') +
+      '</div><button class="btn" data-a="sendch" data-id="' + esc(o.fid) + '">SEND + PLAY FIRST</button><div class="msg"></div>';
+  },
+  matches: () => {
+    let h = head('MATCHES') + '<div class="msg"></div>';
+    if (net.missing.matches) return h + '<p class="empty">MATCHES ARE NOT SET UP ON THE SERVER YET.</p>';
+    const M = social.matches;
+    if (!M.length) return h + '<p class="empty">NO MATCHES YET.<br>CHALLENGE A FRIEND FROM FRIENDS.</p><button class="btn" data-a="go:friends">FRIENDS</button>';
+    return h + '<div class="list">' + M.map(m => {
+      const o = matchOther(m), lab = matchLabel(m), mine = matchMine(m), hot = /YOUR TURN|NEW CHALLENGE|WON/.test(lab);
+      let act = '';
+      if (m.status === 'pending' && matchSide(m) === 'opponent') act = '<button class="btn small" data-a="maccept" data-id="' + esc(m.id) + '">ACCEPT</button><button class="btn small alt" data-a="mdecline" data-id="' + esc(m.id) + '">NO</button>';
+      else if (['pending', 'active'].includes(m.status) && !mine) act = '<button class="btn small" data-a="mplay" data-id="' + esc(m.id) + '">PLAY</button>';
+      else act = '<button class="btn small alt" data-a="mresult" data-id="' + esc(m.id) + '">VIEW</button>';
+      return '<div class="item"><div class="who">' + at(o.name) + ' <span style="color:#bcc8e0">' + m.holes + ' HOLES</span><span class="st' + (hot ? ' hot' : '') + '">' + esc(lab) + '</span></div>' + act + '</div>';
+    }).join('') + '</div>';
+  },
+  result: o => {
+    const m = social.matches.find(x => x.id === o.id) || (matchCtx && matchCtx.match); if (!m) return head('MATCH', 'go:matches') + '<p class="empty">MATCH NOT FOUND.</p>';
+    const me = matchSide(m), oth = matchOther(m), mine = matchMine(m) || (o.local && o.local.scores), theirs = matchTheirs(m), plan = matchPlan(Number(m.seed), m.holes);
+    const tot = a => a ? a.reduce((x, y) => x + y, 0) : null, A = tot(mine), B = tot(theirs), par = plan.defs.reduce((x, d) => x + d.par, 0);
+    let big = 'WAITING FOR ' + at(oth.name);
+    if (mine && theirs) big = A < B ? 'YOU WIN!' : A > B ? at(oth.name) + ' WINS' : 'ALL SQUARE';
+    else if (!mine) big = 'YOUR TURN';
+    const rows = plan.defs.map((d, i) => { const a = mine ? mine[i] : null, b = theirs ? theirs[i] : null; return '<tr><td>' + d.courseNo + '</td><td>' + d.par + '</td><td class="' + (a != null && b != null ? (a < b ? 'w' : a > b ? 'l' : '') : '') + '">' + (a == null ? '-' : a) + '</td><td>' + (b == null ? '-' : b) + '</td></tr>'; }).join('');
+    const ghostOk = !!theirs;
+    return head('MATCH', 'go:matches') + '<p class="big">' + big + '</p><p class="sub">' + m.holes + ' HOLES · PAR ' + par + (o.local && o.local.msg ? '<br><span style="color:#fc9838">' + esc(o.local.msg) + '</span>' : '') + '</p>' +
+      '<table><tr><th>HOLE</th><th>PAR</th><th>YOU</th><th>' + at(oth.name) + '</th></tr>' + rows +
+      '<tr><th>TOT</th><th>' + par + '</th><th>' + (A == null ? '-' : A) + '</th><th>' + (B == null ? '-' : B) + '</th></tr></table>' +
+      (ghostOk ? '<button class="btn alt" data-a="mwatch" data-id="' + esc(m.id) + '">WATCH ' + at(oth.name) + "'S GHOST</button>" : '') +
+      (!mine && ['pending', 'active'].includes(m.status) ? '<button class="btn" data-a="mplay" data-id="' + esc(m.id) + '">PLAY VS ' + at(oth.name) + '</button>' : '') +
+      (m.status === 'complete' ? '<button class="btn" data-a="rematch" data-id="' + esc(m.id) + '">REMATCH</button>' : '') + '<div class="msg"></div>';
+  }
+};
+async function showAcct(view, opts) {
+  if (!acctEl) return;
+  acctView = view; acctOpts = opts || {};
+  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadFriends(); if (acctView !== 'friends') return; }
+  if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
+  acctBox.innerHTML = VIEWS[view](acctOpts);
+  acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); acctEl.scrollTop = 0;
+  if (acctOpts.msg) acctMsg(acctOpts.msg, acctOpts.ok);
+  const first = acctBox.querySelector('input:not([type=checkbox])');
+  if (first && !isTouchUi()) setTimeout(() => { try { first.focus(); } catch (e) {} }, 30);
+}
+async function afterAuth() {
+  if (!hasUsername()) { showAcct('username', { draft: (player.name || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 12) }); return; }
+  player.name = cleanName(account.profile.username); savePlayer();
+  try { careerAdoptGuest(); await careerPull(); } catch (e) {}
+  hideAcct(); careerMsg = { text: 'WELCOME @' + myName(), t: 0 }; setState('career');
+}
+if (acctEl) {
+  acctEl.addEventListener('submit', async e => {
+    e.preventDefault(); const f = e.target.getAttribute('data-f'); acctMsg('');
+    acctBusy(true);
+    try {
+      if (f === 'signup') {
+        const r = await authSignUp(val('aEmail'), val('aPass'));
+        if (!r.ok) acctMsg(r.msg); else if (r.confirm) showAcct('check', {}); else { account.marketing = document.getElementById('aMkt') && document.getElementById('aMkt').checked; await afterAuth(); }
+      } else if (f === 'login') {
+        const r = await authLogIn(val('aEmail'), val('aPass')); if (!r.ok) acctMsg(r.msg); else await afterAuth();
+      } else if (f === 'forgot') {
+        const r = await authForgot(val('aEmail')); if (!r.ok) acctMsg(r.msg); else { account.email = val('aEmail').trim().toLowerCase(); showAcct('check', { reset: true }); }
+      } else if (f === 'newpass') {
+        const r = await authSetPassword(val('aPass')); if (!r.ok) acctMsg(r.msg); else { acctMsg('PASSWORD SAVED', true); setTimeout(afterAuth, 700); }
+      } else if (f === 'username') {
+        const nm = val('aUser').trim().replace(/^@/, '');
+        const a = await usernameAvailable(nm);
+        if (!a.ok) acctMsg(a.msg); else { const r = await saveUsername(nm, !!account.marketing); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+      } else if (f === 'addfriend') {
+        const r = await addFriend(val('aFriend')); if (!r.ok) acctMsg(r.msg); else { await showAcct('friends'); acctMsg('REQUEST SENT', true); }
+      }
+    } finally { if (acctBox.querySelector('form')) acctBusy(false); }
+  });
+  acctEl.addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) { if (e.target === acctEl) {} return; }
+    const a = b.getAttribute('data-a'), id = b.getAttribute('data-id');
+    if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
+    if (a.startsWith('go:')) { showAcct(a.slice(3), {}); return; }
+    if (a === 'pwShow') { const i = document.getElementById(b.getAttribute('data-for')); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? 'SHOW' : 'HIDE'; } return; }
+    if (a === 'signout') { signOut(); hideAcct(); setState('career'); return; }
+    if (a === 'faccept' || a === 'fdecline') { await answerFriend(id, a === 'faccept'); showAcct('friends'); return; }
+    if (a === 'fremove') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } await removeFriend(id); showAcct('friends'); return; }
+    if (a === 'challenge') { showAcct('challenge', { fid: id, holes: 9 }); return; }
+    if (a === 'holes') { acctOpts.holes = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
+    if (a === 'sendch') {
+      const f = social.friends.find(x => x.id === id); if (!f) return;
+      acctBusy(true); const r = await createMatch(f, acctOpts.holes || 9); acctBusy(false);
+      if (!r.ok) { acctMsg(r.msg); return; }
+      const s = await startMatchRound(r.match, false); if (!s.ok) acctMsg(s.msg);
+      return;
+    }
+    if (a === 'maccept') { await respondMatch(id, 'accept'); const m = social.matches.find(x => x.id === id); if (m) showAcct('result', { id }); else showAcct('matches'); return; }
+    if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
+    if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
+    if (a === 'mresult') { showAcct('result', { id }); return; }
+    if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
+  });
+  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); hideAcct(); setState('career'); } e.stopPropagation(); });
+  for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
+}
+
+/* ================= CAREER v2: ghost ball + 'vs @name' chip (match rounds) ================= */
+function careerRefresh() { if (isSignedIn() && hasUsername() && authOnline()) { loadFriends(); loadMatches(); } }
+function drawGhost() {
+  const G = ghostPlay && ghostPlay.hole; if (!G || !hole || courseKind !== 'match') return;
+  if (G.holed && !G.anim) return;
+  ctx.globalAlpha = 0.22;
+  for (let i = 1; i < G.trail.length; i++) { const p = G.trail[i]; rect(Math.round(p[0] - camX), Math.round(BASE - p[1]) - 2, 2, 2, '#e8f0ff'); }
+  const sx = Math.round(G.x - camX), sy = Math.round(BASE - G.h) - 4;
+  ctx.globalAlpha = 0.5;
+  if (sy > 0) { rect(sx - 1, sy, 3, 4, '#d8e4ff'); rect(sx - 2, sy + 1, 5, 2, '#d8e4ff'); rect(sx, sy + 1, 1, 1, COL.white); }
+  ctx.globalAlpha = 1;
+  // name tag (flies with the ball; parks above it at rest)
+  const tag = '@' + ghostPlay.name, tw = textW(tag) + 4, tx = clamp(sx - Math.round(tw / 2), 2, W - tw - 2), ty = clamp(sy - 12, 2, PLAY_H - 10);
+  ctx.globalAlpha = 0.55; rect(tx, ty, tw, 9, '#102860'); ctx.globalAlpha = 0.85; drawText(tag, tx + 2, ty + 1, '#bcd8ff'); ctx.globalAlpha = 1;
+}
+function drawVsChip() {
+  if (courseKind !== 'match' || !matchCtx || !ghostPlay) return;
+  const c = ghostCompare(), G = ghostPlay.hole;
+  const name = ghostPlay.name.length > 8 ? ghostPlay.name.slice(0, 8) : ghostPlay.name;
+  let l1 = 'VS @' + name, l2;
+  if (matchCtx.watch) l2 = G ? ('SHOT ' + G.next + (G.holed ? '  IN ' + (G.score || G.next) : '')) : '';
+  else if (!c || !c.n) l2 = 'HOLE ' + (holeIdx + 1) + ': ' + (G && G.score ? 'THEY MADE ' + G.score : '--');
+  else l2 = (c.diff < 0 ? (-c.diff) + ' UP' : c.diff > 0 ? c.diff + ' DOWN' : 'ALL SQUARE') + '  ' + c.me + '-' + c.them;
+  const w = Math.max(textW(l1), textW(l2)) + 8, x = W - w - 2 - (SAFE.r || 0), y = MC.y + MC.h + 3;
+  ctx.globalAlpha = 0.6; rect(x, y, w, 20, '#000'); ctx.globalAlpha = 1;
+  rect(x, y, w, 1, '#bcd8ff'); rect(x, y + 19, w, 1, '#bcd8ff'); rect(x, y, 1, 20, '#bcd8ff'); rect(x + w - 1, y, 1, 20, '#bcd8ff');
+  drawText(l1, x + 4, y + 3, '#bcd8ff');
+  drawText(l2, x + 4, y + 11, c && c.diff < 0 ? COL.lime : c && c.diff > 0 ? COL.orange : COL.white);
+}
+function matchAfterRound() {   // card -> match result panel
+  if (!matchCtx) return false;
+  const m = matchCtx.match, local = { scores: HOLES.map((_, i) => scores[i]), msg: matchCtx.submitted ? '' : (matchCtx.msg || '') };
+  const watch = matchCtx.watch;
+  setCourseHoles('front', FRONT_HOLES); ghostPlay = null; ghostRec = null;
+  setState('career');
+  showAcct('result', { id: m.id, local: watch ? null : local });
+  matchCtx = null;
+  return true;
+}
+
 function renderScene() {
   if (state === 'splash') { renderSplash(); drawCursor(); return; }
   if (state === 'title') { renderTitle(); drawCursor(); return; }
@@ -4927,6 +5875,7 @@ function renderScene() {
   if (state === 'card') { renderCard(); drawCursor(); return; }
   if (state === 'custom') { renderCustom(); drawCursor(); return; }
   if (state === 'board') { renderBoard(); drawCursor(); return; }
+  if (state === 'career') { renderCareer(); drawCursor(); return; }
   const shaking = fx.shake > 0;
   const zoomed = beginWorldZoom();
   if (shaking && !REDUCED_MOTION) { if (!zoomed) rect(0, 0, W, PLAY_H, themeOf(hole).sky); ctx.save(); const a = fx.shakeAmp * clamp(fx.shake / 0.2, 0, 1); ctx.translate(Math.round(rnd(-a, a)), Math.round(rnd(-a, a))); }
@@ -4939,6 +5888,7 @@ function renderScene() {
   if (state === 'flight' || state === 'holed') drawTrail();
   if (['aim', 'power', 'accuracy'].includes(state)) drawAim();
   drawBall();
+  drawGhost();
   drawFxParts();
   if (shaking && !REDUCED_MOTION) ctx.restore();
   if (fx.flash > 0) { ctx.globalAlpha = clamp(fx.flash / 0.18, 0, 1) * (REDUCED_MOTION ? 0.12 : 0.7); rect(0, 0, W, PLAY_H, fx.flashCol); ctx.globalAlpha = 1; }
@@ -4948,6 +5898,7 @@ function renderScene() {
   drawDogPop();   // v8.12: on top of the HUD + mini map so nothing hides him
   drawShotFx();
   drawMiniCard();
+  drawVsChip();
   if (state === 'intro') {
     const yards = Math.round(Math.abs(hole.cup - TEE_X));
     const isDaily = courseKind === 'daily';
@@ -5005,9 +5956,24 @@ try { trackVisitOnce(); } catch (e) {}
 if ('serviceWorker' in navigator && !/^#(test|preview)/.test(location.hash)) {
   addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
+consumeAuthRedirect().then(() => {   // career v2
+  if (!authReturn) return;
+  if (state === 'splash') dismissSplash();
+  setState('career');
+  if (authReturn === 'recovery') showAcct('newpass'); else if (authReturn === 'error') showAcct('login', { msg: account.status }); else afterAuth();
+}).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
   window.__golf = {
+    get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
+    get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
+    get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
+    loadAll() { return Promise.all([loadFriends(), loadMatches()]); }, matchPlan(seed, n) { return matchPlan(seed, n); },
+    get matchCtx() { return matchCtx ? { id: matchCtx.match.id, watch: matchCtx.watch, submitted: matchCtx.submitted, ghostBytes: matchCtx.ghostBytes || 0 } : null; },
+    get ghost() { const G = ghostPlay && ghostPlay.hole; return ghostPlay ? { name: ghostPlay.name, x: G && G.x, h: G && G.h, next: G && G.next, shots: G && G.shots.length, anim: !!(G && G.anim), holed: G && G.holed } : null; },
+    get ghostRec() { return ghostRec ? JSON.parse(JSON.stringify(ghostRec)) : null; }, ghostCompare() { return ghostCompare(); },
+    startMatch(id, watch) { const m = social.matches.find(x => x.id === id); return m ? startMatchRound(m, !!watch) : null; }, careerLayout() { return careerLayout(); },
+    career(id) { return careerLoad(id); }, get courseKind() { return courseKind; }, get holesLen() { return HOLES.length; }, finishRoundNow() { finishRound(); }, matchAfterRound() { return matchAfterRound(); },
     get state() { return state; }, get hole() { return holeIdx; }, get strokes() { return strokes; }, get scores() { return scores.slice(); },
     get ball() { return ball ? { x: ball.x, h: ball.h, mode: ball.mode, lie: surfAt(hole, ball.x) } : null; }, get cup() { return hole ? hole.cup : null; },
     get player() { return Object.assign({}, player); }, get board() { return board ? { rows: board.rows, hi: board.hi } : null; },
