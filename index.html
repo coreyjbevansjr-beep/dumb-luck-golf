@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.33">
+<meta name="dlg-version" content="v8.34">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -164,7 +164,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.33';
+const GAME_VERSION = 'v8.34';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -529,8 +529,14 @@ function mktKnown() { try { const v = localStorage.getItem(mktKnownKey()); retur
 async function saveMarketing(on) {
   if (!isSignedIn()) return { ok: false };
   const r = await sb('/rest/v1/profiles?id=eq.' + encodeURIComponent(account.user.id), { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: { marketing_opt_in: !!on, marketing_opt_in_at: on ? new Date().toISOString() : null } }, 'profiles');
-  if (r.ok) try { localStorage.setItem(mktKnownKey(), on ? '1' : '0'); } catch (e) {}
+  if (r.ok) account.mkt = !!on;
   return { ok: r.ok };
+}
+async function loadMarketing() {   // v8.34: real saved value via my_marketing_opt_in() (own row only)
+  account.mkt = null;
+  const r = await sb('/rest/v1/rpc/my_marketing_opt_in', { method: 'POST', body: {} }, 'mkt');
+  if (r.ok) account.mkt = r.data === true;
+  return r;
 }
 /* ---- profile / username ---- */
 async function loadProfile() {
@@ -560,7 +566,7 @@ async function saveUsername(name, marketing) {
     return { ok: false, msg: code === '23505' ? 'NAME TAKEN' : code === '23514' ? 'NAME NOT ALLOWED' : 'COULD NOT SAVE NAME' };
   }
   account.profile = { username: name, marketing_opt_in: !!marketing };
-  try { localStorage.setItem(mktKnownKey(), marketing ? '1' : '0'); localStorage.removeItem(MKT_PENDING); } catch (e) {}
+  try { account.mkt = !!marketing; localStorage.removeItem(MKT_PENDING); } catch (e) {}
   saveSession();
   return { ok: true };
 }
@@ -2300,6 +2306,7 @@ const GAME_STATES = ['intro', 'aim', 'power', 'accuracy', 'swing', 'flight', 'pe
 const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
 const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
+const HSHARE_BTN = { x: 190, y: 0, w: 20, h: 22 };   // v8.34
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
 let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;
@@ -2327,6 +2334,7 @@ function layoutChrome() {
   FS_BTN.x = W - tap - sr - pad; FS_BTN.y = st + pad;
   GEAR_BTN.w = tap; GEAR_BTN.h = tap;
   GEAR_BTN.x = FS_BTN.x - tap - gap; GEAR_BTN.y = FS_BTN.y;
+  HSHARE_BTN.w = tap; HSHARE_BTN.h = tap; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; HSHARE_BTN.y = FS_BTN.y;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
   HUD_Y0 = PLAY_H;
@@ -2828,6 +2836,27 @@ function drawFsButton() {   // title screen, top-right (glyph centered in ≥44 
              rect(x + 2, y + 11, 4, 1, c); rect(x + 2, y + 8, 1, 4, c); rect(x + 8, y + 11, 4, 1, c); rect(x + 11, y + 8, 1, 4, c); }
   else { rect(x + 4, y + 2, 1, 4, c); rect(x + 2, y + 5, 3, 1, c); rect(x + 9, y + 2, 1, 4, c); rect(x + 9, y + 5, 3, 1, c);
          rect(x + 4, y + 8, 1, 4, c); rect(x + 2, y + 8, 3, 1, c); rect(x + 9, y + 8, 1, 4, c); rect(x + 9, y + 8, 3, 1, c); }
+}
+function drawHomeShareButton() {   // v8.34: pixel share glyph (three linked dots)
+  const x = HSHARE_BTN.x + Math.floor((HSHARE_BTN.w - 14) / 2), y = HSHARE_BTN.y + Math.floor((HSHARE_BTN.h - 14) / 2), c = COL.white;
+  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  rect(x + 9, y + 2, 3, 3, c); rect(x + 2, y + 6, 3, 3, c); rect(x + 9, y + 9, 3, 3, c);
+  rect(x + 5, y + 6, 1, 1, c); rect(x + 6, y + 5, 1, 1, c); rect(x + 7, y + 4, 1, 1, c); rect(x + 8, y + 4, 1, 1, c);
+  rect(x + 5, y + 8, 1, 1, c); rect(x + 6, y + 9, 1, 1, c); rect(x + 7, y + 10, 1, 1, c); rect(x + 8, y + 10, 1, 1, c);
+}
+const HOME_SHARE = { title: 'Dumb Luck Golf', text: 'Come shank some balls with me in Dumb Luck Golf! \u26f3', url: 'https://dumbluckgolf.com/' };
+function shareHome() {   // v8.34: Web Share when available, else copy the link
+  SFX.click();
+  const copy = () => {
+    const done = () => showToast(['LINK COPIED!'], 2200), fail = () => showToast(['DUMBLUCKGOLF.COM'], 3000);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(HOME_SHARE.url).then(done, () => { legacy() ? done() : fail(); }); return 'clipboard'; }
+    } catch (e) {}
+    if (legacy()) done(); else fail(); return 'legacy';
+  };
+  const legacy = () => { try { const t = document.createElement('textarea'); t.value = HOME_SHARE.url; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;left:-9999px;top:0'; document.body.appendChild(t); t.select(); const ok = document.execCommand('copy'); t.remove(); return ok; } catch (e) { return false; } };
+  if (navigator.share) { try { navigator.share(HOME_SHARE).catch(err => { if (!err || err.name !== 'AbortError') copy(); }); return 'share'; } catch (e) {} }
+  return copy();
 }
 function drawGearButton() {   // title settings gear, left of the fullscreen icon
   const x = GEAR_BTN.x + Math.floor((GEAR_BTN.w - 14) / 2), y = GEAR_BTN.y + Math.floor((GEAR_BTN.h - 14) / 2), c = COL.white;
@@ -3865,7 +3894,7 @@ cv.addEventListener('pointermove', e => {
     else if (hitTlbArrow(p, a.next)) tlbArrow = 'next';
   }
   tlbHover = state === 'title' && !menuPopup && !tlbArrow && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
   if (e.pointerType === 'mouse') { if (!inLoftCtl(p)) aimAt(wp.x, wp.y); }   // v8.25: hovering the loft buttons must not re-aim
@@ -3922,6 +3951,9 @@ cv.addEventListener('pointerdown', e => {
   }
   if (state === 'card' && hitBtn(p, LB_BTN)) {
     armUiTap('lb', () => { if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
+  }
+  if (state === 'title' && !menuPopup && hitBtn(p, HSHARE_BTN)) {   // v8.34: never starts the game
+    armUiTap('hshare', () => shareHome(), (up) => hitBtn(toLogical(up), HSHARE_BTN), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && hitBtn(p, GEAR_BTN)) {
     armUiTap('gear', () => openSettings('title'), (up) => hitBtn(toLogical(up), GEAR_BTN), e); touchDown = null; return;
@@ -5606,7 +5638,7 @@ function renderCard() {
 }
 function render() {
   renderScene();
-  if (state === 'title') { drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
+  if (state === 'title') { drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
   drawClubButton();
@@ -6080,9 +6112,8 @@ const VIEWS = {
     '<form data-f="username" novalidate><label for="aUser">USERNAME</label><div class="row"><input id="aUser" type="text" maxlength="12" autocomplete="nickname" autocapitalize="off" spellcheck="false" value="' + esc(acctOpts.draft || '') + '"></div>' +
     '<label class="chk mkt"><input id="aMkt" type="checkbox"' + ((account.marketing != null ? account.marketing : mktPending() != null ? mktPending() : detectUS()) ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
     '<button class="btn" type="submit">SAVE USERNAME</button></form><div class="msg"></div>',
-  prefs: () => { const k = mktKnown(); return head('SETTINGS') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><form data-f="prefs" novalidate>' +
+  prefs: () => { if (acctOpts.loading) return head('SETTINGS') + '<p class="empty">LOADING...</p>'; const k = account.mkt; return head('SETTINGS') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><form data-f="prefs" novalidate>' +
     '<label class="chk mkt"><input id="aMkt" type="checkbox"' + (k ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
-    (k == null ? '<p class="sub">YOUR CURRENT CHOICE ISN\'T SAVED ON THIS DEVICE. SAVE TO SET IT.</p>' : '') +
     '<button class="btn" type="submit">SAVE</button></form><div class="msg"></div>'; },
   friends: () => {
     const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
@@ -6145,6 +6176,7 @@ async function showAcct(view, opts) {
     if (view === 'adminLog') await adminLoadAudit();
     if (acctView !== view) return;
   }
+  if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
   if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadH2H()]); if (acctView !== 'friends') return; }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
@@ -6233,7 +6265,7 @@ if (acctEl) {
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, detectUS, mktKnown, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
@@ -6382,7 +6414,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {
+  window.__golf = { get hshare() { return Object.assign({}, HSHARE_BTN); }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
