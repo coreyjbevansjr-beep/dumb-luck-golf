@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.25">
+<meta name="dlg-version" content="v8.26">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -108,7 +108,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.25';
+const GAME_VERSION = 'v8.26';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -174,6 +174,7 @@ function safeCssInsets() {
   return { t, r, b, l };
 }
 let SAFE = { t: 0, r: 0, b: 0, l: 0 };   // logical-px safe insets (chrome offsets)
+const LOFT_BAND = () => Math.max(26, Math.ceil(44 / Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H)))) + 4;
 function resize() {
   const { aw, ah } = viewportCssSize();
   const aspect = aw / ah, design = GW / GH;
@@ -193,7 +194,7 @@ function resize() {
   }
   W = lw; H = lh;
   // HUD docks at the bottom (design HUD = 54px). Extra tall height → sky above + dirt under the fairway.
-  const HUD_H = 54;
+  const HUD_H = H > W * 1.15 && H >= 380 ? 54 + LOFT_BAND() + SAFE.b : 54;   // v8.26: portrait adds the loft band below meter + club
   PLAY_H = Math.max(PLAY0, H - HUD_H);
   const dirtBand = PLAY0 - BASE0;            // 14px dirt under tee line (original framing)
   const extraPlay = Math.max(0, PLAY_H - PLAY0);
@@ -1476,7 +1477,7 @@ let paused = false, ov = null, ovRects = [], fsArmed = false, shareArmed = false
 let roundTip = false, tipOkR = { x: 0, y: 0, w: 88, h: 24 };   // hole-1 power-meter tip (stays until OK)
 const GAME_STATES = ['intro', 'aim', 'power', 'accuracy', 'swing', 'flight', 'penalty', 'holed', 'done'];
 const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
-const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 };   // v8.25 on-screen loft buttons
+const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
@@ -1507,8 +1508,6 @@ function layoutChrome() {
   GEAR_BTN.x = FS_BTN.x - tap - gap; GEAR_BTN.y = FS_BTN.y;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
-  LOFT_UP.w = LOFT_DN.w = tap; LOFT_UP.h = LOFT_DN.h = tap;   // v8.25: LOFT label, up button, angle, down button
-  LOFT_UP.x = LOFT_DN.x = PAUSE_BTN.x; LOFT_UP.y = PAUSE_BTN.y + tap + gap + 10; LOFT_DN.y = LOFT_UP.y + tap + 11;
   HUD_Y0 = PLAY_H;
   // mini scorecard fully on-screen top-right (pause owns the top-left)
   MC.w = 3 + MC.lw + 9 * MC.cw + 2 + MC.tw + 2; MC.h = 29;
@@ -1704,6 +1703,19 @@ function layoutChrome() {
     CLUB_BTN.x = cx0; CLUB_BTN.w = Math.max(40, cx1 - cx0);
     CLUB_BTN.y = HUD_Y0 + 28; CLUB_BTN.h = 24;       // same band as the meter box
     // dead-zone: never left of the meter edge (meter taps still swing), up over the TOTAL/TEE cells, down to the screen edge
+    // v8.26 loft pill [UP | angle | DOWN], styled like the club button
+    {
+      const tapW = Math.max(26, Math.ceil(44 / cssSy)), port = H - HUD_Y0 > 60;
+      if (port) {   // portrait: own band under the club button, same width as it
+        LOFT_PILL.x = CLUB_BTN.x; LOFT_PILL.w = CLUB_BTN.w; LOFT_PILL.y = HUD_Y0 + 55; LOFT_PILL.h = Math.min(tapW, H - (SAFE.b || 0) - LOFT_PILL.y - 1);
+      } else {      // wide: right of the club button + TEE column, spanning HUD rows 2-3
+        LOFT_PILL.x = CLUB_BTN.x + CLUB_BTN.w + 4; LOFT_PILL.y = HUD_Y0 + 15; LOFT_PILL.h = 37;
+        LOFT_PILL.w = Math.min(tapW * 2 + 30, W - sr - 2 - LOFT_PILL.x);
+      }
+      const aw = Math.min(tapW, Math.floor((LOFT_PILL.w - 20) / 2));
+      Object.assign(LOFT_UP, { x: LOFT_PILL.x, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
+      Object.assign(LOFT_DN, { x: LOFT_PILL.x + LOFT_PILL.w - aw, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
+    }
     CLUB_PAD.x = meterR + 1; CLUB_PAD.y = CLUB_BTN.y - clubGap;
     CLUB_PAD.w = Math.min(W, CLUB_BTN.x + CLUB_BTN.w + clubGap) - CLUB_PAD.x;
     CLUB_PAD.h = Math.max(CLUB_BTN.h, H - CLUB_PAD.y);
@@ -1796,7 +1808,7 @@ const HELP_TEXT = [
   '-TAP AGAIN TO SET YOUR POWER. MORE POWER = MORE DISTANCE.',
   '-THE MARKER SLIDES BACK. TAP A THIRD TIME INSIDE THE SWEET ZONE BRACKETS FOR A CLEAN, STRAIGHT HIT.',
   '-TOO EARLY = SLICE (HIGH AND SHORT). TOO LATE = HOOK (LOW AND RUNNING).',
-  '-CHANGE THE LAUNCH ANGLE (LOFT) WITH THE LOFT ARROWS AT THE LEFT, UP/DOWN KEYS, THE MOUSE, OR BY DRAGGING UP OR DOWN.',
+  '-CHANGE THE LAUNCH ANGLE (LOFT) WITH THE LOFT ARROWS NEXT TO THE CLUB BUTTON, UP/DOWN KEYS, THE MOUSE, OR BY DRAGGING UP OR DOWN.',
   '',
   '#CLUBS',
   '-PICK BY DISTANCE: DRIVER GOES FARTHEST, THEN HYBRID, IRON, 9 IRON AND WEDGE.',
@@ -1925,23 +1937,29 @@ function drawOverlay() {
   const hint = isTouchUi() ? (pause ? 'TAP TO RESUME' : 'TAP TO CHANGE') : pause ? 'ESC/P = RESUME' : 'ENTER = CHANGE  ESC = BACK';
   drawTextC(hint, y + h + 6, COL.gray);
 }
-const loftShown = () => state === 'aim' && !paused && !ov && !roundTip && hole && clubIdx !== PUTT_I;
-const inLoftCtl = p => loftShown() && (hitBtn(p, LOFT_UP) || hitBtn(p, LOFT_DN) || hit(p, { x: LOFT_UP.x, y: LOFT_UP.y - 10, w: LOFT_UP.w, h: LOFT_DN.y + LOFT_DN.h - LOFT_UP.y + 10 }));
-function drawLoftControl() {   // v8.25: always-visible loft control while aiming (not for the putter)
+const loftShown = () => state === 'aim' && !paused && !ov && !roundTip && hole && clubIdx !== PUTT_I && LOFT_PILL.w >= 60;
+const inLoftCtl = p => loftShown() && hit(p, LOFT_PILL);
+function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bottom HUD, club-button style (hidden for the putter)
   if (!loftShown()) return;
-  const YEL = '#f8d878', cx = LOFT_UP.x + LOFT_UP.w / 2;
-  const btn = (r, up) => {
-    const on = loftHold === (up ? 'up' : 'down');
-    ctx.globalAlpha = 0.6; rect(r.x, r.y, r.w, r.h, on ? '#1c2c5c' : '#000'); ctx.globalAlpha = 1;
-    const bc = on ? YEL : COL.white;
-    rect(r.x, r.y, r.w, 1, bc); rect(r.x, r.y + r.h - 1, r.w, 1, bc); rect(r.x, r.y, 1, r.h, bc); rect(r.x + r.w - 1, r.y, 1, r.h, bc);
-    const tx = Math.round(cx), ty = Math.round(r.y + r.h / 2);
-    for (let i = 0; i < 6; i++) rect(tx - i, up ? ty - 3 + i : ty + 2 - i, i * 2 + 1, 1, on ? YEL : COL.white);   // pixel triangle
+  const P = LOFT_PILL, YEL = '#f8d878';
+  ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
+  const edge = (x, y, w, h, c) => { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); };
+  edge(P.x, P.y, P.w, P.h, COL.white);
+  const seg = (r, up) => {
+    const on = loftHold === (up ? 'up' : 'down'), c = on ? YEL : COL.white;
+    if (on) { ctx.globalAlpha = 0.7; rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, '#1c2c5c'); ctx.globalAlpha = 1; }
+    rect(up ? r.x + r.w - 1 : r.x, r.y + 3, 1, r.h - 6, COL.gray);   // divider
+    const tx = Math.round(r.x + r.w / 2), ty = Math.round(r.y + r.h / 2);
+    for (let i = 0; i < 5; i++) rect(tx - i, up ? ty - 3 + i : ty + 1 - i, i * 2 + 1, 1, c);
   };
-  outlined('LOFT', Math.round(cx - textW('LOFT') / 2), LOFT_UP.y - 9, YEL);
-  btn(LOFT_UP, true); btn(LOFT_DN, false);
-  const a = String(Math.round(angle));
-  outlined(a, Math.round(cx - textW(a) / 2), LOFT_UP.y + LOFT_UP.h + 2, angFlash > 0 ? YEL : COL.white);
+  seg(LOFT_UP, true); seg(LOFT_DN, false);
+  const a = String(Math.round(angle)), mid = LOFT_UP.x + LOFT_UP.w, mw = LOFT_DN.x - mid;
+  const big = textW(a, 2) + 4 <= mw && P.h >= 22, sc = big ? 2 : 1, tw = textW(a, sc) + 3;
+  const ax = Math.round(mid + (mw - tw) / 2), ay = Math.round(P.y + (P.h - 7 * sc) / 2) + (P.h >= 30 ? 3 : 0), col = angFlash > 0 ? YEL : COL.white;
+  drawText(a, ax, ay, col, sc, sc);
+  edge(ax + tw - 2, ay, 3, 3, col);   // degree ring
+  if (P.y >= HUD_Y0 + 50) drawTextR('LOFT ANGLE', P.x - 6, Math.round(P.y + (P.h - 7) / 2), COL.gray);   // portrait band label
+  if (P.h >= 30) drawText('LOFT', Math.round(mid + (mw - textW('LOFT')) / 2), P.y + 3, COL.gray);
 }
 function drawPauseButton() {   // top-left so it never clashes with the scorecard
   if (!GAME_STATES.includes(state) || paused) return;
@@ -3047,9 +3065,9 @@ cv.addEventListener('pointerdown', e => {
     if (hitBtn(p, PAUSE_BTN)) armUiTap('pause', () => pauseGame(), (up) => hitBtn(toLogical(up), PAUSE_BTN), e);
     touchDown = null; return;
   }
-  if (inLoftCtl(p)) {   // v8.25: on-screen loft buttons
+  if (inLoftCtl(p)) {   // v8.26: HUD loft pill (middle = dead zone, never swings)
     try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
-    const ak = hitBtn(p, LOFT_UP) ? 'up' : hitBtn(p, LOFT_DN) ? 'down' : null;
+    const ak = hit(p, LOFT_UP) ? 'up' : hit(p, LOFT_DN) ? 'down' : null;
     if (ak) { nudgeAngle(ak === 'up' ? 1 : -1); held[ak] = 0; loftHold = ak; try { cv.setPointerCapture(e.pointerId); } catch (err) {} }
     touchDown = null; return;
   }
@@ -5008,7 +5026,7 @@ if (/test/.test(location.hash)) {
     forceShot(c, a, p, dir = 1) { clubIdx = c; angle = a; facing = dir; shotFacing = dir; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); },
     // drive the real meter commit path: set power, then stop the accuracy marker at acc (0 = dead center)
     meterShot(power, acc, c = clubIdx) { if (state !== 'aim') return null; clubIdx = c; meter.power = power; setState('accuracy'); meter.acc = acc; commitAccuracy(acc); return { sweet: shotSweet, perfect: shotPerfect, err: errPx }; },
-    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel, scroll: ov.scroll, max: helpMax } : null; }, helpScroll(d) { helpScroll(d); }, get helpView() { return helpView && Object.assign({}, helpView); }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get pageBg() { return pageBgCol; }, get loftUp() { return Object.assign({}, LOFT_UP); }, get loftDn() { return Object.assign({}, LOFT_DN); }, get loftShown() { return !!loftShown(); }, get pageTop() { return pageTopCol; }, get clubYd() { return clubYards(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
+    get paused() { return paused; }, get ov() { return ov ? { kind: ov.kind, sel: ov.sel, scroll: ov.scroll, max: helpMax } : null; }, helpScroll(d) { helpScroll(d); }, get helpView() { return helpView && Object.assign({}, helpView); }, get settings() { return Object.assign({}, settings); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get SAFE() { return Object.assign({}, SAFE); }, get GEAR_BTN() { return Object.assign({}, GEAR_BTN); }, get FS_BTN() { return Object.assign({}, FS_BTN); }, openSettings(b) { openSettings(b || 'title'); }, forceSafe(css) { window.__dlgForceSafe = css || null; resize(); }, get pageBg() { return pageBgCol; }, get loftUp() { return Object.assign({}, LOFT_UP); }, get loftDn() { return Object.assign({}, LOFT_DN); }, get loftShown() { return !!loftShown(); }, get loftPill() { return Object.assign({}, LOFT_PILL); }, get hudY0() { return HUD_Y0; }, get pageTop() { return pageTopCol; }, get clubYd() { return clubYards(); }, get titleScenery() { return typeof drawTitleFairwayScenery === 'function'; },
     get stTime() { return st; }, get shortTarget() { const t = shortTarget(); return t ? t.p : null; }, get muted() { return muted; },
     forceLuck() { forceLuck = true; }, forcePin() { forcePin = true; }, get pinTried() { return !!(ball && ball.pinTried); }, shareData() { return makeShareCanvas().toDataURL('image/png'); }, shareScore() { return shareScore(); },
     get toast() { return toast ? toast.lines : null; }, set scoresForTest(v) { scores = v.slice(); },
