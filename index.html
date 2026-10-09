@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.31">
+<meta name="dlg-version" content="v8.32">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -162,7 +162,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.31';
+const GAME_VERSION = 'v8.32';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -508,7 +508,7 @@ async function authSetPassword(password) {   // after a recovery link (session f
 function signOut() {
   if (authOnline() && isSignedIn()) { try { fetch(authBase() + '/auth/v1/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {} }
   account.user = null; account.profile = null; account.status = '';
-  social.friends = []; social.matches = [];
+  social.friends = []; social.matches = []; social.h2h = null;
   if (typeof admin !== 'undefined') { admin.is = false; admin.unlock = false; admin.names = []; admin.checked = false; }
   saveSession();
 }
@@ -568,11 +568,19 @@ async function removeFriend(id) {
   const r = await sb('/rest/v1/friendships?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }, 'friends');
   await loadFriends(); return { ok: r.ok };
 }
+/* ---- v8.32 head-to-head record (server: my_h2h, caller's own completed matches) ---- */
+async function loadH2H() {
+  const r = await sb('/rest/v1/rpc/my_h2h', { method: 'POST', body: {} }, 'h2h');
+  if (r.ok && r.data && typeof r.data === 'object') { const d = r.data; social.h2h = { w: +d.w | 0, l: +d.l | 0, t: +d.t | 0, opp: {} }; (d.opponents || []).forEach(o => { social.h2h.opp[String(o.username).toLowerCase()] = { w: +o.w | 0, l: +o.l | 0, t: +o.t | 0 }; }); }
+  return r;
+}
+function h2hWith(username) { const o = social.h2h && social.h2h.opp[String(username || '').toLowerCase()]; return o ? o.w + '-' + o.l + '-' + o.t : ''; }
 /* ---- matches ---- */
 const MATCH_SIZES = [3, 9, 18];
 async function loadMatches() {
   const r = await sb('/rest/v1/my_matches?select=*&order=updated_at.desc&limit=30', {}, 'matches');
   social.matches = r.ok && Array.isArray(r.data) ? r.data : [];
+  if (r.ok) loadH2H();
   return r;
 }
 async function createMatch(friend, holes) {
@@ -5769,23 +5777,23 @@ function careerLayout() {
   if (isSignedIn()) {
     if (wide) {
       const colW = Math.min(184, Math.floor((W - 24) / 2)), gx = Math.round((W - colW * 2 - 8) / 2), top = st0 + 28;
-      L.card = { x: gx, y: top, w: colW, h: 84 };
-      L.tour = { x: gx, y: top + 88, w: colW, h: 62 };
-      L.fr = { x: gx + 8, y: top + 106, w: Math.floor((colW - 22) / 2), h: 26 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 26 };
-      L.grid = { x: gx + colW + 8, y: top, w: colW, h: 150 };
-      L.out = { x: gx + colW * 2 + 8 - 84, y: top + 156, w: 84, h: 18 };
-      L.adm = { x: gx, y: top + 155, w: 72, h: 20 };
+      L.card = { x: gx, y: top, w: colW, h: 100 };
+      L.tour = { x: gx, y: top + 104, w: colW, h: 62 };
+      L.fr = { x: gx + 8, y: top + 122, w: Math.floor((colW - 22) / 2), h: 26 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 26 };
+      L.grid = { x: gx + colW + 8, y: top, w: colW, h: 166 };
+      L.out = { x: gx + colW * 2 + 8 - 84, y: top + 172, w: 84, h: 18 };
+      L.adm = { x: gx, y: top + 171, w: 72, h: 20 };
       L.tileH = 26;
     } else {
       const w = Math.min(244, W - 12), x = Math.round((W - w) / 2);
-      const total = 84 + 6 + 176 + 6 + 62 + 30;
+      const total = 100 + 6 + 176 + 6 + 62 + 30;
       const top = Math.max(st0 + 30, Math.round((H - sb - total) / 2) - 6);
-      L.card = { x, y: top, w, h: 84 };
-      L.grid = { x, y: top + 90, w, h: 176 };
-      L.tour = { x, y: top + 272, w, h: 62 };
-      L.fr = { x: x + 8, y: top + 290, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
-      L.out = admin.is ? { x: x + w - 100, y: top + 342, w: 100, h: 20 } : { x: Math.round(W / 2 - 50), y: top + 342, w: 100, h: 20 };
-      L.adm = { x, y: top + 340, w: 76, h: 24 };
+      L.card = { x, y: top, w, h: 100 };
+      L.grid = { x, y: top + 106, w, h: 176 };
+      L.tour = { x, y: top + 288, w, h: 62 };
+      L.fr = { x: x + 8, y: top + 306, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
+      L.out = admin.is ? { x: x + w - 100, y: top + 358, w: 100, h: 20 } : { x: Math.round(W / 2 - 50), y: top + 358, w: 100, h: 20 };
+      L.adm = { x, y: top + 356, w: 76, h: 24 };
       L.tileH = 30;
     }
   } else {
@@ -5809,6 +5817,7 @@ function careerLayout() {
       L.signin = { x: Math.round(W / 2 - 90), y: top + 280, w: 180, h: 20 };
     }
   }
+  if (L.card) L.look = { x: L.card.x + 6, y: L.card.y + L.card.h - 21, w: L.card.w - 12, h: 16 };   // v8.32: own row, full width
   return L;
 }
 function careerFair() { return Math.max(Math.round(H * 0.84), H - 40 - (SAFE.b || 0)); }
@@ -5849,13 +5858,14 @@ function renderCareer() {
   // career card: golfer + name + DLG Tour rank + XP bar
   const C = L.card;
   czBoard(C.x, C.y, C.w, C.h, 0.9, false);
-  careerGolfer(C.x + 26, C.y + C.h - 12, 2);
+  careerGolfer(C.x + 26, C.y + 72, 2);
   const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
   if (isAdm) { const bx0 = tx + textW(name, nsc) + 4, by0 = C.y + 10 + (nsc === 2 ? 3 : 0); rect(bx0, by0 - 1, badgeW, 9, '#000'); rect(bx0, by0 - 1, badgeW - 1, 8, COL.orange); drawText('ADMIN', bx0 + 3, by0, '#000'); }
-  careerSoft('DLG TOUR', tx, C.y + 30, '#d0d8e8');
-  careerSoft(rk.name, tx + textW('DLG TOUR ') + 2, C.y + 30, CAREER_YEL);
+  const pipX = C.x + C.w - 10 - CAREER_RANKS.length * 6, fullW = textW('DLG TOUR ') + 2 + textW(rk.name);
+  if (tx + fullW + 4 <= pipX) { careerSoft('DLG TOUR', tx, C.y + 30, '#d0d8e8'); careerSoft(rk.name, tx + textW('DLG TOUR ') + 2, C.y + 30, CAREER_YEL); }
+  else careerSoft(rk.name, tx, C.y + 30, CAREER_YEL);
   for (let i = 0; i < CAREER_RANKS.length; i++) {   // rank pips
     const px = C.x + C.w - 10 - (CAREER_RANKS.length - i) * 6;
     rect(px, C.y + 30, 5, 7, '#000'); rect(px, C.y + 30, 4, 6, i <= rk.i ? CAREER_YEL : '#3c4c6c');
@@ -5867,7 +5877,9 @@ function renderCareer() {
   const xpTxt = unl ? 'TEST UNLOCK ON' : rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');
   careerSoft(xpTxt, bx, by + 12, COL.white);
   careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP RANK', bx, by + 24, '#d0d8e8');
-  { const el = 'EDIT LOOK >', on = pressDim('careerLook'); careerSoft(el, C.x + C.w - 6 - textW(el), by + 24, on || blink ? CAREER_YEL : '#fce4a0'); }   // v8.31
+  { const B = L.look, on = pressDim('careerLook') || (mouse.seen && !isTouchUi() && hitBtn(mouse, B));   // v8.32: EDIT LOOK button, own row
+    rect(B.x, B.y, B.w, B.h, '#000'); rect(B.x + 1, B.y + 1, B.w - 2, B.h - 2, on ? '#24406c' : '#183848'); rect(B.x + 1, B.y + 1, B.w - 2, 1, '#3c5c8c');
+    const el = 'EDIT LOOK'; careerSoftC(el, B.x + B.w / 2, B.y + Math.round((B.h - 7) / 2), on ? CAREER_YEL : COL.white); }
   // lifetime stats grid (2 x 5)
   const G = L.grid;
   czBoard(G.x, G.y, G.w, G.h, 0.9, false);
@@ -5905,6 +5917,9 @@ function renderCareer() {
     const turn = social.matches.filter(m => /YOUR TURN|NEW CHALLENGE/.test(matchLabel(m))).length;
     const req = social.friends.filter(f => f.status === 'pending' && f.direction === 'in').length;
     careerSoft('HEAD TO HEAD', T.x + 8, T.y + 7, COL.orange);
+    const R = social.h2h;   // v8.32: server-computed record (my_h2h)
+    if (R) { const n = R.w + R.l + R.t, rec = R.w + '-' + R.l + '-' + R.t + (n ? '  ' + Math.round(100 * (R.w + R.t / 2) / n) + '%' : '');
+      careerSoft(rec, T.x + T.w - 8 - textW(rec), T.y + 7, n ? COL.white : '#bcc8e0'); }
     careerButton(L.fr, req ? 'FRIENDS (' + req + ')' : 'FRIENDS', false, 'careerFr');
     careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
   }
@@ -5931,7 +5946,7 @@ function careerPointerDown(p, e) {   // returns true when handled
       if (hitBtn(p, L.signin)) { armUiTap('careerSignin', () => { SFX.click(); showAcct('login'); }, (up) => hitBtn(toLogical(up), careerLayout().signin), e); return true; }
       return true;
     }
-    if (hit(p, L.card)) { armUiTap('careerLook', () => { SFX.click(); openLookEditor(); }, (up) => hit(toLogical(up), careerLayout().card), e); return true; }
+    if (hitBtn(p, L.look) || hit(p, { x: L.card.x, y: L.card.y, w: 50, h: L.card.h })) { armUiTap('careerLook', () => { SFX.click(); openLookEditor(); }, (up) => { const q = toLogical(up), K = careerLayout(); return hitBtn(q, K.look) || hit(q, { x: K.card.x, y: K.card.y, w: 50, h: K.card.h }); }, e); return true; }
     if (hitBtn(p, L.fr)) { armUiTap('careerFr', () => { SFX.click(); showAcct(hasUsername() ? 'friends' : 'username', {}); }, (up) => hitBtn(toLogical(up), careerLayout().fr), e); return true; }
     if (hasUsername() && hitBtn(p, L.mt)) { armUiTap('careerMt', () => { SFX.click(); showAcct('matches'); }, (up) => hitBtn(toLogical(up), careerLayout().mt), e); return true; }
     if (admin.is && L.adm && hitBtn(p, L.adm)) { armUiTap('careerAdm', () => { SFX.click(); showAcct('admin'); }, (up) => hitBtn(toLogical(up), careerLayout().adm), e); return true; }
@@ -6044,7 +6059,7 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
   },
@@ -6100,7 +6115,7 @@ async function showAcct(view, opts) {
     if (view === 'adminLog') await adminLoadAudit();
     if (acctView !== view) return;
   }
-  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadFriends(); if (acctView !== 'friends') return; }
+  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadH2H()]); if (acctView !== 'friends') return; }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
   acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); acctEl.scrollTop = 0;
@@ -6186,13 +6201,13 @@ if (acctEl) {
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf,
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
 
 /* ================= CAREER v2: ghost ball + 'vs @name' chip (match rounds) ================= */
-function careerRefresh() { if (isSignedIn() && hasUsername() && authOnline()) { loadFriends(); loadMatches(); } }
+function careerRefresh() { if (isSignedIn() && hasUsername() && authOnline()) { loadFriends(); loadMatches(); loadH2H(); } }
 function drawGhost() {
   const G = ghostPlay && ghostPlay.hole; if (!G || !hole || courseKind !== 'match') return;
   if (G.holed && !G.anim) return;
