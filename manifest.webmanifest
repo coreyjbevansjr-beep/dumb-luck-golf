@@ -1,7 +1,7 @@
 {
   "name": "Dumb Luck Golf",
   "short_name": "DL Golf",
-  "description": "A free retro 9-hole golf game. Post your score on the leaderboard.",
+  "description": "A free retro pixel golf game: Front 9, Back 9, Full 18 and a Daily hole. Post your score on the leaderboard.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
