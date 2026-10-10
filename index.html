@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.35">
+<meta name="dlg-version" content="v8.36">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -114,6 +114,20 @@
   #acct .item .who.wr{white-space:normal;word-break:break-word}
   #acct .chk.mkt{align-items:flex-start;border:2px solid #3c4c6c;padding:10px;line-height:1.4}
   #acct .chk.mkt input{flex:none;margin-top:1px}
+  #acct textarea#fbText{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;letter-spacing:1px;line-height:1.4;padding:10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;border-radius:0;-webkit-appearance:none;appearance:none;resize:vertical;min-height:120px}
+  #acct textarea#fbText:focus{outline:2px solid #f8d878;outline-offset:1px}
+  #acct .fbcount{text-align:right;font-size:11px;letter-spacing:1px;color:#bcc8e0;margin-top:4px}
+  #acct .fbcount.full{color:#fc9838}
+  #acct .fbcat button{min-height:46px;font-size:15px}
+  #acct .fbbtns{display:flex;gap:10px;margin-top:14px}
+  #acct .fbbtns .btn{flex:1;margin-top:0}
+  #acct .btn.ghost{background:transparent;color:#fcfcfc;border:2px solid #fcfcfc}
+  #acct .fbthx{font-size:40px;text-align:center;margin:8px 0}
+  #acct .item.fb{align-items:flex-start}
+  #acct .item.fb .fbbody{color:#fcfcfc;margin:6px 0;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.4}
+  #acct .item.fb small{color:#7c8cac;font-size:10px}
+  #acct .item.fb .acts{display:flex;flex-direction:column;gap:6px}
+  #acct .item.fb-resolved{opacity:.6}
 </style>
 </head>
 <body>
@@ -166,7 +180,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.35';
+const GAME_VERSION = 'v8.36';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -793,6 +807,20 @@ async function consumeAuthRedirect() {
   await loadProfile();
 }
 
+/* ---- v8.36 feedback box: insert-only through submit_feedback() ---- */
+function fbMeta() {
+  const m = { v: GAME_VERSION, device: trackDevice(), os: trackOs(), browser: trackBrowser(), screen: trackScreen(), standalone: trackStandalone() };
+  try { if (hole && GAME_STATES.includes(state)) { m.mode = String(courseKind || 'play'); m.hole = String((holeIdx | 0) + 1) + (hole.name ? ' ' + hole.name : ''); } } catch (e) {}
+  return m;
+}
+async function submitFeedback(cat, text, email) {
+  if (!authOnline()) return { ok: false, msg: "CAN'T REACH THE SERVER. TRY AGAIN LATER." };
+  const r = await sb('/rest/v1/rpc/submit_feedback', { method: 'POST', noAuth: !isSignedIn(), body: { p_category: cat, p_body: text, p_email: isSignedIn() ? null : (email || null), p_visitor: trackVisitorId(), p_meta: fbMeta() } }, 'feedback');
+  if (r.ok) return { ok: true };
+  const m = String((r.data && (r.data.message || r.data.hint)) || '');
+  return { ok: false, msg: /rate/.test(m) ? 'TOO MANY MESSAGES. PLEASE TRY AGAIN IN AN HOUR.' : /email/.test(m) ? 'THAT EMAIL LOOKS WRONG' : /banned/.test(m) ? "YOUR ACCOUNT CAN'T SEND FEEDBACK" : r.status === 0 ? "CAN'T REACH THE SERVER. TRY AGAIN LATER." : 'COULD NOT SEND. PLEASE TRY AGAIN.' };
+}
+
 /* ---- v8.30 admin (server decides: public.admin_whoami; nothing about admin is stored client-side) ---- */
 const admin = { is: false, names: [], checked: false, stats: null, scores: [], scoreSort: 'recent', players: [], audit: [], unlock: false };
 function isAdminUser(name) { return !!name && admin.names.some(n => n.toLowerCase() === String(name).replace(/^@/, '').toLowerCase()); }
@@ -817,6 +845,8 @@ async function adminLoadScores() {
 }
 async function adminLoadPlayers(qs) { const r = await adminRpc('admin_players', { p_query: qs || '' }); admin.players = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
 async function adminLoadAudit() { const r = await adminRpc('admin_audit_recent'); admin.audit = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
+
+async function adminLoadFeedback() { const r = await adminRpc('admin_feedback', { p_limit: 100 }); admin.feedback = r.ok && Array.isArray(r.data) ? r.data : []; return r; }   // v8.36
 
 /* ================= v8.31: golfer look (EDIT LOOK) + detailed sprite ================= */
 const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY'];
@@ -2571,7 +2601,7 @@ resize();   // boot: after chrome layout vars exist
 function settingsRows() {
   return [['SOUND', settings.sound ? 'ON' : 'OFF'], ['AIM LINE', settings.aim ? 'ON' : 'OFF'],
           ['HAPTICS', settings.haptics ? 'ON' : 'OFF'],
-          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['HOW TO PLAY', null], ['BACK', null]];   // v8.22: HOW TO PLAY page
+          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['HOW TO PLAY', null], ['FEEDBACK', null], ['BACK', null]];   // v8.22: HOW TO PLAY page
 }
 const ovCount = () => ov.kind === 'pause' ? PAUSE_ITEMS.length : ov.kind === 'help' ? 1 : settingsRows().length;
 function openSettings(back) { ov = { kind: 'settings', sel: 0, back, t: 0 }; SFX.click(); }
@@ -2603,6 +2633,7 @@ function ovActivate(i, dir = 1) {
   else if (i === 2) { settings.haptics = !settings.haptics; saveSettings(); SFX.click(); if (settings.haptics) hap(20); }
   else if (i === 3) { toggleFullscreen(); SFX.click(); }
   else if (i === 4) openHelp();   // v8.22
+  else if (i === 5) { SFX.click(); openFeedback(); }   // v8.36
   else ovBack();
 }
 function isTypingTarget(el) {
@@ -6048,6 +6079,8 @@ function hideAcct() {
 function acctMsg(t, ok) { const m = acctBox.querySelector('.msg'); if (m) { m.textContent = t || ''; m.classList.toggle('ok', !!ok); } }
 function acctBusy(on) { acctBox.querySelectorAll('button,input').forEach(b => { if (!b.classList.contains('back')) b.disabled = !!on; }); }
 const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
+let fbDraft = null;
+function openFeedback() { showAcct('feedback', Object.assign({ cat: 'idea' }, fbDraft || {})); setTimeout(() => { const t = document.getElementById('fbText'); if (t && !isTouchUi()) t.focus(); }, 50); }   // v8.36
 function head(title, back) { return '<div class="top"><button class="back" data-a="' + (back || 'close') + '">&lt; BACK</button><h2>' + title + '</h2><span style="width:66px"></span></div>'; }
 const pwField = (id, ac) => '<div class="pw"><input id="' + id + '" type="password" autocomplete="' + ac + '" minlength="8" autocapitalize="off" spellcheck="false"><button type="button" data-a="pwShow" data-for="' + id + '">SHOW</button></div>';
 const ADMIN_VIEWS = {
@@ -6064,7 +6097,8 @@ const ADMIN_VIEWS = {
     h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button></div>' +
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
       '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
-      '<button class="link" data-a="go:adminLog">ADMIN LOG</button>';
+      '<button class="link" data-a="go:adminLog">ADMIN LOG</button>' +
+      '<button class="link" data-a="go:adminFeedback">FEEDBACK' + ((admin.feedback || []).filter(f => f.status === 'new').length ? ' (' + admin.feedback.filter(f => f.status === 'new').length + ' NEW)' : '') + '</button>';
     return h;
   },
   adminScores: () => {
@@ -6083,9 +6117,26 @@ const ADMIN_VIEWS = {
     '<button class="btn" type="submit">' + (o.confirm ? 'CONFIRM: @' + esc(String(o.user).toUpperCase()) + ' → @' + esc(String(o.draft).toUpperCase()) : 'RENAME') + '</button></form><div class="msg"></div>',
   adminBan: o => head('BAN PLAYER', 'go:adminPlayers') + '<p class="big">' + at(o.user) + '</p><p class="sub">THEY CAN\'T POST SCORES, ADD FRIENDS OR PLAY MATCHES UNTIL UNBANNED.</p><form data-f="adminBan" novalidate><label for="aWhy">REASON (OPTIONAL)</label><input id="aWhy" type="text" maxlength="60" autocapitalize="off">' +
     '<button class="btn" type="submit" style="background:#fc9838">BAN @' + esc(String(o.user).toUpperCase()) + '</button></form><div class="msg"></div>',
+  adminFeedback: () => head('FEEDBACK', 'go:admin') + '<div class="msg"></div>' + ((admin.feedback || []).length ? '<div class="list">' + admin.feedback.map(f => {
+      const m = f.meta || {}, who = f.username ? at(f.username) : f.email ? esc(f.email) : 'GUEST';
+      const tag = { bug: '#fc7460', idea: '#58d854', other: '#3cbcfc' }[f.category] || '#bcc8e0', st = { new: '#f8d878', read: '#bcc8e0', resolved: '#58d854' }[f.status] || '#bcc8e0';
+      return '<div class="item fb fb-' + esc(f.status) + '"><div class="who wr"><span style="color:' + tag + '">' + esc(String(f.category).toUpperCase()) + '</span> <span style="color:' + st + '">' + esc(String(f.status).toUpperCase()) + '</span> · ' + fmtTs(f.created_at) + '<br>' + who +
+        (f.email && f.username ? ' · ' + esc(f.email) : '') + '<div class="fbbody">' + esc(f.body) + '</div><small>' + esc([m.v, m.mode, m.hole, m.device, m.os, m.browser, m.screen].filter(Boolean).join(' · ').toUpperCase()) + '</small></div>' +
+        '<div class="acts"><button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'new' ? 'read' : 'new') + '">' + (f.status === 'new' ? 'MARK READ' : 'MARK NEW') + '</button>' +
+        '<button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'resolved' ? 'read' : 'resolved') + '">' + (f.status === 'resolved' ? 'REOPEN' : 'RESOLVED') + '</button></div></div>';
+    }).join('') + '</div>' : '<p class="empty">NO FEEDBACK YET</p>'),
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
+const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
 const VIEWS = {
+  feedback: () => { const o = acctOpts, cat = o.cat || 'idea', t = o.text || '';
+    return head('FEEDBACK', 'fbClose') + '<p class="sub">FOUND A BUG OR HAVE AN IDEA? TELL US!</p><form data-f="feedback" novalidate>' +
+      '<label>TYPE</label><div class="seg fbcat">' + FB_CATS.map(([k, l]) => '<button type="button" data-a="fbcat" data-n="' + k + '" class="' + (k === cat ? 'on' : '') + '" aria-pressed="' + (k === cat) + '">' + l + '</button>').join('') + '</div>' +
+      '<label for="fbText">MESSAGE</label><textarea id="fbText" maxlength="500" rows="5" autocapitalize="sentences" placeholder="WHAT HAPPENED? WHAT WOULD MAKE IT BETTER?">' + esc(t) + '</textarea>' +
+      '<div class="fbcount"><span id="fbCount">' + t.length + '</span>/500</div>' +
+      (isSignedIn() ? '<p class="sub">WE\'LL REPLY TO YOUR ACCOUNT EMAIL IF NEEDED.</p>' : '<label for="fbEmail">REPLY EMAIL (OPTIONAL)</label><input id="fbEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" value="' + esc(o.email || '') + '">') +
+      '<div class="fbbtns"><button class="btn ghost" type="button" data-a="fbClose">CANCEL</button><button class="btn" type="submit">SEND</button></div></form><div class="msg"></div>'; },
+  fbThanks: () => head('THANKS!', 'fbClose') + '<p class="fbthx">⛳</p><p class="sub">THANKS FOR THE FEEDBACK! WE READ EVERY MESSAGE.</p><button class="btn" data-a="fbClose">BACK TO THE GAME</button>',
   signup: () => head('CREATE ACCOUNT') +
     '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
     '<form data-f="signup" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" value="' + esc(account.email) + '">' +
@@ -6176,6 +6227,7 @@ async function showAcct(view, opts) {
     if (view === 'adminScores') await adminLoadScores();
     if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
     if (view === 'adminLog') await adminLoadAudit();
+    if (view === 'adminFeedback' || view === 'admin') await adminLoadFeedback();
     if (acctView !== view) return;
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
@@ -6213,6 +6265,14 @@ if (acctEl) {
         const nm = val('aUser').trim().replace(/^@/, '');
         const a = await usernameAvailable(nm);
         if (!a.ok) acctMsg(a.msg); else { const mk = !!(document.getElementById('aMkt') && document.getElementById('aMkt').checked); account.marketing = mk; const r = await saveUsername(nm, mk); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+      } else if (f === 'feedback') {
+        const ta = document.getElementById('fbText'), t = ta.value.trim(), em = document.getElementById('fbEmail'), ev = em ? em.value.trim() : '';
+        acctOpts.text = ta.value; if (em) acctOpts.email = em.value;
+        if (!t) { acctMsg('PLEASE TYPE A MESSAGE'); ta.focus(); return; }
+        if (t.length > 500) { acctMsg('500 CHARACTERS MAX'); return; }
+        if (ev && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ev)) { acctMsg('THAT EMAIL LOOKS WRONG'); em.focus(); return; }
+        const r = await submitFeedback(acctOpts.cat || 'idea', t, ev);
+        if (!r.ok) acctMsg(r.msg); else { acctOpts.text = ''; showAcct('fbThanks', {}); }
       } else if (f === 'prefs') {
         const on = !!document.getElementById('aMkt').checked; const r = await saveMarketing(on); if (!r.ok) acctMsg('COULD NOT SAVE'); else showAcct('prefs', { msg: on ? 'SUBSCRIBED' : 'UNSUBSCRIBED', ok: true });
       } else if (f === 'adminSearch') {
@@ -6232,6 +6292,9 @@ if (acctEl) {
   acctEl.addEventListener('click', async e => {
     const b = e.target.closest('[data-a]'); if (!b) { if (e.target === acctEl) {} return; }
     const a = b.getAttribute('data-a'), id = b.getAttribute('data-id');
+    if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
+    if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
+    if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
     if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
     if (a.startsWith('go:')) { showAcct(a.slice(3), {}); return; }
     if (a === 'pwShow') { const i = document.getElementById(b.getAttribute('data-for')); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? 'SHOW' : 'HIDE'; } return; }
@@ -6262,12 +6325,13 @@ if (acctEl) {
     if (a === 'mresult') { showAcct('result', { id }); return; }
     if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
   });
-  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); hideAcct(); setState('career'); } e.stopPropagation(); });
+  acctEl.addEventListener('input', e => { if (e.target && (e.target.id === 'fbText' || e.target.id === 'fbEmail') && acctView === 'feedback') acctMsg(''); if (e.target && e.target.id === 'fbText') { const c = document.getElementById('fbCount'); if (c) { c.textContent = e.target.value.length; c.parentNode.classList.toggle('full', e.target.value.length >= 500); } } });
+  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks'; hideAcct(); if (!fb) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
@@ -6416,7 +6480,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = { get hshare() { return Object.assign({}, HSHARE_BTN); }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
+  window.__golf = { get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
