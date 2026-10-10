@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.38">
+<meta name="dlg-version" content="v8.39">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -192,7 +192,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.38';
+const GAME_VERSION = 'v8.39';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1127,14 +1127,14 @@ const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ac
 const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
 function careerBlank() {
   return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
-           best: { front: null, back: null, full: null, daily: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '' };
+           best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '' };
 }
 function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
 function careerClean(c) {
   const b = careerBlank();
   if (!c || typeof c !== 'object') return b;
   for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
-  for (const k of ['front', 'back', 'full', 'daily']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
+  for (const k of ['front', 'back', 'full', 'daily', 'coral']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
   if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
   if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
   if (c.look && typeof c.look === 'object') b.look = { skin: clamp(c.look.skin | 0, 0, SKINS.length - 1), shirt: clamp(c.look.shirt | 0, 0, SHIRTS.length - 1),
@@ -1640,6 +1640,108 @@ const THEMES = {
   night:  { sky: '#0c145c', hill: '#002850', hillL: '#004870', stars: true, dim: 'rgba(0,12,56,0.36)' },
   sunset: { sky: '#fc9868', hill: '#885828', hillL: '#a87838', sun: '#fce4a0', clouds: true }
 };
+/* ---- v8.39: new themes (CORAL CLIFFS + wild Daily backdrops). Backdrops are painted once into a cached canvas per theme/size. ---- */
+const SPR839 = (() => {
+  const S = (w, h, f) => { const c = mk(w, h), g = c.getContext('2d'), R = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(x, y, ww, hh); }; f(R, g); return c; };
+  const palm = S(40, 60, R => {
+    for (let y = 18; y < 60; y++) { const x = 18 + Math.round(Math.sin(y / 9) * 3); R(x - 1, y, 6, 1, '#000'); R(x, y, 4, 1, y % 5 ? '#a86c2c' : '#7c4c1c'); }
+    const fr = [[-16, 6], [-12, -4], [0, -8], [12, -4], [16, 6]];
+    for (const [dx, dy] of fr) for (let k = 0; k <= 10; k++) { const x = 20 + Math.round(dx * k / 10), y = 18 + Math.round(dy * k / 10 + (k * k) / 14); R(x - 2, y - 1, 5, 4, '#000'); }
+    for (const [dx, dy] of fr) for (let k = 0; k <= 10; k++) { const x = 20 + Math.round(dx * k / 10), y = 18 + Math.round(dy * k / 10 + (k * k) / 14); R(x - 1, y, 3, 2, k % 3 ? '#00a844' : '#58d854'); }
+    R(17, 17, 7, 5, '#000'); R(18, 18, 2, 2, '#7c4c1c'); R(21, 19, 2, 2, '#7c4c1c');
+  });
+  const lamp = S(14, 48, R => { R(5, 6, 4, 42, '#000'); R(6, 7, 2, 41, '#5c6c7c'); R(1, 2, 12, 6, '#000'); R(2, 3, 10, 3, '#3c4c5c'); R(3, 6, 8, 2, '#fce4a0'); R(3, 44, 8, 4, '#000'); });
+  const planter = S(30, 18, R => { R(0, 8, 30, 10, '#000'); R(1, 9, 28, 8, '#8c6c4c'); R(1, 9, 28, 2, '#ac8c64'); for (let x = 2; x < 28; x += 5) { R(x, 1, 5, 8, '#000'); R(x + 1, 2, 3, 7, x % 2 ? '#f83800' : '#58d854'); } });
+  const lander = S(30, 34, R => { R(4, 22, 2, 12, '#000'); R(24, 22, 2, 12, '#000'); R(1, 32, 7, 2, '#000'); R(22, 32, 7, 2, '#000'); R(6, 8, 18, 16, '#000'); R(7, 9, 16, 14, '#f8d878'); R(7, 9, 16, 3, '#fce4a0'); R(11, 12, 8, 6, '#000'); R(12, 13, 6, 4, '#3cbcfc'); R(13, 0, 2, 9, '#000'); R(14, 0, 1, 8, '#bcbcbc'); R(15, 1, 6, 4, '#000'); R(15, 1, 5, 3, '#fcfcfc'); R(16, 2, 3, 1, '#f83800'); });
+  const rocks = (a, b) => S(30, 14, R => { R(2, 5, 14, 9, '#000'); R(3, 6, 12, 8, a); R(4, 6, 6, 2, b); R(14, 8, 14, 6, '#000'); R(15, 9, 12, 5, a); R(16, 9, 5, 1, b); });
+  const dead = S(30, 46, R => { R(13, 8, 5, 38, '#000'); R(14, 9, 3, 37, '#4c3c34'); R(4, 14, 10, 3, '#000'); R(5, 15, 9, 1, '#4c3c34'); R(4, 6, 3, 10, '#000'); R(17, 20, 10, 3, '#000'); R(17, 21, 9, 1, '#4c3c34'); R(24, 12, 3, 10, '#000'); R(10, 40, 11, 6, '#000'); });
+  const snowpine = S(34, 54, R => { R(14, 40, 6, 14, '#000'); R(15, 40, 4, 14, '#7c3c00');
+    for (let i = 0; i < 4; i++) { const y = 4 + i * 10, hw = 6 + i * 4; for (let k = 0; k < 12; k++) { const ww = Math.round(hw * k / 12) + 1; R(17 - ww - 1, y + k, ww * 2 + 2, 1, '#000'); R(17 - ww, y + k, ww * 2, 1, k < 3 ? '#fcfcfc' : '#006848'); } } });
+  const snowbush = S(36, 18, R => { R(2, 6, 32, 12, '#000'); R(3, 7, 30, 10, '#006848'); R(3, 6, 30, 4, '#fcfcfc'); R(8, 4, 20, 3, '#000'); R(9, 4, 18, 3, '#fcfcfc'); });
+  const banyan = oakSprite('#006830', '#20a040', '#004018');
+  return { palm, lamp, planter, lander, rocksG: rocks('#8c8c9c', '#c8c8d4'), rocksD: rocks('#3c3434', '#6c5c54'), dead, snowpine, snowbush, banyan };
+})();
+// one cached backdrop canvas per theme + play size (no per-frame column loop)
+function bdPaint(th) {
+  const w = 512, h = PLAY_H, hz = (isPortraitPlay() ? Math.max(28, Math.round(BASE - 42)) : 132) + 6;
+  const c = mk(w, h), g = c.getContext('2d'), R = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(ww), Math.round(hh)); };
+  const H1 = n => hash(n * 9973 + 17);
+  th.bg(R, w, h, hz, H1);
+  return c;
+}
+function drawBackdrop(th, cam) {
+  if (!th._bd || th._bdH !== PLAY_H || th._bdB !== BASE || th._bdW !== W) { th._bd = bdPaint(th); th._bdH = PLAY_H; th._bdB = BASE; th._bdW = W; }
+  let x = -Math.round(cam * 0.3) % 512; if (x > 0) x -= 512;
+  for (; x < W; x += 512) ctx.drawImage(th._bd, x, 0);
+}
+const seaBg = (sea, seaL, isle, boat) => (R, w, h, hz, H1) => {
+  // distant volcano island + smoke, then the open sea down to the bottom
+  for (let x = 0; x < 150; x++) { const t = Math.abs(x - 75) / 75, top = hz - 4 - Math.round((1 - t) * 34) + (x > 66 && x < 84 ? 6 : 0); R(300 + x, top, 1, hz - top, isle); if (x % 9 === 0) R(300 + x, top + 3, 1, 3, '#000'); }
+  for (let i = 0; i < 6; i++) R(370 + i * 3, hz - 48 - i * 6, 8 - i, 4, '#d8d8d8');
+  R(0, hz, w, h - hz, sea);
+  for (let y = hz + 3; y < h; y += 5) for (let x = (y * 7) % 23; x < w; x += 23 + (y % 3) * 6) R(x, y, 6, 1, seaL);
+  R(0, hz, w, 1, '#fcfcfc');
+  if (boat) { R(120, hz - 10, 1, 10, '#000'); R(112, hz - 9, 8, 7, '#fcfcfc'); R(121, hz - 7, 6, 5, '#fcfcfc'); R(110, hz - 1, 20, 3, '#000'); R(111, hz - 1, 18, 2, '#f83800'); }
+  if (boat === 'house') { R(40, hz - 40, 9, 40, '#000'); for (let y = 0; y < 38; y++) R(41, hz - 39 + y, 7, 1, (y >> 3) % 2 ? '#f83800' : '#fcfcfc'); R(39, hz - 46, 11, 7, '#000'); R(41, hz - 45, 7, 5, '#fce4a0'); }
+};
+Object.assign(THEMES, {
+  tropic: { sky: '#7cd4fc', clouds: true, bg: seaBg('#00a8c8', '#58e0f8', '#3c6c5c', true), tree: SPR839.palm, bush: BUSH, oak: SPR839.banyan,
+            C: Object.assign({}, COL, { water: '#3cdcf0', waterD: '#0898c8', sand: '#fcecb8', sandD: '#e0c080' }) },
+  tropicdusk: { sky: '#f8885c', sun: '#fce4a0', clouds: true, bg: seaBg('#884888', '#c86c9c', '#3c2c4c', true), tree: SPR839.palm, bush: BUSH, oak: SPR839.banyan,
+            C: Object.assign({}, COL, { water: '#3cdcf0', waterD: '#0898c8', sand: '#fcecb8', sandD: '#e0c080' }) },
+  city: { sky: '#9cdcfc', clouds: true, tree: SPR839.lamp, bush: SPR839.planter,
+    bg: (R, w, h, hz, H1) => {
+      for (let x = 0, i = 0; x < w; i++) { const bw = 18 + Math.floor(H1(i) * 22), top = hz - 50 - Math.floor(H1(i + 50) * 70); R(x, top, bw - 1, h - top, '#8ca4bc'); for (let y = top + 4; y < hz + 20; y += 6) for (let k = x + 3; k < x + bw - 4; k += 5) R(k, y, 2, 3, '#b4c8dc'); x += bw; }
+      for (let x = 0, i = 0; x < w; i++) { const bw = 22 + Math.floor(H1(i + 99) * 26), top = hz - 14 - Math.floor(H1(i + 150) * 46); R(x, top - 1, bw, 1, '#000'); R(x, top, bw - 2, h - top, '#4c5c74');
+        for (let y = top + 4; y < h; y += 7) for (let k = x + 3; k < x + bw - 5; k += 6) R(k, y, 3, 4, H1(k * 31 + y) < 0.35 ? '#fce4a0' : '#2c3c54');
+        if (H1(i + 7) < 0.3) { R(x + 6, top - 10, 2, 10, '#000'); R(x + 6, top - 12, 2, 2, '#f83800'); } x += bw; }
+      R(0, hz + 22, w, h - hz - 22, '#3c3c44'); for (let x = 0; x < w; x += 16) R(x, hz + 30, 8, 1, '#fce4a0');
+    },
+    C: Object.assign({}, COL, { grass: '#58b848', fair2: '#68c858', grassD: '#5c5c64', dirt: '#7c7c84', dirtD: '#3c3c44', dirtL: '#fce4a0', sand: '#c8c8c8', sandD: '#8c8c8c', water: '#585858', waterD: '#2c2c34' }) },
+  moon: { sky: '#04041c', stars: true, noMoon: true, tree: SPR839.lander, bush: SPR839.rocksG,
+    bg: (R, w, h, hz, H1) => {
+      const ex = 120, ey = hz - 90; for (let y = -14; y <= 14; y++) { const hw = Math.round(Math.sqrt(196 - y * y)); R(ex - hw, ey + y, hw * 2, 1, '#3c7cf8'); }
+      R(ex - 8, ey - 8, 7, 5, '#58d854'); R(ex + 2, ey - 2, 9, 7, '#58d854'); R(ex - 6, ey + 5, 5, 4, '#58d854'); R(ex - 12, ey - 12, 6, 2, '#fcfcfc');
+      for (let x = 0; x < w; x++) { const top = hz - 10 + Math.round(8 * Math.sin(x / 33) + 4 * Math.sin(x / 11 + 2)); R(x, top, 1, h - top, '#4c4c5c'); R(x, top, 1, 1, '#000'); }
+      for (let i = 0; i < 14; i++) { const cx = Math.floor(H1(i) * w), cy = hz + 8 + Math.floor(H1(i + 30) * 24), r = 3 + Math.floor(H1(i + 60) * 6); R(cx - r, cy, r * 2, 2, '#34343c'); R(cx - r + 1, cy + 2, r * 2 - 2, 1, '#6c6c7c'); }
+    },
+    C: Object.assign({}, COL, { grass: '#a8a8b0', fair2: '#9898a4', green: '#c8c8e8', green2: '#b4b4dc', grassD: '#787884', sand: '#585868', sandD: '#3c3c4c', dirt: '#5c5c68', dirtD: '#3c3c48', dirtL: '#7c7c88', water: '#2c2c40', waterD: '#0c0c18' }) },
+  lava: { sky: '#5c1c1c', tree: SPR839.dead, bush: SPR839.rocksD,
+    bg: (R, w, h, hz, H1) => {
+      for (let x = 0; x < 260; x++) { const t = Math.abs(x - 130) / 130, top = hz - Math.round((1 - t) * (1 - t * 0.3) * 90) + (x > 112 && x < 148 ? 10 : 0); R(120 + x, top, 1, h - top, '#3c2020'); R(120 + x, top, 1, 1, '#000');
+        if (x > 108 && x < 152 && (x % 7 < 3)) R(120 + x, top + 1, 1, 6 + Math.floor(H1(x) * 30), '#f83800'); }
+      for (let i = 0; i < 9; i++) R(244 + Math.floor(H1(i) * 30) - 15, hz - 110 - i * 9, 10 + i, 6, i % 2 ? '#6c4c4c' : '#4c3434');
+      for (let i = 0; i < 40; i++) R(Math.floor(H1(i + 9) * w), Math.floor(H1(i + 80) * (hz - 10)), 1, 1, '#fc9838');
+      for (let x = 0; x < w; x++) { const top = hz + 4 + Math.round(5 * Math.sin(x / 23)); R(x, top, 1, h - top, '#2c1818'); }
+    },
+    C: Object.assign({}, COL, { grass: '#6c8c3c', fair2: '#7c9c44', grassD: '#4c5c2c', dirt: '#3c2c2c', dirtD: '#1c1414', dirtL: '#5c3c34', water: '#fca044', waterD: '#f83800', white: '#fce4a0', sand: '#6c6c6c', sandD: '#3c3c3c' }) },
+  snow: { sky: '#b4dcfc', clouds: true, tree: SPR839.snowpine, bush: SPR839.snowbush,
+    bg: (R, w, h, hz, H1) => {
+      const peak = (cx, ht, hw, col, sh) => { for (let x = -hw; x <= hw; x++) { const top = hz - Math.round(ht * (1 - Math.abs(x) / hw)); R(cx + x, top, 1, h - top, x < 0 ? col : sh); if (top < hz - ht * 0.6) R(cx + x, top, 1, 3, '#fcfcfc'); R(cx + x, top, 1, 1, '#000'); } };
+      peak(80, 100, 90, '#c8d8f0', '#9cb8dc'); peak(260, 120, 110, '#d8e4f8', '#a4bce0'); peak(430, 90, 90, '#c8d8f0', '#9cb8dc');
+      for (let x = 0; x < w; x++) { const top = hz + 2 + Math.round(4 * Math.sin(x / 29)); R(x, top, 1, h - top, '#eef4fc'); }
+    },
+    C: Object.assign({}, COL, { grass: '#f0f4fc', fair2: '#dce8f8', grassD: '#b4cce8', sand: '#c8e8fc', sandD: '#88b8e0', dirt: '#8c9cb4', dirtD: '#5c6c84', dirtL: '#c8d4e4', water: '#9ce4fc', waterD: '#3c88c8' }) },
+  canyon: { sky: '#f8c890', sun: '#fce4a0', tree: CACTUS, bush: BUSH_DRY,
+    bg: (R, w, h, hz, H1) => {
+      for (let i = 0; i < 6; i++) { const x0 = Math.floor(i * 90 + H1(i) * 30), mw = 50 + Math.floor(H1(i + 9) * 40), top = hz - 30 - Math.floor(H1(i + 19) * 50);
+        R(x0 - 1, top - 1, mw + 2, h - top + 1, '#000'); R(x0, top, mw, h - top, '#b84c2c'); for (let y = top + 6; y < h; y += 9) R(x0, y, mw, 2, '#d8743c'); R(x0, top, mw, 2, '#e0844c'); }
+      for (let x = 0; x < w; x++) { const top = hz + 6 + Math.round(4 * Math.sin(x / 19)); R(x, top, 1, h - top, '#c8743c'); }
+    },
+    C: Object.assign({}, COL, { grass: '#a8a83c', fair2: '#b8b848', grassD: '#8c6c2c', dirt: '#b84c2c', dirtD: '#7c2810', dirtL: '#e0844c' }) },
+  pier: { sky: '#88d8fc', clouds: true, tree: SPR839.lamp, bush: SPR839.planter, bg: seaBg('#2c8cd8', '#7cc8fc', '#2c6c8c', 'house'),
+    C: Object.assign({}, COL, { grass: '#c8945c', fair2: '#b8844c', grassD: '#8c5c34', dirt: '#8c5c34', dirtD: '#5c3418', dirtL: '#ac7c4c', water: '#5cc8fc', waterD: '#1c78d8' }) },
+  park: { sky: '#63adff', clouds: true,
+    bg: (R, w, h, hz, H1) => {
+      const fx = 360, fy = hz - 56, fr = 46;   // ferris wheel
+      for (let a = 0; a < 64; a++) { const t = a / 64 * Math.PI * 2; R(fx + Math.cos(t) * fr, fy + Math.sin(t) * fr, 2, 2, '#5c5c74'); }
+      for (let k = 0; k < 8; k++) { const t = k / 8 * Math.PI * 2; for (let r = 0; r < fr; r += 3) R(fx + Math.cos(t) * r, fy + Math.sin(t) * r, 1, 1, '#8c8ca4'); R(fx + Math.cos(t) * fr - 3, fy + Math.sin(t) * fr, 7, 5, ['#f83800', '#f8d878', '#58d854', '#3cbcfc'][k % 4]); }
+      R(fx - 20, fy, 3, hz - fy + 10, '#5c5c74'); R(fx + 18, fy, 3, hz - fy + 10, '#5c5c74');
+      for (let x = 0; x < 300; x++) { const y = hz - 30 - Math.round(26 * Math.abs(Math.sin(x / 36))); R(x, y, 1, 3, '#f83800'); if (x % 18 === 0) R(x, y + 3, 2, hz - y, '#a8a8bc'); }
+      for (let i = 0; i < 5; i++) { const x0 = 40 + i * 96; for (let k = 0; k < 24; k++) R(x0 + k, hz - 14 + Math.abs(k - 12), 1, 24, k % 6 < 3 ? '#f83800' : '#fcfcfc'); }
+      R(0, hz + 8, w, h - hz - 8, '#008888');
+    } }
+});
 const themeOf = hl => THEMES[(hl && hl.theme) || 'day'] || THEMES.day;
 
 /* ---------------- course data ----------------
@@ -1782,6 +1884,72 @@ const DAILY_HOLES = [
     pts: [[0,'tee',12],[24,'rough',12],[46,'fair',10],[200,'fair',12],[278,'sand',10],[296,'green',10],[376,'rough',12],[410,'end',14]] }
 ];
 
+/* ================= v8.39: CORAL CLIFFS (career-only 9, signed-in players) =================
+   Tropical cliffside resort. Coastal wind, sea inlets, blowhole pads, a lighthouse windmill and tide-pool crabs. */
+const CORAL_HOLES = [
+ { name:'WELCOME BREAK', theme:'tropic', par:4, cup:352, pins:[338,352,368], wind:2, windR:[-3,4], deco:[['tree',30],['bush',120],['tree',236],['bush',300],['tree',410]],
+   pts:[[0,'tee',12],[24,'rough',12],[46,'fair',10],[150,'fair',14],[176,'water',10],[206,'fair',10],[290,'sand',10],[312,'fair',10],[324,'green',10],[386,'sand',10],[400,'rough',12],[440,'end',14]] },
+ { name:'BLOWHOLE', theme:'tropic', par:3, cup:152, pins:[140,152,166], wind:-2, windR:[-6,2], drop:104, deco:[['tree',-36],['tree',212],['bush',236]],
+   pads:[[108,118]],
+   pts:[[0,'tee',20],[24,'rough',18],[34,'water',10],[100,'rough',12],[126,'green',14],[180,'rough',14],[190,'water',10],[214,'rough',14],[250,'end',16]] },
+ { name:'CLIFF HANGER', theme:'tropic', par:4, cup:300, pins:[286,300,314], wind:4, windR:[1,7], deco:[['tree',26],['bush',110],['tree',190],['bush',280]],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[160,'fair',14],[206,'rough',18],[236,'fair',40],[262,'green',42],[330,'rough',42],[344,'water',8],[380,'end',10]] },
+ { name:'LONG LAGOON', theme:'tropic', par:5, cup:612, pins:[594,612,630], wind:3, windR:[-4,5], deco:[['tree',20],['bush',140],['tree',260],['tree',470],['bush',540],['tree',690]],
+   movers:[{ kind:'windmill', skin:'lighthouse', x:398, w:20, hBot:0, hTop:20, period:2.8, phase:0.2 }],
+   pts:[[0,'tee',10],[24,'rough',10],[44,'fair',10],[200,'fair',14],[236,'water',10],[262,'fair',12],[350,'fair',16],[450,'fair',14],[476,'sand',12],[496,'fair',12],[556,'sand',14],[574,'green',14],[650,'sand',14],[668,'rough',14],[710,'end',16]] },
+ { name:'BANYAN ALLEY', theme:'tropic', par:4, cup:338, pins:[322,338,354], wind:-3, windR:[-6,2], deco:[['oak',96],['tree',150],['oak',210],['bush',260],['tree',400]],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[140,'fair',12],[180,'rough',10],[196,'fair',10],[280,'sand',10],[302,'green',10],[372,'rough',10],[420,'end',14]] },
+ { name:'SHIPWRECK', theme:'tropic', par:3, cup:170, pins:[158,170,182], wind:3, windR:[-3,6], drop:136, deco:[['tree',-40],['tree',246]],
+   walls:[[198,0,12]],
+   pts:[[0,'tee',22],[24,'rough',20],[34,'water',10],[132,'rough',10],[144,'green',11],[196,'rough',11],[202,'water',10],[230,'rough',12],[262,'end',14]] },
+ { name:'TIDE POOLS', theme:'tropic', par:4, cup:326, pins:[312,326,342], wind:2, windR:[-4,5], deco:[['bush',40],['tree',180],['bush',250],['tree',380]],
+   movers:[{ kind:'slide', skin:'crab', x:226, w:12, hBot:0, hTop:12, period:2.6, phase:0.3, amp:18 }],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[120,'sand',9],[140,'fair',10],[200,'sand',10],[218,'fair',10],[262,'water',8],[278,'rough',10],[296,'green',10],[360,'sand',10],[376,'rough',12],[410,'end',14]] },
+ { name:'THE PLUNGE', theme:'tropicdusk', par:4, cup:432, pins:[416,432,448], wind:-3, windR:[-7,0], deco:[['tree',-26],['bush',110],['tree',240],['bush',370],['tree',480]],
+   pts:[[0,'tee',62],[26,'rough',60],[36,'rough',56],[56,'fair',14],[170,'fair',10],[220,'water',8],[244,'fair',10],[330,'fair',12],[384,'sand',12],[404,'green',12],[470,'rough',12],[510,'end',16]] },
+ { name:'VOLCANO VIEW', theme:'tropicdusk', par:5, cup:626, pins:[606,626,644], wind:2, windR:[-3,6], deco:[['tree',20],['bush',160],['tree',300],['bush',420],['tree',540],['tree',700]],
+   pads:[[506,520]],
+   pts:[[0,'tee',12],[24,'rough',12],[48,'water',8],[118,'rough',12],[132,'fair',12],[260,'fair',18],[300,'sand',20],[322,'fair',20],[460,'fair',24],[490,'water',16],[504,'rough',22],[524,'fair',30],[580,'green',34],[664,'sand',32],[682,'rough',32],[720,'end',34]] }
+];
+/* v8.39 WILD Daily rotation: new backdrops (city, moon, lava, snow, canyon, pier, theme park) */
+const DAILY_WILD = [
+  // Rooftop golf: tee off a skyscraper, a taxi and a bus run the street below, rooftop green
+  { id: 'city', name: 'RUSH HOUR', theme: 'city', par: 4, cup: 330, wind: 2,
+    deco: [['tree', 30], ['bush', 60], ['tree', 250], ['bush', 380]],
+    movers: [{ kind: 'slide', skin: 'taxi', x: 150, w: 18, hBot: 0, hTop: 10, period: 2.4, phase: 0, amp: 34 }, { kind: 'slide', skin: 'bus', x: 210, w: 26, hBot: 0, hTop: 16, period: 3.4, phase: 0.5, amp: 22 }],
+    pts: [[0,'tee',44],[22,'fair',44],[70,'fair',42],[96,'rough',30],[110,'rough',8],[250,'rough',8],[264,'fair',28],[286,'sand',30],[302,'green',30],[356,'sand',30],[372,'rough',30],[400,'end',32]] },
+  // Low gravity: everything flies ~1.6x as far; no air = no wind
+  { id: 'moon', name: 'LUNAR LANDING', theme: 'moon', par: 4, cup: 540, wind: 0, grav: 0.62, calm: true,
+    deco: [['tree', 40], ['bush', 160], ['tree', 330], ['bush', 600]],
+    pts: [[0,'tee',12],[24,'rough',12],[44,'fair',10],[160,'water',4],[190,'fair',12],[300,'fair',18],[350,'water',6],[378,'fair',14],[480,'sand',14],[506,'green',14],[580,'sand',14],[596,'rough',14],[640,'end',16]] },
+  // Island green in a lake of lava
+  { id: 'lava', name: 'LAVA LAKE', theme: 'lava', par: 3, cup: 176, wind: -2, drop: 146,
+    deco: [['tree', -40], ['bush', 30], ['tree', 250]],
+    pts: [[0,'tee',20],[22,'rough',18],[32,'water',8],[142,'rough',12],[152,'green',12],[200,'rough',12],[206,'water',8],[240,'rough',14],[270,'end',16]] },
+  // Downhill avalanche chute with a mogul field and an icy (fast) green
+  { id: 'snow', name: 'AVALANCHE RUN', theme: 'snow', par: 4, cup: 450, wind: -3,
+    deco: [['tree', -30], ['tree', 70], ['bush', 160], ['tree', 300], ['bush', 420]],
+    walls: [[260, 0, 10]],
+    pts: [[0,'tee',64],[22,'rough',62],[40,'fair',56],[130,'fair',26],[160,'fair',32],[180,'fair',22],[200,'fair',28],[220,'fair',18],[300,'fair',14],[392,'sand',12],[416,'green',12],[476,'sand',12],[492,'rough',14],[520,'end',16]] },
+  // Mesa to mesa over a river canyon; bank walls on the far rim
+  { id: 'canyon', name: 'CANYON LEAP', theme: 'canyon', par: 4, cup: 320, wind: 3, drop: 188,
+    deco: [['cactus', 30], ['cactus', 80], ['cactus', 300], ['bush', 360]],
+    walls: [[200, 0, 14]],
+    pts: [[0,'tee',40],[22,'rough',40],[40,'fair',40],[110,'fair',38],[122,'rough',30],[134,'water',-6],[182,'rough',30],[196,'fair',38],[270,'sand',38],[290,'green',38],[350,'sand',38],[366,'rough',38],[400,'end',40]] },
+  // Beach tee, carry the surf to a pier deck; the green is at the end of the pier
+  { id: 'pier', name: 'PIER PRESSURE', theme: 'pier', par: 3, cup: 206, wind: 4, drop: 128,
+    deco: [['tree', -30], ['tree', 140], ['bush', 260]],
+    walls: [[244, 0, 10]],
+    pts: [[0,'tee',14],[22,'sand',12],[44,'water',6],[120,'fair',16],[178,'green',16],[240,'fair',16],[248,'water',6],[280,'water',6],[300,'end',10]] },
+  // Roller-coaster hills, a coaster car crossing the dip and launch pads
+  { id: 'park', name: 'COASTER CRAZE', theme: 'park', par: 4, cup: 352, wind: -2,
+    deco: [['tree', 30], ['bush', 90], ['tree', 280], ['bush', 400]],
+    pads: [[176, 190]],
+    movers: [{ kind: 'slide', skin: 'coaster', x: 236, w: 20, hBot: 0, hTop: 14, period: 2.2, phase: 0.2, amp: 20 }],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[100,'fair',36],[140,'fair',10],[176,'fair',8],[200,'fair',30],[236,'fair',10],[280,'fair',14],[300,'sand',14],[318,'green',14],[390,'sand',14],[404,'rough',14],[430,'end',16]] }
+];
+DAILY_HOLES.push(...DAILY_WILD);
+
 let courseKind = 'front';          // 'front' | 'back' | 'full' | 'daily'
 let HOLES = FRONT_HOLES.slice();
 let TOTAL_PAR = HOLES.reduce((a, h) => a + h.par, 0);
@@ -1905,7 +2073,8 @@ function buildDailyHole(forceIdx) {
   const nudge = Math.floor(rng() * 17) - 8;
   def.cup = clamp(def.cup + nudge, 40, def.pts[def.pts.length - 1][0] - 40);
   def.wind = clamp(Math.round((rng() * 16) - 8), -14, 14);
-  const w = pickWeather(rng);
+  let w = pickWeather(rng);
+  if (src.calm) { def.wind = 0; w = Object.assign({}, WEATHERS[0]); }   // v8.39: no air on the moon
   if (w.id === 'sunset' && def.theme === 'day') def.theme = 'sunset';
   weather = w;
   dailyMeta = { date, practice: dailyAlreadyScored(date), scored: dailyAlreadyScored(date), srcName: src.name, designId: src.id, designIdx: idx };
@@ -1921,6 +2090,7 @@ function startCourse(kind) {
   weather = pickWeather();
   if (kind === 'front') setCourseHoles('front', FRONT_HOLES);
   else if (kind === 'back') setCourseHoles('back', BACK_HOLES);
+  else if (kind === 'coral') { if (!coralUnlocked()) return; setCourseHoles('coral', CORAL_HOLES); }   // v8.39: career course, signed-in players only
   else setCourseHoles('full', FRONT_HOLES.concat(BACK_HOLES));
   openCustomize('play');
 }
@@ -1932,6 +2102,7 @@ function scoreModeForSave() {
   if (courseKind === 'daily' && dailyMeta) return 'daily-' + dailyMeta.date;
   if (courseKind === 'back') return 'back9';
   if (courseKind === 'full') return 'full18';
+  if (courseKind === 'coral') return 'coral9';
   if (courseKind === 'match') return 'match';
   return 'front9';
 }
@@ -2003,12 +2174,14 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
   announce(label.replace(/\s+/g, ' ') + (reason ? '. ' + reason : ''));
 }
 
-const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'BACK'];
+const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'CORAL CLIFFS', 'BACK'];   // v8.39: CORAL CLIFFS = career course (signed in)
+const CS_BACK_I = 4, CS_N = 4, CS_CAREER_I = 3;
+function coralUnlocked() { try { return !!isSignedIn(); } catch (e) { return false; } }
 let courseSel = 0;
 /* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
-const COURSE_KINDS = ['front', 'back', 'full'];
-const COURSE_BEST_KEY = { front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18' };
-function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+const COURSE_KINDS = ['front', 'back', 'full', 'coral'];
+const COURSE_BEST_KEY = { front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9' };
+function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : i === 3 ? CORAL_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
 function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
 
 function compileHole(def) {
@@ -2031,6 +2204,7 @@ function compileHole(def) {
   hl.pads = (def.pads || []).map(([x0, x1]) => ({ x0, x1 }));
   hl.movers = (def.movers || []).map(m => { const o = Object.assign({ kind: 'slide', x: 0, w: 14, hBot: 0, hTop: 28, period: 2.5, phase: 0, amp: 40 }, m); o.g0 = groundH(hl, o.x); return o; });
   hl.drop = def.drop != null ? def.drop : null;
+  hl.grav = def.grav || 1;   // v8.39: low-gravity Daily (moon); every other hole stays 1
   return hl;
 }
 function onBouncePad(hl, x) {
@@ -2146,7 +2320,7 @@ function stepBallRaw(b, hl, wind, dt) {
   if (b.mode === 'air') {
     const px = b.x;
     if (!b.noWind) { const wa = wind * WIND_K * (b.windK || 1); b.vx += wa * (wa * b.vx < 0 ? WIND_HEAD : WIND_TAIL) * dt; }
-    b.vy -= G * dt;
+    b.vy -= G * (hl.grav || 1) * dt;
     b.x += b.vx * dt; b.h += b.vy * dt;
     if (b.x < -60 || b.x > hl.len + 60) return 'ob';
     if (hl.oaks && !b.hitTree) for (const o of hl.oaks) if (b.x > o.x0 && b.x < o.x1 && b.h < o.top && b.h > o.base - 2) {   // clipped the oak: drops near it
@@ -2210,7 +2384,7 @@ function stepBallRaw(b, hl, wind, dt) {
     if (s === 'ob') return 'ob';
     if (s === 'water') return 'water';
     const sp = SURF[s] || SURF.fair;
-    const ga = -G * slopeAt(hl, b.x) * (s === 'green' ? 0.4 : 0.8), fr = sp.dec * dt / Math.max(0.55, weather.rollMul || 1);   // rain → more friction / less roll
+    const ga = -G * (hl.grav || 1) * slopeAt(hl, b.x) * (s === 'green' ? 0.4 : 0.8), fr = sp.dec * dt / Math.max(0.55, weather.rollMul || 1);   // rain → more friction / less roll
     let v = b.vx + ga * dt;
     if (Math.abs(v) <= fr && Math.abs(ga) < sp.dec) {
       if (Math.abs(b.x - hl.cup) < (b.stopR || CUP_STOP_R)) { b.x = hl.cup; b.vx = 0; b.h = groundH(hl, b.x); return 'cup'; }   // stopping on the lip drops
@@ -2559,7 +2733,7 @@ function layoutChrome() {
     const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
     const top = SAFE.t || 0, bot = H - (SAFE.b || 0);
     const cardMin = Math.max(Math.ceil(44 / sy), 22), GAP = 4, PAD = 6;
-    const boardH = ch => PAD * 2 + 3 * ch + 2 * GAP;
+    const boardH = ch => PAD * 2 + CS_N * ch + (CS_N - 1) * GAP;
     CS_BACK_R = { x: 2 + (SAFE.l || 0), y: top + 2, w: 66, h: 22 };
     let bx, by, bw, ch, pv = null;
     if (portrait) {
@@ -2587,7 +2761,7 @@ function layoutChrome() {
       CS_HINT_Y = CS_FAIR + Math.max(3, Math.round((H - CS_FAIR - 7) / 2));
     }
     CS_BOARD = { x: bx, y: by, w: bw, h: boardH(ch) };
-    CS_CARDS = [0, 1, 2].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
+    CS_CARDS = [0, 1, 2, 3].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
     CS_PREV = pv;
   }
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
@@ -3795,6 +3969,7 @@ function finishRound() {
   cardInfo = { total, rel, newBest, mode, practice: !!practice, pendingMode: false };
   lastEntry = { name: player.name || 'PLAYER', strokes: total, to_par: rel, created_at: new Date().toISOString(), mode };
   if (courseKind === 'match') { saveWhere = 'device'; pendingSave = null; try { finishMatchRound(total); } catch (e) {} }   // career v2: match rounds go to the match, not the leaderboard
+  else if (courseKind === 'coral') { saveWhere = 'device'; pendingSave = null; }   // v8.39: career course counts toward career stats, not the public board
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
@@ -3802,7 +3977,7 @@ function finishRound() {
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
   try {   // career: every scored round (guest or signed in) — never practice replays or previews
-    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
+    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
       holes: scores.length, date: isDaily && dailyMeta ? dailyMeta.date : nyDateStr(), scored: !(NO_SAVE || practice) || courseKind === 'match' });
   } catch (e) {}
   try {
@@ -4034,11 +4209,11 @@ cv.addEventListener('pointerdown', e => {
     armUiTap('fs', () => toggleFullscreen(), (up) => hitBtn(toLogical(up), FS_BTN), e); touchDown = null; return;
   }
   if (state === 'course') {   // v8.16: course cards + '< BACK'
-    const hitCs = i => i === 3 ? hitBtn(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
-    for (const i of [0, 1, 2, 3]) {
+    const hitCs = i => i === CS_BACK_I ? hitBtn(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
+    for (const i of [0, 1, 2, 3, 4]) {
       if (!hitCs(i)) continue;
       courseSel = i;
-      armUiTap('course' + i, () => courseActivate(i), (up) => { const q = toLogical(up); return i === 3 ? hitBtn(q, CS_BACK_R) : hit(q, CS_CARDS[i]); }, e);
+      armUiTap('course' + i, () => courseActivate(i), (up) => { const q = toLogical(up); return i === CS_BACK_I ? hitBtn(q, CS_BACK_R) : hit(q, CS_CARDS[i]); }, e);
       break;
     }
     touchDown = null; return;
@@ -4491,6 +4666,7 @@ function scheduleWildlife(forceKind) {
   clearWildlife();
   if (!hole) return;
   if (forceKind) { beginWildlife(forceKind); return; }
+  if (['moon', 'lava', 'city'].includes(hole.theme)) return;   // v8.39
   if (Math.random() >= WILD_CHANCE) return;
   wildlife = { pending: true, delay: rnd(1.2, 4.5), kind: pickWildlifeKind(hole) };
 }
@@ -4683,7 +4859,7 @@ function wildSheetData(kind) {
   return c.toDataURL('image/png');
 }
 function drawCourse(hl, cam) {
-  const th = themeOf(hl), now = performance.now() / 1000;
+  const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
   rect(0, 0, W, PLAY_H, th.sky);
   if (weather && weather.id === 'rain') { ctx.globalAlpha = 0.12; rect(0, 0, W, PLAY_H, '#003868'); ctx.globalAlpha = 1; }
   if (weather && weather.id === 'sunset' && !th.sun) { ctx.globalAlpha = 0.18; rect(0, 0, W, PLAY_H, '#fc6838'); ctx.globalAlpha = 1; }
@@ -4693,19 +4869,19 @@ function drawCourse(hl, cam) {
   }
   if (th.stars) {   // stars + moon
     for (let i = 0; i < 46; i++) { const x = Math.floor(hash(i * 7 + 1) * W), y = Math.floor(hash(i * 13 + 5) * 118); if ((Math.floor(now * 2) + i) % 9) rect(x, y, 1, 1, i % 5 ? '#fcfcfc' : '#fcf0a0'); }
-    for (let y = -9; y <= 9; y++) { const hw = Math.round(Math.sqrt(81 - y * y)); rect(206 - hw, 30 + y, hw * 2, 1, '#fcfcd8'); }
-    rect(202, 26, 3, 2, '#d8d8a8'); rect(209, 33, 2, 2, '#d8d8a8'); rect(205, 35, 2, 1, '#d8d8a8');
+    for (let y = -9; y <= 9; y++) { const hw = Math.round(Math.sqrt(81 - y * y)); if (!th.noMoon) rect(206 - hw, 30 + y, hw * 2, 1, '#fcfcd8'); }
+    if (!th.noMoon) { rect(202, 26, 3, 2, '#d8d8a8'); rect(209, 33, 2, 2, '#d8d8a8'); rect(205, 35, 2, 1, '#d8d8a8'); }
   }
   // clouds (slow parallax)
   if (th.clouds) for (const [cx, cy] of CLOUDS) { let x = Math.round(cx - cam * 0.15) % 512; if (x < -40) x += 512; if (x < W) drawCloud(x, cy); }
-  // far hills (parallax)
-  for (let sx = 0; sx < W; sx++) {
+  // far hills (parallax); v8.39 themes with a painted backdrop draw one cached image instead
+  if (th.bg) drawBackdrop(th, cam); else for (let sx = 0; sx < W; sx++) {
     const wx = cam * 0.4 + sx;
     const hh = courseRidge(wx);
     rect(sx, hh, 1, PLAY_H - hh, th.hill); rect(sx, hh, 1, 1, '#000');
     if ((Math.floor(wx) * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, th.hillL);
   }
-  drawCart('course', cam * 0.4);
+  if (!th.bg) drawCart('course', cam * 0.4);
   // trees, bushes, cacti and the oak stand on the ground
   for (const [kind, dx] of hl.deco) {
     const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH, sx = Math.round(dx - cam);
@@ -4775,8 +4951,11 @@ function drawCourse(hl, cam) {
         const g0 = groundH(hl, m.x);
         const top = Math.round(BASE - (g0 + (m.hTop || 28)));
         const bot = Math.round(BASE - (g0 + (m.hBot || 0)));
+        if (m.skin) drawMoverSkin(m, sx, top, bot, t);   // v8.39: taxi / bus / crab / coaster car (same hit box)
+        else {
         rect(sx - Math.round(m.w / 2), top, m.w, Math.max(4, bot - top), '#000');
         rect(sx - Math.round(m.w / 2) + 1, top + 1, m.w - 2, Math.max(2, bot - top - 2), '#e45c10');
+        }
       }
     }
   }
@@ -4785,26 +4964,26 @@ function drawCourse(hl, cam) {
     const wx = Math.floor(cam) + sx;
     const s = surfAt(hl, wx), gh = groundH(hl, wx), gy = Math.round(BASE - gh);
     if (s === 'water') {
-      rect(sx, gy, 1, PLAY_H - gy, COL.waterD); rect(sx, gy, 1, 3, COL.water);
-      if (((wx + Math.floor(t * 6)) % 10) < 3) rect(sx, gy, 1, 1, COL.white);
-      if (((wx * 3 + Math.floor(t * 4)) % 23) === 0) rect(sx, gy + 6, 2, 1, COL.water);
+      rect(sx, gy, 1, PLAY_H - gy, C.waterD); rect(sx, gy, 1, 3, C.water);
+      if (((wx + Math.floor(t * 6)) % 10) < 3) rect(sx, gy, 1, 1, C.white);
+      if (((wx * 3 + Math.floor(t * 4)) % 23) === 0) rect(sx, gy + 6, 2, 1, C.water);
       continue;
     }
     // dirt under everything
-    rect(sx, gy, 1, PLAY_H - gy, COL.dirt);
-    for (let k = 0; k < 4; k++) { const yy = gy + 6 + Math.floor(hash(wx * 4 + k) * (PLAY_H - gy)); if (yy < PLAY_H) rect(sx, yy, 1, 1, k % 2 ? COL.dirtD : COL.dirtL); }
-    let top = COL.grass, depth = 4;
-    if (s === 'fair' || s === 'tee') top = ((wx >> 4) & 1) ? COL.grass : COL.fair2;
-    else if (s === 'green') { top = ((wx >> 3) & 1) ? COL.green : COL.green2; }
-    else if (s === 'rough' || s === 'ob') { top = COL.grassD; depth = 5; }
-    else if (s === 'sand') { top = COL.sand; depth = 5; }
+    rect(sx, gy, 1, PLAY_H - gy, C.dirt);
+    for (let k = 0; k < 4; k++) { const yy = gy + 6 + Math.floor(hash(wx * 4 + k) * (PLAY_H - gy)); if (yy < PLAY_H) rect(sx, yy, 1, 1, k % 2 ? C.dirtD : C.dirtL); }
+    let top = C.grass, depth = 4;
+    if (s === 'fair' || s === 'tee') top = ((wx >> 4) & 1) ? C.grass : C.fair2;
+    else if (s === 'green') { top = ((wx >> 3) & 1) ? C.green : C.green2; }
+    else if (s === 'rough' || s === 'ob') { top = C.grassD; depth = 5; }
+    else if (s === 'sand') { top = C.sand; depth = 5; }
     rect(sx, gy, 1, depth, top);
-    if (s === 'sand' && hash(wx * 13) < 0.3) rect(sx, gy + 1 + Math.floor(hash(wx) * 3), 1, 1, COL.sandD);
-    rect(sx, gy + depth, 1, 1, COL.dirtD);
+    if (s === 'sand' && hash(wx * 13) < 0.3) rect(sx, gy + 1 + Math.floor(hash(wx) * 3), 1, 1, C.sandD);
+    rect(sx, gy + depth, 1, 1, C.dirtD);
     rect(sx, gy - 1, 1, 1, '#000');
     if (s === 'rough' || s === 'ob') {           // tall grass tufts
       const bh = 1 + Math.floor(hash(wx * 7 + 3) * 5);
-      if (wx % 2 === 0) { rect(sx, gy - 1 - bh, 1, bh, COL.grassD); rect(sx, gy - 2 - bh, 1, 1, '#000'); if (bh > 2) rect(sx, gy - bh, 1, 1, COL.grass); }
+      if (wx % 2 === 0) { rect(sx, gy - 1 - bh, 1, bh, C.grassD); rect(sx, gy - 2 - bh, 1, 1, '#000'); if (bh > 2) rect(sx, gy - bh, 1, 1, C.grass); }
     }
   }
   // tee sign: DLG + hole number
@@ -4826,6 +5005,26 @@ function drawCourse(hl, cam) {
     text3(ctx, 'DLG', fx + 5, fgy - 26, COL.white);
   }
   if (th.dim) { ctx.fillStyle = th.dim; ctx.fillRect(0, 0, W, PLAY_H); }   // night: everything dims; golfer + ball are drawn after, so they pop
+}
+function drawMoverSkin(m, sx, top, bot, t) {
+  const w = m.w, x0 = sx - Math.round(w / 2), h = Math.max(6, bot - top), wheel = (x) => { rect(x - 2, bot - 3, 5, 4, '#000'); rect(x - 1, bot - 2, 3, 2, '#7c7c7c'); };
+  if (m.skin === 'taxi' || m.skin === 'bus') {
+    const body = m.skin === 'taxi' ? '#f8b800' : '#f83800', tp = m.skin === 'taxi' ? top + 4 : top;
+    rect(x0 - 1, tp - 1, w + 2, bot - tp - 1, '#000'); rect(x0, tp, w, bot - tp - 3, body);
+    if (m.skin === 'taxi') { rect(x0 + 4, top, w - 8, 5, '#000'); rect(x0 + 5, top + 1, w - 10, 3, '#9cdcfc'); for (let k = 0; k < w - 2; k += 4) rect(x0 + 1 + k, tp + 4, 2, 2, '#000'); rect(sx - 2, top - 2, 5, 2, '#fcfcfc'); }
+    else { for (let k = 2; k < w - 4; k += 6) { rect(x0 + k, top + 2, 4, 4, '#000'); rect(x0 + k + 1, top + 3, 2, 2, '#9cdcfc'); } rect(x0 + 1, top + 8, w - 2, 1, '#fcfcfc'); }
+    rect(x0 + w - 2, bot - 7, 2, 2, '#fce4a0'); wheel(x0 + 4); wheel(x0 + w - 5);
+  } else if (m.skin === 'crab') {
+    const cl = Math.floor(t * 4) % 2;
+    rect(x0, bot - 7, w, 6, '#000'); rect(x0 + 1, bot - 6, w - 2, 4, '#f83800'); rect(x0 + 3, bot - 9, 2, 3, '#000'); rect(x0 + w - 5, bot - 9, 2, 3, '#000');
+    rect(x0 - 3, bot - 9 - cl, 4, 4, '#000'); rect(x0 - 2, bot - 8 - cl, 2, 2, '#f87858'); rect(x0 + w - 1, bot - 9 - cl, 4, 4, '#000'); rect(x0 + w, bot - 8 - cl, 2, 2, '#f87858');
+    for (let k = 1; k < w - 1; k += 3) rect(x0 + k, bot - 2, 1, 2, '#000');
+    if (h > 12) { ctx.globalAlpha = 0.25; rect(x0, top, w, bot - top - 8, '#f83800'); ctx.globalAlpha = 1; }
+  } else {   // coaster car
+    rect(x0 - 1, top - 1, w + 2, h - 1, '#000'); rect(x0, top, w, h - 4, '#3c64b4'); rect(x0, top, w, 2, '#f8d878');
+    rect(x0 + 3, top - 5, 3, 5, '#000'); rect(x0 + w - 7, top - 5, 3, 5, '#000'); rect(x0 + 4, top - 4, 1, 3, '#fcd8a8'); rect(x0 + w - 6, top - 4, 1, 3, '#fcd8a8');
+    wheel(x0 + 3); wheel(x0 + w - 4);
+  }
 }
 function drawGolferV1(sx, gy, dir, ang, look = lookOf(player), pose = {}) {
   // feet at (sx, gy); facing dir; ang = club angle in degrees (screen space, facing right)
@@ -5828,14 +6027,14 @@ function renderCourseSelect() {
   const hoverOk = mouse.seen && !isTouchUi();
   // '< BACK' top-left (same as customize); lit when focused by keyboard (Up from FRONT 9) or hovered
   {
-    const br = CS_BACK_R, on = courseSel === 3 || (hoverOk && hitBtn(mouse, br));
+    const br = CS_BACK_R, on = courseSel === CS_BACK_I || (hoverOk && hitBtn(mouse, br));
     outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
   const t = 'CHOOSE COURSE';
   outlined(t, Math.round(CS_HEAD.x - textW(t, 2) / 2), CS_HEAD.y, YEL, 2);
   // preview follows the highlighted course (keeps the last one while BACK is focused)
-  const ci = courseSel < 3 ? courseSel : csPrevSel;
+  const ci = courseSel < CS_BACK_I ? courseSel : csPrevSel;
   if (ci !== csPrevSel || st < csPrevMark) { csPrevSel = ci; csPrevMark = st; }
   if (CS_PREV) drawCoursePreview(CS_PREV, ci);
   // board + course cards
@@ -5849,20 +6048,24 @@ function renderCourseSelect() {
     const twoLine = r.h >= 30, nameY = twoLine ? r.y + Math.round((r.h - 25) / 2) : r.y + Math.round((r.h - 14) / 2);
     const lx = r.x + 10 + (sel ? 12 : 0);
     if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
-    outlined(COURSE_ITEMS[i], lx, nameY, sel || hov ? YEL : COL.white, 2);
-    const sub = list.length + ' HOLES  PAR ' + par;
+    const lockC = i === CS_CAREER_I && !coralUnlocked();
+    outlined(COURSE_ITEMS[i], lx, nameY, lockC ? COL.gray : sel || hov ? YEL : COL.white, 2);
+    const sub = i === CS_CAREER_I ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER  ' + list.length + ' HOLES  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
+    if (lockC) { czPadlock(r.x + r.w - 14, r.y + Math.round(r.h / 2), COL.orange); if (!twoLine) drawText('SIGN IN', r.x + r.w - 26 - textW('SIGN IN'), nameY + 4, COL.orange); }
     if (twoLine) drawText(sub, lx, nameY + 18, sel ? COL.white : COL.gray);
     // personal best (right side): small BEST label over the score
     const val = pb === null ? '--' : fmtRel(pb), vcol = pb === null ? COL.grayD : pb <= 0 ? COL.lime : COL.orange;
     const vw = textW(val, 2), rx = r.x + r.w - 8;
-    if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
+    if (lockC) {}
+    else if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
     else outlined(val, rx - vw, nameY, vcol, 2);
   });
   if (!isTouchUi()) drawTextC('ENTER = SELECT   ESC = BACK', CS_HINT_Y, COL.white);
 }
 function courseActivate(i) {
   SFX.click();
-  if (i === 3) { setState('title'); return; }
+  if (i === CS_BACK_I) { setState('title'); return; }
+  if (i === CS_CAREER_I) { if (!coralUnlocked()) { showToast(['CORAL CLIFFS IS A CAREER COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('coral'); return; }
   startCourse(i === 0 ? 'front' : i === 1 ? 'back' : 'full');
 }
 
@@ -6635,7 +6838,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
