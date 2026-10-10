@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.36">
+<meta name="dlg-version" content="v8.37">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -128,6 +128,18 @@
   #acct .item.fb small{color:#7c8cac;font-size:10px}
   #acct .item.fb .acts{display:flex;flex-direction:column;gap:6px}
   #acct .item.fb-resolved{opacity:.6}
+  #acct .plink{background:none;border:0;padding:6px 0;min-height:44px;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer;text-align:left}
+  #acct .plink .chev{color:#3cbcfc}
+  #acct .fprof{display:flex;align-items:center;gap:12px;margin-top:6px}
+  #acct .fprof .fgolf{width:112px;height:112px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c}
+  #acct .fprof .big{text-align:left;margin:0 0 4px}
+  #acct .fprof .rank{font-size:12px;letter-spacing:1px;margin:0 0 6px;color:#bcc8e0}
+  #acct .fprof .rank b{color:#f8d878}
+  #acct .xpbar{height:8px;border:2px solid #3c4c6c;background:#0c1848}
+  #acct .xpbar i{display:block;height:100%;background:#58d854}
+  #acct .sub.l{text-align:left;margin-top:6px}
+  #acct .kpis.h2h b{color:#f8d878}
+  #acct .kpis.h2h{grid-template-columns:1fr 1fr}
 </style>
 </head>
 <body>
@@ -180,7 +192,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.36';
+const GAME_VERSION = 'v8.37';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -821,6 +833,13 @@ async function submitFeedback(cat, text, email) {
   return { ok: false, msg: /rate/.test(m) ? 'TOO MANY MESSAGES. PLEASE TRY AGAIN IN AN HOUR.' : /email/.test(m) ? 'THAT EMAIL LOOKS WRONG' : /banned/.test(m) ? "YOUR ACCOUNT CAN'T SEND FEEDBACK" : r.status === 0 ? "CAN'T REACH THE SERVER. TRY AGAIN LATER." : 'COULD NOT SEND. PLEASE TRY AGAIN.' };
 }
 
+/* ---- v8.37 friend profile (accepted friends only, server-checked) ---- */
+async function loadFriendProfile(username) {
+  const r = await sb('/rest/v1/rpc/friend_profile', { method: 'POST', body: { p_username: String(username || '') } }, 'fprof');
+  if (r.ok && r.data && typeof r.data === 'object') return { ok: true, data: r.data };
+  return { ok: false, msg: r.status === 0 ? "CAN'T REACH THE SERVER" : /not friends/.test(String(r.data && r.data.message)) ? 'ONLY FRIENDS CAN SEE THIS PROFILE' : 'COULD NOT LOAD PROFILE' };
+}
+
 /* ---- v8.30 admin (server decides: public.admin_whoami; nothing about admin is stored client-side) ---- */
 const admin = { is: false, names: [], checked: false, stats: null, scores: [], scoreSort: 'recent', players: [], audit: [], unlock: false };
 function isAdminUser(name) { return !!name && admin.names.some(n => n.toLowerCase() === String(name).replace(/^@/, '').toLowerCase()); }
@@ -1082,6 +1101,21 @@ function lookKey(e) {
   else if (k === 'r' || k === 'R') lookRandomize();
   else if ((k === 'Enter' || k === ' ') && !e.repeat) lookSave();
   return true;
+}
+
+/* ---- v8.37: render a golfer to an offscreen canvas (friend profile image + translucent match ghost) ---- */
+const GOLF_OFF = { cv: null };
+function golferCanvas(look, ang, pose, dir) {
+  if (!GOLF_OFF.cv) { GOLF_OFF.cv = document.createElement('canvas'); GOLF_OFF.cv.width = 72; GOLF_OFF.cv.height = 64; }
+  const cv2 = GOLF_OFF.cv, c2 = cv2.getContext('2d'); c2.clearRect(0, 0, 72, 64); c2.imageSmoothingEnabled = false;
+  const old = ctx; ctx = c2;
+  try { drawGolfer(36, 58, dir || 1, ang == null ? SWING_ADDR : ang, look, pose || {}); } finally { ctx = old; }
+  return cv2;
+}
+function golferImg(appearance, scale) {
+  const lk = lookOf(Object.assign({}, cleanLook(appearance || {})));
+  const src = golferCanvas(lk, SWING_ADDR, {}, 1), cx = 16, cy = 22, cw = 40, ch = 40, out = document.createElement('canvas'); out.width = cw * scale; out.height = ch * scale;   // crop around the golfer
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, cx, cy, cw, ch, 0, 0, out.width, out.height); return out.toDataURL();
 }
 
 /* ---- career data ---- */
@@ -5897,7 +5931,7 @@ function careerLayout() {
       const w = Math.min(236, W - 16), x = Math.round((W - w) / 2);
       const total = 100 + 96 + 30 + 34 + 40;
       const top = Math.max(st0 + 30, Math.round((H - sb - total) / 2) - 10);
-      L.golf = { cx: Math.round(W / 2), feet: top + 92, s: 3 };
+      L.golf = { cx: Math.round(W / 2), feet: top + 86, s: 3 };   // v8.37: clear of the TAP: EDIT LOOK hint + pitch box
       L.pitch = { x, y: top + 106, w, h: 92 };
       L.note = { cx: Math.round(W / 2), y: top + 206 };
       L.cta = { x: Math.round(W / 2 - 90), y: top + 234, w: 180, h: 26 };
@@ -6079,7 +6113,7 @@ function hideAcct() {
 function acctMsg(t, ok) { const m = acctBox.querySelector('.msg'); if (m) { m.textContent = t || ''; m.classList.toggle('ok', !!ok); } }
 function acctBusy(on) { acctBox.querySelectorAll('button,input').forEach(b => { if (!b.classList.contains('back')) b.disabled = !!on; }); }
 const val = id => { const e = document.getElementById(id); return e ? e.value : ''; };
-let fbDraft = null;
+let fbDraft = null, acctOpenAt = 0, acctLastCvUp = null;
 function openFeedback() { showAcct('feedback', Object.assign({ cat: 'idea' }, fbDraft || {})); setTimeout(() => { const t = document.getElementById('fbText'); if (t && !isTouchUi()) t.focus(); }, 50); }   // v8.36
 function head(title, back) { return '<div class="top"><button class="back" data-a="' + (back || 'close') + '">&lt; BACK</button><h2>' + title + '</h2><span style="width:66px"></span></div>'; }
 const pwField = (id, ac) => '<div class="pw"><input id="' + id + '" type="password" autocomplete="' + ac + '" minlength="8" autocapitalize="off" spellcheck="false"><button type="button" data-a="pwShow" data-for="' + id + '">SHOW</button></div>';
@@ -6173,9 +6207,24 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
+  },
+  friendProfile: o => {   // v8.37: accepted friends only (friend_profile() refuses anyone else)
+    const P = o.prof, back = head('PROFILE', 'go:friends');
+    if (o.loading) return back + '<p class="empty">LOADING...</p>';
+    if (!P) return back + '<div class="msg"></div>';
+    const r = careerRank(P.xp | 0), S = P.stats || {}, B = S.best || {}, H = P.h2h || {}, n = (H.w | 0) + (H.l | 0) + (H.t | 0);
+    const fmtB = v => v == null ? '--' : (v > 0 ? '+' + v : v === 0 ? 'E' : String(v));
+    const avg = S.nineHoles ? fmtB(Math.round(S.nineRel / S.nineHoles * 10) / 10) : '--';
+    const f = social.friends.find(x => x.status === 'accepted' && String(x.friend_username).toLowerCase() === String(P.username).toLowerCase());
+    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferImg(P.appearance, 4) + '"><div><p class="big">' + at(P.username) + '</p>' +
+      '<p class="rank">DLG TOUR <b>' + esc(r.name) + '</b></p><div class="xpbar"><i style="width:' + Math.round(r.frac * 100) + '%"></i></div><p class="sub l">' + (P.xp | 0) + ' XP' + (r.next ? ' · NEXT: ' + esc(r.next) : '') + '</p></div></div>' +
+      '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
+      '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
+      '<div><b>' + fmtB(B.full) + '</b>BEST 18</div><div><b>' + (S.birdies | 0) + '</b>BIRDIES</div><div><b>' + (S.eagles | 0) + '</b>EAGLES</div><div><b>' + (S.aces | 0) + '</b>HOLES-IN-ONE</div></div>' +
+      (f ? '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>' : '') + '<div class="msg"></div>';
   },
   challenge: o => {
     const f = social.friends.find(x => x.id === o.fid); const n = o.holes || 9;
@@ -6217,6 +6266,7 @@ const VIEWS = {
 };
 async function showAcct(view, opts) {
   if (!acctEl) return;
+  if (!acctEl.classList.contains('on')) acctOpenAt = performance.now();   // v8.37: swallow the ghost click from the tap that opened us
   if (ADMIN_VIEWS[view] && !VIEWS[view]) Object.assign(VIEWS, ADMIN_VIEWS);
   acctView = view; acctOpts = opts || {};
   if (ADMIN_VIEWS[view]) {   // re-ask the server every time the panel opens; non-admins never see it
@@ -6229,6 +6279,11 @@ async function showAcct(view, opts) {
     if (view === 'adminLog') await adminLoadAudit();
     if (view === 'adminFeedback' || view === 'admin') await adminLoadFeedback();
     if (acctView !== view) return;
+  }
+  if (view === 'friendProfile' && acctOpts.loading) {
+    acctBox.innerHTML = VIEWS.friendProfile(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false');
+    const [r] = await Promise.all([loadFriendProfile(acctOpts.user), social.friends.length ? null : loadFriends()]); if (acctView !== 'friendProfile') return;
+    acctOpts.loading = false; if (r.ok) acctOpts.prof = r.data; else acctOpts.msg = r.msg;
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
   if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadH2H()]); if (acctView !== 'friends') return; }
@@ -6289,9 +6344,15 @@ if (acctEl) {
       }
     } finally { if (acctBox.querySelector('form')) acctBusy(false); }
   });
+  document.addEventListener('pointerup', e => { if (e.target && e.target.tagName === 'CANVAS') acctLastCvUp = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
+  acctEl.addEventListener('click', e => {   // swallow only the synthetic click from the same canvas tap that opened the overlay
+    const u = acctLastCvUp, now = performance.now();
+    if (u && now - u.t < 700 && acctOpenAt >= u.t - 50 && Math.hypot(e.clientX - u.x, e.clientY - u.y) < 14) { acctLastCvUp = null; e.preventDefault(); e.stopPropagation(); }
+  }, true);   // v8.37: tap-through guard (canvas tap -> overlay button underneath the finger)
   acctEl.addEventListener('click', async e => {
     const b = e.target.closest('[data-a]'); if (!b) { if (e.target === acctEl) {} return; }
     const a = b.getAttribute('data-a'), id = b.getAttribute('data-id');
+    if (a === 'fprof') { showAcct('friendProfile', { user: id, loading: true }); return; }
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
     if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
@@ -6383,6 +6444,39 @@ function matchAfterRound() {   // card -> match result panel
   matchCtx = null;
   return true;
 }
+/* v8.37: the opponent's own golfer as a translucent ghost, standing at their ball and swinging with each ghost shot */
+const GHOST_GOLF_ALPHA = 0.4;
+function ghostGolferPose(G) {
+  const A = G.anim, ADDR = SWING_ADDR;
+  if (A) {   // their shot is in the air: downswing -> follow-through -> hold the finish
+    const sh = A.shot || {}, putt = sh.c === PUTT_I, p = clamp(+sh.p || 0.6, 0, 1), t = A.t || 0;
+    const fin = putt ? ADDR - 40 * Math.min(1, p + 0.3) : lerp(15, -110, clamp(p * 1.3, 0, 1));
+    const e = 1 - (1 - clamp(t / FOLLOW_T, 0, 1)) ** 3;
+    return { x: sh.x0 != null ? sh.x0 : G.x, dir: sh.f || 1, ang: lerp(ADDR, fin, e), pose: { finish: putt ? 0 : clamp((t - 0.04) / 0.2, 0, 1), smear: t < 0.1 && !putt ? backswingTop(p) : null } };
+  }
+  const nx = G.shots && G.shots[G.next];
+  if (!nx) return null;   // holed out / no more shots: nothing to stand over
+  let ang = ADDR + (nx.c === PUTT_I ? 1 : 2.5) * Math.sin(st * 3 + 1.3);   // addressing their ball, own waggle phase
+  if (!G.auto && (state === 'power' || state === 'accuracy' || state === 'swing')) {   // in sync with the player's backswing
+    const top = backswingTop(clamp(+nx.p || 0.6, 0, 1));
+    ang = state === 'power' ? lerp(ADDR, top, clamp(meter.pos / Math.max(0.05, +nx.p || 0.6), 0, 1)) : top;
+  }
+  return { x: G.x, dir: nx.f || 1, ang, pose: {} };
+}
+function drawGhostGolfer() {
+  const G = ghostPlay && ghostPlay.hole; if (!G || !hole || courseKind !== 'match' || (G.holed && !G.anim)) return;
+  const P = ghostGolferPose(G); if (!P) return;
+  const look = ghostPlay.look || (ghostPlay.lookDefault || (ghostPlay.lookDefault = lookOf(cleanLook({}))));
+  let wx = P.x - P.dir * 7;
+  const mine = lastSpotForGolfer() - facingForGolfer() * 7;   // never stand on top of the player's golfer / aim: step back behind them
+  if (Math.abs(wx - mine) < 12 && ['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) wx = mine - facingForGolfer() * 14;
+  const sx = Math.round(wx - camX), gy = Math.round(BASE - groundH(hole, wx));
+  if (sx < -40 || sx > W + 40) return;
+  const img = golferCanvas(look, P.ang, P.pose, P.dir);
+  ctx.save(); ctx.globalAlpha = GHOST_GOLF_ALPHA; ctx.imageSmoothingEnabled = false; ctx.drawImage(img, sx - 36, gy - 58); ctx.restore();
+  // name tag: the ghost ball's @name tag parks right above their ball, next to this golfer
+  if (AUTH_TEST) window.__ghostGolf = { sx, gy, ang: Math.round(P.ang), dir: P.dir, flying: !!G.anim, alpha: GHOST_GOLF_ALPHA, hasLook: !!ghostPlay.look };
+}
 
 function renderScene() {
   if (state === 'splash') { renderSplash(); drawCursor(); return; }
@@ -6400,6 +6494,7 @@ function renderScene() {
   drawWildBark();
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
+  try { drawGhostGolfer(); } catch (e) {}
   if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookOf(player), golferPose());
   if (state === 'flight' || state === 'holed') drawTrail();
   if (['aim', 'power', 'accuracy'].includes(state)) drawAim();
