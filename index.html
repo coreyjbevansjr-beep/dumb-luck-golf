@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.37">
+<meta name="dlg-version" content="v8.38">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -192,7 +192,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.37';
+const GAME_VERSION = 'v8.38';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2137,7 +2137,12 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
 }
 // Advance a ball by dt. Returns null while moving, otherwise 'stop' | 'cup' | 'water' | 'ob'.
 const iv0 = b => Math.abs(b.vy);
-function stepBall(b, hl, wind, dt) {
+function stepBall(b, hl, wind, dt) {   // v8.38: a lip only counts if the ball finishes out of the cup
+  const r = stepBallRaw(b, hl, wind, dt);
+  if (r && b.lipPend) { b.lipPend = false; if (r !== 'cup') b.events.push('lip'); }
+  return r;
+}
+function stepBallRaw(b, hl, wind, dt) {
   if (b.mode === 'air') {
     const px = b.x;
     if (!b.noWind) { const wa = wind * WIND_K * (b.windK || 1); b.vx += wa * (wa * b.vx < 0 ? WIND_HEAD : WIND_TAIL) * dt; }
@@ -2217,7 +2222,7 @@ function stepBall(b, hl, wind, dt) {
     if (!b.overCup && ((b.x - hl.cup) * (nx - hl.cup) <= 0 || Math.abs(nx - hl.cup) < 0.5)) {
       b.overCup = true;                       // one capture/lip check per pass over the hole
       if (Math.abs(v) < (b.capV || 12)) { b.x = hl.cup; b.h = groundH(hl, b.x); b.vx = 0; return 'cup'; }
-      if (Math.abs(v) < 30) { v *= (b.lipK || LIP_KEEP); b.events.push('lip'); }
+      if (Math.abs(v) < 30) { v *= (b.lipK || LIP_KEEP); b.lipPend = true; }   // v8.38: decided when the ball comes to rest (it may still drop)
     }
     b.vx = v; b.x = nx;
     if (b.x < 0 || b.x > hl.len) return 'ob';
@@ -6575,7 +6580,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = { get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
+  window.__golf = {  get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
