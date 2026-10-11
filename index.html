@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.39">
+<meta name="dlg-version" content="v8.41">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -192,7 +192,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.39';
+const GAME_VERSION = 'v8.41';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1950,6 +1950,29 @@ const DAILY_WILD = [
 ];
 DAILY_HOLES.push(...DAILY_WILD);
 
+/* v8.41 Halloween Daily holes (in the Daily pool during October, NY date, or with ?halloween) */
+const SPOOKY_DAILY = [
+  // Graveyard: tombstone walls to bank off, an open grave (water = bottomless pit) short of the green
+  { id: 'graveyard', name: 'HAUNTED GRAVEYARD', theme: 'spooky', par: 4, cup: 330, wind: -2, spooky: true,
+    deco: [['tree', 20], ['bush', 90], ['tree', 200], ['bush', 380]],
+    walls: [[150, 0, 12], [214, 0, 10]],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[130,'fair',14],[176,'fair',12],[246,'water',4],[264,'rough',10],[300,'green',10],[360,'sand',10],[376,'rough',12],[410,'end',14]] },
+  // Witch's swamp: slime pools, a lily-pad bounce pad and a drop zone by the green
+  { id: 'swamp', name: 'WITCH SWAMP', theme: 'swamp', par: 3, cup: 184, wind: 3, drop: 150, spooky: true,
+    deco: [['tree', -30], ['tree', 60], ['bush', 236]],
+    pads: [[100, 112]],
+    pts: [[0,'tee',16],[22,'rough',14],[34,'water',6],[96,'rough',8],[118,'water',6],[146,'rough',10],[160,'green',11],[214,'rough',10],[222,'water',6],[250,'rough',12],[280,'end',14]] },
+  // Haunted mansion: a floating ghost drifts across the lawn, raised porch green
+  { id: 'mansion', name: 'HAUNTED MANSION', theme: 'mansion', par: 4, cup: 342, wind: 1, spooky: true,
+    deco: [['tree', 30], ['bush', 120], ['tree', 260], ['bush', 400]],
+    movers: [{ kind: 'slide', skin: 'ghost', x: 214, w: 14, hBot: 6, hTop: 30, period: 3.0, phase: 0.1, amp: 30 }],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[150,'fair',12],[250,'fair',12],[280,'sand',16],[302,'green',22],[372,'rough',22],[384,'sand',20],[400,'rough',20],[430,'end',22]] },
+  // Pumpkin patch: rolling vines (rough) and pumpkin humps, sand traps, wide green
+  { id: 'patch', name: 'PUMPKIN PATCH', theme: 'patch', par: 4, cup: 310, wind: 4, spooky: true,
+    deco: [['bush', 50], ['tree', 140], ['bush', 230], ['tree', 360]],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[90,'fair',18],[112,'rough',10],[140,'fair',16],[180,'water',8],[204,'rough',10],[210,'rough',12],[236,'fair',12],[252,'sand',12],[284,'green',12],[346,'sand',12],[362,'rough',12],[390,'end',14]] }
+];
+
 let courseKind = 'front';          // 'front' | 'back' | 'full' | 'daily'
 let HOLES = FRONT_HOLES.slice();
 let TOTAL_PAR = HOLES.reduce((a, h) => a + h.par, 0);
@@ -2416,8 +2439,8 @@ function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir) {
 }
 
 /* ---------------- sound ---------------- */
-let settings = { sound: true, aim: true, haptics: true };
-try { const v = JSON.parse(localStorage.getItem('dlg_golf_settings') || 'null'); if (v) settings = { sound: v.sound !== false, aim: v.aim !== false, haptics: v.haptics !== false }; } catch (e) {}
+let settings = { sound: true, aim: true, haptics: true, halloween: true, pumpkinBall: false };   // v8.41
+try { const v = JSON.parse(localStorage.getItem('dlg_golf_settings') || 'null'); if (v) settings = { sound: v.sound !== false, aim: v.aim !== false, haptics: v.haptics !== false, halloween: v.halloween !== false, pumpkinBall: v.pumpkinBall === true }; } catch (e) {}
 function hap(pat) { if (!settings.haptics || typeof navigator === 'undefined' || !navigator.vibrate) return; try { navigator.vibrate(pat); } catch (e) {} }
 function saveSettings() { try { localStorage.setItem('dlg_golf_settings', JSON.stringify(settings)); } catch (e) {} }
 let AC = null, muted = !settings.sound;
@@ -2456,6 +2479,82 @@ const SFX = {
   luck()   { tone(220, 0.25, 'square', 0.05, 0, 880); [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.1, 'square', 0.045, 0.25 + i * 0.06)); },
   perfect(){ [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.09, 'square', 0.045, i * 0.05)); tone(2637, 0.35, 'triangle', 0.05, 0.2); noise(0.06, 0.05); hap([12, 30, 12, 30, 40, 50, 70]); }
 };
+
+/* ================= v8.41 HALLOWEEN (Oct 1-31 local time; ?halloween / #test&halloween forces it; ?halloween=0 forces off) ================= */
+const HW_FORCE = (() => { try { const q = /[?&#]halloween(=([01]))?(?:&|$)/i.exec(location.search + '&' + location.hash.replace('#', '&') + '&'); if (!q) return null; return q[2] === '0' ? false : true; } catch (e) { return null; } })();
+function halloweenSeason(d) { d = d || new Date(); return d.getMonth() === 9; }
+function halloweenOn() { if (HW_FORCE === false) return false; if (settings.halloween === false) return false; return HW_FORCE === true || halloweenSeason(); }
+function halloweenRowShown() { return HW_FORCE === true || halloweenSeason(); }
+const HW = (() => {
+  const S = (w, h, f) => { const c = mk(w, h), g = c.getContext('2d'), R = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(x, y, ww, hh); }; f(R); return c; };
+  const pumpkin = (s) => S(16 * s, 14 * s, R0 => { const R = (x, y, w, h, c) => R0(x * s, y * s, w * s, h * s, c);
+    R(1, 3, 14, 10, '#000'); R(0, 5, 16, 6, '#000'); R(2, 4, 12, 8, '#f87800'); R(1, 6, 14, 4, '#f87800'); R(5, 4, 1, 8, '#c84c0c'); R(10, 4, 1, 8, '#c84c0c'); R(3, 5, 2, 2, '#fca044');
+    R(7, 0, 3, 4, '#000'); R(8, 1, 1, 3, '#00a800');
+    R(4, 6, 2, 2, '#f8d878'); R(10, 6, 2, 2, '#f8d878'); R(7, 8, 2, 1, '#f8d878'); R(4, 10, 8, 1, '#f8d878'); R(5, 9, 1, 1, '#f8d878'); R(10, 9, 1, 1, '#f8d878'); });
+  const grave = S(14, 18, R => { R(1, 2, 12, 16, '#000'); R(3, 0, 8, 3, '#000'); R(2, 3, 10, 15, '#8c8c9c'); R(4, 1, 6, 3, '#8c8c9c'); R(2, 3, 2, 15, '#bcbcc8'); R(6, 5, 2, 7, '#3c3c4c'); R(4, 7, 6, 2, '#3c3c4c'); R(0, 16, 14, 2, '#3c3020'); });
+  const bat = f => S(14, 7, R => { R(6, 2, 2, 4, '#000'); if (f) { R(0, 0, 6, 2, '#000'); R(8, 0, 6, 2, '#000'); R(2, 2, 4, 1, '#000'); R(8, 2, 4, 1, '#000'); } else { R(1, 3, 5, 2, '#000'); R(8, 3, 5, 2, '#000'); R(0, 5, 2, 1, '#000'); R(12, 5, 2, 1, '#000'); } R(6, 3, 1, 1, '#f83800'); R(7, 3, 1, 1, '#f83800'); });
+  const ball = S(5, 5, R => { R(1, 0, 3, 5, '#000'); R(0, 1, 5, 3, '#000'); R(1, 1, 3, 3, '#f87800'); R(2, 1, 1, 3, '#c84c0c'); R(1, 1, 1, 1, '#fca044'); R(2, 0, 1, 1, '#00a800'); });
+  return { pumpkin: pumpkin(1), bigPumpkin: pumpkin(2), grave, bats: [bat(0), bat(1)], ball, dead: SPR839.dead };
+})();
+const hwBgGrave = (R, w, h, hz, H1) => {   // purple night: full moon, dead trees, fence + crosses
+  for (let y = -16; y <= 16; y++) { const hw = Math.round(Math.sqrt(256 - y * y)); R(380 - hw, hz - 100 + y, hw * 2, 1, '#fce4a0'); }
+  R(372, hz - 106, 4, 3, '#e0c880'); R(384, hz - 96, 5, 3, '#e0c880');
+  for (let x = 0; x < w; x++) { const top = hz - 6 + Math.round(6 * Math.sin(x / 37) + 3 * Math.sin(x / 13)); R(x, top, 1, h - top, '#2c1c44'); R(x, top, 1, 1, '#000'); }
+  for (let i = 0; i < 9; i++) { const x = Math.floor(i * 57 + H1(i) * 20), y = hz - 10 + Math.floor(H1(i + 4) * 8); R(x, y - 12, 3, 14, '#1c1028'); R(x - 3, y - 9, 9, 3, '#1c1028'); }
+  for (let x = 0; x < w; x += 6) R(x, hz + 6, 2, 12, '#140c20'); R(0, hz + 8, w, 2, '#140c20');
+};
+Object.assign(THEMES, {
+  spooky: { sky: '#2c1050', stars: true, noMoon: true, bg: hwBgGrave, tree: SPR839.dead, bush: SPR839.rocksD,
+    C: Object.assign({}, COL, { grass: '#4c7c2c', fair2: '#5c8c34', grassD: '#2c4c1c', green: '#58a854', green2: '#68b864', dirt: '#3c2c3c', dirtD: '#1c141c', dirtL: '#5c4c5c', water: '#1c1028', waterD: '#000000', white: '#6c4c8c' }) },
+  swamp: { sky: '#3c5c3c', bg: (R, w, h, hz, H1) => { for (let i = 0; i < 12; i++) { const x = Math.floor(i * 44 + H1(i) * 16); R(x, hz - 70 - Math.floor(H1(i + 3) * 30), 4, h, '#1c2c1c'); R(x - 8, hz - 60, 20, 3, '#1c2c1c'); for (let k = 0; k < 4; k++) R(x - 6 + k * 5, hz - 57, 1, 10 + k * 3, '#3c6c3c'); }
+      for (let x = 0; x < w; x++) R(x, hz + 2 + Math.round(3 * Math.sin(x / 21)), 1, h, '#2c442c'); for (let i = 0; i < 30; i++) R(Math.floor(H1(i + 50) * w), Math.floor(H1(i + 90) * hz), 1, 1, '#b8f818'); },
+    tree: SPR839.dead, bush: BUSH_DRY, C: Object.assign({}, COL, { grass: '#5c7c2c', fair2: '#6c8c34', grassD: '#3c5c1c', dirt: '#4c3c24', dirtD: '#2c2414', dirtL: '#6c5c34', water: '#88c818', waterD: '#3c6c0c', white: '#d8f878', sand: '#9c8c5c', sandD: '#6c5c3c' }) },
+  mansion: { sky: '#1c1438', stars: true, bg: (R, w, h, hz, H1) => {
+      const mx = 300, top = hz - 96; R(mx - 1, top - 1, 122, h, '#000'); R(mx, top, 120, h, '#2c2440'); R(mx + 40, top - 30, 40, 30, '#2c2440'); for (let k = 0; k < 20; k++) R(mx + 40 + k, top - 30 - k, 40 - k * 2, 1, '#2c2440');
+      R(mx + 10, top - 20, 14, 20, '#2c2440'); R(mx + 96, top - 26, 14, 26, '#2c2440');
+      for (let y = top + 10; y < hz + 10; y += 18) for (let x = mx + 8; x < mx + 112; x += 16) { R(x, y, 7, 10, H1(x * 7 + y) < 0.4 ? '#f8d878' : '#0c0818'); R(x + 3, y, 1, 10, '#000'); }
+      for (let x = 0; x < w; x++) R(x, hz + 4 + Math.round(4 * Math.sin(x / 31)), 1, h, '#1c2c24'); },
+    tree: SPR839.dead, bush: BUSH, dim: 'rgba(20,0,40,0.22)' },
+  patch: { sky: '#f87838', sun: '#fce4a0', bg: (R, w, h, hz, H1) => {
+      for (let x = 0; x < w; x++) { const top = hz - 4 + Math.round(5 * Math.sin(x / 29)); R(x, top, 1, h - top, '#6c4c1c'); R(x, top, 1, 1, '#000'); }
+      for (let i = 0; i < 40; i++) { const x = Math.floor(H1(i) * w), y = hz + 4 + Math.floor(H1(i + 40) * 30); R(x - 3, y, 7, 4, '#000'); R(x - 2, y + 1, 5, 2, '#f87800'); R(x, y - 1, 1, 1, '#00a800'); }
+      for (let x = 10; x < w; x += 120) { R(x, hz - 40, 3, 44, '#4c2c0c'); R(x - 10, hz - 34, 23, 3, '#4c2c0c'); R(x - 4, hz - 44, 11, 8, '#000'); R(x - 3, hz - 43, 9, 6, '#f87800'); R(x - 1, hz - 41, 1, 1, '#000'); R(x + 3, hz - 41, 1, 1, '#000'); } },
+    tree: SPR839.dead, bush: BUSH_AUTUMN, C: Object.assign({}, COL, { grass: '#88a838', fair2: '#98b844', grassD: '#4c7c1c', dirt: '#7c4c1c', dirtD: '#4c2c0c', dirtL: '#a86c2c' }) }
+});
+// course overlay: decoration only (never touches physics)
+function hwDecoList(hl) {
+  if (hl._hw) return hl._hw;
+  const out = [], seed = (hl.cup | 0) * 31 + (hl.len | 0);
+  for (let x = 30, i = 0; x < hl.len - 10; x += 34 + Math.floor(hash(seed + i * 7) * 40), i++) {
+    const s = surfAt(hl, x), s2 = surfAt(hl, x + 14);
+    if (s === 'water' || s === 'green' || s2 === 'water' || s2 === 'green' || Math.abs(x - hl.cup) < 24) continue;
+    const r = hash(seed + i * 13);
+    out.push([r < 0.45 ? 'pumpkin' : r < 0.8 ? 'grave' : 'dead', x]);
+  }
+  return (hl._hw = out);
+}
+function hwDrawCourseDeco(hl, cam) {
+  for (const [k, dx] of hwDecoList(hl)) {
+    const img = k === 'pumpkin' ? HW.pumpkin : k === 'grave' ? HW.grave : HW.dead, sx = Math.round(dx - cam);
+    if (sx > W || sx + img.width < 0) continue;
+    const gy = BASE - groundH(hl, dx + img.width / 2);
+    ctx.drawImage(img, sx, Math.round(gy - img.height + 3));
+  }
+}
+function hwTint(th) { if (th.dim || th === THEMES.moon) return; ctx.fillStyle = 'rgba(48,8,72,0.28)'; ctx.fillRect(0, 0, W, PLAY_H); }
+function hwSky(fairTop) {   // title / menus: orange-to-purple sky, full moon, bats
+  const bands = ['#2c1050', '#3c1460', '#541c6c', '#7c2470', '#a83468', '#d0505c', '#f07844'];
+  const bh = Math.ceil(fairTop / bands.length);
+  bands.forEach((c, i) => rect(0, i * bh, W, bh + 1, c));
+  for (let i = 0; i < 30; i++) { const x = Math.floor(hash(i * 7 + 1) * W), y = Math.floor(hash(i * 13 + 5) * fairTop * 0.45); rect(x, y, 1, 1, '#fcf0d8'); }
+  const mx = Math.round(W * 0.44), my = 16;   // top row, clear of the logo and the icons
+  for (let y = -12; y <= 12; y++) { const hw = Math.round(Math.sqrt(144 - y * y)); rect(mx - hw, my + y, hw * 2, 1, '#fce4a0'); }
+  rect(mx - 6, my - 4, 4, 3, '#e0c880'); rect(mx + 3, my + 2, 4, 3, '#e0c880'); rect(mx - 2, my + 6, 3, 2, '#e0c880');
+  const t = performance.now() / 1000;
+  for (let i = 0; i < 5; i++) { const x = ((i * 83 + t * (18 + i * 5)) % (W + 40)) - 20, y = my + 14 + i * 13 + Math.sin(t * 2 + i) * 6; ctx.drawImage(HW.bats[Math.floor(t * 8 + i) % 2], Math.round(x), Math.round(y)); }
+}
+// October: the four spooky holes join the Daily pool (NY date, so everyone shares the same day's design)
+try { if (HW_FORCE !== false && (HW_FORCE === true || Number(nyDateStr().slice(5, 7)) === 10)) DAILY_HOLES.push(...SPOOKY_DAILY); } catch (e) {}
 
 /* ---------------- game state ---------------- */
 let state = 'splash', st = 0;   // branded splash until first tap (also unlocks audio)
@@ -2814,7 +2913,7 @@ resize();   // boot: after chrome layout vars exist
 function settingsRows() {
   return [['SOUND', settings.sound ? 'ON' : 'OFF'], ['AIM LINE', settings.aim ? 'ON' : 'OFF'],
           ['HAPTICS', settings.haptics ? 'ON' : 'OFF'],
-          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['HOW TO PLAY', null], ['FEEDBACK', null], ['BACK', null]];   // v8.22: HOW TO PLAY page
+          ['FULLSCREEN', fsSupported ? (isFs() ? 'ON' : 'OFF') : isStandalone() ? 'ON' : isIOS ? 'HOW?' : 'N/A'], ['HOW TO PLAY', null], ['FEEDBACK', null]].concat(halloweenRowShown() ? [['HALLOWEEN', settings.halloween !== false ? 'ON' : 'OFF'], ['PUMPKIN BALL', settings.pumpkinBall ? 'ON' : 'OFF']] : [], [['BACK', null]]);   // v8.41   // v8.22: HOW TO PLAY page
 }
 const ovCount = () => ov.kind === 'pause' ? PAUSE_ITEMS.length : ov.kind === 'help' ? 1 : settingsRows().length;
 function openSettings(back) { ov = { kind: 'settings', sel: 0, back, t: 0 }; SFX.click(); }
@@ -2841,6 +2940,9 @@ function ovActivate(i, dir = 1) {
     else if (i === 2) quitToMenu();
     return;
   }
+  { const lab = (settingsRows()[i] || [])[0];   // v8.41 seasonal rows (by label)
+    if (lab === 'HALLOWEEN') { settings.halloween = settings.halloween === false; saveSettings(); SFX.click(); return; }
+    if (lab === 'PUMPKIN BALL') { settings.pumpkinBall = !settings.pumpkinBall; saveSettings(); SFX.click(); return; } }
   if (i === 0) { settings.sound = !settings.sound; muted = !settings.sound; saveSettings(); SFX.click(); }
   else if (i === 1) { settings.aim = !settings.aim; saveSettings(); SFX.click(); }
   else if (i === 2) { settings.haptics = !settings.haptics; saveSettings(); SFX.click(); if (settings.haptics) hap(20); }
@@ -4861,6 +4963,7 @@ function wildSheetData(kind) {
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
   rect(0, 0, W, PLAY_H, th.sky);
+  if (halloweenOn() && !th.bg && !th.stars) hwSky(BASE - 20);   // v8.41: dusk sky, moon + bats on regular holes
   if (weather && weather.id === 'rain') { ctx.globalAlpha = 0.12; rect(0, 0, W, PLAY_H, '#003868'); ctx.globalAlpha = 1; }
   if (weather && weather.id === 'sunset' && !th.sun) { ctx.globalAlpha = 0.18; rect(0, 0, W, PLAY_H, '#fc6838'); ctx.globalAlpha = 1; }
   if (th.sun) {   // low sunset sun behind the hills
@@ -4959,6 +5062,7 @@ function drawCourse(hl, cam) {
       }
     }
   }
+  if (halloweenOn()) hwDrawCourseDeco(hl, cam);   // v8.41: pumpkins, gravestones, bare trees (decoration only)
   // ground columns
   for (let sx = 0; sx < W; sx++) {
     const wx = Math.floor(cam) + sx;
@@ -5004,6 +5108,7 @@ function drawCourse(hl, cam) {
     if (wave) { rect(fx + 18, fgy - 28, 1, 2, '#000'); rect(fx + 19, fgy - 23, 1, 4, th.dim ? th.sky : th.sky); }
     text3(ctx, 'DLG', fx + 5, fgy - 26, COL.white);
   }
+  if (halloweenOn()) hwTint(th);   // v8.41 dusk tint
   if (th.dim) { ctx.fillStyle = th.dim; ctx.fillRect(0, 0, W, PLAY_H); }   // night: everything dims; golfer + ball are drawn after, so they pop
 }
 function drawMoverSkin(m, sx, top, bot, t) {
@@ -5020,6 +5125,11 @@ function drawMoverSkin(m, sx, top, bot, t) {
     rect(x0 - 3, bot - 9 - cl, 4, 4, '#000'); rect(x0 - 2, bot - 8 - cl, 2, 2, '#f87858'); rect(x0 + w - 1, bot - 9 - cl, 4, 4, '#000'); rect(x0 + w, bot - 8 - cl, 2, 2, '#f87858');
     for (let k = 1; k < w - 1; k += 3) rect(x0 + k, bot - 2, 1, 2, '#000');
     if (h > 12) { ctx.globalAlpha = 0.25; rect(x0, top, w, bot - top - 8, '#f83800'); ctx.globalAlpha = 1; }
+  } else if (m.skin === 'ghost') {   // v8.41: floating ghost (same hit box)
+    const bob = Math.round(Math.sin(t * 3) * 2), gt = top + bob, gh = Math.max(10, bot - top);
+    ctx.globalAlpha = 0.85; rect(x0 - 1, gt - 1, w + 2, gh - 2, '#000'); rect(x0, gt, w, gh - 4, '#fcfcfc'); rect(x0 + 1, gt - 2, w - 2, 2, '#fcfcfc');
+    for (let k = 0; k < w; k += 4) rect(x0 + k, gt + gh - 4, 2, 2 + ((k / 4 + Math.floor(t * 6)) % 2), '#fcfcfc');
+    rect(x0 + 3, gt + 4, 2, 3, '#000'); rect(x0 + w - 5, gt + 4, 2, 3, '#000'); rect(x0 + Math.round(w / 2) - 1, gt + 9, 3, 2, '#000'); ctx.globalAlpha = 1;
   } else {   // coaster car
     rect(x0 - 1, top - 1, w + 2, h - 1, '#000'); rect(x0, top, w, h - 4, '#3c64b4'); rect(x0, top, w, 2, '#f8d878');
     rect(x0 + 3, top - 5, 3, 5, '#000'); rect(x0 + w - 7, top - 5, 3, 5, '#000'); rect(x0 + 4, top - 4, 1, 3, '#fcd8a8'); rect(x0 + w - 6, top - 4, 1, 3, '#fcd8a8');
@@ -5085,7 +5195,7 @@ function drawBall() {
   if (ball.mode === 'air') { const gy = Math.round(BASE - groundH(hole, ball.x)); rect(sx - 1, gy - 1, 3, 1, '#000'); }
   if (sy < 0) { rect(sx - 2, 1, 5, 1, COL.white); rect(sx - 1, 2, 3, 1, COL.white); rect(sx, 3, 1, 1, COL.white); drawText(Math.round(ball.h) + '', sx + 4, 1, COL.white); return; }
   if (fx.glow && ball.mode === 'air') { const c = Math.floor(performance.now() / 70) % 2 ? '#f8d878' : COL.white; rect(sx - 3, sy + 1, 7, 3, c); rect(sx - 1, sy - 1, 3, 7, c); }
-  ctx.drawImage(SPR.golfball, sx - 2, sy);
+  ctx.drawImage(settings.pumpkinBall && halloweenOn() ? HW.ball : SPR.golfball, sx - 2, sy);   // v8.41 pumpkin ball skin
 }
 function aimDot(wx, wh, k, col) {   // k: 0 near the ball .. 1 at the far end
   const x = Math.round(wx - camX), y = Math.round(BASE - wh);
@@ -5355,13 +5465,14 @@ function drawTitleFairwayScenery() {
 const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
 function drawSkyScene(fairTop, noCart) {
   if (fairTop == null) fairTop = TITLE_FAIR;
-  rect(0, 0, W, H, COL.sky);
+  const hwOn = halloweenOn();   // v8.41
+  if (hwOn) hwSky(fairTop); else rect(0, 0, W, H, COL.sky);
   // slow cloud drift behind the logo (wrap)
   const drift = (st * 3.2) % W;
   const clouds = TITLE_CLOUDS.slice();
   if (W > 280) { clouds.push([W - 60, 18], [Math.round(W * 0.45), 10]); }
   if (H > 280) { clouds.push([40, Math.round(Math.min(fairTop * 0.2, H * 0.12))], [W - 90, Math.round(Math.min(fairTop * 0.28, H * 0.18))]); }
-  for (const [x, y] of clouds) {
+  if (!hwOn) for (const [x, y] of clouds) {
     const cx = ((x - drift) % W + W) % W;
     drawCloud(cx, Math.min(y, Math.max(6, fairTop - 40)));
   }
@@ -5370,8 +5481,8 @@ function drawSkyScene(fairTop, noCart) {
     // Do not let ridge peaks climb above ridgeBase into the board/sky gap
     let hh = sceneRidge(sx % GW) - 201 + ridgeBase;
     hh = Math.max(ridgeBase, Math.min(hh, fairTop - 8));
-    rect(sx, hh, 1, fairTop - hh, COL.hill); rect(sx, hh, 1, 1, '#000');
-    if ((sx * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, COL.hillL);
+    rect(sx, hh, 1, fairTop - hh, hwOn ? '#2c1c44' : COL.hill); rect(sx, hh, 1, 1, '#000');
+    if ((sx * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, hwOn ? '#4c2c6c' : COL.hillL);
   }
   if (!noCart) drawCart('scene', 0);
   rect(0, fairTop - 1, W, 1, '#000');                    // fairway strip — fills to canvas bottom (full viewport)
@@ -5386,6 +5497,7 @@ function renderTitle() {
   let bob = Math.round(Math.sin(st * (Math.PI * 2 / 3)) * 2.5);
   if (LOGO_Y + bob < iconClear) bob = iconClear - LOGO_Y;
   drawLogo(LOGO_DRAW.x, LOGO_Y + bob, LOGO_DRAW.w, LOGO_DRAW.h);   // v8.10: clean hi-DPI logo
+  if (halloweenOn()) ctx.drawImage(HW.bigPumpkin, Math.round(LOGO_DRAW.x + LOGO_DRAW.w - 18), Math.round(LOGO_Y + bob + LOGO_DRAW.h - 24));   // v8.41 jack-o'-lantern
   // v8.18: PLAY / CAREER / DAILY / SHOP — label + small subheading; one row on desktop, 2x2 grid on narrow phones
   menuRects = [];
   const ML = MENU_L.items.length === MENU.length ? MENU_L : menuLayoutCalc();
@@ -6838,7 +6950,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
