@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.44">
+<meta name="dlg-version" content="v8.45">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -193,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.44';
+const GAME_VERSION = 'v8.45';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3739,6 +3739,10 @@ function boardSetTab(kind, v) {
 }
 function boardCycle(dir) { const i = LB_MODES.findIndex(m => m.id === board.modeId); boardSetTab('mode', LB_MODES[(i + dir + LB_MODES.length) % LB_MODES.length].id); }
 function boardTabRects() {
+  const o = boardOrigin();
+  return boardTabRects0().map(t => Object.assign(t, { x: t.x + o.x, y: t.y + o.y }));
+}
+function boardTabRects0() {
   const out = [], mw = 45, mx = 14;
   LB_MODES.forEach((m, i) => out.push({ kind: 'mode', v: m.id, label: m.label, x: mx + i * (mw + 1), y: 30, w: mw, h: 12 }));
   [['period', 'weekly', 'WEEK'], ['period', 'all', 'ALL-TIME'], ['scope', 'all', 'EVERYONE'], ['scope', 'friends', 'FRIENDS']]
@@ -6243,11 +6247,20 @@ function drawCheck(x, y) {   // verified @username mark
   rect(x, y + 1, 7, 7, '#3cbcfc'); rect(x + 1, y, 5, 9, '#3cbcfc');
   rect(x + 1, y + 4, 1, 1, '#fff'); rect(x + 2, y + 5, 1, 1, '#fff'); rect(x + 3, y + 4, 1, 1, '#fff'); rect(x + 4, y + 3, 1, 1, '#fff'); rect(x + 5, y + 2, 1, 1, '#fff');
 }
+function boardOrigin() {   // v8.45: center the 240x226 panel inside the safe area (clear of the iOS status bar / home bar)
+  const PW = 256, PH = 226, top = (SAFE.t || 0) + 4, bot = H - (SAFE.b || 0) - 4, l = SAFE.l || 0, r = SAFE.r || 0;
+  return { x: Math.max(l, Math.round(l + (W - l - r - PW) / 2)), y: Math.max(top, Math.round(top + (bot - top - PH) / 2)) - 6 };
+}
 function renderBoard() {
   drawSkyScene();
+  const o = boardOrigin(), W0 = W;
+  ctx.save(); ctx.translate(o.x, o.y); W = 256;
+  try { renderBoardPanel(); } finally { W = W0; ctx.restore(); }
+}
+function renderBoardPanel() {
   rect(8, 6, 240, 226, COL.white); rect(9, 7, 238, 224, '#000');
   drawTextC('LEADERBOARD', 12, COL.orange, 2);
-  for (const t of boardTabRects()) {
+  for (const t of boardTabRects0()) {
     const on = boardTabOn(t);
     rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
     drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
