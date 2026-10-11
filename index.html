@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.42">
+<meta name="dlg-version" content="v8.44">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -141,11 +141,12 @@
   #acct .kpis.h2h b{color:#f8d878}
   #acct .kpis.h2h{grid-template-columns:1fr 1fr}
 </style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png","sameAs":["https://www.instagram.com/dumbluckgolfing/"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/"]}]}</script>
 </head>
 <body>
 <div id="groundFill" aria-hidden="true"></div>
-<section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p></section>
-<noscript><p style="font:14px/1.5 sans-serif;color:#fff;background:#1c3a1c;padding:16px;margin:0">Dumb Luck Golf is a free retro pixel golf game: Front 9, Back 9, Full 18, a Daily hole and leaderboards. Please turn on JavaScript to play.</p></noscript>
+<section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p><p>Follow Dumb Luck Golf on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" target="_blank">@dumbluckgolfing</a></p></section>
+<noscript><p style="font:14px/1.5 sans-serif;color:#fff;background:#1c3a1c;padding:16px;margin:0">Dumb Luck Golf is a free retro pixel golf game: Front 9, Back 9, Full 18, a Daily hole and leaderboards. Please turn on JavaScript to play. Follow us on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" style="color:#f8d878">@dumbluckgolfing</a></p></noscript>
 <canvas id="c" width="256" height="240" role="application" aria-label="Dumb Luck Golf game. Tap, click, or press Space or Enter to start and to swing. Arrow keys aim and move through menus, Q and E change club, Escape pauses." tabindex="0"></canvas>
 <div id="srLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <main id="about" class="sr-only">
@@ -192,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.42';
+const GAME_VERSION = 'v8.44';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1305,6 +1306,17 @@ async function saveScore(entry) {
   if (!e) return { ok: false, where: 'none' };
   const mode = entry.mode != null ? entry.mode : e.mode;
   e.mode = mode || null;
+  /* v8.44: post through the account client so signed-in rounds carry the player's token.
+     The server stamps user_id from auth.uid() (never sent from here) and checks the score is possible for the mode. */
+  if (authOnline() && lbV2.ok !== false) {
+    const r = await sb('/rest/v1/scores', { method: 'POST', noAuth: !isSignedIn(), headers: { Prefer: 'return=minimal' },
+      body: { name: e.name, strokes: e.strokes, to_par: e.to_par, mode: mode || 'front9' } });
+    if (r.ok) { lbDeviceBest(e, mode); return { ok: true, where: 'online', verified: isSignedIn() }; }
+    const code = String((r.data && r.data.code) || '');
+    if (/^(23514|22023|42501)$/.test(code)) return { ok: false, where: 'rejected', code };
+    if (mode === 'coral') return { ok: false, where: 'error' };   // coral is signed-in only; no anon/local fallback
+  }
+  if (mode === 'coral') return { ok: false, where: 'none' };
   // Front 9 classic: omit mode so it stays on the main board when column is absent
   const isClassic = !mode || mode === 'front9';
   if (lbOnline()) {
@@ -1373,6 +1385,92 @@ async function loadScores(mode) {
   return { rows: lbLocalAllMode(isClassic ? null : want).sort(lbSort).slice(0, 10), pendingMode: !isClassic && lbModeOk === false };
 }
 /* ================= end leaderboard storage ================= */
+
+/* ================= v8.44 leaderboard v2: weekly / all-time, every mode, friends, verified, my rank =================
+   Server: public.leaderboard / leaderboard_friends / leaderboard_me / leaderboard_rank_of (private SECURITY DEFINER).
+   Falls back to loadScores() (plain rows) when the functions are missing or the device is offline. */
+const lbV2 = { ok: null };
+const LB_MODES = [
+  { id: 'front9', label: 'FRONT' }, { id: 'back9', label: 'BACK' }, { id: 'full18', label: 'FULL 18' },
+  { id: 'coral', label: 'CORAL' }, { id: 'daily', label: 'DAILY' }];
+const LB_DEVICE_BEST = 'dlg_lb_best_v2';
+function lbModeId(m) { if (!m || m === 'front9') return 'front9'; if (m === 'coral9') return 'coral'; return String(m).startsWith('daily') ? 'daily' : m; }
+function lbServerMode(id) { return id === 'daily' ? 'daily-' + nyDateStr() : id; }
+function lbWeekStartNy(now) {   // Monday 00:00 America/New_York, as a NY calendar date string
+  const d = now || new Date(), ds = nyDateStr(d), wd = new Date(ds + 'T12:00:00Z').getUTCDay();
+  return nyDateStr(new Date(Date.parse(ds + 'T12:00:00Z') - ((wd + 6) % 7) * 864e5)).slice(0, 10);
+}
+function lbInPeriod(iso, period) { return period !== 'weekly' || (!!iso && nyDateStr(new Date(iso)) >= lbWeekStartNy()); }
+function lbDeviceBest(e, mode) {   // guests: device-local personal best per board (all-time + this week)
+  try {
+    const m = mode || 'front9', all = JSON.parse(localStorage.getItem(LB_DEVICE_BEST) || '{}'), wk = lbWeekStartNy();
+    const better = (a) => !a || e.to_par < a.to_par || (e.to_par === a.to_par && e.strokes < a.strokes);
+    const row = { to_par: e.to_par, strokes: e.strokes, created_at: e.created_at || new Date().toISOString() };
+    const cur = all[m] || {};
+    if (better(cur.all)) cur.all = row;
+    if (!cur.week || cur.wk !== wk || better(cur.week)) { cur.week = row; cur.wk = wk; }
+    all[m] = cur; localStorage.setItem(LB_DEVICE_BEST, JSON.stringify(all));
+  } catch (err) {}
+}
+function lbDeviceBestFor(mode, period) {
+  try { const c = (JSON.parse(localStorage.getItem(LB_DEVICE_BEST) || '{}'))[mode]; if (!c) return null;
+    if (period === 'weekly') return c.wk === lbWeekStartNy() ? c.week : null; return c.all || null; } catch (e) { return null; }
+}
+function lbRowV2(r) {
+  if (!r) return null;
+  const strokes = Math.round(Number(r.strokes)), to_par = Math.round(Number(r.to_par));
+  if (!(strokes >= 1) || !isFinite(to_par)) return null;
+  const verified = r.verified === true;
+  const name = verified ? String(r.name || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 16) : cleanName(r.name);
+  if (!name) return null;
+  return { name, strokes, to_par, created_at: String(r.created_at || ''), verified, appearance: verified && r.appearance && typeof r.appearance === 'object' ? r.appearance : null, me: r.is_me === true };
+}
+async function loadBoard(modeId, period, scope) {
+  const mode = lbServerMode(modeId), per = period === 'weekly' ? 'weekly' : 'all';
+  const res = { rows: [], src: 'device', me: null, needSignIn: false, pendingMode: false };
+  if (scope === 'friends' && !isSignedIn()) { res.needSignIn = true; return res; }
+  if (modeId === 'coral' && !authOnline()) { res.pendingMode = true; return res; }
+  if (authOnline() && lbV2.ok !== false) {
+    const fn = scope === 'friends' ? 'leaderboard_friends' : 'leaderboard';
+    const r = await sb('/rest/v1/rpc/' + fn, { method: 'POST', noAuth: fn === 'leaderboard' && !isSignedIn(), body: { p_mode: mode, p_period: per, p_limit: 10 } }, 'lb');
+    if (r.ok && Array.isArray(r.data)) {
+      lbV2.ok = true; res.rows = r.data.map(lbRowV2).filter(Boolean); res.src = 'online';
+      if (isSignedIn()) {
+        const m = await sb('/rest/v1/rpc/leaderboard_me', { method: 'POST', body: { p_mode: mode, p_period: per } }, 'lb');
+        const x = m.ok && Array.isArray(m.data) ? m.data[0] : null;
+        if (x) res.me = { rank: +x.rank, total: +x.total, strokes: +x.strokes, to_par: +x.to_par, created_at: x.created_at, verified: true };
+      } else {
+        const b = lbDeviceBestFor(mode, per);
+        if (b) {
+          const k = await sb('/rest/v1/rpc/leaderboard_rank_of', { method: 'POST', noAuth: true, body: { p_mode: mode, p_period: per, p_to_par: b.to_par, p_strokes: b.strokes } }, 'lb');
+          const x = k.ok && Array.isArray(k.data) ? k.data[0] : null;
+          res.me = Object.assign({ rank: x ? +x.rank : 0, total: x ? +x.total : 0, verified: false }, b);
+        }
+      }
+      return res;
+    }
+    if (r.missing) lbV2.ok = false;
+    if (scope === 'friends') { res.src = 'error'; return res; }
+  }
+  if (scope === 'friends') { res.src = 'error'; return res; }
+  const old = await loadScores(modeId === 'front9' ? null : mode).catch(() => null);
+  res.rows = ((old && old.rows) || []).filter(x => lbInPeriod(x.created_at, per)).map(x => Object.assign({ verified: false, appearance: null }, x));
+  res.src = lbSource; res.pendingMode = !!(old && old.pendingMode);
+  const b = lbDeviceBestFor(mode, per); if (b) res.me = Object.assign({ rank: 0, total: 0, verified: false }, b);
+  return res;
+}
+const LB_MINI = new Map();
+function lbMiniGolfer(app) {   // 40x40 crop of the player's golfer, cached per appearance
+  const key = JSON.stringify(app || {});
+  if (LB_MINI.has(key)) return LB_MINI.get(key);
+  let out = null;
+  try { const lk = lookOf(Object.assign({}, cleanLook(app || {}))), src = golferCanvas(lk, SWING_ADDR, {}, 1);
+    out = mk(40, 40); const g = out.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 22, 26, 28, 28, 0, 0, 40, 40); } catch (e) { out = null; }
+  if (LB_MINI.size > 60) LB_MINI.clear();
+  LB_MINI.set(key, out); return out;
+}
+/* ================= end leaderboard v2 ================= */
+
 
 /* ================= anonymous play analytics (game_events) =================
    Fire-and-forget inserts. Never blocks gameplay. Skipped in #test / #preview
@@ -1473,7 +1571,7 @@ function trackRoundMeta() {
 /* ================= end analytics ================= */
 
 /* ---------------- 5x7 pixel font ---------------- */
-const FONT = {
+const FONT = { '_':['.....','.....','.....','.....','.....','.....','#####'],
 'A':[" ### ","#   #","#   #","#####","#   #","#   #","#   #"],'B':["#### ","#   #","#   #","#### ","#   #","#   #","#### "],
 'C':[" ### ","#   #","#    ","#    ","#    ","#   #"," ### "],'D':["#### ","#   #","#   #","#   #","#   #","#   #","#### "],
 'E':["#####","#    ","#    ","#### ","#    ","#    ","#####"],'F':["#####","#    ","#    ","#### ","#    ","#    ","#    "],
@@ -2647,7 +2745,7 @@ function hlDrawFrame(fc, r, i, L, holdT) {
     drawText(String(r.name).slice(0, Math.floor((L.w - 50) / 6)), 46, 17, COL.white);
     drawText(who, L.w - 4 - textW(who), 5, COL.white);
     const by0 = L.top + L.cropH; rect(0, by0, L.w, L.bot, '#0c1430'); rect(0, by0, L.w, 1, '#f8d878');
-    drawText('DUMBLUCKGOLF.COM', L.w - 4 - textW('DUMBLUCKGOLF.COM'), by0 + 10, '#bcbcbc');
+    drawText('DUMBLUCKGOLF.COM', L.w - 4 - textW('DUMBLUCKGOLF.COM'), by0 + 5, '#bcbcbc'); drawText('@DUMBLUCKGOLFING', L.w - 4 - textW('@DUMBLUCKGOLFING'), by0 + 15, '#f8a0d8');   // v8.43
     if (holdT != null && r.label) {   // result pops in after the ball stops
       const sc = holdT < 0.15 ? 1 : 2, lab = r.label;
       outlined(lab, Math.round((L.w - textW(lab, 2)) / 2), L.top + 10, r.res === 'cup' ? '#58d854' : '#f8d878', sc === 2 ? 2 : 1);
@@ -2820,12 +2918,14 @@ const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
 const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
 const HSHARE_BTN = { x: 190, y: 0, w: 20, h: 22 };   // v8.34
+const IG_URL = 'https://www.instagram.com/dumbluckgolfing/', HIG_BTN = { x: 160, y: 0, w: 20, h: 22 }, FOLLOW_BTN = { x: 0, y: -99, w: 0, h: 0, on: false }, CARD_FOLLOW = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.43 Instagram
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
 let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;
 const TLB_R = { x: 10, y: 142, w: 236, h: 66 };
 let LOGO_DRAW = { w: 160, h: 111, x: 48 };
 let TITLE_FAIR = 214, TITLE_RIDGE = 188, CZ_FAIR = 214, HUD_Y0 = 186;
+let FOLLOW_TAP = 22;
 let SHARE_BTN = { x: 30, y: 161, w: 86, h: 15 }, LB_BTN = { x: 124, y: 161, w: 102, h: 15 };
 let CLUB_BTN = { x: 2, y: 48, w: 44, h: 44 }, CLUB_PAD = { x: 0, y: 40, w: 56, h: 56 }, PAUSE_PAD = { x: 0, y: 0, w: 44, h: 44 };
 let MM_BOX = { x: 160, y: 173, w: 92, h: 12 }, MM_GAP = 6;   // v8.10: mini map (hole overview) in the dirt strip, right side
@@ -2848,6 +2948,8 @@ function layoutChrome() {
   GEAR_BTN.w = tap; GEAR_BTN.h = tap;
   GEAR_BTN.x = FS_BTN.x - tap - gap; GEAR_BTN.y = FS_BTN.y;
   HSHARE_BTN.w = tap; HSHARE_BTN.h = tap; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; HSHARE_BTN.y = FS_BTN.y;
+  HIG_BTN.w = tap; HIG_BTN.h = tap; HIG_BTN.x = HSHARE_BTN.x - tap - gap; HIG_BTN.y = FS_BTN.y;   // v8.43
+  FOLLOW_TAP = tap;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
   HUD_Y0 = PLAY_H;
@@ -2879,22 +2981,25 @@ function layoutChrome() {
     const minBoardH = 26 + 40 + 4 + 4 * 14 + 6; // head + champ + 4 list rows
     let logoBot = LOGO_Y + ldH;
     // Reserve equal gaps + menu; board takes the rest and sits on the fairway (low)
-    let maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap;
+    const fbH = Math.max(22, FOLLOW_TAP), fbR = fbH + 6;   // v8.43 FOLLOW strip under the menu
+    let maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap - fbR;
     if (maxBoardH < minBoardH && ldH > 80) {
       const cut = Math.min(minBoardH - maxBoardH, ldH - 80);
       if (cut > 0) {
         ldH -= cut;
         ldW = Math.min(W - 40, Math.round(lw0 * ldH / lh0));
         logoBot = LOGO_Y + ldH;
-        maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap;
+        maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap - fbR;
       }
     }
     let boardH = Math.max(minBoardH, maxBoardH);
     let boardY = TITLE_FAIR - boardH;
-    // Center PLAY/DAILY/SHOP between logo bottom and board top
-    MENU_Y0 = logoBot + Math.round((boardY - logoBot - menuH) / 2);
+    const menuFloor = boardY - fbR;
+    // Center PLAY/DAILY/SHOP between logo bottom and the FOLLOW strip
+    MENU_Y0 = logoBot + Math.round((menuFloor - logoBot - menuH) / 2);
     if (MENU_Y0 < logoBot + minGap) MENU_Y0 = logoBot + minGap;
-    if (MENU_Y0 + menuH + minGap > boardY) MENU_Y0 = Math.max(logoBot + 4, boardY - menuH - minGap);
+    if (MENU_Y0 + menuH + minGap > menuFloor) MENU_Y0 = Math.max(logoBot + 4, menuFloor - menuH - minGap);
+    { const fw = Math.min(W - 40, 184); FOLLOW_BTN.w = fw; FOLLOW_BTN.h = fbH; FOLLOW_BTN.x = Math.round((W - fw) / 2); FOLLOW_BTN.y = boardY - fbH - 4; FOLLOW_BTN.on = true; }
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
     TLB_R.w = boardW; TLB_R.h = Math.max(minBoardH, boardH);
     TLB_R.x = sidePad;
@@ -2926,6 +3031,11 @@ function layoutChrome() {
     TLB_R.w = boardW; TLB_R.h = boardH;
     TLB_R.x = Math.round((W - boardW) / 2);
     TLB_R.y = boardY;
+    {   // v8.43: landscape/desktop FOLLOW sits in the grass under the board, only if it fits cleanly
+      const fbH = 18, fw = 170, room = H - (SAFE.b || 0) - (boardY + boardH) - 4;
+      FOLLOW_BTN.on = room >= fbH + 4; FOLLOW_BTN.w = fw; FOLLOW_BTN.h = fbH; FOLLOW_BTN.x = Math.round((W - fw) / 2);
+      FOLLOW_BTN.y = Math.round(boardY + boardH + 2 + (room - fbH) / 2);
+    }
   }
 
   // v8.14 Customize: the golfer preview is the focal point (big, integer pixel scale, centered).
@@ -3175,6 +3285,9 @@ const HELP_TEXT = [
   '#MODES',
   '-FRONT 9, BACK 9, FULL 18, OR ONE NEW DAILY HOLE FOR EVERYONE. POST YOUR SCORE TO THE LEADERBOARD!',
   '',
+  '#FOLLOW US',
+  '-FOLLOW @DUMBLUCKGOLFING ON INSTAGRAM FOR CLIPS, UPDATES AND NEW HOLES.',
+  '',
   'HAVE FUN, AND TRUST YOUR DUMB LUCK!'
 ];
 let helpCache = null, helpMax = 0, helpDrag = null, helpView = null, helpLastT = 0;
@@ -3360,6 +3473,38 @@ function drawHomeShareButton() {   // v8.34: pixel share glyph (three linked dot
   rect(x + 9, y + 2, 3, 3, c); rect(x + 2, y + 6, 3, 3, c); rect(x + 9, y + 9, 3, 3, c);
   rect(x + 5, y + 6, 1, 1, c); rect(x + 6, y + 5, 1, 1, c); rect(x + 7, y + 4, 1, 1, c); rect(x + 8, y + 4, 1, 1, c);
   rect(x + 5, y + 8, 1, 1, c); rect(x + 6, y + 9, 1, 1, c); rect(x + 7, y + 10, 1, 1, c); rect(x + 8, y + 10, 1, 1, c);
+}
+/* v8.43 Instagram: pixel IG glyph, top icon, bold FOLLOW button, end-of-round prompt */
+function igGlyph(x, y, s, c) {   // 11x11 at s=1: rounded square, lens, flash dot
+  const R2 = (a, b, w, h) => rect(x + a * s, y + b * s, w * s, h * s, c);
+  R2(1, 0, 9, 1); R2(1, 10, 9, 1); R2(0, 1, 1, 9); R2(10, 1, 1, 9);
+  R2(4, 3, 3, 1); R2(4, 7, 3, 1); R2(3, 4, 1, 3); R2(7, 4, 1, 3); R2(8, 2, 1, 1);
+}
+function igGrad(x, y, w, h) { const g = ctx.createLinearGradient(x, y + h, x + w, y); g.addColorStop(0, '#f8a830'); g.addColorStop(0.35, '#e8384c'); g.addColorStop(0.7, '#c02c90'); g.addColorStop(1, '#6c3cd0'); return g; }
+function drawHomeIgButton() {
+  const x = HIG_BTN.x + Math.floor((HIG_BTN.w - 14) / 2), y = HIG_BTN.y + Math.floor((HIG_BTN.h - 14) / 2);
+  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  igGlyph(x + 2, y + 2, 1, COL.white);
+}
+function drawFollowPill(r, key, label) {
+  const pulse = REDUCED_MOTION ? 0 : (Math.sin(st * Math.PI * 1.4) + 1) / 2, dim = pressDim(key), on = mouse.seen && hit(mouse, r);
+  if (!REDUCED_MOTION && pulse > 0.6) { ctx.globalAlpha = (pulse - 0.6) * 1.2; rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, '#f8a0d8'); ctx.globalAlpha = 1; }
+  rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2, '#000');
+  ctx.fillStyle = igGrad(r.x, r.y, r.w, r.h); ctx.fillRect(r.x, r.y, r.w, r.h);
+  rect(r.x, r.y, r.w, 1, 'rgba(255,255,255,0.45)');
+  if (dim || on) { ctx.globalAlpha = 0.25; rect(r.x, r.y, r.w, r.h, '#000'); ctx.globalAlpha = 1; }
+  const tw = 11 + 5 + textW(label), gx = Math.round(r.x + (r.w - tw) / 2), gy = Math.round(r.y + (r.h - 11) / 2);
+  igGlyph(gx + 1, gy + 1, 1, '#000'); igGlyph(gx, gy, 1, COL.white);
+  const ty = Math.round(r.y + (r.h - 7) / 2);
+  drawText(label, gx + 16 + 1, ty + 1, '#000'); drawText(label, gx + 16, ty, COL.white);
+}
+function drawFollowButton() { if (FOLLOW_BTN.on && !menuPopup) drawFollowPill(FOLLOW_BTN, 'follow', 'FOLLOW @DUMBLUCKGOLFING'); }
+let igOpenCount = 0;
+function openInstagram() {   // never starts the game; new tab (or the Instagram app via universal link)
+  igOpenCount++; let w = null;
+  try { w = window.open(IG_URL, '_blank', 'noopener'); } catch (e) {}
+  if (!w) showToast(['INSTAGRAM', '@DUMBLUCKGOLFING'], 3000);
+  return 'open';
 }
 const HOME_SHARE = { title: 'Dumb Luck Golf', text: 'Come shank some balls with me in Dumb Luck Golf! \u26f3', url: 'https://dumbluckgolf.com/' };
 function shareHome() {   // v8.34: Web Share when available, else copy the link
@@ -3565,20 +3710,42 @@ function nameHitRect() { return { x: Math.round(CZ_COLX - 76), y: CZ_Y[0] - 4, w
 
 /* --- leaderboard screen --- */
 let board = null, pendingSave = null, lastEntry = null, saveWhere = '';
+let boardPeriod = 'weekly', boardScope = 'all';   // v8.44 tabs: WEEK / ALL-TIME, EVERYONE / FRIENDS
 function openBoard(entry, mode) {
-  const b = board = { rows: null, hi: -1, entry, mode: mode || null, pendingMode: false };
+  const id = lbModeId(mode || (entry && entry.mode));
+  board = { rows: null, hi: -1, entry, mode: mode || null, modeId: LB_MODES.some(m => m.id === id) ? id : 'front9', pendingMode: false, me: null, src: '', gen: 0 };
   setState('board');
-  (pendingSave || Promise.resolve()).then(() => loadScores(mode || null)).catch(() => ({ rows: [] })).then(res => {
-    if (board !== b) return;
-    const rows = (res && res.rows) || (Array.isArray(res) ? res : []) || [];
-    b.rows = rows; b.pendingMode = !!(res && res.pendingMode);
-    if (entry) {
-      const m = rows.map((r, i) => [r, i]).filter(([r]) => r.name === entry.name && r.strokes === entry.strokes && r.to_par === entry.to_par);
-      const pick = m.find(([r]) => r.created_at === entry.created_at) || m.sort((a, c) => (a[0].created_at < c[0].created_at ? 1 : -1))[0];
-      b.hi = pick ? pick[1] : -1;
+  loadBoardTab();
+}
+function loadBoardTab() {
+  const b = board; if (!b) return;
+  const gen = ++b.gen; b.rows = null; b.me = null; b.hi = -1; b.needSignIn = false; b.pendingMode = false;
+  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadBoard(b.modeId, boardPeriod, boardScope)).catch(() => ({ rows: [], src: 'error' })).then(res => {
+    if (board !== b || b.gen !== gen) return;
+    const rows = (res && res.rows) || [];
+    b.rows = rows; b.me = res.me || null; b.src = res.src || ''; b.needSignIn = !!res.needSignIn; b.pendingMode = !!res.pendingMode;
+    const entry = b.entry;
+    if (entry && lbModeId(entry.mode) === b.modeId) {
+      const nm = isSignedIn() && hasUsername() ? null : entry.name;
+      const m = rows.map((r, i) => [r, i]).filter(([r]) => (nm ? r.name === nm && !r.verified : r.verified && r.name === myName().replace(/[^A-Z0-9_]/g, '')) && r.strokes === entry.strokes && r.to_par === entry.to_par);
+      b.hi = m.length ? m[0][1] : -1;
     }
   });
 }
+function boardSetTab(kind, v) {
+  if (!board) return;
+  if (kind === 'mode') board.modeId = v; else if (kind === 'period') boardPeriod = v; else if (kind === 'scope') boardScope = v;
+  SFX.tick(); loadBoardTab();
+}
+function boardCycle(dir) { const i = LB_MODES.findIndex(m => m.id === board.modeId); boardSetTab('mode', LB_MODES[(i + dir + LB_MODES.length) % LB_MODES.length].id); }
+function boardTabRects() {
+  const out = [], mw = 45, mx = 14;
+  LB_MODES.forEach((m, i) => out.push({ kind: 'mode', v: m.id, label: m.label, x: mx + i * (mw + 1), y: 30, w: mw, h: 12 }));
+  [['period', 'weekly', 'WEEK'], ['period', 'all', 'ALL-TIME'], ['scope', 'all', 'EVERYONE'], ['scope', 'friends', 'FRIENDS']]
+    .forEach(([k, v, l], i) => out.push({ kind: k, v, label: l, x: 14 + i * 57 + (i >= 2 ? 2 : 0), y: 44, w: 55, h: 12 }));
+  return out;
+}
+function boardTabOn(t) { return t.kind === 'mode' ? board.modeId === t.v : t.kind === 'period' ? boardPeriod === t.v : boardScope === t.v; }
 function closeBoard() { board = null; SFX.click(); setState('title'); }
 /* --- home-screen leaderboard: top scores for the selected board, refreshed each time the title shows.
    < > cycles FRONT 9 / BACK 9 / FULL 18 / today's DAILY. Tap the board (not the arrows) for the full list. */
@@ -3586,6 +3753,7 @@ const TITLE_BOARDS = [
   { id: 'front9', label: 'FRONT 9' },
   { id: 'back9', label: 'BACK 9' },
   { id: 'full18', label: 'FULL 18' },
+  { id: 'coral', label: 'CORAL' },
   { id: 'daily', label: 'DAILY' }
 ];
 let titleBoardI = 0;
@@ -3644,7 +3812,7 @@ function refreshTitleLB(force) {
   if (!force && titleLB.mode === mode && (titleLB.busy || now - titleLB.t < 1500)) return;
   titleLB.busy = true; titleLB.t = now; titleLB.mode = mode;
   const gen = ++titleLB.gen;
-  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadScores(mode)).catch(() => null).then(res => {
+  (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadBoard(titleBoardSpec().id, 'all', 'all')).then(r => (lbSource = r.src === 'online' ? 'online' : lbSource, r)).catch(() => null).then(res => {
     if (titleLB.gen === gen) titleLB.busy = false;
     if (gen !== titleLB.gen) return;
     const rows = res && (res.rows || (Array.isArray(res) ? res : null));
@@ -4242,7 +4410,10 @@ function finishRound() {
   cardInfo = { total, rel, newBest, mode, practice: !!practice, pendingMode: false };
   lastEntry = { name: player.name || 'PLAYER', strokes: total, to_par: rel, created_at: new Date().toISOString(), mode };
   if (courseKind === 'match') { saveWhere = 'device'; pendingSave = null; try { finishMatchRound(total); } catch (e) {} }   // career v2: match rounds go to the match, not the leaderboard
-  else if (courseKind === 'coral') { saveWhere = 'device'; pendingSave = null; }   // v8.39: career course counts toward career stats, not the public board
+  else if (courseKind === 'coral') {   // v8.44: signed-in Coral Cliffs rounds go on the verified CORAL board; guests can't play it
+    if (isSignedIn() && !NO_SAVE) { saveWhere = 'saving'; pendingSave = saveScore(Object.assign({}, lastEntry, { mode: 'coral' })).then(r => { saveWhere = r.where; }, () => { saveWhere = 'error'; }); }
+    else { saveWhere = 'device'; pendingSave = null; }
+  }
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
@@ -4414,7 +4585,7 @@ cv.addEventListener('pointermove', e => {
     else if (hitTlbArrow(p, a.next)) tlbArrow = 'next';
   }
   tlbHover = state === 'title' && !menuPopup && !tlbArrow && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
   if (e.pointerType === 'mouse') { if (!inLoftCtl(p)) aimAt(wp.x, wp.y); }   // v8.25: hovering the loft buttons must not re-aim
@@ -4473,6 +4644,13 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'card' && hitBtn(p, LB_BTN)) {
     armUiTap('lb', () => { if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
   }
+  if (state === 'title' && !menuPopup && !ov && (hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)))) {   // v8.43: never starts the game
+    const r = hitBtn(p, HIG_BTN) ? HIG_BTN : FOLLOW_BTN, k = r === HIG_BTN ? 'hig' : 'follow';
+    armUiTap(k, () => openInstagram(), (up) => hitBtn(toLogical(up), r), e); touchDown = null; return;
+  }
+  if (state === 'card' && CARD_FOLLOW.on && hitBtn(p, CARD_FOLLOW)) {
+    const r0 = Object.assign({}, CARD_FOLLOW); armUiTap('cfollow', () => openInstagram(), (up) => hitBtn(toLogical(up), r0), e); touchDown = null; return;
+  }
   if (state === 'title' && !menuPopup && hitBtn(p, HSHARE_BTN)) {   // v8.34: never starts the game
     armUiTap('hshare', () => shareHome(), (up) => hitBtn(toLogical(up), HSHARE_BTN), e); touchDown = null; return;
   }
@@ -4529,7 +4707,9 @@ cv.addEventListener('pointerdown', e => {
     touchDown = null; return;
   }
   if (state === 'board') {
-    if (st > 0.3) armUiTap('board', () => closeBoard(), () => true, e);
+    const tb = board && boardTabRects().find(t => hit(p, { x: t.x, y: t.y - 2, w: t.w, h: t.h + 4 }));
+    if (tb) armUiTap('btab', () => boardSetTab(tb.kind, tb.v), () => true, e);
+    else if (st > 0.3) armUiTap('board', () => closeBoard(), () => true, e);
     touchDown = null; return;
   }
   if (state === 'power' || state === 'accuracy') { action(); touchDown = null; return; }
@@ -4561,6 +4741,13 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (state === 'splash') { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissSplash(); } return; }
   if (acctOpen()) return;
+  if (state === 'board' && board && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'f', 'F'].includes(k)) {   // v8.44 board tabs
+    e.preventDefault(); if (e.repeat) return;
+    if (k === 'ArrowLeft' || k === 'ArrowRight') boardCycle(k === 'ArrowLeft' ? -1 : 1);
+    else if (k === 'f' || k === 'F') boardSetTab('scope', boardScope === 'friends' ? 'all' : 'friends');
+    else boardSetTab('period', boardPeriod === 'weekly' ? 'all' : 'weekly');
+    return;
+  }
   if (state === 'career' && careerKey(e)) { if ([' ', 'Enter'].includes(k)) e.preventDefault(); return; }
   if (state === 'watch') { if (k === 'Escape') matchAfterRound(); else if ((k === 'Enter' || k === ' ') && !e.repeat) nextHole(); return; }
   if (roundTip) {
@@ -6045,42 +6232,62 @@ function renderCustom() {
     if (df) outlined('>', d.x + 7 + (Math.floor(st * 4) % 2), CZ_Y[CZ_DONE], YEL, 2);
   }
 }
+const MEDALS = [['#f8d878', '#d8a000', '#000'], ['#e8e8f0', '#a0a0b0', '#000'], ['#f0b080', '#b86c2c', '#000']];
+function drawMedal(x, y, n) {   // 9x9 disc behind the rank number
+  const [a, b2, t] = MEDALS[n];
+  rect(x + 2, y, 5, 9, b2); rect(x, y + 2, 9, 5, b2); rect(x + 1, y + 1, 7, 7, b2);
+  rect(x + 2, y + 1, 5, 7, a); rect(x + 1, y + 2, 7, 5, a);
+  drawText(String(n + 1), x + 2, y + 1, t);
+}
+function drawCheck(x, y) {   // verified @username mark
+  rect(x, y + 1, 7, 7, '#3cbcfc'); rect(x + 1, y, 5, 9, '#3cbcfc');
+  rect(x + 1, y + 4, 1, 1, '#fff'); rect(x + 2, y + 5, 1, 1, '#fff'); rect(x + 3, y + 4, 1, 1, '#fff'); rect(x + 4, y + 3, 1, 1, '#fff'); rect(x + 5, y + 2, 1, 1, '#fff');
+}
 function renderBoard() {
   drawSkyScene();
   rect(8, 6, 240, 226, COL.white); rect(9, 7, 238, 224, '#000');
-  drawTextC('LEADERBOARD', 13, COL.orange, 2);
-  {
-    let sub = (board.rows && lbSource === 'online' ? 'ONLINE ' : '') + 'TOP 10';
-    if (board.mode && String(board.mode).startsWith('daily')) sub += ' - DAILY';
-    else if (board.mode === 'back9') sub += ' - BACK 9';
-    else if (board.mode === 'full18') sub += ' - FULL 18';
-    else sub += ' - FRONT 9';
-    drawTextC(sub, 32, COL.gray);
-    if (board.pendingMode) drawTextC('LEADERBOARD COMING SOON', 42, COL.orange);
+  drawTextC('LEADERBOARD', 12, COL.orange, 2);
+  for (const t of boardTabRects()) {
+    const on = boardTabOn(t);
+    rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
+    drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
   }
-  const hy = 45;
-  drawTextR('#', 27, hy, COL.lime); drawText('NAME', 34, hy, COL.lime); drawTextR('STRK', 128, hy, COL.lime);
-  drawTextR('PAR', 168, hy, COL.lime); drawText('DATE', 186, hy, COL.lime);
+  const hy = 60;
+  drawTextR('#', 24, hy, COL.lime); drawText('PLAYER', 40, hy, COL.lime); drawTextR('STRK', 162, hy, COL.lime);
+  drawTextR('PAR', 189, hy, COL.lime); drawText('DATE', 195, hy, COL.lime);
   rect(14, hy + 9, 228, 1, '#3c3c3c');
-  if (!board.rows) { if (Math.floor(st * 3) % 2 === 0) drawTextC('LOADING...', 110, COL.white); }
-  else if (!board.rows.length) { drawTextC('NO SCORES YET', 100, COL.white); drawTextC('FINISH A ROUND TO', 118, COL.gray); drawTextC('GET ON THE BOARD', 128, COL.gray); }
-  else board.rows.forEach((r, i) => {
-    const y = 60 + i * 13, me = i === board.hi;
-    if (me) { rect(12, y - 3, 232, 13, COL.blueD); if (Math.floor(st * 3) % 2 === 0) drawText('>', 13, y, '#f8d878'); }
-    const c = me ? '#f8d878' : COL.white;
-    drawTextR(String(i + 1), 27, y, i === 0 && !me ? '#f8d878' : c);
-    drawText(r.name, 34, y, c);
-    drawTextR(String(r.strokes), 128, y, c);
-    drawTextR(fmtRel(r.to_par), 168, y, me ? c : (r.to_par <= 0 ? COL.lime : COL.orange));
-    drawText(fmtDate(r.created_at), 186, y, me ? c : COL.gray);
-  });
-  rect(14, 192, 228, 1, '#3c3c3c');
-  const e = board.entry;
-  if (e && board.rows) {
-    if (board.hi >= 0) drawTextC('NICE ROUND, ' + e.name + '!', 199, COL.lime);
-    else drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 199, COL.orange);
+  const rows = board.rows;
+  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawTextC('LOADING...', 120, COL.white); }
+  else if (board.needSignIn) { drawTextC('FRIENDS BOARD', 104, COL.white); drawTextC('SIGN IN ON THE CAREER SCREEN', 118, COL.gray); drawTextC('TO SEE YOUR FRIENDS', 128, COL.gray); }
+  else if (board.modeId === 'coral' && !rows.length && !isSignedIn() && boardScope === 'all') { drawTextC('NO CORAL SCORES YET', 104, COL.white); drawTextC('CORAL CLIFFS IS A CAREER COURSE', 118, COL.gray); drawTextC('SIGN IN TO PLAY IT', 128, COL.gray); }
+  else if (!rows.length) {
+    drawTextC(board.src === 'error' ? 'COULD NOT LOAD' : 'NO SCORES YET', 104, COL.white);
+    drawTextC(boardScope === 'friends' ? 'ADD FRIENDS ON THE CAREER SCREEN' : boardPeriod === 'weekly' ? 'NEW WEEK EVERY MONDAY' : 'FINISH A ROUND TO', 118, COL.gray);
+    if (boardScope !== 'friends') drawTextC('GET ON THE BOARD', 128, COL.gray);
   }
-  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC('CLICK OR ENTER = MENU', 215, COL.white);
+  else rows.forEach((r, i) => {
+    const y = 73 + i * 12, me = i === board.hi || r.me;
+    if (me) rect(12, y - 2, 232, 11, COL.blueD);
+    const c = me ? '#f8d878' : COL.white;
+    if (i < 3) drawMedal(15, y - 1, i); else drawTextR(String(i + 1), 24, y, c);
+    let nx = 40;
+    if (r.verified) { const g = lbMiniGolfer(r.appearance); if (g) ctx.drawImage(g, 0, 0, 40, 40, 27, y - 2, 11, 11); }
+    const nm = r.name.length > 14 ? r.name.slice(0, 14) : r.name;
+    drawText(nm, nx, y, c); if (r.verified) drawCheck(nx + textW(nm) + 2, y - 1);
+    drawTextR(String(r.strokes), 162, y, c);
+    drawTextR(fmtRel(r.to_par), 189, y, me ? c : (r.to_par <= 0 ? COL.lime : COL.orange));
+    drawText(fmtDate(r.created_at), 195, y, me ? c : COL.gray);
+  });
+  rect(14, 195, 228, 1, '#3c3c3c');
+  if (rows && !board.needSignIn) {
+    const m = board.me, e = board.entry;
+    if (board.hi >= 0 && e) drawTextC('NICE ROUND, ' + e.name + '!', 200, COL.lime);
+    else if (m && m.rank > 0) drawTextC('YOUR RANK ' + m.rank + ' OF ' + m.total + '  BEST ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, '#f8d878');
+    else if (m) drawTextC('YOUR BEST: ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, '#f8d878');
+    else if (e && lbModeId(e.mode) === board.modeId) drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 200, COL.orange);
+    else drawTextC(boardPeriod === 'weekly' ? 'WEEK STARTS MONDAY 12AM ET' : 'ALL-TIME BEST SCORES', 200, COL.gray);
+  }
+  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > MODE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
 }
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function makeShareCanvas() {
@@ -6189,12 +6396,23 @@ function renderCard() {
     drawText(lab, r.x + Math.round((r.w - textW(lab)) / 2), r.y + 4, col);
   }
   if (!usingTouch) drawTextC('S = SHARE   ENTER = LEADERBOARD', Math.min(H - 12, SHARE_BTN.y + 18), COL.grayD);
+  {   // v8.43 follow prompt card (only when it fits below the buttons)
+    const cw = Math.min(W - 24, 220), ch = Math.max(18, FOLLOW_TAP) + 22, cx = Math.round((W - cw) / 2);
+    const cy = SHARE_BTN.y - ch - 12;   // in the open sky just above SHARE / LEADERBOARD
+    CARD_FOLLOW.on = cy >= sumY + 76;
+    if (CARD_FOLLOW.on) {
+      rect(cx, cy, cw, ch, '#f8a0d8'); rect(cx + 1, cy + 1, cw - 2, ch - 2, '#140c24');
+      drawTextC('GET CLIPS + NEW HOLES FIRST', cy + 5, COL.white);
+      CARD_FOLLOW.w = Math.min(cw - 16, 176); CARD_FOLLOW.h = Math.max(18, FOLLOW_TAP); CARD_FOLLOW.x = Math.round((W - CARD_FOLLOW.w) / 2); CARD_FOLLOW.y = cy + ch - CARD_FOLLOW.h - 5;
+      drawFollowPill(CARD_FOLLOW, 'cfollow', 'FOLLOW @DUMBLUCKGOLFING');
+    }
+  }
   const f = Math.floor(st * 7) % 2;
   dimg(f ? SPR.walkA : SPR.walkB, 96, 190);
 }
 function render() {
   renderScene();
-  if (state === 'title') { drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
+  if (state === 'title') { drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
   drawClubButton();
@@ -7069,7 +7287,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
+  window.__golf = {  get lbBoard() { return board && { modeId: board.modeId, period: boardPeriod, scope: boardScope, rows: board.rows, me: board.me, hi: board.hi, needSignIn: !!board.needSignIn, src: board.src, tabs: boardTabRects() }; }, boardTab(k, v) { boardSetTab(k, v); }, saveScoreT(e) { return saveScore(e); }, setScoresT(a) { scores = a.slice(); }, openBoardT(m) { openBoard(null, m); }, get saveWhere() { return saveWhere; }, lbDeviceBestFor(m, p) { return lbDeviceBestFor(m, p); }, get igBtns() { return { hig: Object.assign({}, HIG_BTN), follow: Object.assign({}, FOLLOW_BTN), card: Object.assign({}, CARD_FOLLOW), menu: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })), board: Object.assign({}, TLB_R), opened: igOpenCount }; }, get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
