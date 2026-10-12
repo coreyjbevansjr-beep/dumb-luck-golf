@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.47">
+<meta name="dlg-version" content="v8.48">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -193,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.47';
+const GAME_VERSION = 'v8.48';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -844,6 +844,7 @@ async function finishMatchRound(total) {
   if (r.ok) try { localStorage.removeItem('dlg_match_pending_' + matchCtx.match.id); } catch (e) {}
 }
 /* ---- session restore + email-link returns (confirm sign-up / password recovery) ---- */
+setTimeout(() => { try { loadShopItems(); } catch (e) {} }, 1500);   // v8.48 store items (hide / archive); built-in list until it answers
 (function restoreSession() {
   try {
     const s = JSON.parse(localStorage.getItem(AUTH_STORE) || 'null');
@@ -1621,7 +1622,7 @@ function trackRoundMeta() {
 /* ================= end analytics ================= */
 
 /* ---------------- 5x7 pixel font ---------------- */
-const FONT = { '_':['.....','.....','.....','.....','.....','.....','#####'],
+const FONT = { '$':['  #  ',' ####','# #  ',' ### ','  # #','#### ','  #  '], '_':['.....','.....','.....','.....','.....','.....','#####'],
 'A':[" ### ","#   #","#   #","#####","#   #","#   #","#   #"],'B':["#### ","#   #","#   #","#### ","#   #","#   #","#### "],
 'C':[" ### ","#   #","#    ","#    ","#    ","#   #"," ### "],'D':["#### ","#   #","#   #","#   #","#   #","#   #","#### "],
 'E':["#####","#    ","#    ","#### ","#    ","#    ","#####"],'F':["#####","#    ","#    ","#### ","#    ","#    ","#    "],
@@ -3064,7 +3065,7 @@ function menuActivate(i) {
   else if (label === 'CAREER') { setState('career'); careerRefresh(); }   // career v2: accounts + friends + matches live here
   else if (label === 'SHOP') {
     if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} }
-    else menuPopup = { kind: 'shop', t: 0 };
+    else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); }
   } else if (label === 'GALLERY') menuPopup = { kind: 'gallery', t: 0 };
 }
 /* --- pause menu + settings (overlay). While paused nothing updates: ball, wind, cart, timers all freeze. --- */
@@ -3719,7 +3720,8 @@ function drawToast() {
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   toast.lines.forEach((l, i) => drawTextC(l, y + 5 + i * 10, i ? COL.white : '#f8d878'));
 }
-function closePopup() { if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
+function closePopup() { if (menuPopup && menuPopup.kind === 'shop' && shopChipDown) { shopChipDown = false; shopChipFlip = !shopChipFlip; SFX.click(); return; }   // v8.48: tap the chip -> flip, not close
+  if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
 
 /* --- customize screen ---
    rows: 0 name, 1 hat, 2 skin, 3 shirt, 4 pants, 5 done. Typing on a keyboard always edits the name;
@@ -6131,6 +6133,44 @@ function hatRelease(e) {
 addEventListener('pointerup', hatRelease, true);
 addEventListener('pointercancel', e => { hatRelease(e); if (hatTurn.drag === null) { hatTurn.tx = 0; hatTurn.ty = 0; } }, true);
 function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, ty: 0, view: 0, prev: 0, fade: 1, last: 0, moveAt: 0, drag: null }); }
+/* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
+const SHOP_ITEMS = [{ id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK' }, { id: 'lucky_marker', name: 'LUCKY BALL MARKER' }];
+const shopState = { status: null, loaded: false, at: 0 };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
+async function loadShopItems(force) {
+  if (!force && shopState.at && performance.now() - shopState.at < 60000) return shopState;
+  shopState.at = performance.now();
+  try {
+    const r = await sb('/rest/v1/rpc/store_items', { method: 'POST', noAuth: !isSignedIn(), body: {} }, 'store');
+    if (r.ok && Array.isArray(r.data)) { const m = {}; for (const it of r.data) if (it && it.id) m[it.id] = it.status; shopState.status = m; shopState.items = r.data; }
+    else shopState.status = null;
+  } catch (e) { shopState.status = null; }
+  shopState.loaded = true; return shopState;
+}
+function shopVisibleItems() { const st = shopState.status; return SHOP_ITEMS.filter(it => !st || !st[it.id] || st[it.id] === 'active'); }
+const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
+let shopChipReq = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false, shopChipDown = false;
+function syncShopChip() {
+  const r = shopChipReq; shopChipReq = null;
+  if (!r || ov || a2hs.show) { if (shopChipEl && shopChipEl.style.display !== 'none') shopChipEl.style.display = 'none'; shopChipBox = null; if (!r) shopChipFlip = false; return; }
+  if (!shopChipEl) {
+    shopChipEl = document.createElement('div'); shopChipEl.id = 'shopChip'; shopChipEl.setAttribute('aria-hidden', 'true');
+    shopChipEl.innerHTML = '<div class="in"><img alt="" src="' + SHOP_CHIP_SRC[0] + '"><img alt="" class="bk" src="' + SHOP_CHIP_SRC[1] + '"></div>';
+    const st = document.createElement('style');
+    st.textContent = '#shopChip{position:absolute!important;pointer-events:none!important;z-index:5;perspective:600px}#shopChip .in{position:relative;width:100%;height:100%;transition:transform .45s cubic-bezier(.3,.7,.4,1);transform-style:preserve-3d}' +
+      '#shopChip.flip .in{transform:rotateY(180deg)}#shopChip img{position:absolute;inset:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))}#shopChip img.bk{transform:rotateY(180deg)}' +
+      '@media (prefers-reduced-motion:reduce){#shopChip .in{transition:none}}';
+    document.head.appendChild(st); document.body.appendChild(shopChipEl);
+  }
+  const br = cv.getBoundingClientRect(), kx = br.width / W, ky = br.height / H;
+  const left = br.left + r.x * kx, top = br.top + r.y * ky, cw = r.w * kx, ch = r.h * ky;
+  shopChipBox = { left, top, w: cw, h: ch };
+  const s = shopChipEl.style;
+  s.setProperty('left', left + 'px', 'important'); s.setProperty('top', top + 'px', 'important'); s.setProperty('width', cw + 'px'); s.setProperty('height', ch + 'px');
+  s.setProperty('opacity', String((fade.a ? Math.max(0, 1 - fade.a) : 1) * Math.min(1, 0.35 + (r.t || 0) / 0.14 * 0.65))); s.setProperty('display', 'block', 'important');
+  shopChipEl.classList.toggle('flip', shopChipFlip);
+}
+function inShopChip(x, y) { const b = shopChipBox; if (!b) return false; const pad = 8; return x >= b.left - pad && x <= b.left + b.w + pad && y >= b.top - pad && y <= b.top + b.h + pad; }
+addEventListener('pointerdown', e => { shopChipDown = !!(menuPopup && menuPopup.kind === 'shop' && inShopChip(e.clientX, e.clientY)); }, true);
 function syncShopHat() {
   const r = shopHatReq; shopHatReq = null;
   const ready = im => im.complete && im.naturalWidth > 0;
@@ -6224,10 +6264,13 @@ function drawMenuPopup() {
     // v8.18 PRO SHOP: same dark-green card + camo snapback (hi-DPI overlay, see syncShopHat) + RESTOCKING SOON,
     // dressed as a pro shop — gold frame (Choose Course board), wood-paneled header with a PRO SHOP sign,
     // the hat on a wood display shelf, and a wood counter with a small brass bell along the bottom.
-    const tag = 'RESTOCKING SOON', full = 'DUMB LUCK CAMO SNAPBACK';
-    const name = textW(full) + 28 <= W - 8 ? full : 'CAMO SNAPBACK';
-    const hatH = 70, hatW = Math.round(hatH * SHOP_HAT_AR), stageH = hatH + 16;
-    const w = Math.max(textW(tag, 2) + 28, textW(name) + 28, hatW + 40), h = 196, HEAD = 30, CNT = 9;
+    // v8.48: two display cards on one shelf: camo snapback (RESTOCKING SOON) + LUCKY BALL MARKER (PREORDER COMING SOON).
+    // Admins can hide / archive items (server store_items); built-in list when the fetch fails.
+    const items = shopVisibleItems(), n = items.length;
+    const BX = n > 1 ? 74 : 86, ART = BX - 14, hatW = Math.min(BX - 6, Math.round(ART * 1.16)), hatH = Math.round(hatW / SHOP_HAT_AR)   /* photo has transparent margin: 1.16 makes the crown match the chip */, chipS = ART, stageH = BX + 14;   // v8.48: same display box + same art width for every item
+    const w = Math.min(W - 8, n > 1 ? 312 : Math.max(textW('RESTOCKING SOON', 2) + 28, textW('DUMB LUCK CAMO SNAPBACK') + 28, hatW + 40));
+    const hasChip = items.some(it => it.id === 'lucky_marker');
+    const HEAD = 30, CNT = 9, h = n === 0 ? 120 : 8 + HEAD + 6 + stageH + 8 + (hasChip ? (n > 1 ? 74 : 62) : 42) + (hasChip ? 30 : 0) + CNT;
     const x = Math.round((W - w) / 2), y = Math.round(Math.max(8, (H - h) / 2) + 8 * (1 - Math.min(1, p.t / 0.14)));
     const WD = '#5c3214', WM = '#7a4620', WL = '#94592a', WH = '#b87838', G1 = '#f8d878', G2 = '#d8a000', CREAM = '#fce4a0';
     const ix = x + 4, iy = y + 4, iw = w - 8, ih = h - 8;
@@ -6257,18 +6300,46 @@ function drawMenuPopup() {
       rect(sx + 2, sy + 2, sw - 4, sh - 4, '#000'); rect(sx + 3, sy + 3, sw - 6, sh - 6, '#123d20');
       drawText('PRO SHOP', sx + 9, sy + 4, '#000', 2); drawText('PRO SHOP', sx + 8, sy + 3, CREAM, 2);
     }
-    const stY = iy + HEAD + 6;
-    shopHatReq = { x: Math.round((W - hatW) / 2) - 8, y: stY, w: hatW + 16, h: stageH, t: p.t };
+    const stY = iy + HEAD + 6, colW = n ? Math.floor((iw - 8) / n) : iw, col0 = ix + 4 + Math.floor((iw - 8 - colW * n) / 2);
+    const blink = Math.floor(p.t * 3) % 2 ? COL.white : YEL;
+    if (n) {
     {   // display shelf the hat rests on: plank top, front edge, two small brackets, soft shadow below
-      const shY = stY + stageH - 10, shX = ix + 10, shW = iw - 20;
-      rect(shX, shY - 1, shW, 3, WH); rect(shX, shY + 2, shW, 4, WM); rect(shX, shY + 5, shW, 1, WD); rect(shX - 1, shY - 1, 1, 7, '#000'); rect(shX + shW, shY - 1, 1, 7, '#000');
-      rect(shX, shY - 2, shW, 1, '#000'); rect(shX, shY + 6, shW, 1, '#000');
-      for (const bx of [shX + 12, shX + shW - 15]) { rect(bx, shY + 7, 3, 5, WD); rect(bx + 1, shY + 12, 2, 2, WD); }
-      ctx.globalAlpha *= 0.35; rect(shX + 2, shY + 7, shW - 4, 3, '#000'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
+        const shY = stY + stageH - 10, shX = ix + 10, shW = iw - 20;
+        rect(shX, shY - 1, shW, 3, WH); rect(shX, shY + 2, shW, 4, WM); rect(shX, shY + 5, shW, 1, WD); rect(shX - 1, shY - 1, 1, 7, '#000'); rect(shX + shW, shY - 1, 1, 7, '#000');
+        rect(shX, shY - 2, shW, 1, '#000'); rect(shX, shY + 6, shW, 1, '#000');
+        for (const bx of [shX + 12, shX + shW - 15]) { rect(bx, shY + 7, 3, 5, WD); rect(bx + 1, shY + 12, 2, 2, WD); }
+        ctx.globalAlpha *= 0.35; rect(shX + 2, shY + 7, shW - 4, 3, '#000'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
+      }
+    } else {
+      drawTextC('NEW GEAR', stY + 16, CREAM, 2); outlined('COMING SOON', Math.round((W - textW('COMING SOON', 2)) / 2), stY + 40, blink, 2);
     }
-    const nmY = stY + stageH + 14;
-    drawTextC(name, nmY, COL.white);
-    outlined(tag, Math.round((W - textW(tag, 2)) / 2), nmY + 14, Math.floor(p.t * 3) % 2 ? COL.white : YEL, 2);
+    items.forEach((it, k) => {
+      const cx = col0 + colW * k + Math.floor(colW / 2), nmY = stY + stageH + 8;
+      const cT = (str, y, col, sz = 1) => drawText(str, Math.round(cx - textW(str, sz) / 2), y, col, sz);
+      const cO = (str, y, col, sz = 1) => outlined(str, Math.round(cx - textW(str, sz) / 2), y, col, sz);
+      const boxY = stY + stageH - 11 - BX, bx0 = cx - Math.round(BX / 2);   // matching display box (dark glass, thin gold rim) on the shelf
+      rect(bx0 - 1, boxY - 1, BX + 2, BX + 2, '#000'); rect(bx0, boxY, BX, BX, '#a07000'); rect(bx0, boxY, BX - 1, 1, G1); rect(bx0, boxY, 1, BX - 1, G1);
+      rect(bx0 + 2, boxY + 2, BX - 4, BX - 4, '#0e2a17'); ctx.globalAlpha *= 0.25; rect(bx0 + 2, boxY + 2, BX - 4, Math.round(BX * 0.35), '#58a868'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
+      if (it.id === 'camo_snapback') {
+        shopHatReq = { x: cx - Math.round(hatW / 2) - 8, y: boxY + Math.round((BX - hatH) / 2) - 4, w: hatW + 16, h: hatH + 16, t: p.t };
+        const nm = n === 1 && textW('DUMB LUCK CAMO SNAPBACK') + 28 <= w ? 'DUMB LUCK CAMO SNAPBACK' : 'CAMO SNAPBACK';
+        cT(nm, nmY + 4, COL.white);
+        if (n === 1) cO('RESTOCKING SOON', nmY + 18, blink, 2); else cO('RESTOCKING', nmY + 18, blink), cO('SOON', nmY + 28, blink);
+      } else if (it.id === 'lucky_marker') {
+        shopChipReq = { x: cx - Math.round(chipS / 2), y: boxY + Math.round((BX - chipS) / 2), w: chipS, h: chipS, t: p.t };
+        cT('LUCKY BALL MARKER', nmY + 4, COL.white);
+        if (n === 1) cO('PREORDER COMING SOON', nmY + 18, blink, textW('PREORDER COMING SOON', 2) <= iw - 8 ? 2 : 1); else cO('PREORDER', nmY + 18, blink), cO('COMING SOON', nmY + 28, blink);
+        const py = nmY + (n === 1 ? 36 : 40);
+        cT('$10', py, YEL, 2);
+        cT(textW('40MM CLAY POKER CHIP') <= colW - 4 ? '40MM CLAY POKER CHIP' : '40MM CLAY CHIP', py + 18, '#bcc8e0');
+      }
+    });
+    if (hasChip) {
+      const ty = iy + ih - CNT - 26, tl = "IT'S BETTER TO BE LUCKY THAN GOOD";
+      drawText(tl, Math.round((W - textW(tl)) / 2) + 1, ty + 1, '#000'); drawText(tl, Math.round((W - textW(tl)) / 2), ty, CREAM);
+      const hint = (isTouchUi() ? 'TAP' : 'CLICK') + ' THE CHIP TO FLIP IT';
+      drawText(hint, Math.round((W - textW(hint)) / 2), ty + 11, '#7c9c84');
+    }
     {   // counter along the bottom: wood top lip + front, small brass bell on the right
       const cy = iy + ih - CNT;
       rect(ix, cy - 1, iw, 1, '#000'); rect(ix, cy, iw, 2, WH); rect(ix, cy + 2, iw, CNT - 2, WM);
@@ -6618,7 +6689,7 @@ function render() {
   drawA2HS();
   drawFade();
   if (ov || toast || a2hs.show) drawCursor();
-  syncShopHat();
+  syncShopHat(); syncShopChip();
   syncLogoLayer();
   syncPageBg();
 }
@@ -7036,7 +7107,7 @@ const ADMIN_VIEWS = {
     h += '<p class="sec">DAILY PLAYERS (ET)</p><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
       (S.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table>';
     h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · HOME SCREEN ' + (S.home_screen_share || 0) + '%</p>';
-    h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button></div>' +
+    h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' +
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
       '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
       '<button class="link" data-a="go:adminLog">ADMIN LOG</button>' +
@@ -7067,6 +7138,17 @@ const ADMIN_VIEWS = {
         '<div class="acts"><button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'new' ? 'read' : 'new') + '">' + (f.status === 'new' ? 'MARK READ' : 'MARK NEW') + '</button>' +
         '<button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'resolved' ? 'read' : 'resolved') + '">' + (f.status === 'resolved' ? 'REOPEN' : 'RESOLVED') + '</button></div></div>';
     }).join('') + '</div>' : '<p class="empty">NO FEEDBACK YET</p>'),
+  adminStore: () => {   // v8.48: hide (kept, easy to unhide) / archive (moved to the archived list, restorable)
+    const st = shopState.status, srv = !!st;
+    const row = (it, s0) => '<div class="item"><div class="who wr">' + esc(it.name) + '<span class="st" style="color:' + ({ active: '#58d854', hidden: '#f8d878', archived: '#bcc8e0' }[s0]) + '">' + (s0 === 'active' ? 'SHOWN IN THE PRO SHOP' : s0.toUpperCase()) + '</span></div><div class="acts">' +
+      (s0 === 'archived' ? '<button class="btn small" data-a="stset" data-id="' + esc(it.id) + '" data-n="active">RESTORE</button>' :
+        '<button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="' + (s0 === 'hidden' ? 'active' : 'hidden') + '">' + (s0 === 'hidden' ? 'UNHIDE' : 'HIDE') + '</button><button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="archived">ARCHIVE</button>') + '</div></div>';
+    const all = SHOP_ITEMS.map(it => [it, (st && st[it.id]) || 'active']), live = all.filter(x => x[1] !== 'archived'), arch = all.filter(x => x[1] === 'archived');
+    return head('STORE', 'go:admin') + '<div class="msg"></div>' + (srv ? '' : '<p class="sub" style="color:#fc9838">STORE SETTINGS NOT REACHABLE (SHOWING BUILT-IN ITEMS). CHANGES NEED THE SERVER.</p>') +
+      '<p class="sec">SHOP ITEMS</p>' + (live.length ? '<div class="list">' + live.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NO ITEMS.</p>') +
+      '<p class="sec">ARCHIVED</p>' + (arch.length ? '<div class="list">' + arch.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NOTHING ARCHIVED.</p>') +
+      '<p class="sub" style="margin-top:8px">HIDDEN AND ARCHIVED ITEMS ARE NOT SHOWN TO PLAYERS. EVERY CHANGE GOES IN THE ADMIN LOG.</p>';
+  },
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
@@ -7185,6 +7267,7 @@ async function showAcct(view, opts) {
     if (view === 'adminScores') await adminLoadScores();
     if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
     if (view === 'adminLog') await adminLoadAudit();
+    if (view === 'adminStore') await loadShopItems(true);
     if (view === 'adminFeedback' || view === 'admin') await adminLoadFeedback();
     if (acctView !== view) return;
   }
@@ -7263,6 +7346,7 @@ if (acctEl) {
     if (a === 'fprof') { showAcct('friendProfile', { user: id, loading: true }); return; }
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
+    if (a === 'stset') { acctBusy(true); const r = await adminRpc('admin_store_set', { p_id: id, p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await loadShopItems(true); showAcct('adminStore', { keep: 1 }); return; }   // v8.48
     if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
     if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
     if (a.startsWith('go:')) { showAcct(a.slice(3), {}); return; }
@@ -7485,7 +7569,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+  window.__golf = {  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(shopChipEl && shopChipEl.style.display !== 'none') }; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
       let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
       const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
         for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
