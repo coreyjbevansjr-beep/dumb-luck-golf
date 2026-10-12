@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.45">
+<meta name="dlg-version" content="v8.46">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -193,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.45';
+const GAME_VERSION = 'v8.46';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -307,7 +307,14 @@ const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform 
 const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 let toast = null;   // { lines, until }
-function showToast(lines, ms = 4500) { toast = { lines, until: performance.now() + ms }; try { announce(lines.join('. ')); } catch (e) {} }
+const toastQ = [];   // v8.46: unlock toasts queue instead of replacing each other
+function showToast(lines, ms = 4500) {
+  if (toast && performance.now() < toast.until && /^UNLOCKED/.test(lines[0] || '')) {
+    if (!toastQ.some(q => q.lines.join('|') === lines.join('|')) && toastQ.length < 6) toastQ.push({ lines, ms });
+    return;
+  }
+  toast = { lines, until: performance.now() + ms, ms }; try { announce(lines.join('. ')); } catch (e) {}
+}
 function toggleFullscreen() {
   if (!fsSupported) {   // iPhone Safari: no fullscreen API; the page already fills the screen, home-screen launch hides the bars
     if (isStandalone()) showToast(['ALREADY FULL SCREEN']);
@@ -2696,7 +2703,7 @@ function hlVisible() {
   if (!['holed', 'done', 'aim', 'penalty'].includes(state)) return false;
   return hl.busy || !!hl.ready || hl.t < HL_SHOW;
 }
-function hlBtnRect() { const w = 132, h = 22; return { x: Math.round((W - w) / 2), y: (SAFE.t || 0) + 30, w, h }; }
+function hlBtnRect() { const w = 132, h = 22; return { x: Math.round((W - w) / 2), y: hl.btnY || ((SAFE.t || 0) + 30), w, h }; }
 function drawHighlightBtn() {
   if (hl.msg && (hl.msgT += 1 / 60) > 2.6) hl.msg = '';
   if (hl.msg) { const m = hl.msg; ctx.globalAlpha = 0.7; rect(Math.round((W - textW(m)) / 2) - 4, (SAFE.t || 0) + 56, textW(m) + 8, 11, '#000'); ctx.globalAlpha = 1; drawTextC(m, (SAFE.t || 0) + 58, COL.white); }
@@ -3528,10 +3535,37 @@ function drawGearButton() {   // title settings gear, left of the fullscreen ico
   rect(x + 6, y + 2, 2, 2, c); rect(x + 6, y + 10, 2, 2, c); rect(x + 2, y + 6, 2, 2, c); rect(x + 10, y + 6, 2, 2, c);
   rect(x + 3, y + 3, 2, 2, c); rect(x + 9, y + 3, 2, 2, c); rect(x + 3, y + 9, 2, 2, c); rect(x + 9, y + 9, 2, 2, c);
 }
+/* v8.46 celebration stack: msg / banner / shot line / SAVE HIGHLIGHT / unlock toast are laid out top-down
+   below the safe-area top so nothing overlaps; the done panel pushes the button + toast below it. */
+let CEL = { y: 92, banner: null, shot: null, btn: null, done: 34 };
+function celebLayout() {
+  const T = SAFE.t || 0, playing = GAME_STATES.includes(state) || ['holed', 'done', 'penalty', 'intro'].includes(state);
+  const L = { y: 92, banner: null, shot: null, btn: null, done: Math.max(34, T + 6), playing };
+  if (!playing) { hl.btnY = 0; CEL = L; return L; }
+  let cur = Math.max(22, T + 6);
+  if (state === 'done') cur = L.done + 92 + 6;
+  else {
+    if (msg || state === 'intro') cur = Math.max(cur, Math.max(36, T + 6) + 17);
+    const b = fx.banner;
+    if (b) {
+      let by = Math.max(b.y, cur + 6);
+      if (dogPop && dogPop.t < 0.6 + dogPop.hold) by = Math.min(by, Math.max(cur + 2, PLAY_H - 44 - 34));   // keep the banner clear of the dog
+      L.banner = by; cur = by + 7 * 3 + 10;
+    }
+    if (shotFx) { L.shot = Math.max(cur, Math.max(22, Math.round(PLAY_H * 0.22))); cur = L.shot + (shotFx.reason ? 24 : 12) + 4; }
+  }
+  if (hlVisible()) { hl.btnY = Math.max(hl.btnY || 0, Math.max(T + 30, cur + 2)); L.btn = hl.btnY; cur = L.btn + 22 + 6; } else hl.btnY = 0;
+  L.y = cur; CEL = L; return L;
+}
+function toastHeld() {   // v8.46: unlock toasts wait until the ACE / DUMB LUCK banner has finished
+  return !!(toast && fx.banner && CEL.playing && /^UNLOCKED/.test(toast.lines[0] || ''));
+}
 function drawToast() {
   if (!toast) return;
-  if (performance.now() > toast.until) { toast = null; return; }
-  const w = Math.max(...toast.lines.map(l => textW(l))) + 16, h = toast.lines.length * 10 + 8, x = Math.round((W - w) / 2), y = 92;
+  const now = performance.now();
+  if (toastHeld()) { toast.until = now + (toast.ms || 3200); return; }
+  if (now > toast.until) { toast = null; const q = toastQ.shift(); if (q) { toast = { lines: q.lines, until: now + q.ms, ms: q.ms }; try { announce(q.lines.join('. ')); } catch (e) {} } return; }
+  const w = Math.max(...toast.lines.map(l => textW(l))) + 16, h = toast.lines.length * 10 + 8, x = Math.round((W - w) / 2), y = CEL.playing ? Math.min(CEL.y, H - h - (SAFE.b || 0) - 4) : 92;
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   toast.lines.forEach((l, i) => drawTextC(l, y + 5 + i * 10, i ? COL.white : '#f8d878'));
 }
@@ -4174,7 +4208,7 @@ function drawBanner() {
   if (b.t > b.dur - 0.3 && Math.floor(b.t * 16) % 2) return;
   const fit = Math.max(1, Math.floor((W - 8) / (b.text.length * 6 - 1)));
   const sx = Math.min(b.t < 0.05 ? 2 : b.t < 0.14 ? 4 : 3, fit);      // pop: small -> big -> settle
-  const w = textW(b.text, sx), x0 = Math.round((W - w) / 2), y = Math.round(b.y - (sx - 3) * 3.5 + Math.sin(b.t * 7) * 1.5);
+  const w = textW(b.text, sx), x0 = Math.round((W - w) / 2), y = Math.round((CEL.banner != null ? CEL.banner : b.y) - (sx - 3) * 3.5 + Math.sin(b.t * 7) * 1.5);
   drawText(b.text, x0 + sx, y + sx, '#000', sx);
   for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [2, -2], [-2, 2], [-1, 0], [1, 0], [0, -1], [0, 1]]) drawText(b.text, x0 + ox, y + oy, '#000', sx);
   const shift = Math.floor(b.t * 12);
@@ -6488,7 +6522,7 @@ function drawShotFx() {
   if (!shotFx) return;
   const a = shotFx.t < 0.15 ? shotFx.t / 0.15 : shotFx.t > shotFx.dur - 0.25 ? Math.max(0, (shotFx.dur - shotFx.t) / 0.25) : 1;
   ctx.globalAlpha = a;
-  const w = textW(shotFx.label) + 10, x = Math.round((W - w) / 2), y = Math.max(22, Math.round(PLAY_H * 0.22));
+  const w = textW(shotFx.label) + 10, x = Math.round((W - w) / 2), y = CEL.shot != null ? CEL.shot : Math.max(22, Math.round(PLAY_H * 0.22));
   rect(x, y, w, 12, COL.white); rect(x + 1, y + 1, w - 2, 10, '#000');
   drawText(shotFx.label, x + 5, y + 2, shotFx.col);
   if (shotFx.reason) { const rw = textW(shotFx.reason) + 10, rx = Math.round((W - rw) / 2); rect(rx, y + 13, rw, 11, '#000'); drawText(shotFx.reason, rx + 5, y + 15, COL.gray); }
@@ -7230,6 +7264,7 @@ function renderScene() {
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   drawHUD();
+  celebLayout();   // v8.46
   drawDogPop();   // v8.12: on top of the HUD + mini map so nothing hides him
   drawShotFx();
   try { drawHighlightBtn(); } catch (e) {}   // v8.42
@@ -7246,13 +7281,13 @@ function renderScene() {
     msgBox(lines, 36, cols);
   }
   if (roundTip) drawRoundTip();
-  if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2); rect(x, 36, w, 13, COL.white); rect(x + 1, 37, w - 2, 11, '#000'); drawText(msg.text, x + 6, 39, msg.col); }
+  if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2), my = Math.max(36, (SAFE.t || 0) + 6); rect(x, my, w, 13, COL.white); rect(x + 1, my + 1, w - 2, 11, '#000'); drawText(msg.text, x + 6, my + 3, msg.col); }
   else drawWildCaption();
   drawBanner();
   if (state === 'done') {
     // v8.13: size the box to its text (min 188, clamped to screen) and center it on W
     const w = Math.min(W - 8, Math.max(188, textW(doneInfo.name, 2) + 24, textW('CLICK FOR SCORECARD') + 16, textW('TOTAL ' + fmtRel(relSoFar())) + 16));
-    const x = Math.round((W - w) / 2), y = 34, h = 92;
+    const x = Math.round((W - w) / 2), y = CEL.done, h = 92;
     rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
     drawText('HOLE ' + displayHoleNum(holeIdx), x + 8, y + 8, COL.white);
     drawText('PAR ' + hole.par, x + 8, y + 19, COL.white);
@@ -7300,7 +7335,19 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  get lbBoard() { return board && { modeId: board.modeId, period: boardPeriod, scope: boardScope, rows: board.rows, me: board.me, hi: board.hi, needSignIn: !!board.needSignIn, src: board.src, tabs: boardTabRects() }; }, boardTab(k, v) { boardSetTab(k, v); }, saveScoreT(e) { return saveScore(e); }, setScoresT(a) { scores = a.slice(); }, openBoardT(m) { openBoard(null, m); }, get saveWhere() { return saveWhere; }, lbDeviceBestFor(m, p) { return lbDeviceBestFor(m, p); }, get igBtns() { return { hig: Object.assign({}, HIG_BTN), follow: Object.assign({}, FOLLOW_BTN), card: Object.assign({}, CARD_FOLLOW), menu: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })), board: Object.assign({}, TLB_R), opened: igOpenCount }; }, get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
+  window.__golf = {  overlapReport() {   // v8.46 test probe: on-screen rects of the celebration overlays
+      const R = {}, T = SAFE.t || 0;
+      if (fx.banner && CEL.banner != null) { const sx = 3, w = textW(fx.banner.text, sx); R.banner = { x: Math.round((W - w) / 2) - 4, y: CEL.banner - 4, w: w + 8, h: 7 * sx + 8 }; }
+      if (shotFx && CEL.shot != null) { const w = textW(shotFx.reason || shotFx.label) + 10; R.shot = { x: Math.round((W - w) / 2), y: CEL.shot, w, h: shotFx.reason ? 24 : 12 }; }
+      if (hl.btn) R.btn = Object.assign({}, hl.btn);
+      if (toast && !toastHeld() && CEL.playing) { const w = Math.max(...toast.lines.map(l => textW(l))) + 16, h = toast.lines.length * 10 + 8; R.toast = { x: Math.round((W - w) / 2), y: Math.min(CEL.y, H - h - (SAFE.b || 0) - 4), w, h }; }
+      if (state === 'done') R.done = { x: 34, y: CEL.done, w: W - 68, h: 92 };
+      if (msg) R.msg = { x: 0, y: Math.max(36, T + 6), w: W, h: 13 };
+      if (dogPop) { const up = clamp(dogPop.t / 0.3, 0, 1), Z = worldZoom(), cx = W / 2 + (dogPop.x + 24 - W / 2) * Z; R.dog = { x: clamp(Math.round(cx - 24), 4, W - 52), y: Math.round(PLAY_H - 44 * up), w: 48, h: Math.round(44 * up) }; if (!R.dog.h) delete R.dog; }
+      const keys = Object.keys(R), hits = [];
+      for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) { const a = R[keys[i]], b = R[keys[j]]; if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) hits.push(keys[i] + '/' + keys[j]); }
+      return { rects: R, hits, safeTop: T, H, W, held: toastHeld(), queued: toastQ.length };
+    }, get lbBoard() { return board && { modeId: board.modeId, period: boardPeriod, scope: boardScope, rows: board.rows, me: board.me, hi: board.hi, needSignIn: !!board.needSignIn, src: board.src, tabs: boardTabRects() }; }, boardTab(k, v) { boardSetTab(k, v); }, saveScoreT(e) { return saveScore(e); }, setScoresT(a) { scores = a.slice(); }, openBoardT(m) { openBoard(null, m); }, get saveWhere() { return saveWhere; }, lbDeviceBestFor(m, p) { return lbDeviceBestFor(m, p); }, get igBtns() { return { hig: Object.assign({}, HIG_BTN), follow: Object.assign({}, FOLLOW_BTN), card: Object.assign({}, CARD_FOLLOW), menu: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })), board: Object.assign({}, TLB_R), opened: igOpenCount }; }, get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
