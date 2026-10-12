@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.46">
+<meta name="dlg-version" content="v8.47">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -193,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.46';
+const GAME_VERSION = 'v8.47';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -647,7 +647,7 @@ async function loadMatches() {
   return r;
 }
 async function createMatch(friend, holes) {
-  const seed = (Math.random() * 2147483647) | 0, plan = matchPlan(seed, holes);
+  const seed = (Math.random() * 2147483647) | 0, plan = matchPlanNew(seed, holes);   // v8.47: Daily-hole shuffle
   const body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: plan.setup };
   const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
   if (!r.ok) return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
@@ -681,8 +681,50 @@ function matchLabel(m) {   // short status line for lists
   if (!theirs) return 'WAITING FOR @' + o.name;
   return m.status.toUpperCase();
 }
-/* ---- seeded match plan: same holes, pins, wind and weather for both players ---- */
-function matchPlan(seed, n) {
+/* ---- v8.47: match plans v2 draw a seeded shuffle of the Daily holes (no repeats until the pool runs out). The chosen hole ids,
+   pins, wind and weather are stored in matches.setup so both players and the ghost replay rebuild the exact same round, even if
+   the Daily list grows later. Matches without setup.v === 2 (created before v8.47) keep the v1 course plan below. ---- */
+function matchDailyPool() {
+  const spooky = (typeof SPOOKY_DAILY !== 'undefined') ? SPOOKY_DAILY : [];
+  const hw = (() => { try { return halloweenOn(); } catch (e) { return false; } })();
+  const base = DAILY_HOLES.filter(d => !spooky.includes(d));
+  return hw ? base.concat(spooky) : base;
+}
+function matchHoleById(id) { const spooky = (typeof SPOOKY_DAILY !== 'undefined') ? SPOOKY_DAILY : []; return DAILY_HOLES.find(d => d.id === id) || spooky.find(d => d.id === id) || null; }
+function matchShuffleIds(seed, n, ids) {   // pure + deterministic: same seed, n and pool -> same order
+  const rng = mulberry32((seed >>> 0) ^ 0xda11);
+  const out = [];
+  while (out.length < n) {
+    const deck = ids.slice(); for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    if (out.length && deck.length > 1 && deck[0] === out[out.length - 1]) deck.push(deck.shift());   // no back-to-back repeat across refills
+    for (const id of deck) { if (out.length >= n) break; out.push(id); }
+  }
+  return { ids: out, rng };
+}
+function matchPlanNew(seed, n) {
+  const pool = matchDailyPool(), { ids, rng } = matchShuffleIds(seed, n, pool.map(d => d.id));
+  const holesOut = ids.map(id => { const src = matchHoleById(id), last = src.pts[src.pts.length - 1][0];
+    const pin = clamp(src.cup + Math.floor(rng() * 17) - 8, 40, last - 40);
+    const wind = src.calm ? 0 : clamp(Math.round(rng() * 16 - 8), -14, 14);
+    return { id, pin, wind }; });
+  const wx = pickWeather(rng);
+  const setup = { v: 2, pool: 'daily', holes: holesOut, weather: wx.id };
+  return Object.assign(matchPlanFromSetup(setup), { setup });
+}
+function matchPlanFromSetup(setup) {
+  const defs = setup.holes.map((p, i) => { const src = matchHoleById(p.id);
+    if (!src) return null;
+    return Object.assign(JSON.parse(JSON.stringify(src)), { cup: p.pin, wind: p.wind, pins: null, windR: null, courseNo: i + 1 }); });
+  if (defs.some(d => !d)) return { setup, defs: null, missing: true, weather: Object.assign({}, WEATHERS[0]) };   // a hole this build doesn't know (needs an update)
+  const wx = WEATHERS.find(w => w.id === setup.weather) || WEATHERS[0];
+  return { setup, defs, weather: Object.assign({}, defs.every(d => d.calm) ? WEATHERS[0] : wx) };
+}
+function matchPlan(seed, n, setup) {
+  if (setup && setup.v === 2 && Array.isArray(setup.holes) && setup.holes.length) return matchPlanFromSetup(setup);
+  return matchPlanV1(seed, n);
+}
+/* ---- v1 (pre-v8.47) seeded match plan: regular course holes. Kept so older matches replay identically ---- */
+function matchPlanV1(seed, n) {
   const rng = mulberry32((seed >>> 0) ^ 0x5eed);
   const pool = FRONT_HOLES.concat(BACK_HOLES);
   let idx;
@@ -771,7 +813,8 @@ function ghostCompare() {
 }
 /* ---- start a match round (play, or watch the opponent's ghost) ---- */
 async function startMatchRound(m, watch) {
-  const plan = matchPlan(Number(m.seed), m.holes);
+  const plan = matchPlan(Number(m.seed), m.holes, m.setup);
+  if (!plan.defs) return { ok: false, msg: 'UPDATE THE GAME TO PLAY THIS MATCH' };
   const other = matchOther(m);
   matchCtx = { match: m, plan, watch: !!watch, other, submitted: false, result: null };
   ghostPlay = null;
@@ -1764,7 +1807,14 @@ const SPR839 = (() => {
     for (let i = 0; i < 4; i++) { const y = 4 + i * 10, hw = 6 + i * 4; for (let k = 0; k < 12; k++) { const ww = Math.round(hw * k / 12) + 1; R(17 - ww - 1, y + k, ww * 2 + 2, 1, '#000'); R(17 - ww, y + k, ww * 2, 1, k < 3 ? '#fcfcfc' : '#006848'); } } });
   const snowbush = S(36, 18, R => { R(2, 6, 32, 12, '#000'); R(3, 7, 30, 10, '#006848'); R(3, 6, 30, 4, '#fcfcfc'); R(8, 4, 20, 3, '#000'); R(9, 4, 18, 3, '#fcfcfc'); });
   const banyan = oakSprite('#006830', '#20a040', '#004018');
-  return { palm, lamp, planter, lander, rocksG: rocks('#8c8c9c', '#c8c8d4'), rocksD: rocks('#3c3434', '#6c5c54'), dead, snowpine, snowbush, banyan };
+  // v8.47 wild Daily part 2 sprites
+  const kelp = S(20, 50, R => { for (let k = 0; k < 3; k++) for (let y = 4; y < 50; y++) { const x = 4 + k * 6 + Math.round(Math.sin(y / 6 + k) * 2); R(x - 1, y, 4, 1, '#000'); R(x, y, 2, 1, y % 7 ? '#2c9c4c' : '#58d854'); } });
+  const rover = S(34, 24, R => { R(4, 8, 26, 10, '#000'); R(5, 9, 24, 8, '#d8d8e0'); R(8, 2, 2, 7, '#000'); R(5, 0, 8, 3, '#000'); R(6, 1, 6, 1, '#3cbcfc'); for (const x of [6, 15, 24]) { R(x - 1, 16, 7, 7, '#000'); R(x, 17, 5, 5, '#5c5c64'); } });
+  const goalpost = S(30, 60, R => { R(13, 30, 4, 30, '#000'); R(14, 30, 2, 30, '#f8d878'); R(1, 26, 28, 5, '#000'); R(2, 27, 26, 3, '#f8d878'); R(1, 0, 4, 28, '#000'); R(2, 0, 2, 27, '#f8d878'); R(25, 0, 4, 28, '#000'); R(26, 0, 2, 27, '#f8d878'); });
+  const hay = S(30, 18, R => { R(1, 4, 28, 14, '#000'); R(2, 5, 26, 12, '#e8c050'); for (let x = 4; x < 28; x += 4) R(x, 6, 1, 10, '#c89c38'); R(2, 9, 26, 1, '#a87c28'); });
+  const palmNeon = S(40, 60, R => { for (let y = 18; y < 60; y++) { const x = 18 + Math.round(Math.sin(y / 9) * 3); R(x - 1, y, 6, 1, '#000'); R(x, y, 4, 1, y % 5 ? '#f878f8' : '#a83ca8'); }
+    for (const [dx, dy] of [[-16, 6], [-12, -4], [0, -8], [12, -4], [16, 6]]) for (let k = 0; k <= 10; k++) { const x = 20 + Math.round(dx * k / 10), y = 18 + Math.round(dy * k / 10 + (k * k) / 14); R(x - 1, y, 3, 2, k % 3 ? '#58f898' : '#3cbcfc'); } });
+  return { palm, lamp, planter, lander, rocksG: rocks('#8c8c9c', '#c8c8d4'), rocksD: rocks('#3c3434', '#6c5c54'), dead, snowpine, snowbush, banyan, kelp, rover, goalpost, hay, palmNeon };
 })();
 // one cached backdrop canvas per theme + play size (no per-frame column loop)
 function bdPaint(th) {
@@ -2054,6 +2104,106 @@ const DAILY_WILD = [
     pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[100,'fair',36],[140,'fair',10],[176,'fair',8],[200,'fair',30],[236,'fair',10],[280,'fair',14],[300,'sand',14],[318,'green',14],[390,'sand',14],[404,'rough',14],[430,'end',16]] }
 ];
 DAILY_HOLES.push(...DAILY_WILD);
+/* v8.47 WILD Daily rotation, part 2: deep sea, red planet, stadium, barnyard, neon strip, pyramids, jungle temple */
+Object.assign(THEMES, {
+  deep: { sky: '#0c3c7c', tree: SPR839.kelp, bush: SPR839.rocksG,
+    bg: (R, w, h, hz, H1) => {
+      for (let y = 0; y < h; y += 4) R(0, y, w, 4, y < hz - 80 ? '#14508c' : y < hz - 30 ? '#0c4078' : '#083060');
+      for (let i = 0; i < 6; i++) { const x0 = Math.floor(i * 88 + H1(i) * 30); for (let k = 0; k < 40; k += 2) R(x0 + k, hz - 70 + k, 1, 120, '#1c64a4'); }   // light shafts
+      for (let i = 0; i < 26; i++) R(Math.floor(H1(i + 3) * w), Math.floor(H1(i + 40) * hz), 2, 2, '#9cdcfc');   // bubbles
+      for (let i = 0; i < 4; i++) { const fx = 40 + i * 120 + Math.floor(H1(i + 9) * 40), fy = hz - 60 + Math.floor(H1(i + 19) * 30), col = ['#f8b800', '#f878f8', '#58d854', '#f83800'][i];
+        R(fx - 1, fy - 1, 12, 7, '#000'); R(fx, fy, 10, 5, col); R(fx + 10, fy - 1, 4, 7, '#000'); R(fx + 10, fy, 3, 5, col); R(fx + 2, fy + 1, 1, 1, '#000'); }   // fish
+      for (let x = 0; x < w; x++) { const top = hz + 6 + Math.round(6 * Math.sin(x / 27) + 3 * Math.sin(x / 7)); R(x, top, 1, h - top, '#c8b478'); R(x, top, 1, 1, '#000'); }
+    },
+    C: Object.assign({}, COL, { grass: '#2c9c7c', fair2: '#3cac8c', grassD: '#1c6c5c', sand: '#e8d8a0', sandD: '#c8b478', dirt: '#8c7c54', dirtD: '#5c4c34', dirtL: '#c8b478', water: '#041c4c', waterD: '#000c2c' }) },
+  mars: { sky: '#d88454', sun: '#fce4a0', tree: SPR839.rover, bush: SPR839.rocksD,
+    bg: (R, w, h, hz, H1) => {
+      R(380, hz - 120, 6, 6, '#fce4a0'); R(120, hz - 140, 4, 4, '#c8c8c8');   // two moons
+      for (let i = 0; i < 5; i++) { const cx = Math.floor(i * 110 + H1(i) * 40), ht = 30 + Math.floor(H1(i + 7) * 50), hw = 50 + Math.floor(H1(i + 17) * 40);
+        for (let x = -hw; x <= hw; x++) { const top = hz - Math.round(ht * (1 - Math.abs(x) / hw)) + (Math.abs(x) < hw * 0.18 ? 8 : 0); R(cx + x, top, 1, h - top, x < 0 ? '#a8442c' : '#8c3420'); R(cx + x, top, 1, 1, '#000'); } }
+      for (let x = 0; x < w; x++) { const top = hz + 4 + Math.round(4 * Math.sin(x / 21)); R(x, top, 1, h - top, '#b8543c'); }
+      for (let i = 0; i < 10; i++) { const cx = Math.floor(H1(i + 30) * w), cy = hz + 10 + Math.floor(H1(i + 50) * 20), r = 3 + Math.floor(H1(i + 70) * 5); R(cx - r, cy, r * 2, 2, '#7c2c18'); R(cx - r + 1, cy + 2, r * 2 - 2, 1, '#d87454'); }
+    },
+    C: Object.assign({}, COL, { grass: '#c8643c', fair2: '#d8744c', green: '#e8a47c', green2: '#d8946c', grassD: '#8c3c24', sand: '#f8c890', sandD: '#d8a070', dirt: '#8c3c24', dirtD: '#5c2414', dirtL: '#b8543c', water: '#3c1c14', waterD: '#1c0c08' }) },
+  stadium: { sky: '#0c145c', stars: true, tree: SPR839.goalpost, bush: SPR839.planter,
+    bg: (R, w, h, hz, H1) => {
+      for (const lx of [60, 300]) { R(lx, hz - 130, 3, 130, '#5c5c74'); R(lx - 12, hz - 140, 28, 12, '#000'); for (let k = 0; k < 4; k++) R(lx - 10 + k * 7, hz - 138, 5, 8, '#fcfcfc'); for (let k = 0; k < 30; k++) R(lx - 30 + k * 2, hz - 126 + k * 2, 2, 1, 'rgba(252,252,200,0.25)'); }
+      for (let y = hz - 70; y < hz; y += 5) for (let x = 0; x < w; x += 3) R(x, y, 2, 3, ['#f83800', '#fcfcfc', '#3cbcfc', '#f8d878', '#58d854'][Math.floor(H1(x * 7 + y) * 5)]);   // crowd
+      R(0, hz - 74, w, 4, '#3c3c54'); R(0, hz, w, 4, '#3c3c54');
+      R(180, hz - 112, 120, 36, '#000'); R(182, hz - 110, 116, 32, '#1c1c2c'); for (let k = 0; k < 12; k++) R(188 + k * 9, hz - 104, 6, 20, k % 4 === 1 ? '#f8d878' : '#3c3c4c');   // scoreboard
+      R(0, hz + 4, w, h - hz - 4, '#20802c'); for (let x = 0; x < w; x += 32) R(x, hz + 4, 2, h - hz - 4, '#fcfcfc');
+    },
+    C: Object.assign({}, COL, { grass: '#2c9c3c', fair2: '#38ac48', grassD: '#1c6c2c', dirt: '#5c4c3c', dirtD: '#3c2c1c', dirtL: '#fcfcfc', sand: '#e8e0c8', sandD: '#b8b098' }) },
+  farm: { sky: '#88c8fc', clouds: true, tree: TREE_AUTUMN, bush: SPR839.hay,
+    bg: (R, w, h, hz, H1) => {
+      for (let x = 0; x < w; x++) { const top = hz - 20 + Math.round(10 * Math.sin(x / 40) + 4 * Math.sin(x / 13)); R(x, top, 1, h - top, x % 8 < 4 ? '#a8b840' : '#98a838'); R(x, top, 1, 1, '#000'); }
+      const bx = 140, by = hz - 60; R(bx - 1, by + 9, 62, 52, '#000'); R(bx, by + 10, 60, 50, '#c83020'); for (let k = 0; k < 4; k++) R(bx + 30 - 30 + k, by + 10 - k * 3 - 1, 60 - k * 2, 3, '#000');
+      for (let k = 0; k < 10; k++) R(bx + k * 3, by + 10 - k, 60 - k * 6, 1, '#a82818'); R(bx + 22, by + 32, 16, 28, '#fcfcfc'); R(bx + 24, by + 34, 12, 26, '#6c1c10'); R(bx + 24, by + 46, 12, 1, '#fcfcfc');
+      R(bx + 66, by - 20, 20, 80, '#000'); R(bx + 67, by - 19, 18, 79, '#c8c8d4'); R(bx + 66, by - 28, 20, 8, '#000'); R(bx + 68, by - 26, 16, 6, '#8c8ca4');   // silo
+      for (let i = 0; i < 5; i++) { const cx = 300 + i * 40, cy = hz - 6; R(cx, cy, 12, 6, '#fcfcfc'); R(cx + 3, cy + 1, 4, 3, '#000'); R(cx + 10, cy - 2, 4, 4, '#fcfcfc'); R(cx + 1, cy + 6, 2, 3, '#000'); R(cx + 9, cy + 6, 2, 3, '#000'); }   // cows
+    },
+    C: Object.assign({}, COL, { grass: '#68b838', fair2: '#78c848', grassD: '#4c8c2c', dirt: '#8c5c2c', dirtD: '#5c3c1c', dirtL: '#b88c4c', sand: '#f8d878', sandD: '#d8a838' }) },
+  neon: { sky: '#100828', stars: true, tree: SPR839.palmNeon, bush: SPR839.planter,
+    bg: (R, w, h, hz, H1) => {
+      const cols = ['#f878f8', '#3cbcfc', '#f8d878', '#58f898', '#f83800'];
+      for (let x = 0, i = 0; x < w; i++) { const bw = 26 + Math.floor(H1(i) * 30), top = hz - 30 - Math.floor(H1(i + 50) * 80); R(x, top, bw - 2, h - top, '#1c1430');
+        const c = cols[i % cols.length]; R(x + 2, top + 6, bw - 6, 2, c); R(x + 2, top + 14, bw - 6, 1, c); for (let y = top + 20; y < hz; y += 8) for (let k = x + 3; k < x + bw - 5; k += 5) if (H1(k + y) < 0.4) R(k, y, 2, 3, c); x += bw; }
+      R(200, hz - 128, 70, 20, '#000'); R(202, hz - 126, 66, 16, '#f878f8'); R(206, hz - 122, 58, 8, '#100828');   // marquee
+      R(0, hz + 6, w, h - hz - 6, '#1c1430'); for (let x = 0; x < w; x += 12) R(x, hz + 10, 6, 1, '#f8d878');
+    },
+    C: Object.assign({}, COL, { grass: '#7c3cc8', fair2: '#8c4cd8', green: '#58f898', green2: '#3cd878', grassD: '#4c1c8c', dirt: '#2c1c48', dirtD: '#140c28', dirtL: '#f878f8', sand: '#3cbcfc', sandD: '#1c7cb8', water: '#f878f8', waterD: '#a83ca8' }) },
+  pyramid: { sky: '#fcc878', sun: '#fce4a0', tree: SPR839.palm, bush: BUSH_DRY,
+    bg: (R, w, h, hz, H1) => {
+      const pyr = (cx, ht, col, sh) => { for (let x = -ht; x <= ht; x++) { const top = hz - (ht - Math.abs(x)); R(cx + x, top, 1, h - top, x < 0 ? col : sh); R(cx + x, top, 1, 1, '#000'); if ((hz - top) % 6 === 0) R(cx + x, top, 1, 1, '#a87838'); } };
+      pyr(110, 90, '#e8b868', '#c8944c'); pyr(250, 120, '#f0c478', '#d0a058'); pyr(410, 70, '#e8b868', '#c8944c');
+      R(330, hz - 22, 34, 22, '#000'); R(331, hz - 21, 32, 21, '#c8944c'); R(352, hz - 34, 12, 16, '#000'); R(353, hz - 33, 10, 14, '#d8a85c'); R(354, hz - 30, 2, 2, '#000');   // sphinx
+      for (let x = 0; x < w; x++) { const top = hz + 2 + Math.round(5 * Math.sin(x / 31) + 2 * Math.sin(x / 9)); R(x, top, 1, h - top, '#f0cc88'); }
+    },
+    C: Object.assign({}, COL, { grass: '#a8b040', fair2: '#b8c050', grassD: '#788028', sand: '#f8dc98', sandD: '#d8b470', dirt: '#c8944c', dirtD: '#8c5c2c', dirtL: '#f0cc88', water: '#3cbcfc', waterD: '#1c7cc8' }) },
+  jungle: { sky: '#68c8a8', clouds: true, tree: SPR839.palm, bush: BUSH, oak: SPR839.banyan,
+    bg: (R, w, h, hz, H1) => {
+      for (let x = 0; x < w; x++) { const top = hz - 40 + Math.round(16 * Math.sin(x / 47) + 8 * Math.sin(x / 13 + 1)); R(x, top, 1, h - top, '#1c6c3c'); R(x, top, 1, 1, '#000'); }
+      const tx = 260, ty = hz - 96; for (let k = 0; k < 6; k++) { R(tx - 50 + k * 8 - 1, ty + k * 14 - 1, 100 - k * 16 + 2, 16, '#000'); R(tx - 50 + k * 8, ty + k * 14, 100 - k * 16, 14, k % 2 ? '#8c8c74' : '#a4a48c'); }
+      R(tx - 8, ty - 14, 16, 14, '#000'); R(tx - 7, ty - 13, 14, 13, '#7c7c64'); R(tx - 3, ty - 8, 6, 8, '#000');   // temple top
+      for (let i = 0; i < 12; i++) { const vx = Math.floor(H1(i) * w); for (let y = 0; y < 30 + H1(i + 5) * 40; y += 2) R(vx + Math.round(Math.sin(y / 5) * 2), y, 2, 2, '#2c8c4c'); }   // vines
+      for (let x = 0; x < w; x++) { const top = hz + 4 + Math.round(4 * Math.sin(x / 17)); R(x, top, 1, h - top, '#0c4c2c'); }
+    },
+    C: Object.assign({}, COL, { grass: '#2cac48', fair2: '#3cbc58', grassD: '#1c7c34', water: '#3c9c8c', waterD: '#1c6c5c', dirt: '#6c4c2c', dirtD: '#3c2c1c', dirtL: '#8c6c3c' }) }
+});
+const DAILY_WILD2 = [
+  // Under the sea: carry the trench to a reef-shelf green; heavier water (gravity 0.85) floats the ball a bit
+  { id: 'deepsea', name: 'DEEP SEA DIVE', theme: 'deep', par: 3, cup: 196, wind: 0, calm: true, grav: 0.85, drop: 150,
+    deco: [['tree', -30], ['bush', 30], ['tree', 140], ['tree', 250]],
+    pts: [[0,'tee',20],[22,'rough',18],[36,'water',4],[140,'rough',14],[160,'green',14],[226,'rough',14],[232,'water',4],[260,'rough',16],[290,'end',18]] },
+  // Mars: light gravity, giant craters (sand pits) and a crater-rim green
+  { id: 'mars', name: 'RED PLANET', theme: 'mars', par: 4, cup: 520, wind: 3, grav: 0.72,
+    deco: [['tree', 40], ['bush', 150], ['bush', 330], ['tree', 600]],
+    pts: [[0,'tee',12],[24,'rough',12],[44,'fair',10],[150,'sand',2],[200,'fair',12],[300,'fair',16],[360,'sand',4],[400,'fair',14],[470,'rough',18],[488,'green',22],[556,'rough',20],[580,'sand',14],[620,'end',16]] },
+  // Night game in a stadium: goalposts guard the end zone green
+  { id: 'stadium', name: 'GAME DAY', theme: 'stadium', par: 4, cup: 376, wind: -2,
+    deco: [['tree', 40], ['bush', 170], ['tree', 420]],
+    walls: [[420, 0, 16]],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[200,'fair',10],[250,'sand',10],[270,'fair',10],[316,'sand',10],[342,'green',10],[412,'sand',10],[426,'rough',12],[456,'end',14]] },
+  // Barnyard: a windmill by the pond, hay bale bumpers and a green behind the barn
+  { id: 'farm', name: 'BARNYARD BOGEY', theme: 'farm', par: 4, cup: 360, wind: 3,
+    deco: [['tree', 30], ['bush', 110], ['bush', 250], ['tree', 420]],
+    movers: [{ kind: 'windmill', x: 170, w: 22, hBot: 0, hTop: 50, period: 2.6, phase: 0.2 }],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[130,'fair',12],[200,'water',6],[218,'rough',10],[230,'fair',12],[300,'sand',12],[320,'green',12],[396,'sand',12],[410,'rough',14],[440,'end',16]] },
+  // Neon strip: bounce pads light the way to an island green over a glowing pool
+  { id: 'neon', name: 'NEON NIGHTS', theme: 'neon', par: 3, cup: 214, wind: 1, drop: 164,
+    deco: [['tree', -30], ['bush', 60], ['tree', 260]],
+    pads: [[90, 104]],
+    pts: [[0,'tee',14],[22,'rough',12],[40,'fair',10],[120,'water',4],[160,'rough',12],[176,'green',12],[250,'rough',12],[256,'water',4],[290,'rough',14],[310,'end',16]] },
+  // Pyramids: a long sand sea, an oasis, and a raised tomb green
+  { id: 'pyramid', name: 'SPHINX SANDS', theme: 'pyramid', par: 4, cup: 384, wind: 5,
+    deco: [['tree', 30], ['bush', 140], ['tree', 250], ['bush', 440]],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[130,'sand',8],[180,'fair',12],[238,'water',6],[250,'fair',14],[334,'sand',16],[352,'green',18],[418,'sand',18],[436,'rough',16],[470,'end',18]] },
+  // Jungle temple: cross the river and climb the temple steps to the green
+  { id: 'temple', name: 'TEMPLE RUN', theme: 'jungle', par: 4, cup: 352, wind: -3,
+    deco: [['tree', 30], ['oak', 100], ['bush', 230], ['tree', 420]],
+    pts: [[0,'tee',12],[22,'rough',12],[40,'fair',10],[150,'fair',10],[180,'water',4],[206,'rough',10],[222,'fair',12],[262,'fair',16],[290,'fair',20],[312,'green',22],[386,'rough',22],[400,'end',24]] }
+];
+DAILY_HOLES.push(...DAILY_WILD2);
 
 /* v8.41 Halloween Daily holes (in the Daily pool during October, NY date, or with ?halloween) */
 const SPOOKY_DAILY = [
@@ -5166,7 +5316,7 @@ function scheduleWildlife(forceKind) {
   clearWildlife();
   if (!hole) return;
   if (forceKind) { beginWildlife(forceKind); return; }
-  if (['moon', 'lava', 'city'].includes(hole.theme)) return;   // v8.39
+  if (['moon', 'lava', 'city', 'deep', 'mars', 'stadium', 'neon'].includes(hole.theme)) return;   // v8.39
   if (Math.random() >= WILD_CHANCE) return;
   wildlife = { pending: true, delay: rnd(1.2, 4.5), kind: pickWildlifeKind(hole) };
 }
@@ -7007,12 +7157,12 @@ const VIEWS = {
   },
   result: o => {
     const m = social.matches.find(x => x.id === o.id) || (matchCtx && matchCtx.match); if (!m) return head('MATCH', 'go:matches') + '<p class="empty">MATCH NOT FOUND.</p>';
-    const me = matchSide(m), oth = matchOther(m), mine = matchMine(m) || (o.local && o.local.scores), theirs = matchTheirs(m), plan = matchPlan(Number(m.seed), m.holes);
-    const tot = a => a ? a.reduce((x, y) => x + y, 0) : null, A = tot(mine), B = tot(theirs), par = plan.defs.reduce((x, d) => x + d.par, 0);
+    const me = matchSide(m), oth = matchOther(m), mine = matchMine(m) || (o.local && o.local.scores), theirs = matchTheirs(m), plan = matchPlan(Number(m.seed), m.holes, m.setup);
+    const tot = a => a ? a.reduce((x, y) => x + y, 0) : null, A = tot(mine), B = tot(theirs), par = (plan.defs || []).reduce((x, d) => x + d.par, 0);
     let big = 'WAITING FOR ' + at(oth.name);
     if (mine && theirs) big = A < B ? 'YOU WIN!' : A > B ? at(oth.name) + ' WINS' : 'ALL SQUARE';
     else if (!mine) big = 'YOUR TURN';
-    const rows = plan.defs.map((d, i) => { const a = mine ? mine[i] : null, b = theirs ? theirs[i] : null; return '<tr><td>' + d.courseNo + '</td><td>' + d.par + '</td><td class="' + (a != null && b != null ? (a < b ? 'w' : a > b ? 'l' : '') : '') + '">' + (a == null ? '-' : a) + '</td><td>' + (b == null ? '-' : b) + '</td></tr>'; }).join('');
+    const rows = (plan.defs || []).map((d, i) => { const a = mine ? mine[i] : null, b = theirs ? theirs[i] : null; return '<tr><td>' + d.courseNo + '</td><td>' + d.par + '</td><td class="' + (a != null && b != null ? (a < b ? 'w' : a > b ? 'l' : '') : '') + '">' + (a == null ? '-' : a) + '</td><td>' + (b == null ? '-' : b) + '</td></tr>'; }).join('');
     const ghostOk = !!theirs;
     return head('MATCH', 'go:matches') + '<p class="big">' + big + '</p><p class="sub">' + m.holes + ' HOLES · PAR ' + par + (o.local && o.local.msg ? '<br><span style="color:#fc9838">' + esc(o.local.msg) + '</span>' : '') + '</p>' +
       '<table><tr><th>HOLE</th><th>PAR</th><th>YOU</th><th>' + at(oth.name) + '</th></tr>' + rows +
@@ -7335,7 +7485,20 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  overlapReport() {   // v8.46 test probe: on-screen rects of the celebration overlays
+  window.__golf = {  dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+      let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
+      const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
+        for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
+          const pen = (r.res === 'water' || r.res === 'ob') ? 1e6 : 0, sc = (r.res === 'cup' ? 0 : Math.abs(r.x - hl.cup)) + pen; if (!b || sc < b.sc) b = { sc, c, a, p, dir }; } return b; };
+      const play = (def, w) => { const hl = compileHole(def); let x = 12, n = 0;
+        while (n < 10) { const b = plan(hl, w, x); n++; const p = Math.min(1, Math.max(0.02, b.p * (1 + gauss() * 0.05))), err = rnd() < 0.6 ? 0 : (rnd() < 0.5 ? -1 : 1) * (4 + rnd() * 8);
+          const r = simulateShot(hl, w, x, b.c, b.a, p, b.c === PUTT_I ? err * 0.3 : err, b.dir); if (r.res === 'cup') return n;
+          if (r.res === 'water' || r.res === 'ob') { n++; if (def.drop != null && Math.abs(def.drop - hl.cup) < Math.abs(x - hl.cup)) x = def.drop; } else x = r.x; }
+        return 10; };
+      return ids.map(id => { const h = DAILY_HOLES.concat(typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : []).find(d => d.id === id); if (!h) return { id, missing: true }; let s = 0; const hist = {};
+        for (let k = 0; k < N; k++) { const w = h.calm ? 0 : Math.round(-8 + 16 * k / Math.max(1, N - 1)), nudge = Math.round(-8 + 16 * rnd()), r = play(Object.assign({}, h, { cup: h.cup + nudge }), w); s += r; hist[r] = (hist[r] || 0) + 1; }
+        return { id, par: h.par, avg: +(s / N).toFixed(2), hist }; });
+    }, overlapReport() {   // v8.46 test probe: on-screen rects of the celebration overlays
       const R = {}, T = SAFE.t || 0;
       if (fx.banner && CEL.banner != null) { const sx = 3, w = textW(fx.banner.text, sx); R.banner = { x: Math.round((W - w) / 2) - 4, y: CEL.banner - 4, w: w + 8, h: 7 * sx + 8 }; }
       if (shotFx && CEL.shot != null) { const w = textW(shotFx.reason || shotFx.label) + 10; R.shot = { x: Math.round((W - w) / 2), y: CEL.shot, w, h: shotFx.reason ? 24 : 12 }; }
@@ -7351,7 +7514,7 @@ if (/test/.test(location.hash)) {
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
-    loadAll() { return Promise.all([loadFriends(), loadMatches()]); }, matchPlan(seed, n) { return matchPlan(seed, n); },
+    loadAll() { return Promise.all([loadFriends(), loadMatches()]); }, matchPlan(seed, n, setup) { return matchPlan(seed, n, setup); }, matchPlanNew(seed, n) { return matchPlanNew(seed, n); }, matchShuffleIds(seed, n, ids) { return matchShuffleIds(seed, n, ids).ids; }, matchPoolIds() { return matchDailyPool().map(d => d.id); }, startMatchRound(m, w) { return startMatchRound(m, w); }, matchHoles() { return HOLES.map(h => ({ id: h.id || null, name: h.name, par: h.par, cup: h.cup, wind: h.wind, theme: h.theme })); }, get matchesList() { return social.matches; }, get matchCtxInfo() { return matchCtx ? { id: matchCtx.match.id, watch: matchCtx.watch, submitted: matchCtx.submitted, ghost: !!ghostPlay } : null; },
     get matchCtx() { return matchCtx ? { id: matchCtx.match.id, watch: matchCtx.watch, submitted: matchCtx.submitted, ghostBytes: matchCtx.ghostBytes || 0 } : null; },
     get ghost() { const G = ghostPlay && ghostPlay.hole; return ghostPlay ? { name: ghostPlay.name, x: G && G.x, h: G && G.h, next: G && G.next, shots: G && G.shots.length, anim: !!(G && G.anim), holed: G && G.holed } : null; },
     get ghostRec() { return ghostRec ? JSON.parse(JSON.stringify(ghostRec)) : null; }, ghostCompare() { return ghostCompare(); },
