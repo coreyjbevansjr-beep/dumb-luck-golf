@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.48">
+<meta name="dlg-version" content="v8.49">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -70,7 +70,7 @@
   #acct h2{margin:0;font-size:20px;letter-spacing:3px;color:#f8d878;text-shadow:2px 2px 0 #000;text-align:center;flex:1}
   #acct .sub{font-size:12px;letter-spacing:1px;color:#bcc8e0;line-height:1.5;margin:0 0 12px;text-align:center}
   #acct label{display:block;font-size:12px;letter-spacing:2px;margin:12px 0 6px;color:#f8d878}
-  #acct input[type=email],#acct input[type=password],#acct input[type=text]{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;
+  #acct input[type=email],#acct input[type=password],#acct input[type=text],#acct select{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;
     letter-spacing:1px;padding:12px 10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;border-radius:0;-webkit-appearance:none;appearance:none;min-height:46px}
   #acct input:focus{outline:2px solid #f8d878;outline-offset:1px}
   #acct .pw{position:relative}
@@ -193,7 +193,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.48';
+const GAME_VERSION = 'v8.49';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -917,6 +917,7 @@ async function adminLoadScores() {
 async function adminLoadPlayers(qs) { const r = await adminRpc('admin_players', { p_query: qs || '' }); admin.players = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
 async function adminLoadAudit() { const r = await adminRpc('admin_audit_recent'); admin.audit = r.ok && Array.isArray(r.data) ? r.data : []; return r; }
 
+async function adminLoadPreorders() { const r = await adminRpc('admin_preorders', { p_limit: 200 }); admin.preorders = r.ok && Array.isArray(r.data) ? r.data : []; admin.preordersOk = r.ok; return r; }   // v8.48
 async function adminLoadFeedback() { const r = await adminRpc('admin_feedback', { p_limit: 100 }); admin.feedback = r.ok && Array.isArray(r.data) ? r.data : []; return r; }   // v8.36
 
 /* ================= v8.31: golfer look (EDIT LOOK) + detailed sprite ================= */
@@ -3720,7 +3721,8 @@ function drawToast() {
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   toast.lines.forEach((l, i) => drawTextC(l, y + 5 + i * 10, i ? COL.white : '#f8d878'));
 }
-function closePopup() { if (menuPopup && menuPopup.kind === 'shop' && shopChipDown) { shopChipDown = false; shopChipFlip = !shopChipFlip; SFX.click(); return; }   // v8.48: tap the chip -> flip, not close
+function closePopup() { if (menuPopup && menuPopup.kind === 'shop' && shopPreDown) { SFX.click(); openPreorder(); return; }
+  if (menuPopup && menuPopup.kind === 'shop' && shopChipDown) { shopChipDown = false; shopChipFlip = !shopChipFlip; SFX.click(); return; }   // v8.48: tap the chip -> flip, not close
   if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
 
 /* --- customize screen ---
@@ -6148,8 +6150,10 @@ async function loadShopItems(force) {
 }
 function shopVisibleItems() { const st = shopState.status; return SHOP_ITEMS.filter(it => !st || !st[it.id] || st[it.id] === 'active'); }
 const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
+let shopPreReq = null, shopPreBox = null, shopPreDown = false, shopPreHot = false;
 let shopChipReq = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false, shopChipDown = false;
 function syncShopChip() {
+  { const r = shopPreReq; shopPreReq = null; if (r) { const br = cv.getBoundingClientRect(), kx = br.width / W, ky = br.height / H; shopPreBox = { left: br.left + r.x * kx, top: br.top + r.y * ky, w: r.w * kx, h: r.h * ky }; } else shopPreBox = null; }
   const r = shopChipReq; shopChipReq = null;
   if (!r || ov || a2hs.show) { if (shopChipEl && shopChipEl.style.display !== 'none') shopChipEl.style.display = 'none'; shopChipBox = null; if (!r) shopChipFlip = false; return; }
   if (!shopChipEl) {
@@ -6170,6 +6174,17 @@ function syncShopChip() {
   shopChipEl.classList.toggle('flip', shopChipFlip);
 }
 function inShopChip(x, y) { const b = shopChipBox; if (!b) return false; const pad = 8; return x >= b.left - pad && x <= b.left + b.w + pad && y >= b.top - pad && y <= b.top + b.h + pad; }
+function inShopPre(x, y) { const b = shopPreBox; if (!b) return false; const pad = 6; return x >= b.left - pad && x <= b.left + b.w + pad && y >= b.top - pad && y <= b.top + b.h + pad; }
+addEventListener('pointerdown', e => { shopPreDown = !!(menuPopup && menuPopup.kind === 'shop' && inShopPre(e.clientX, e.clientY)); }, true);
+addEventListener('pointermove', e => { shopPreHot = !!(menuPopup && menuPopup.kind === 'shop' && e.pointerType === 'mouse' && inShopPre(e.clientX, e.clientY)); if (shopPreHot) cv.style.cursor = 'pointer'; }, { passive: true });
+function openPreorder() { menuPopup = null; shopPreDown = false; shopPreHot = false; showAcct('preorder', { item: 'lucky_marker', qty: 1, name: (isSignedIn() && account.profile && account.profile.username) || (player && player.name) || '', email: (isSignedIn() && account.user && account.user.email) || '' }); }
+async function submitPreorder(item, name, email, qty) {
+  if (!authOnline()) return { ok: false, msg: "CAN'T REACH THE SERVER. TRY AGAIN LATER." };
+  const r = await sb('/rest/v1/rpc/submit_preorder', { method: 'POST', noAuth: !isSignedIn(), body: { p_item: item, p_name: name, p_email: email, p_qty: qty, p_visitor: trackVisitorId() } }, 'preorder');
+  if (r.ok) return { ok: true };
+  const m = String((r.data && (r.data.message || r.data.hint)) || '');
+  return { ok: false, msg: /rate/.test(m) ? 'TOO MANY REQUESTS. TRY AGAIN IN AN HOUR.' : /email/.test(m) ? 'THAT EMAIL LOOKS WRONG' : /not available/.test(m) ? 'NOT AVAILABLE RIGHT NOW' : /banned/.test(m) ? "YOUR ACCOUNT CAN'T PREORDER" : r.status === 0 ? "CAN'T REACH THE SERVER. TRY AGAIN LATER." : 'COULD NOT SEND. TRY AGAIN.' };
+}
 addEventListener('pointerdown', e => { shopChipDown = !!(menuPopup && menuPopup.kind === 'shop' && inShopChip(e.clientX, e.clientY)); }, true);
 function syncShopHat() {
   const r = shopHatReq; shopHatReq = null;
@@ -6264,13 +6279,13 @@ function drawMenuPopup() {
     // v8.18 PRO SHOP: same dark-green card + camo snapback (hi-DPI overlay, see syncShopHat) + RESTOCKING SOON,
     // dressed as a pro shop — gold frame (Choose Course board), wood-paneled header with a PRO SHOP sign,
     // the hat on a wood display shelf, and a wood counter with a small brass bell along the bottom.
-    // v8.48: two display cards on one shelf: camo snapback (RESTOCKING SOON) + LUCKY BALL MARKER (PREORDER COMING SOON).
+    // v8.48: two display cards on one shelf: camo snapback (RESTOCKING SOON) + LUCKY BALL MARKER (PREORDER button -> request form).
     // Admins can hide / archive items (server store_items); built-in list when the fetch fails.
     const items = shopVisibleItems(), n = items.length;
     const BX = n > 1 ? 74 : 86, ART = BX - 14, hatW = Math.min(BX - 6, Math.round(ART * 1.16)), hatH = Math.round(hatW / SHOP_HAT_AR)   /* photo has transparent margin: 1.16 makes the crown match the chip */, chipS = ART, stageH = BX + 14;   // v8.48: same display box + same art width for every item
     const w = Math.min(W - 8, n > 1 ? 312 : Math.max(textW('RESTOCKING SOON', 2) + 28, textW('DUMB LUCK CAMO SNAPBACK') + 28, hatW + 40));
     const hasChip = items.some(it => it.id === 'lucky_marker');
-    const HEAD = 30, CNT = 9, h = n === 0 ? 120 : 8 + HEAD + 6 + stageH + 8 + (hasChip ? (n > 1 ? 74 : 62) : 42) + (hasChip ? 30 : 0) + CNT;
+    const HEAD = 30, CNT = 9, h = n === 0 ? 120 : 8 + HEAD + 6 + stageH + 8 + (hasChip ? 70 : 42) + CNT;
     const x = Math.round((W - w) / 2), y = Math.round(Math.max(8, (H - h) / 2) + 8 * (1 - Math.min(1, p.t / 0.14)));
     const WD = '#5c3214', WM = '#7a4620', WL = '#94592a', WH = '#b87838', G1 = '#f8d878', G2 = '#d8a000', CREAM = '#fce4a0';
     const ix = x + 4, iy = y + 4, iw = w - 8, ih = h - 8;
@@ -6328,18 +6343,16 @@ function drawMenuPopup() {
       } else if (it.id === 'lucky_marker') {
         shopChipReq = { x: cx - Math.round(chipS / 2), y: boxY + Math.round((BX - chipS) / 2), w: chipS, h: chipS, t: p.t };
         cT('LUCKY BALL MARKER', nmY + 4, COL.white);
-        if (n === 1) cO('PREORDER COMING SOON', nmY + 18, blink, textW('PREORDER COMING SOON', 2) <= iw - 8 ? 2 : 1); else cO('PREORDER', nmY + 18, blink), cO('COMING SOON', nmY + 28, blink);
-        const py = nmY + (n === 1 ? 36 : 40);
-        cT('$10', py, YEL, 2);
-        cT(textW('40MM CLAY POKER CHIP') <= colW - 4 ? '40MM CLAY POKER CHIP' : '40MM CLAY CHIP', py + 18, '#bcc8e0');
+        cT('$10', nmY + 16, YEL, 2);
+        cT(textW('40MM CLAY POKER CHIP') <= colW - 4 ? '40MM CLAY POKER CHIP' : '40MM CLAY CHIP', nmY + 34, '#bcc8e0');
+        {   // v8.48: PREORDER button (a request, no payment) -> small form
+          const bw = textW('PREORDER') + 16, bh = 15, bx = Math.round(cx - bw / 2), by = nmY + 46, hot = shopPreHot;
+          rect(bx - 1, by - 1, bw + 2, bh + 2, '#000'); rect(bx, by, bw, bh, hot ? '#fce4a0' : YEL); rect(bx + 1, by + bh - 2, bw - 2, 1, '#c89c38');
+          drawText('PREORDER', bx + 8, by + 4, '#000');
+          shopPreReq = { x: bx, y: by, w: bw, h: bh };
+        }
       }
     });
-    if (hasChip) {
-      const ty = iy + ih - CNT - 26, tl = "IT'S BETTER TO BE LUCKY THAN GOOD";
-      drawText(tl, Math.round((W - textW(tl)) / 2) + 1, ty + 1, '#000'); drawText(tl, Math.round((W - textW(tl)) / 2), ty, CREAM);
-      const hint = (isTouchUi() ? 'TAP' : 'CLICK') + ' THE CHIP TO FLIP IT';
-      drawText(hint, Math.round((W - textW(hint)) / 2), ty + 11, '#7c9c84');
-    }
     {   // counter along the bottom: wood top lip + front, small brass bell on the right
       const cy = iy + ih - CNT;
       rect(ix, cy - 1, iw, 1, '#000'); rect(ix, cy, iw, 2, WH); rect(ix, cy + 2, iw, CNT - 2, WM);
@@ -7147,7 +7160,11 @@ const ADMIN_VIEWS = {
     return head('STORE', 'go:admin') + '<div class="msg"></div>' + (srv ? '' : '<p class="sub" style="color:#fc9838">STORE SETTINGS NOT REACHABLE (SHOWING BUILT-IN ITEMS). CHANGES NEED THE SERVER.</p>') +
       '<p class="sec">SHOP ITEMS</p>' + (live.length ? '<div class="list">' + live.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NO ITEMS.</p>') +
       '<p class="sec">ARCHIVED</p>' + (arch.length ? '<div class="list">' + arch.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NOTHING ARCHIVED.</p>') +
-      '<p class="sub" style="margin-top:8px">HIDDEN AND ARCHIVED ITEMS ARE NOT SHOWN TO PLAYERS. EVERY CHANGE GOES IN THE ADMIN LOG.</p>';
+      '<p class="sub" style="margin-top:8px">HIDDEN AND ARCHIVED ITEMS ARE NOT SHOWN TO PLAYERS. EVERY CHANGE GOES IN THE ADMIN LOG.</p>' +
+      '<p class="sec">PREORDERS' + ((admin.preorders || []).filter(p => p.status === 'new').length ? ' (' + admin.preorders.filter(p => p.status === 'new').length + ' OPEN)' : '') + '</p>' +
+      (!admin.preordersOk ? '<p class="empty">PREORDERS NOT SET UP YET.</p>' : (admin.preorders || []).length ? '<div class="list">' + admin.preorders.map(p => '<div class="item"><div class="who wr">' + esc(p.name) + ' <span style="color:#f8d878">×' + p.qty + '</span>' +
+        '<span class="st">' + esc(p.email) + (p.username ? ' · ' + at(p.username) : '') + ' · ' + fmtTs(p.created_at) + ' · <span style="color:' + (p.status === 'fulfilled' ? '#58d854' : '#f8d878') + '">' + (p.status === 'fulfilled' ? 'FULFILLED' : 'OPEN') + '</span></span></div>' +
+        '<div class="acts"><button class="btn small ' + (p.status === 'fulfilled' ? 'alt' : '') + '" data-a="pofill" data-id="' + p.id + '" data-n="' + (p.status === 'fulfilled' ? 'new' : 'fulfilled') + '">' + (p.status === 'fulfilled' ? 'REOPEN' : 'MARK FULFILLED') + '</button></div></div>').join('') + '</div>' : '<p class="empty">NO PREORDERS YET.</p>');
   },
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
@@ -7160,6 +7177,13 @@ const VIEWS = {
       '<div class="fbcount"><span id="fbCount">' + t.length + '</span>/500</div>' +
       (isSignedIn() ? '<p class="sub">WE\'LL REPLY TO YOUR ACCOUNT EMAIL IF NEEDED.</p>' : '<label for="fbEmail">REPLY EMAIL (OPTIONAL)</label><input id="fbEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" value="' + esc(o.email || '') + '">') +
       '<div class="fbbtns"><button class="btn ghost" type="button" data-a="fbClose">CANCEL</button><button class="btn" type="submit">SEND</button></div></form><div class="msg"></div>'; },
+  preorder: () => { const o = acctOpts;   // v8.48: preorder request (no payment)
+    return head('PREORDER', 'poClose') + '<p class="sub">LUCKY BALL MARKER · $10</p><form data-f="preorder" novalidate>' +
+      '<label for="poName">NAME</label><input id="poName" type="text" autocomplete="name" maxlength="60" value="' + esc(o.name || '') + '">' +
+      '<label for="poEmail">EMAIL</label><input id="poEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" value="' + esc(o.email || '') + '">' +
+      '<label for="poQty">QUANTITY</label><select id="poQty">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(q => '<option value="' + q + '"' + (q === (o.qty || 1) ? ' selected' : '') + '>' + q + '</option>').join('') + '</select>' +
+      '<p class="sub">NO PAYMENT NOW.</p><div class="fbbtns"><button class="btn ghost" type="button" data-a="poClose">CANCEL</button><button class="btn" type="submit">SEND</button></div></form><div class="msg"></div>'; },
+  poThanks: () => head('GOT IT!', 'poClose') + '<p class="fbthx">⛳</p><p class="sub">WE\'LL REACH OUT.</p><button class="btn" data-a="poClose">BACK TO THE SHOP</button>',
   fbThanks: () => head('THANKS!', 'fbClose') + '<p class="fbthx">⛳</p><p class="sub">THANKS FOR THE FEEDBACK! WE READ EVERY MESSAGE.</p><button class="btn" data-a="fbClose">BACK TO THE GAME</button>',
   signup: () => head('CREATE ACCOUNT') +
     '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
@@ -7267,7 +7291,7 @@ async function showAcct(view, opts) {
     if (view === 'adminScores') await adminLoadScores();
     if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
     if (view === 'adminLog') await adminLoadAudit();
-    if (view === 'adminStore') await loadShopItems(true);
+    if (view === 'adminStore') await Promise.all([loadShopItems(true), adminLoadPreorders()]);
     if (view === 'adminFeedback' || view === 'admin') await adminLoadFeedback();
     if (acctView !== view) return;
   }
@@ -7311,6 +7335,14 @@ if (acctEl) {
         const nm = val('aUser').trim().replace(/^@/, '');
         const a = await usernameAvailable(nm);
         if (!a.ok) acctMsg(a.msg); else { const mk = !!(document.getElementById('aMkt') && document.getElementById('aMkt').checked); account.marketing = mk; const r = await saveUsername(nm, mk); if (!r.ok) acctMsg(r.msg); else await afterAuth(); }
+      } else if (f === 'preorder') {
+        const nm = document.getElementById('poName').value.trim(), em = document.getElementById('poEmail').value.trim(), q = +document.getElementById('poQty').value;
+        Object.assign(acctOpts, { name: nm, email: em, qty: q });
+        if (!nm) { acctMsg('PLEASE ADD YOUR NAME'); document.getElementById('poName').focus(); return; }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { acctMsg('THAT EMAIL LOOKS WRONG'); document.getElementById('poEmail').focus(); return; }
+        if (!(q >= 1 && q <= 10)) { acctMsg('PICK 1-10'); return; }
+        const r = await submitPreorder(acctOpts.item || 'lucky_marker', nm, em, q);
+        if (!r.ok) acctMsg(r.msg); else showAcct('poThanks', {});
       } else if (f === 'feedback') {
         const ta = document.getElementById('fbText'), t = ta.value.trim(), em = document.getElementById('fbEmail'), ev = em ? em.value.trim() : '';
         acctOpts.text = ta.value; if (em) acctOpts.email = em.value;
@@ -7346,6 +7378,8 @@ if (acctEl) {
     if (a === 'fprof') { showAcct('friendProfile', { user: id, loading: true }); return; }
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
+    if (a === 'poClose') { const back = acctView === 'poThanks' || acctView === 'preorder'; hideAcct(); if (back && state === 'title') { menuPopup = { kind: 'shop', t: 0.2 }; } return; }
+    if (a === 'pofill') { acctBusy(true); const r = await adminRpc('admin_preorder_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadPreorders(); showAcct('adminStore', { keep: 1 }); return; }
     if (a === 'stset') { acctBusy(true); const r = await adminRpc('admin_store_set', { p_id: id, p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await loadShopItems(true); showAcct('adminStore', { keep: 1 }); return; }   // v8.48
     if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
     if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
@@ -7379,7 +7413,7 @@ if (acctEl) {
     if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
   });
   acctEl.addEventListener('input', e => { if (e.target && (e.target.id === 'fbText' || e.target.id === 'fbEmail') && acctView === 'feedback') acctMsg(''); if (e.target && e.target.id === 'fbText') { const c = document.getElementById('fbCount'); if (c) { c.textContent = e.target.value.length; c.parentNode.classList.toggle('full', e.target.value.length >= 500); } } });
-  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks'; hideAcct(); if (!fb) setState('career'); } e.stopPropagation(); });
+  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
@@ -7569,7 +7603,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(shopChipEl && shopChipEl.style.display !== 'none') }; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+  window.__golf = {  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(shopChipEl && shopChipEl.style.display !== 'none') }; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
       let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
       const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
         for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
