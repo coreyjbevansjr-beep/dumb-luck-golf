@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.49">
+<meta name="dlg-version" content="v8.50">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -64,6 +64,7 @@
     padding:calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
     box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;touch-action:pan-y}
   #acct.on{display:block}
+  #acct .stlink{display:flex;gap:6px;margin:-2px 0 10px;flex-wrap:wrap}#acct .stlink input{flex:1 1 140px;width:auto !important;font-size:16px !important;padding:8px !important}
   #acct .box{max-width:440px;margin:0 auto;background:#000;border:3px solid #fcfcfc;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5);padding:14px 14px 16px}
   #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px}
   #acct .back{background:none;border:0;color:#fcfcfc;font:inherit;font-size:14px;letter-spacing:2px;padding:10px 4px;min-height:44px;cursor:pointer}
@@ -193,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.49';
+const GAME_VERSION = 'v8.50';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3721,8 +3722,7 @@ function drawToast() {
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   toast.lines.forEach((l, i) => drawTextC(l, y + 5 + i * 10, i ? COL.white : '#f8d878'));
 }
-function closePopup() { if (menuPopup && menuPopup.kind === 'shop' && shopPreDown) { SFX.click(); openPreorder(); return; }
-  if (menuPopup && menuPopup.kind === 'shop' && shopChipDown) { shopChipDown = false; shopChipFlip = !shopChipFlip; SFX.click(); return; }   // v8.48: tap the chip -> flip, not close
+function closePopup() { if (menuPopup && menuPopup.kind === 'shop') { psEscKey(); return; }   // v8.50: the DOM PRO SHOP handles its own taps
   if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
 
 /* --- customize screen ---
@@ -4933,6 +4933,10 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (state === 'splash') { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissSplash(); } return; }
   if (acctOpen()) return;
+  if (state === 'title' && menuPopup && menuPopup.kind === 'shop') {   // v8.50: DOM shop: Tab / Enter work on its buttons; Esc backs out
+    if (k === 'Escape' && !e.repeat) { e.preventDefault(); psEscKey(); } else if (ps.detail && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); psGalGo(ps.gal + (k === 'ArrowRight' ? 1 : -1)); }
+    return;
+  }
   if (state === 'board' && board && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'f', 'F'].includes(k)) {   // v8.44 board tabs
     e.preventDefault(); if (e.repeat) return;
     if (k === 'ArrowLeft' || k === 'ArrowRight') boardCycle(k === 'ArrowLeft' ? -1 : 1);
@@ -6136,48 +6140,231 @@ addEventListener('pointerup', hatRelease, true);
 addEventListener('pointercancel', e => { hatRelease(e); if (hatTurn.drag === null) { hatTurn.tx = 0; hatTurn.ty = 0; } }, true);
 function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, ty: 0, view: 0, prev: 0, fade: 1, last: 0, moveAt: 0, drag: null }); }
 /* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
-const SHOP_ITEMS = [{ id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK' }, { id: 'lucky_marker', name: 'LUCKY BALL MARKER' }];
-const shopState = { status: null, loaded: false, at: 0 };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
+const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
+  { id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK', short: 'CAMO SNAPBACK', price: '', badge: '', spec: '', fallback: 'soon' },
+  { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$10', badge: 'NEW', spec: '40MM CLAY CHIP', fallback: 'preorder' }];
+const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
   if (!force && shopState.at && performance.now() - shopState.at < 60000) return shopState;
   shopState.at = performance.now();
   try {
-    const r = await sb('/rest/v1/rpc/store_items', { method: 'POST', noAuth: !isSignedIn(), body: {} }, 'store');
+    const [r, l] = await Promise.all([sb('/rest/v1/rpc/store_items', { method: 'POST', noAuth: !isSignedIn(), body: {} }, 'store'),
+      sb('/rest/v1/rpc/store_links', { method: 'POST', noAuth: !isSignedIn(), body: {} }, 'storelinks')]);   // v8.50 Shopify mapping (optional)
+    if (l.ok && Array.isArray(l.data)) { const m = {}; for (const it of l.data) if (it && it.id) m[it.id] = it; shopState.links = m; shopState.linksOk = true; } else { shopState.links = {}; shopState.linksOk = false; }
     if (r.ok && Array.isArray(r.data)) { const m = {}; for (const it of r.data) if (it && it.id) m[it.id] = it.status; shopState.status = m; shopState.items = r.data; }
     else shopState.status = null;
   } catch (e) { shopState.status = null; }
   shopState.loaded = true; return shopState;
 }
 function shopVisibleItems() { const st = shopState.status; return SHOP_ITEMS.filter(it => !st || !st[it.id] || st[it.id] === 'active'); }
+/* ---- v8.50 PRO SHOP: DOM overlay (lit pro-shop wall, spotlights, shelf cards, detail view with gallery). Pixel style, brand
+   green #14462D + gold #D4AF37 (orange still used where it was). Shopify-ready: an item can map to a Shopify product handle,
+   variant id or buy link (public.store_links, set in admin STORE). With no mapping the item keeps its fallback:
+   PREORDER request form (Supabase + email) or RESTOCKING SOON. ---- */
+const SHOPIFY = { domain: '' };   // e.g. 'dumb-luck-golf.myshopify.com'. With a handle / variant id set in admin STORE, BUY goes to that store
 const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
-let shopPreReq = null, shopPreBox = null, shopPreDown = false, shopPreHot = false;
-let shopChipReq = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false, shopChipDown = false;
-function syncShopChip() {
-  { const r = shopPreReq; shopPreReq = null; if (r) { const br = cv.getBoundingClientRect(), kx = br.width / W, ky = br.height / H; shopPreBox = { left: br.left + r.x * kx, top: br.top + r.y * ky, w: r.w * kx, h: r.h * ky }; } else shopPreBox = null; }
-  const r = shopChipReq; shopChipReq = null;
-  if (!r || ov || a2hs.show) { if (shopChipEl && shopChipEl.style.display !== 'none') shopChipEl.style.display = 'none'; shopChipBox = null; if (!r) shopChipFlip = false; return; }
-  if (!shopChipEl) {
-    shopChipEl = document.createElement('div'); shopChipEl.id = 'shopChip'; shopChipEl.setAttribute('aria-hidden', 'true');
-    shopChipEl.innerHTML = '<div class="in"><img alt="" src="' + SHOP_CHIP_SRC[0] + '"><img alt="" class="bk" src="' + SHOP_CHIP_SRC[1] + '"></div>';
-    const st = document.createElement('style');
-    st.textContent = '#shopChip{position:absolute!important;pointer-events:none!important;z-index:5;perspective:600px}#shopChip .in{position:relative;width:100%;height:100%;transition:transform .45s cubic-bezier(.3,.7,.4,1);transform-style:preserve-3d}' +
-      '#shopChip.flip .in{transform:rotateY(180deg)}#shopChip img{position:absolute;inset:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))}#shopChip img.bk{transform:rotateY(180deg)}' +
-      '@media (prefers-reduced-motion:reduce){#shopChip .in{transition:none}}';
-    document.head.appendChild(st); document.body.appendChild(shopChipEl);
-  }
-  const br = cv.getBoundingClientRect(), kx = br.width / W, ky = br.height / H;
-  const left = br.left + r.x * kx, top = br.top + r.y * ky, cw = r.w * kx, ch = r.h * ky;
-  shopChipBox = { left, top, w: cw, h: ch };
-  const s = shopChipEl.style;
-  s.setProperty('left', left + 'px', 'important'); s.setProperty('top', top + 'px', 'important'); s.setProperty('width', cw + 'px'); s.setProperty('height', ch + 'px');
-  s.setProperty('opacity', String((fade.a ? Math.max(0, 1 - fade.a) : 1) * Math.min(1, 0.35 + (r.t || 0) / 0.14 * 0.65))); s.setProperty('display', 'block', 'important');
-  shopChipEl.classList.toggle('flip', shopChipFlip);
+const SHOP_GALLERY = { camo_snapback: [SHOP_HAT_SRC[0], SHOP_HAT_SRC[1], SHOP_HAT_SRC[2]], lucky_marker: ['shop/lucky-marker-front-720.webp?v=850', 'shop/lucky-marker-back-720.webp?v=850'] };
+let shopPreBox = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false;
+const psUrlOk = u => /^https:\/\/[^\s"'<>\\]{4,500}$/.test(String(u || ''));
+function shopLink(id) {
+  const l = (shopState.links || {})[id] || {};
+  if (psUrlOk(l.buy_url)) return l.buy_url;
+  const d = String(SHOPIFY.domain || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (d && /^[0-9]{1,20}$/.test(String(l.shopify_variant_id || ''))) return 'https://' + d + '/cart/' + l.shopify_variant_id + ':1';
+  if (d && /^[a-z0-9][a-z0-9-]{0,99}$/.test(String(l.shopify_handle || ''))) return 'https://' + d + '/products/' + l.shopify_handle;
+  return '';
 }
-function inShopChip(x, y) { const b = shopChipBox; if (!b) return false; const pad = 8; return x >= b.left - pad && x <= b.left + b.w + pad && y >= b.top - pad && y <= b.top + b.h + pad; }
-function inShopPre(x, y) { const b = shopPreBox; if (!b) return false; const pad = 6; return x >= b.left - pad && x <= b.left + b.w + pad && y >= b.top - pad && y <= b.top + b.h + pad; }
-addEventListener('pointerdown', e => { shopPreDown = !!(menuPopup && menuPopup.kind === 'shop' && inShopPre(e.clientX, e.clientY)); }, true);
-addEventListener('pointermove', e => { shopPreHot = !!(menuPopup && menuPopup.kind === 'shop' && e.pointerType === 'mouse' && inShopPre(e.clientX, e.clientY)); if (shopPreHot) cv.style.cursor = 'pointer'; }, { passive: true });
-function openPreorder() { menuPopup = null; shopPreDown = false; shopPreHot = false; showAcct('preorder', { item: 'lucky_marker', qty: 1, name: (isSignedIn() && account.profile && account.profile.username) || (player && player.name) || '', email: (isSignedIn() && account.user && account.user.email) || '' }); }
+function shopCta(it) {
+  const u = shopLink(it.id); if (u) return { kind: 'buy', label: 'BUY' + (it.price ? ' · ' + it.price : ''), url: u };
+  return it.fallback === 'preorder' ? { kind: 'preorder', label: 'PREORDER' } : { kind: 'soon', label: 'RESTOCKING SOON' };
+}
+const ps = { el: null, open: false, at: 0, detail: null, gal: 0, down: null };
+const PS_CSS = `
+#proShop{position:fixed;inset:0;z-index:30;display:none;box-sizing:border-box;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(var(--pst,0px) + 16px) calc(var(--psr,0px) + 10px) calc(var(--psb,0px) + 12px) calc(var(--psl,0px) + 10px);
+  background:rgba(0,0,0,.62);font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;touch-action:pan-y;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .22s}
+#proShop.on{display:flex}#proShop.in{opacity:1}
+#proShop button{font:inherit;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;touch-action:manipulation}
+#proShop :focus-visible{outline:3px solid #fcfcfc;outline-offset:2px}
+.ps-room{position:relative;margin:auto;width:100%;max-width:900px;min-height:min(600px,100%);display:flex;flex-direction:column;overflow:hidden;
+  border:3px solid #000;box-shadow:0 0 0 3px #D4AF37,0 0 0 5px #000,0 0 0 7px #8a6d1c,0 24px 60px rgba(0,0,0,.7);
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.2) 0 2px,rgba(255,255,255,.03) 2px 4px,transparent 4px 56px),
+    linear-gradient(180deg,#081a10 0,#14462D 38%,#0f3a24 70%,#06140c 100%);
+  transform:translateY(16px) scale(.97);transition:transform .34s cubic-bezier(.2,.9,.25,1)}
+#proShop.in .ps-room{transform:none}
+.ps-room:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 120%,rgba(0,0,0,0),rgba(0,0,0,.55) 75%)}
+.ps-lights{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.ps-lights i{position:absolute;top:0;width:52%;height:92%;transform-origin:50% 0;mix-blend-mode:screen;
+  background:radial-gradient(ellipse 60% 100% at 50% 0,rgba(255,236,170,.34),rgba(255,226,140,.10) 55%,transparent 75%);
+  clip-path:polygon(43% 0,57% 0,100% 100%,0 100%);animation:psSway 7s ease-in-out infinite alternate}
+.ps-lights i:nth-child(1){left:-4%;animation-delay:-2s}.ps-lights i:nth-child(2){left:24%;opacity:.8;animation-duration:9s}.ps-lights i:nth-child(3){right:-4%;animation-delay:-5s}
+.ps-lights b{position:absolute;top:0;width:22px;height:8px;background:#000;box-shadow:inset 0 -3px 0 #D4AF37,0 3px 10px 3px rgba(255,236,170,.55)}
+.ps-lights b:nth-of-type(1){left:calc(22% - 11px)}.ps-lights b:nth-of-type(2){left:calc(50% - 11px)}.ps-lights b:nth-of-type(3){left:calc(78% - 11px)}
+.ps-dust i{position:absolute;bottom:10%;width:2px;height:2px;background:#fce4a0;opacity:0;animation:psDust 9s linear infinite}
+@keyframes psSway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+@keyframes psDust{0%{transform:translateY(0);opacity:0}15%{opacity:.7}100%{transform:translateY(-320px) translateX(18px);opacity:0}}
+@keyframes psBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes psGlint{0%,70%{transform:translateX(-160%) skewX(-20deg)}100%{transform:translateX(260%) skewX(-20deg)}}
+@keyframes psPop{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.ps-head{position:relative;display:flex;justify-content:center;align-items:flex-start;padding:16px 52px 4px}
+.ps-sign{display:flex;align-items:center;gap:10px;padding:8px 16px 8px 8px;background:#0a2a19;border:3px solid #000;
+  box-shadow:inset 0 0 0 2px #D4AF37,inset 0 0 0 4px #000,0 4px 0 #000,0 0 24px rgba(212,175,55,.35)}
+.ps-sign span{font-size:22px;font-weight:800;letter-spacing:4px;color:#fce4a0;text-shadow:2px 2px 0 #000}
+.ps-crest{width:38px;height:38px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f3d77a,#D4AF37 55%,#9c7a1c);
+  border:2px solid #000;display:grid;place-items:center}
+.ps-crest img{width:76%;height:auto;display:block}
+.ps-x{position:absolute;right:6px;top:10px;width:44px;height:44px;background:#000;border:2px solid #D4AF37;font-size:18px;line-height:1}
+.ps-body{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;padding:14px 14px 18px}
+.ps-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;width:100%;max-width:640px;margin:0 auto}
+.ps-shelf.n1{grid-template-columns:minmax(0,300px);justify-content:center}
+.ps-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-start;padding:0 0 12px;cursor:pointer;overflow:hidden;
+  background:linear-gradient(180deg,rgba(6,20,12,.55),rgba(6,20,12,.9));border:3px solid #000;
+  box-shadow:inset 0 0 0 2px #D4AF37,0 5px 0 #000;transition:transform .18s,box-shadow .18s;animation:psPop .4s backwards}
+.ps-card:nth-child(2){animation-delay:.07s}
+@media (hover:hover){.ps-card:hover{transform:translateY(-3px);box-shadow:inset 0 0 0 2px #f3d77a,0 8px 0 #000,0 0 22px rgba(212,175,55,.35)}}
+.ps-card:after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent);animation:psGlint 6s ease-in-out infinite}
+.ps-stage{position:relative;width:100%;height:min(40vw,30vh,230px);min-height:110px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 55% 30% at 50% 88%,rgba(255,230,150,.38),transparent 70%)}
+.ps-stage:after{content:"";position:absolute;left:6%;right:6%;bottom:6px;height:9px;background:#7a4620;border-top:2px solid #b87838;border-bottom:3px solid #3a1d0a;box-shadow:0 3px 0 rgba(0,0,0,.45)}
+.ps-art{position:relative;z-index:1;height:78%;aspect-ratio:1;margin-bottom:10px;animation:psBob 3.6s ease-in-out infinite}
+.ps-art img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 6px 4px rgba(0,0,0,.6));-webkit-user-drag:none;pointer-events:none}
+.ps-art.hat img{transform:scale(1.16)}
+#shopChip{perspective:700px;cursor:pointer}
+#shopChip .in{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.3,.7,.4,1);transform-style:preserve-3d}
+#shopChip.flip .in{transform:rotateY(180deg)}
+#shopChip img{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}#shopChip img.bk{transform:rotateY(180deg)}
+.ps-badge{position:absolute;z-index:2;top:8px;left:8px;padding:3px 6px;font-size:11px;font-weight:800;letter-spacing:2px;color:#000;background:#D4AF37;border:2px solid #000;box-shadow:2px 2px 0 #000;transform:rotate(-5deg)}
+.ps-name{font-size:12px;font-weight:800;letter-spacing:1.5px;text-align:center;color:#fce4a0;padding:0 8px;line-height:1.3}
+.ps-price{font-size:17px;font-weight:800;color:#D4AF37;text-shadow:2px 2px 0 #000;min-height:20px}
+.ps-cta{margin-top:auto;min-height:44px;width:calc(100% - 20px);max-width:220px;padding:0 10px;font-weight:800 !important;letter-spacing:2px;color:#000 !important;
+  background:#D4AF37;border:3px solid #000;box-shadow:inset 0 -3px 0 #9c7a1c,inset 0 2px 0 #f3d77a,0 3px 0 #000;transition:transform .08s}
+.ps-cta:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #9c7a1c,0 1px 0 #000}
+.ps-cta.buy{background:#fcfcfc}
+.ps-soon{margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:44px;width:calc(100% - 20px);max-width:220px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:1px;white-space:nowrap;text-align:center;color:#fc9838;border:2px dashed #fc9838}
+.ps-empty{margin:auto;font-size:16px;font-weight:800;letter-spacing:3px;color:#fce4a0;text-align:center}
+.ps-counter{position:relative;height:20px;flex:none;background:linear-gradient(#b87838 0 3px,#7a4620 3px);border-top:2px solid #000;
+  background-image:repeating-linear-gradient(90deg,transparent 0 30px,#5c3214 30px 32px),linear-gradient(#b87838 0 3px,#7a4620 3px)}
+.ps-bell{position:absolute;right:22px;top:-11px;width:16px;height:9px;border-radius:9px 9px 0 0;background:#D4AF37;border:2px solid #000;border-bottom:0}
+.ps-detail{display:grid;grid-template-columns:1fr;gap:12px;width:100%;max-width:760px;margin:0 auto;animation:psPop .3s}
+@media (min-width:640px),(orientation:landscape) and (min-width:560px){.ps-detail{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center}}
+.ps-back{justify-self:start;grid-column:1/-1;min-height:40px;padding:0 12px;background:#000;border:2px solid #D4AF37;font-weight:800;letter-spacing:2px;font-size:12px}
+.ps-gal{position:relative;width:100%;max-width:380px;justify-self:center}
+.ps-main{position:relative;aspect-ratio:1;max-height:46vh;margin:0 auto;overflow:hidden;border:3px solid #000;box-shadow:inset 0 0 0 2px #D4AF37;
+  background:radial-gradient(ellipse 55% 25% at 50% 90%,rgba(255,230,150,.35),transparent 70%),radial-gradient(circle at 50% 40%,#1c5a3a,#0a2416 70%)}
+.ps-track{display:flex;height:100%;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.ps-track img{flex:0 0 100%;width:100%;height:100%;object-fit:contain;padding:8%;box-sizing:border-box;filter:drop-shadow(0 8px 6px rgba(0,0,0,.6));-webkit-user-drag:none;pointer-events:none}
+.ps-arw{position:absolute;top:50%;margin-top:-22px;width:44px;height:44px;background:rgba(0,0,0,.7);border:2px solid #D4AF37;font-size:20px;font-weight:800}
+.ps-arw.l{left:6px}.ps-arw.r{right:6px}
+.ps-thumbs{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.ps-thumbs button{width:50px;height:50px;padding:3px;background:#0a2416;border:2px solid #000;box-shadow:inset 0 0 0 1px #555;opacity:.75}
+.ps-thumbs button.on{box-shadow:inset 0 0 0 2px #D4AF37;opacity:1}
+.ps-thumbs img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+.ps-info{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.ps-tags{display:flex;gap:6px}.ps-tags span{padding:3px 7px;font-size:11px;font-weight:800;letter-spacing:2px;border:2px solid #000;color:#000;background:#D4AF37}
+.ps-tags span.g{background:#14462D;color:#fce4a0;box-shadow:inset 0 0 0 1px #D4AF37}
+.ps-info h3{margin:0;font-size:18px;letter-spacing:2px;color:#fce4a0;text-shadow:2px 2px 0 #000}
+.ps-info .ps-price{font-size:24px}.ps-spec{font-size:11px;letter-spacing:2px;color:#bcc8b0}
+.ps-info .ps-cta,.ps-info .ps-soon{max-width:280px}
+@media (max-height:520px){#proShop{padding-top:calc(var(--pst,0px) + 10px);padding-bottom:calc(var(--psb,0px) + 8px)}.ps-room{min-height:0}
+  .ps-head{padding:8px 52px 0}.ps-sign{padding:4px 12px 4px 6px}.ps-sign span{font-size:16px}.ps-crest{width:28px;height:28px}.ps-x{top:4px}
+  .ps-body{padding:8px 14px 10px}.ps-card{gap:3px;padding-bottom:8px}.ps-stage{height:min(30vw,27vh,170px);min-height:84px}.ps-cta,.ps-soon{min-height:40px}
+  .ps-counter{height:12px}.ps-bell{top:-10px}.ps-detail{gap:6px}.ps-back{min-height:36px}.ps-main{max-height:52vh}.ps-thumbs{margin-top:4px}.ps-thumbs button{width:40px;height:40px}}
+@media (min-width:900px) and (min-height:600px){.ps-sign span{font-size:28px}.ps-crest{width:48px;height:48px}.ps-name{font-size:15px}.ps-price{font-size:22px}.ps-info h3{font-size:26px}.ps-info .ps-price{font-size:32px}.ps-spec{font-size:13px}.ps-cta{font-size:16px;min-height:52px}.ps-tags span{font-size:13px}.ps-stage{height:min(30vh,260px)}}
+@media (prefers-reduced-motion:reduce){#proShop,#proShop *,#proShop *:before,#proShop *:after{animation:none !important;transition:none !important}
+  .ps-room{transform:none !important}.ps-card:after{display:none}}
+`;
+function psEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function psCtaHtml(it) {
+  const c = shopCta(it);
+  if (c.kind === 'buy') return '<button class="ps-cta buy" data-ps="buy" data-id="' + it.id + '">' + psEsc(c.label) + '</button>';
+  if (c.kind === 'preorder') return '<button class="ps-cta" data-ps="pre" data-id="' + it.id + '">PREORDER</button>';
+  return '<span class="ps-soon">RESTOCKING SOON</span>';
+}
+function psRender() {
+  const el = ps.el; if (!el) return; const body = el.querySelector('.ps-body'), items = shopVisibleItems();
+  if (ps.detail && !items.some(i => i.id === ps.detail)) ps.detail = null;
+  if (!ps.detail) {
+    body.innerHTML = !items.length ? '<p class="ps-empty">NEW GEAR COMING SOON</p>' : '<div class="ps-shelf n' + items.length + '">' + items.map(it => {
+      const art = it.id === 'lucky_marker'
+        ? '<div id="shopChip" class="ps-art' + (shopChipFlip ? ' flip' : '') + '" data-ps="flip" role="button" tabindex="0" aria-label="Flip the ball marker"><div class="in"><img alt="" src="' + SHOP_CHIP_SRC[0] + '"><img alt="" class="bk" src="' + SHOP_CHIP_SRC[1] + '"></div></div>'
+        : '<div class="ps-art hat"><img alt="" src="' + SHOP_HAT_SRC[0] + '"></div>';
+      return '<div class="ps-card" data-ps="open" data-id="' + it.id + '" role="button" tabindex="0" aria-label="' + psEsc(it.name) + '">' + (it.badge ? '<span class="ps-badge">' + it.badge + '</span>' : '') +
+        '<div class="ps-stage">' + art + '</div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price">' + psEsc(it.price || '') + '</div>' + psCtaHtml(it) + '</div>';
+    }).join('') + '</div>';
+  } else {
+    const it = items.find(i => i.id === ps.detail), g = SHOP_GALLERY[it.id] || [], c = shopCta(it);
+    ps.gal = Math.max(0, Math.min(g.length - 1, ps.gal));
+    const tags = [it.badge ? '<span>' + it.badge + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : ''].join('');
+    body.innerHTML = '<div class="ps-detail"><button class="ps-back" data-ps="back">‹ SHOP</button>' +
+      '<div class="ps-gal"><div class="ps-main" data-ps="next"><div class="ps-track" style="transform:translateX(' + (-100 * ps.gal) + '%)">' + g.map(s => '<img alt="" src="' + s + '">').join('') + '</div>' +
+      (g.length > 1 ? '<button class="ps-arw l" data-ps="prev" aria-label="Previous photo">‹</button><button class="ps-arw r" data-ps="next" aria-label="Next photo">›</button>' : '') + '</div>' +
+      (g.length > 1 ? '<div class="ps-thumbs">' + g.map((s, i) => '<button data-ps="g" data-n="' + i + '" class="' + (i === ps.gal ? 'on' : '') + '" aria-label="Photo ' + (i + 1) + '"><img alt="" src="' + s + '"></button>').join('') + '</div>' : '') + '</div>' +
+      '<div class="ps-info">' + (tags ? '<div class="ps-tags">' + tags + '</div>' : '') + '<h3>' + psEsc(it.name) + '</h3>' + (it.price ? '<div class="ps-price">' + psEsc(it.price) + '</div>' : '') +
+      (it.spec ? '<div class="ps-spec">' + psEsc(it.spec) + '</div>' : '') + psCtaHtml(it) + '</div></div>';
+  }
+  shopChipEl = el.querySelector('#shopChip');
+}
+function psGalGo(n) {
+  const g = SHOP_GALLERY[ps.detail] || []; if (!g.length) return; ps.gal = (n + g.length) % g.length;
+  const tr = ps.el.querySelector('.ps-track'); if (tr) tr.style.transform = 'translateX(' + (-100 * ps.gal) + '%)';
+  ps.el.querySelectorAll('.ps-thumbs button').forEach((b, i) => b.classList.toggle('on', i === ps.gal));
+}
+function psClose() { if (menuPopup && menuPopup.kind === 'shop') { menuPopup = null; SFX.click(); } }
+function psEscKey() { if (ps.detail) { ps.detail = null; psRender(); SFX.click(); } else psClose(); }
+function psAct(t, e) {
+  const a = t && t.getAttribute('data-ps');
+  if (!a) { if (!e.target.closest || !e.target.closest('.ps-room')) psClose(); return; }
+  const id = t.getAttribute('data-id');
+  if (a === 'close') return psClose();
+  if (a === 'flip') { shopChipFlip = !shopChipFlip; t.classList.toggle('flip', shopChipFlip); SFX.click(); return; }
+  if (a === 'open') { ps.detail = id; ps.gal = 0; psRender(); SFX.click(); const b = ps.el.querySelector('.ps-back'); if (b && e.detail === 0) b.focus(); return; }
+  if (a === 'back') { ps.detail = null; psRender(); SFX.click(); return; }
+  if (a === 'g') { psGalGo(Number(t.getAttribute('data-n')) || 0); SFX.tick(); return; }
+  if (a === 'next' || a === 'prev') { psGalGo(ps.gal + (a === 'next' ? 1 : -1)); SFX.tick(); return; }
+  if (a === 'pre') { SFX.click(); openPreorder(id); return; }
+  if (a === 'buy') { const u = shopLink(id); SFX.click(); if (u) { try { window.open(u, '_blank', 'noopener'); } catch (err) {} } }
+}
+function psBuild() {
+  const st = document.createElement('style'); st.textContent = PS_CSS; document.head.appendChild(st);
+  const el = document.createElement('div'); el.id = 'proShop'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'PRO SHOP');
+  el.innerHTML = '<div class="ps-room"><div class="ps-lights" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b><span class="ps-dust">' +
+    [12, 27, 41, 58, 70, 86].map((l, i) => '<i style="left:' + l + '%;animation-delay:' + (-i * 1.5) + 's"></i>').join('') + '</span></div>' +
+    '<div class="ps-head"><div class="ps-sign"><span class="ps-crest"><img alt="" src="shop/crest-112.webp?v=850"></span><span>PRO SHOP</span></div><button class="ps-x" data-ps="close" aria-label="Close">✕</button></div>' +
+    '<div class="ps-body"></div><div class="ps-counter" aria-hidden="true"><i class="ps-bell"></i></div></div>';
+  el.addEventListener('pointerdown', e => { ps.down = { x: e.clientX, y: e.clientY, id: e.pointerId, t: e.target.closest('[data-ps]'), main: !!e.target.closest('.ps-main') }; });
+  el.addEventListener('pointerup', e => {
+    const d = ps.down; ps.down = null; if (!d || d.id !== e.pointerId || performance.now() - ps.at < 260) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (Math.hypot(dx, dy) > 14) { if (d.main && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { psGalGo(ps.gal + (dx < 0 ? 1 : -1)); SFX.tick(); } return; }
+    psAct(d.t, e);
+  });
+  el.addEventListener('pointercancel', () => { ps.down = null; });
+  el.addEventListener('touchend', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });   // no synthetic click: pointerup did the action
+  el.addEventListener('click', e => { if (e.detail === 0) psAct(e.target.closest('[data-ps]'), e); });   // keyboard Enter / Space on buttons
+  el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('role') === 'button') { e.preventDefault(); psAct(e.target, { target: e.target, detail: 0 }); } });
+  document.body.appendChild(el); ps.el = el;
+}
+function psShow() {
+  if (!ps.el) psBuild();
+  const s = safeCssInsets(), el = ps.el;
+  el.style.setProperty('--pst', s.t + 'px'); el.style.setProperty('--psr', s.r + 'px'); el.style.setProperty('--psb', s.b + 'px'); el.style.setProperty('--psl', s.l + 'px');
+  ps.open = true; ps.at = performance.now(); ps.detail = null; psRender(); el.classList.add('on'); void el.offsetWidth; el.classList.add('in');
+  ps.items = shopVisibleItems().map(i => i.id).join() + '|' + JSON.stringify(shopState.links || {});
+}
+function psHide() { ps.open = false; ps.detail = null; shopChipFlip = false; if (ps.el) ps.el.classList.remove('on', 'in'); shopChipEl = null; }
+const psRect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return r.width ? { left: r.left, top: r.top, w: r.width, h: r.height } : null; };
+function syncShopChip() {
+  const want = state === 'title' && !!menuPopup && menuPopup.kind === 'shop' && !ov && !a2hs.show && !acctOpen();
+  if (want && !ps.open) psShow(); else if (!want && ps.open) psHide();
+  if (!ps.open) { shopChipBox = null; shopPreBox = null; shopHatBox = null; return; }
+  const sig = shopVisibleItems().map(i => i.id).join() + '|' + JSON.stringify(shopState.links || {});
+  if (sig !== ps.items) { ps.items = sig; psRender(); }
+  shopChipBox = psRect(shopChipEl);
+  shopPreBox = psRect(ps.detail ? null : ps.el.querySelector('.ps-shelf [data-ps=pre]'));
+  const h = psRect(ps.detail ? null : ps.el.querySelector('.ps-art.hat')); shopHatBox = h ? { cx: h.left + h.w / 2, cy: h.top + h.h / 2, w: h.w, h: h.h } : null;
+}
+function openPreorder(item) { menuPopup = null; showAcct('preorder', { item: item || 'lucky_marker', qty: 1, name: (isSignedIn() && account.profile && account.profile.username) || (player && player.name) || '', email: (isSignedIn() && account.user && account.user.email) || '' }); }
 async function submitPreorder(item, name, email, qty) {
   if (!authOnline()) return { ok: false, msg: "CAN'T REACH THE SERVER. TRY AGAIN LATER." };
   const r = await sb('/rest/v1/rpc/submit_preorder', { method: 'POST', noAuth: !isSignedIn(), body: { p_item: item, p_name: name, p_email: email, p_qty: qty, p_visitor: trackVisitorId() } }, 'preorder');
@@ -6185,7 +6372,6 @@ async function submitPreorder(item, name, email, qty) {
   const m = String((r.data && (r.data.message || r.data.hint)) || '');
   return { ok: false, msg: /rate/.test(m) ? 'TOO MANY REQUESTS. TRY AGAIN IN AN HOUR.' : /email/.test(m) ? 'THAT EMAIL LOOKS WRONG' : /not available/.test(m) ? 'NOT AVAILABLE RIGHT NOW' : /banned/.test(m) ? "YOUR ACCOUNT CAN'T PREORDER" : r.status === 0 ? "CAN'T REACH THE SERVER. TRY AGAIN LATER." : 'COULD NOT SEND. TRY AGAIN.' };
 }
-addEventListener('pointerdown', e => { shopChipDown = !!(menuPopup && menuPopup.kind === 'shop' && inShopChip(e.clientX, e.clientY)); }, true);
 function syncShopHat() {
   const r = shopHatReq; shopHatReq = null;
   const ready = im => im.complete && im.naturalWidth > 0;
@@ -6275,97 +6461,7 @@ function drawMenuPopup() {
   const p = menuPopup; if (!p) return;
   const shop = p.kind === 'shop', YEL = '#f8d878';
   ctx.globalAlpha = 0.55; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
-  if (shop) {
-    // v8.18 PRO SHOP: same dark-green card + camo snapback (hi-DPI overlay, see syncShopHat) + RESTOCKING SOON,
-    // dressed as a pro shop — gold frame (Choose Course board), wood-paneled header with a PRO SHOP sign,
-    // the hat on a wood display shelf, and a wood counter with a small brass bell along the bottom.
-    // v8.48: two display cards on one shelf: camo snapback (RESTOCKING SOON) + LUCKY BALL MARKER (PREORDER button -> request form).
-    // Admins can hide / archive items (server store_items); built-in list when the fetch fails.
-    const items = shopVisibleItems(), n = items.length;
-    const BX = n > 1 ? 74 : 86, ART = BX - 14, hatW = Math.min(BX - 6, Math.round(ART * 1.16)), hatH = Math.round(hatW / SHOP_HAT_AR)   /* photo has transparent margin: 1.16 makes the crown match the chip */, chipS = ART, stageH = BX + 14;   // v8.48: same display box + same art width for every item
-    const w = Math.min(W - 8, n > 1 ? 312 : Math.max(textW('RESTOCKING SOON', 2) + 28, textW('DUMB LUCK CAMO SNAPBACK') + 28, hatW + 40));
-    const hasChip = items.some(it => it.id === 'lucky_marker');
-    const HEAD = 30, CNT = 9, h = n === 0 ? 120 : 8 + HEAD + 6 + stageH + 8 + (hasChip ? 70 : 42) + CNT;
-    const x = Math.round((W - w) / 2), y = Math.round(Math.max(8, (H - h) / 2) + 8 * (1 - Math.min(1, p.t / 0.14)));
-    const WD = '#5c3214', WM = '#7a4620', WL = '#94592a', WH = '#b87838', G1 = '#f8d878', G2 = '#d8a000', CREAM = '#fce4a0';
-    const ix = x + 4, iy = y + 4, iw = w - 8, ih = h - 8;
-    ctx.save(); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);   // quick fade-in as you walk in
-    czRing(x, y, w, h, '#000'); czRing(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
-    czRing(x + 2, y + 2, w - 4, h - 4, G1); czRing(x + 3, y + 3, w - 6, h - 6, '#000');
-    {   // v8.10 interior kept: deep fairway-green -> darker green gradient + soft vignette
-      const gr = ctx.createLinearGradient(0, iy, 0, iy + ih);
-      gr.addColorStop(0, '#1e4f2a'); gr.addColorStop(1, '#0a2311');
-      ctx.fillStyle = gr; ctx.fillRect(ix, iy, iw, ih);
-      const cx0 = ix + iw / 2, cy0 = iy + ih * 0.5, vg = ctx.createRadialGradient(cx0, cy0, Math.min(iw, ih) * 0.3, cx0, cy0, Math.max(iw, ih) * 0.72);
-      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
-      ctx.fillStyle = vg; ctx.fillRect(ix, iy, iw, ih);
-    }
-    {   // wood-paneled header: vertical planks, faint grain, dark trim rail underneath
-      rect(ix, iy, iw, HEAD, WM);
-      for (let px = ix, k = 0; px < ix + iw; px += 13, k++) {
-        rect(px, iy, 1, HEAD, WD);
-        if (k % 2) rect(px + 1, iy, Math.min(12, ix + iw - px - 1), HEAD, WL);
-        rect(px + 4 + (k * 5) % 6, iy + 4 + (k * 7) % 9, 1, 6, k % 2 ? WM : WD);
-      }
-      rect(ix, iy, iw, 1, WH); rect(ix, iy + HEAD - 3, iw, 1, WH); rect(ix, iy + HEAD - 2, iw, 2, WD); rect(ix, iy + HEAD, iw, 1, '#000');
-      // PRO SHOP sign: dark-green plaque, gold frame, cream lettering, hung on two short gold chains
-      const sw = textW('PRO SHOP', 2) + 16, sh = 20, sx = Math.round(x + (w - sw) / 2), sy = iy + 4;
-      rect(sx + 8, iy, 1, 4, G2); rect(sx + sw - 9, iy, 1, 4, G2);
-      rect(sx - 1, sy - 1, sw + 2, sh + 2, '#000'); rect(sx, sy, sw, sh, G2); rect(sx, sy, sw - 1, 1, G1); rect(sx, sy, 1, sh - 1, G1);
-      rect(sx + 2, sy + 2, sw - 4, sh - 4, '#000'); rect(sx + 3, sy + 3, sw - 6, sh - 6, '#123d20');
-      drawText('PRO SHOP', sx + 9, sy + 4, '#000', 2); drawText('PRO SHOP', sx + 8, sy + 3, CREAM, 2);
-    }
-    const stY = iy + HEAD + 6, colW = n ? Math.floor((iw - 8) / n) : iw, col0 = ix + 4 + Math.floor((iw - 8 - colW * n) / 2);
-    const blink = Math.floor(p.t * 3) % 2 ? COL.white : YEL;
-    if (n) {
-    {   // display shelf the hat rests on: plank top, front edge, two small brackets, soft shadow below
-        const shY = stY + stageH - 10, shX = ix + 10, shW = iw - 20;
-        rect(shX, shY - 1, shW, 3, WH); rect(shX, shY + 2, shW, 4, WM); rect(shX, shY + 5, shW, 1, WD); rect(shX - 1, shY - 1, 1, 7, '#000'); rect(shX + shW, shY - 1, 1, 7, '#000');
-        rect(shX, shY - 2, shW, 1, '#000'); rect(shX, shY + 6, shW, 1, '#000');
-        for (const bx of [shX + 12, shX + shW - 15]) { rect(bx, shY + 7, 3, 5, WD); rect(bx + 1, shY + 12, 2, 2, WD); }
-        ctx.globalAlpha *= 0.35; rect(shX + 2, shY + 7, shW - 4, 3, '#000'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
-      }
-    } else {
-      drawTextC('NEW GEAR', stY + 16, CREAM, 2); outlined('COMING SOON', Math.round((W - textW('COMING SOON', 2)) / 2), stY + 40, blink, 2);
-    }
-    items.forEach((it, k) => {
-      const cx = col0 + colW * k + Math.floor(colW / 2), nmY = stY + stageH + 8;
-      const cT = (str, y, col, sz = 1) => drawText(str, Math.round(cx - textW(str, sz) / 2), y, col, sz);
-      const cO = (str, y, col, sz = 1) => outlined(str, Math.round(cx - textW(str, sz) / 2), y, col, sz);
-      const boxY = stY + stageH - 11 - BX, bx0 = cx - Math.round(BX / 2);   // matching display box (dark glass, thin gold rim) on the shelf
-      rect(bx0 - 1, boxY - 1, BX + 2, BX + 2, '#000'); rect(bx0, boxY, BX, BX, '#a07000'); rect(bx0, boxY, BX - 1, 1, G1); rect(bx0, boxY, 1, BX - 1, G1);
-      rect(bx0 + 2, boxY + 2, BX - 4, BX - 4, '#0e2a17'); ctx.globalAlpha *= 0.25; rect(bx0 + 2, boxY + 2, BX - 4, Math.round(BX * 0.35), '#58a868'); ctx.globalAlpha = Math.min(1, 0.35 + p.t / 0.14 * 0.65);
-      if (it.id === 'camo_snapback') {
-        shopHatReq = { x: cx - Math.round(hatW / 2) - 8, y: boxY + Math.round((BX - hatH) / 2) - 4, w: hatW + 16, h: hatH + 16, t: p.t };
-        const nm = n === 1 && textW('DUMB LUCK CAMO SNAPBACK') + 28 <= w ? 'DUMB LUCK CAMO SNAPBACK' : 'CAMO SNAPBACK';
-        cT(nm, nmY + 4, COL.white);
-        if (n === 1) cO('RESTOCKING SOON', nmY + 18, blink, 2); else cO('RESTOCKING', nmY + 18, blink), cO('SOON', nmY + 28, blink);
-      } else if (it.id === 'lucky_marker') {
-        shopChipReq = { x: cx - Math.round(chipS / 2), y: boxY + Math.round((BX - chipS) / 2), w: chipS, h: chipS, t: p.t };
-        cT('LUCKY BALL MARKER', nmY + 4, COL.white);
-        cT('$10', nmY + 16, YEL, 2);
-        cT(textW('40MM CLAY POKER CHIP') <= colW - 4 ? '40MM CLAY POKER CHIP' : '40MM CLAY CHIP', nmY + 34, '#bcc8e0');
-        {   // v8.48: PREORDER button (a request, no payment) -> small form
-          const bw = textW('PREORDER') + 16, bh = 15, bx = Math.round(cx - bw / 2), by = nmY + 46, hot = shopPreHot;
-          rect(bx - 1, by - 1, bw + 2, bh + 2, '#000'); rect(bx, by, bw, bh, hot ? '#fce4a0' : YEL); rect(bx + 1, by + bh - 2, bw - 2, 1, '#c89c38');
-          drawText('PREORDER', bx + 8, by + 4, '#000');
-          shopPreReq = { x: bx, y: by, w: bw, h: bh };
-        }
-      }
-    });
-    {   // counter along the bottom: wood top lip + front, small brass bell on the right
-      const cy = iy + ih - CNT;
-      rect(ix, cy - 1, iw, 1, '#000'); rect(ix, cy, iw, 2, WH); rect(ix, cy + 2, iw, CNT - 2, WM);
-      for (let px = ix + 9; px < ix + iw; px += 22) rect(px, cy + 3, 1, CNT - 4, WD);
-      const bx = ix + iw - 18, by = cy - 1;   // bell: 9px wide dome + button
-      rect(bx + 3, by - 7, 3, 1, '#000'); rect(bx + 4, by - 8, 1, 1, '#000');
-      rect(bx + 1, by - 6, 7, 1, '#000'); rect(bx, by - 5, 9, 4, '#000'); rect(bx - 1, by - 1, 11, 1, '#000');
-      rect(bx + 2, by - 5, 5, 1, G1); rect(bx + 1, by - 4, 7, 3, G2); rect(bx + 2, by - 4, 2, 1, G1); rect(bx, by - 2, 9, 1, '#a07000');
-      rect(bx + 4, by - 7, 1, 1, G1);
-    }
-    ctx.restore();
-    return;
-  }
+  if (shop) return;   // v8.50: PRO SHOP is the DOM overlay (#proShop, see syncShopChip); the canvas only dims behind it
   const w = 212, h = 104, x = (W - w) / 2, y = Math.round(66 + 10 * (1 - Math.min(1, p.t / 0.12)));   // small slide-in
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   rect(x + 3, y + 3, w - 6, h - 6, COL.blue); rect(x + 4, y + 4, w - 8, h - 8, '#000');
@@ -7153,12 +7249,17 @@ const ADMIN_VIEWS = {
     }).join('') + '</div>' : '<p class="empty">NO FEEDBACK YET</p>'),
   adminStore: () => {   // v8.48: hide (kept, easy to unhide) / archive (moved to the archived list, restorable)
     const st = shopState.status, srv = !!st;
+    const stLink = it => { const l = (shopState.links || {})[it.id] || {};   // v8.50 Shopify mapping: blank = PREORDER / RESTOCKING SOON fallback
+      return '<div class="stlink"><input type="text" id="slH_' + esc(it.id) + '" placeholder="SHOPIFY HANDLE" maxlength="100" autocapitalize="off" spellcheck="false" value="' + esc(l.shopify_handle || '') + '">' +
+        '<input type="text" id="slU_' + esc(it.id) + '" placeholder="BUY LINK https://" maxlength="500" inputmode="url" autocapitalize="off" spellcheck="false" value="' + esc(l.buy_url || '') + '">' +
+        '<button class="btn small alt" data-a="stlink" data-id="' + esc(it.id) + '">SAVE</button></div>'; };
     const row = (it, s0) => '<div class="item"><div class="who wr">' + esc(it.name) + '<span class="st" style="color:' + ({ active: '#58d854', hidden: '#f8d878', archived: '#bcc8e0' }[s0]) + '">' + (s0 === 'active' ? 'SHOWN IN THE PRO SHOP' : s0.toUpperCase()) + '</span></div><div class="acts">' +
       (s0 === 'archived' ? '<button class="btn small" data-a="stset" data-id="' + esc(it.id) + '" data-n="active">RESTORE</button>' :
-        '<button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="' + (s0 === 'hidden' ? 'active' : 'hidden') + '">' + (s0 === 'hidden' ? 'UNHIDE' : 'HIDE') + '</button><button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="archived">ARCHIVE</button>') + '</div></div>';
+        '<button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="' + (s0 === 'hidden' ? 'active' : 'hidden') + '">' + (s0 === 'hidden' ? 'UNHIDE' : 'HIDE') + '</button><button class="btn small alt" data-a="stset" data-id="' + esc(it.id) + '" data-n="archived">ARCHIVE</button>') + '</div></div>' + (shopState.linksOk && s0 !== 'archived' ? stLink(it) : '');
     const all = SHOP_ITEMS.map(it => [it, (st && st[it.id]) || 'active']), live = all.filter(x => x[1] !== 'archived'), arch = all.filter(x => x[1] === 'archived');
     return head('STORE', 'go:admin') + '<div class="msg"></div>' + (srv ? '' : '<p class="sub" style="color:#fc9838">STORE SETTINGS NOT REACHABLE (SHOWING BUILT-IN ITEMS). CHANGES NEED THE SERVER.</p>') +
       '<p class="sec">SHOP ITEMS</p>' + (live.length ? '<div class="list">' + live.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NO ITEMS.</p>') +
+      (srv && !shopState.linksOk ? '<p class="sub">SHOPIFY LINKS TURN ON WITH THE v8.50 DATABASE UPDATE.</p>' : '') +
       '<p class="sec">ARCHIVED</p>' + (arch.length ? '<div class="list">' + arch.map(x => row(x[0], x[1])).join('') + '</div>' : '<p class="empty">NOTHING ARCHIVED.</p>') +
       '<p class="sub" style="margin-top:8px">HIDDEN AND ARCHIVED ITEMS ARE NOT SHOWN TO PLAYERS. EVERY CHANGE GOES IN THE ADMIN LOG.</p>' +
       '<p class="sec">PREORDERS' + ((admin.preorders || []).filter(p => p.status === 'new').length ? ' (' + admin.preorders.filter(p => p.status === 'new').length + ' OPEN)' : '') + '</p>' +
@@ -7380,6 +7481,11 @@ if (acctEl) {
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
     if (a === 'poClose') { const back = acctView === 'poThanks' || acctView === 'preorder'; hideAcct(); if (back && state === 'title') { menuPopup = { kind: 'shop', t: 0.2 }; } return; }
     if (a === 'pofill') { acctBusy(true); const r = await adminRpc('admin_preorder_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadPreorders(); showAcct('adminStore', { keep: 1 }); return; }
+    if (a === 'stlink') { const l = (shopState.links || {})[id] || {}, h = String((document.getElementById('slH_' + id) || {}).value || '').trim().toLowerCase(), u = String((document.getElementById('slU_' + id) || {}).value || '').trim();   // v8.50
+      if (h && !/^[a-z0-9][a-z0-9-]{0,99}$/.test(h)) { acctMsg('HANDLE: LETTERS, NUMBERS, DASHES'); return; }
+      if (u && !psUrlOk(u)) { acctMsg('BUY LINK MUST START WITH https://'); return; }
+      acctBusy(true); const r = await adminRpc('admin_store_link', { p_id: id, p_handle: h, p_variant: String(l.shopify_variant_id || ''), p_url: u }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; }
+      await loadShopItems(true); showAcct('adminStore', { keep: 1 }); setTimeout(() => acctMsg('SAVED', true), 60); return; }
     if (a === 'stset') { acctBusy(true); const r = await adminRpc('admin_store_set', { p_id: id, p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await loadShopItems(true); showAcct('adminStore', { keep: 1 }); return; }   // v8.48
     if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
     if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
@@ -7603,7 +7709,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(shopChipEl && shopChipEl.style.display !== 'none') }; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+  window.__golf = {  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(ps.open && shopChipEl) }; }, get psGal() { return ps.gal; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
       let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
       const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
         for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
