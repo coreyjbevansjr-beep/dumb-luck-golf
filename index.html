@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.50">
+<meta name="dlg-version" content="v8.51">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -142,11 +142,11 @@
   #acct .kpis.h2h b{color:#f8d878}
   #acct .kpis.h2h{grid-template-columns:1fr 1fr}
 </style>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png","sameAs":["https://www.instagram.com/dumbluckgolfing/"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/"]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
 <body>
 <div id="groundFill" aria-hidden="true"></div>
-<section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p><p>Follow Dumb Luck Golf on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" target="_blank">@dumbluckgolfing</a></p></section>
+<section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p><p>Follow Dumb Luck Golf on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" target="_blank">@dumbluckgolfing</a> · <a href="https://www.youtube.com/@dumbluckgolf" rel="me noopener" target="_blank">YouTube @dumbluckgolf</a></p></section>
 <noscript><p style="font:14px/1.5 sans-serif;color:#fff;background:#1c3a1c;padding:16px;margin:0">Dumb Luck Golf is a free retro pixel golf game: Front 9, Back 9, Full 18, a Daily hole and leaderboards. Please turn on JavaScript to play. Follow us on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" style="color:#f8d878">@dumbluckgolfing</a></p></noscript>
 <canvas id="c" width="256" height="240" role="application" aria-label="Dumb Luck Golf game. Tap, click, or press Space or Enter to start and to swing. Arrow keys aim and move through menus, Q and E change club, Escape pauses." tabindex="0"></canvas>
 <div id="srLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.50';
+const GAME_VERSION = 'v8.51';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3078,6 +3078,7 @@ const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
 const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
 const HSHARE_BTN = { x: 190, y: 0, w: 20, h: 22 };   // v8.34
+const YOUTUBE_URL = 'https://www.youtube.com/@dumbluckgolf', HYT_BTN = { x: 136, y: 0, w: 20, h: 22 };   // v8.51 YouTube
 const IG_URL = 'https://www.instagram.com/dumbluckgolfing/', HIG_BTN = { x: 160, y: 0, w: 20, h: 22 }, FOLLOW_BTN = { x: 0, y: -99, w: 0, h: 0, on: false }, CARD_FOLLOW = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.43 Instagram
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
@@ -3109,6 +3110,7 @@ function layoutChrome() {
   GEAR_BTN.x = FS_BTN.x - tap - gap; GEAR_BTN.y = FS_BTN.y;
   HSHARE_BTN.w = tap; HSHARE_BTN.h = tap; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; HSHARE_BTN.y = FS_BTN.y;
   HIG_BTN.w = tap; HIG_BTN.h = tap; HIG_BTN.x = HSHARE_BTN.x - tap - gap; HIG_BTN.y = FS_BTN.y;   // v8.43
+  HYT_BTN.w = tap; HYT_BTN.h = tap; HYT_BTN.x = HIG_BTN.x - tap - gap; HYT_BTN.y = FS_BTN.y;   // v8.51
   FOLLOW_TAP = tap;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
@@ -3641,6 +3643,15 @@ function igGlyph(x, y, s, c) {   // 11x11 at s=1: rounded square, lens, flash do
   R2(4, 3, 3, 1); R2(4, 7, 3, 1); R2(3, 4, 1, 3); R2(7, 4, 1, 3); R2(8, 2, 1, 1);
 }
 function igGrad(x, y, w, h) { const g = ctx.createLinearGradient(x, y + h, x + w, y); g.addColorStop(0, '#f8a830'); g.addColorStop(0.35, '#e8384c'); g.addColorStop(0.7, '#c02c90'); g.addColorStop(1, '#6c3cd0'); return g; }
+function ytGlyph(x, y, body, play) {   // v8.51: 11x8 rounded play button
+  rect(x + 1, y, 9, 8, body); rect(x, y + 1, 11, 6, body);
+  rect(x + 4, y + 2, 1, 4, play); rect(x + 5, y + 2, 1, 4, play); rect(x + 6, y + 3, 1, 2, play);
+}
+function drawHomeYtButton() {
+  const x = HYT_BTN.x + Math.floor((HYT_BTN.w - 14) / 2), y = HYT_BTN.y + Math.floor((HYT_BTN.h - 14) / 2);
+  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  ytGlyph(x + 1, y + 3, COL.white, '#000');
+}
 function drawHomeIgButton() {
   const x = HIG_BTN.x + Math.floor((HIG_BTN.w - 14) / 2), y = HIG_BTN.y + Math.floor((HIG_BTN.h - 14) / 2);
   ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
@@ -3658,7 +3669,29 @@ function drawFollowPill(r, key, label) {
   const ty = Math.round(r.y + (r.h - 7) / 2);
   drawText(label, gx + 16 + 1, ty + 1, '#000'); drawText(label, gx + 16, ty, COL.white);
 }
-function drawFollowButton() { if (FOLLOW_BTN.on && !menuPopup) drawFollowPill(FOLLOW_BTN, 'follow', 'FOLLOW @DUMBLUCKGOLFING'); }
+const followHalves = () => { const r = FOLLOW_BTN, hw = Math.floor(r.w / 2); return [{ x: r.x, y: r.y, w: hw, h: r.h }, { x: r.x + hw, y: r.y, w: r.w - hw, h: r.h }]; };
+function drawFollowButton() {   // v8.51: split bar, Instagram | YouTube
+  if (!FOLLOW_BTN.on || menuPopup) return;
+  const r = FOLLOW_BTN, [a, b] = followHalves(), pulse = REDUCED_MOTION ? 0 : (Math.sin(st * Math.PI * 1.4) + 1) / 2;
+  if (!REDUCED_MOTION && pulse > 0.6) { ctx.globalAlpha = (pulse - 0.6) * 1.2; rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, '#f8a0d8'); ctx.globalAlpha = 1; }
+  rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2, '#000');
+  ctx.fillStyle = igGrad(a.x, a.y, a.w, a.h); ctx.fillRect(a.x, a.y, a.w, a.h); rect(b.x, b.y, b.w, b.h, '#e01818');
+  rect(r.x, r.y, r.w, 1, 'rgba(255,255,255,0.45)'); rect(b.x, b.y, 1, b.h, '#000');
+  const hot = (k, h) => pressDim(k) || (mouse.seen && hit(mouse, h));
+  if (hot('follow', a)) { ctx.globalAlpha = 0.25; rect(a.x, a.y, a.w, a.h, '#000'); ctx.globalAlpha = 1; }
+  if (hot('followyt', b)) { ctx.globalAlpha = 0.25; rect(b.x, b.y, b.w, b.h, '#000'); ctx.globalAlpha = 1; }
+  const lab = (h, gw, txt, glyph) => { const t = textW(txt) + gw + 5 <= h.w - 4 ? txt : '', tw = gw + (t ? 5 + textW(t) : 0), gx = Math.round(h.x + (h.w - tw) / 2);
+    glyph(gx); if (t) { const ty = Math.round(h.y + (h.h - 7) / 2); drawText(t, gx + gw + 5 + 1, ty + 1, '#000'); drawText(t, gx + gw + 5, ty, COL.white); } };
+  lab(a, 11, 'INSTAGRAM', gx => { const gy = Math.round(a.y + (a.h - 11) / 2); igGlyph(gx + 1, gy + 1, 1, '#000'); igGlyph(gx, gy, 1, COL.white); });
+  lab(b, 11, 'YOUTUBE', gx => { const gy = Math.round(b.y + (b.h - 8) / 2); ytGlyph(gx + 1, gy + 1, '#000', '#000'); ytGlyph(gx, gy, COL.white, '#e01818'); });
+}
+let ytOpenCount = 0;
+function openYouTube() {   // v8.51: never starts the game; new tab (or the YouTube app via universal link)
+  ytOpenCount++; let w = null;
+  try { w = window.open(YOUTUBE_URL, '_blank', 'noopener'); } catch (e) {}
+  if (!w) showToast(['YOUTUBE', '@DUMBLUCKGOLF'], 3000);
+  return 'open';
+}
 let igOpenCount = 0;
 function openInstagram() {   // never starts the game; new tab (or the Instagram app via universal link)
   igOpenCount++; let w = null;
@@ -4777,7 +4810,7 @@ cv.addEventListener('pointermove', e => {
     else if (hitTlbArrow(p, a.next)) tlbArrow = 'next';
   }
   tlbHover = state === 'title' && !menuPopup && !tlbArrow && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, HIG_BTN) || hitBtn(p, HYT_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
   if (e.pointerType === 'mouse') { if (!inLoftCtl(p)) aimAt(wp.x, wp.y); }   // v8.25: hovering the loft buttons must not re-aim
@@ -4836,9 +4869,10 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'card' && hitBtn(p, LB_BTN)) {
     armUiTap('lb', () => { if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
   }
-  if (state === 'title' && !menuPopup && !ov && (hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)))) {   // v8.43: never starts the game
-    const r = hitBtn(p, HIG_BTN) ? HIG_BTN : FOLLOW_BTN, k = r === HIG_BTN ? 'hig' : 'follow';
-    armUiTap(k, () => openInstagram(), (up) => hitBtn(toLogical(up), r), e); touchDown = null; return;
+  if (state === 'title' && !menuPopup && !ov && (hitBtn(p, HYT_BTN) || hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)))) {   // v8.43 / v8.51: never starts the game
+    const [fa, fb] = followHalves(), onYt = hitBtn(p, HYT_BTN), onIg = !onYt && hitBtn(p, HIG_BTN), yt = onYt || (!onIg && p.x >= fb.x);
+    const r = onYt ? HYT_BTN : onIg ? HIG_BTN : yt ? fb : fa, k = onYt ? 'hyt' : onIg ? 'hig' : yt ? 'followyt' : 'follow';
+    armUiTap(k, () => yt ? openYouTube() : openInstagram(), (up) => hitBtn(toLogical(up), r), e); touchDown = null; return;
   }
   if (state === 'card' && CARD_FOLLOW.on && hitBtn(p, CARD_FOLLOW)) {
     const r0 = Object.assign({}, CARD_FOLLOW); armUiTap('cfollow', () => openInstagram(), (up) => hitBtn(toLogical(up), r0), e); touchDown = null; return;
@@ -6789,7 +6823,7 @@ function renderCard() {
 }
 function render() {
   renderScene();
-  if (state === 'title') { drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
+  if (state === 'title') { drawHomeYtButton(); drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
   drawClubButton();
@@ -7734,7 +7768,7 @@ if (/test/.test(location.hash)) {
       const keys = Object.keys(R), hits = [];
       for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) { const a = R[keys[i]], b = R[keys[j]]; if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) hits.push(keys[i] + '/' + keys[j]); }
       return { rects: R, hits, safeTop: T, H, W, held: toastHeld(), queued: toastQ.length };
-    }, get lbBoard() { return board && { modeId: board.modeId, period: boardPeriod, scope: boardScope, rows: board.rows, me: board.me, hi: board.hi, needSignIn: !!board.needSignIn, src: board.src, tabs: boardTabRects() }; }, boardTab(k, v) { boardSetTab(k, v); }, saveScoreT(e) { return saveScore(e); }, setScoresT(a) { scores = a.slice(); }, openBoardT(m) { openBoard(null, m); }, get saveWhere() { return saveWhere; }, lbDeviceBestFor(m, p) { return lbDeviceBestFor(m, p); }, get igBtns() { return { hig: Object.assign({}, HIG_BTN), follow: Object.assign({}, FOLLOW_BTN), card: Object.assign({}, CARD_FOLLOW), menu: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })), board: Object.assign({}, TLB_R), opened: igOpenCount }; }, get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
+    }, get lbBoard() { return board && { modeId: board.modeId, period: boardPeriod, scope: boardScope, rows: board.rows, me: board.me, hi: board.hi, needSignIn: !!board.needSignIn, src: board.src, tabs: boardTabRects() }; }, boardTab(k, v) { boardSetTab(k, v); }, saveScoreT(e) { return saveScore(e); }, setScoresT(a) { scores = a.slice(); }, openBoardT(m) { openBoard(null, m); }, get saveWhere() { return saveWhere; }, lbDeviceBestFor(m, p) { return lbDeviceBestFor(m, p); }, get igBtns() { return { hyt: Object.assign({}, HYT_BTN), ytOpened: ytOpenCount, hig: Object.assign({}, HIG_BTN), follow: Object.assign({}, FOLLOW_BTN), card: Object.assign({}, CARD_FOLLOW), menu: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })), board: Object.assign({}, TLB_R), opened: igOpenCount }; }, get hshare() { return Object.assign({}, HSHARE_BTN); }, get ovRects() { return ovRects.map(r => Object.assign({}, r)); }, get ovKind() { return ov && ov.kind; }, pause() { pauseGame(); }, ovAct(i) { ovActivate(i); }, get gear() { return Object.assign({}, GEAR_BTN); }, get homeLay2() { return 0; }, get homeLay() { return { g: Object.assign({}, GEAR_BTN), m: menuRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h })) }; }, get toastLines() { return toast && toast.lines; }, get gstate() { return state; }, get holeNow() { return !!hole; },
     get account() { return { user: account.user && { id: account.user.id, email: account.user.email }, profile: account.profile && Object.assign({}, account.profile) }; },
     get acctView() { return acctView; }, showAcct(v, o) { return showAcct(v, o); }, hideAcct() { hideAcct(); }, openCareer() { setState('career'); careerRefresh(); },
     get social() { return { friends: social.friends.slice(), matches: social.matches.slice() }; }, get net() { return JSON.parse(JSON.stringify(net)); },
