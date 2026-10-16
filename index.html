@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.55">
+<meta name="dlg-version" content="v8.56">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.55';
+const GAME_VERSION = 'v8.56';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2422,6 +2422,7 @@ function startDailyFlow(forceIdx) {
   openCustomize('daily');
 }
 function startCourse(kind) {
+  if (kind === 'spooky') { try { trackEvent('spooky_enter', { mode: 'spooky' }); } catch (e) {} }   // v8.56
   weather = pickWeather();
   if (kind === 'front') setCourseHoles('front', FRONT_HOLES);
   else if (kind === 'back') setCourseHoles('back', BACK_HOLES);
@@ -7529,7 +7530,7 @@ const VIEWS = {
 const A2HS_KEY = 'dlg_a2hs_v1', A2HS_GAP = 3 * 864e5;
 let a2hsEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); a2hsEvt = e; });
-window.addEventListener('appinstalled', () => { a2hsEvt = null; a2hsHide(); try { const d = a2hsData(); d.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d)); } catch (e) {} });
+window.addEventListener('appinstalled', () => { try { trackEvent('a2hs_installed', {}); } catch (e) {}  a2hsEvt = null; a2hsHide(); try { const d = a2hsData(); d.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d)); } catch (e) {} });
 function a2hsInstalled() { try { return navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch (e) { return false; } }
 function a2hsIOS() { const u = navigator.userAgent || ''; return /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1); }
 function a2hsData() { try { return JSON.parse(localStorage.getItem(A2HS_KEY) || '{}') || {}; } catch (e) { return {}; } }
@@ -7555,16 +7556,17 @@ function a2hsShow(force) {
   el.addEventListener('pointerdown', e => e.stopPropagation()); el.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
   el.addEventListener('click', async e => {
     e.stopPropagation();
-    if (e.target.closest('[data-x]')) { a2hsHide(); return; }
-    if (e.target.closest('[data-i]') && a2hsEvt) { const ev = a2hsEvt; a2hsEvt = null; try { ev.prompt(); const r = await ev.userChoice; if (r && r.outcome === 'accepted') { const d2 = a2hsData(); d2.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d2)); } } catch (er) {} a2hsHide(); }
+    if (e.target.closest('[data-x]')) { try { trackEvent('a2hs_dismissed', {}); } catch (e) {} a2hsHide(); return; }
+    if (e.target.closest('[data-i]') && a2hsEvt) { const ev = a2hsEvt; a2hsEvt = null; try { ev.prompt(); const r = await ev.userChoice; if (r && r.outcome === 'accepted') { try { trackEvent('a2hs_accepted', {}); } catch (e) {}  const d2 = a2hsData(); d2.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d2)); } } catch (er) {} a2hsHide(); }
   });
-  document.body.appendChild(el);
+  document.body.appendChild(el); try { trackEvent('a2hs_shown', {}); } catch (e) {} 
   return true;
 }
 const CUP_AFTER_KEY = 'dlg_cup_after_auth';   // v8.55: signed-out Spooky Cup taps sign in first, then drop straight into the cup
 function cupEnter() {
   if (isSignedIn()) { startCourse('spooky'); return; }
   try { sessionStorage.setItem(CUP_AFTER_KEY, '1'); } catch (e) {}
+  try { trackEvent('spooky_signin_prompt', {}); } catch (e) {} 
   showAcct('cupGate');
 }
 function cupAfterPending() { try { return sessionStorage.getItem(CUP_AFTER_KEY) === '1'; } catch (e) { return false; } }
@@ -7689,6 +7691,7 @@ if (acctEl) {
     if (a === 'a2hs') { hideAcct(); a2hsShow(); return; }   // v8.55
     if (a === 'cupx') { cupAfterClear(); hideAcct(); return; }   // v8.55: X on the cup sign-in prompt stays put
     if (a === 'close') { cupAfterClear(); hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
+    if (acctView === 'cupGate' && (a === 'go:signup' || a === 'go:login')) { try { trackEvent(a === 'go:signup' ? 'spooky_signin_create' : 'spooky_signin_login', {}); } catch (e) {} }
     if (a.startsWith('go:')) { showAcct(a.slice(3), {}); return; }
     if (a === 'pwShow') { const i = document.getElementById(b.getAttribute('data-for')); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? 'SHOW' : 'HIDE'; } return; }
     if (a === 'signout') { signOut(); hideAcct(); setState('career'); return; }
