@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.52">
+<meta name="dlg-version" content="v8.54">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.52';
+const GAME_VERSION = 'v8.54';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1232,6 +1232,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   const run = careerRun || { birdies: 0, eagles: 0, aces: 0, luck: 0 };
   careerRun = null;
   if (!info || !info.scored) return null;
+  try { careerRoundRow(info, run); } catch (e) {}
   const c = careerLoad(), X = CAREER_XP;
   let xp = info.kind === 'daily' ? X.daily : info.holes >= 18 ? X.eighteen : X.nine;
   xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck;
@@ -1258,7 +1259,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   c.updated = new Date().toISOString();
   careerSave(c);
   careerLast = { xp, rankUp: careerRank(c.xp).name !== before ? careerRank(c.xp).name : null, pb, id: careerId() };
-  careerPush(c);
+  careerPull();   // v8.54: merge with the cloud copy before pushing, so another device never gets overwritten
   return careerLast;
 }
 /* ---- optional Supabase sync (table public.careers, see career-schema.sql) ---- */
@@ -1275,16 +1276,44 @@ async function careerPush(c) {
     careerSync = res.ok ? 'synced' : (res.status === 404 ? 'missing' : 'error');
   } catch (e) { careerSync = 'error'; }
 }
-async function careerPull() {   // keep whichever copy has more rounds (device vs cloud), then push the winner
+function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, union of recent rounds (deduped)
+  a = careerClean(a); b = careerClean(b);
+  const m = careerBlank();
+  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp']) m[k] = k === 'nineRel' ? null : Math.max(a[k], b[k]);
+  m.nineRel = a.nineHoles >= b.nineHoles ? a.nineRel : b.nineRel;   // keep the average consistent with the nineHoles we kept
+  for (const k of Object.keys(m.best)) {
+    const x = a.best[k], y = b.best[k];
+    m.best[k] = !x ? y : !y ? x : (y.rel < x.rel || (y.rel === x.rel && y.strokes < x.strokes)) ? y : x;
+  }
+  const dl = a.daily.last >= b.daily.last ? a.daily : b.daily;
+  m.daily = { last: dl.last, streak: dl.streak, top: Math.max(a.daily.top, b.daily.top, dl.streak) };
+  const seen = {}, rec = [];
+  a.recent.concat(b.recent).forEach(r => { const key = r.kind + '|' + r.rel + '|' + r.strokes + '|' + r.date; if (!seen[key]) { seen[key] = 1; rec.push(r); } });
+  m.recent = rec.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0)).slice(0, 5);
+  m.look = a.look || b.look;
+  m.updated = a.updated >= b.updated ? a.updated : b.updated;
+  return m;
+}
+async function careerRoundRow(info, run) {   // v8.54: one rounds row per finished scored round (RLS: insert own)
+  if (!isSignedIn() || !authOnline() || !info) return;
+  try {
+    if ((account.user.expires_at || 0) < Date.now() / 1000 + 30) await refreshSession();
+    await fetch(authBase() + '/rest/v1/rounds', { method: 'POST', headers: authHeaders({ Prefer: 'return=minimal' }),
+      body: JSON.stringify({ user_id: account.user.id, mode: String(info.kind || ''), course: String(info.kind || ''), strokes: info.strokes | 0, to_par: info.rel | 0,
+        aces: run.aces | 0, holes: info.holes | 0, weather: (typeof weather === 'object' && weather && weather.id) ? String(weather.id) : null }) });
+  } catch (e) {}
+}
+async function careerPull() {   // v8.54: merge device + cloud copies, save locally, push the merged copy
   if (!isSignedIn() || !authOnline()) return;
   try {
     const res = await fetch(authBase() + '/rest/v1/careers?user_id=eq.' + encodeURIComponent(account.user.id) + '&select=stats', { headers: authHeaders() });
     if (!res.ok) { careerSync = res.status === 404 ? 'missing' : 'error'; return; }
     const rows = await res.json();
     const remote = rows && rows[0] ? careerClean(rows[0].stats) : null, local = careerLoad(account.user.id);
-    if (remote && remote.rounds > local.rounds) { careerSave(remote, account.user.id); careerSync = 'synced'; }
-    else if (local.rounds > 0 && (!remote || local.rounds > remote.rounds)) await careerPush(local);
-    else careerSync = 'synced';
+    if (!remote) { if (local.rounds > 0) await careerPush(local); else careerSync = 'synced'; return; }
+    const merged = careerMerge(local, remote);   // v8.54: merge device + cloud instead of letting one overwrite the other
+    careerSave(merged, account.user.id);
+    if (JSON.stringify(merged) !== JSON.stringify(remote)) await careerPush(merged); else careerSync = 'synced';
   } catch (e) { careerSync = 'error'; }
 }
 
@@ -7644,7 +7673,7 @@ if (acctEl) {
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
-if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, careerMerge, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
   get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
