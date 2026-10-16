@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.54">
+<meta name="dlg-version" content="v8.55">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.54';
+const GAME_VERSION = 'v8.55';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3073,7 +3073,7 @@ let titleHole = compileHole(HOLES[0]), titleCam = 0;
 
 function setState(s) {
   const from = state;
-  state = s; st = 0; lockInput(250);
+  state = s; st = 0; lockInput(250); if (s !== 'card' && s !== 'board') { try { a2hsHide(); } catch (e) {} }   // v8.55: never over gameplay
   if (s === 'title') refreshTitleLB();
   // quick fade between major screens (not every swing state)
   const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
@@ -4745,7 +4745,7 @@ function finishRound() {
     if (!(NO_SAVE || practice)) trackEvent('score_submit', meta);
   } catch (e) {}
   dogPop = null;
-  setState('card'); SFX.fanfare();
+  setState('card'); SFX.fanfare(); try { a2hsAfterRound(); } catch (e) {}
 }
 
 /* ---------------- input ---------------- */
@@ -4791,7 +4791,7 @@ function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   setState('title');
-  if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} startCourse('spooky'); } }, 0); }   // v8.52 ?cup=spooky
+  if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
     const seen = localStorage.getItem('dlg_a2hs_v1');
@@ -4969,7 +4969,7 @@ cv.addEventListener('pointerdown', e => {
     const r0 = Object.assign({}, CARD_FOLLOW); armUiTap('cfollow', () => openInstagram(), (up) => hitBtn(toLogical(up), r0), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && !ov && SPOOKY_BANNER.on && cupLive() && hit(p, SPOOKY_BANNER)) {   // v8.52: banner -> Spooky Cup round
-    const r0 = Object.assign({}, SPOOKY_BANNER); armUiTap('cup', () => { try { trackEvent('spooky_banner', {}); } catch (e) {} startCourse('spooky'); }, (up) => hit(toLogical(up), r0), e); touchDown = null; return;
+    const r0 = Object.assign({}, SPOOKY_BANNER); armUiTap('cup', () => { try { trackEvent('spooky_banner', {}); } catch (e) {} cupEnter(); }, (up) => hit(toLogical(up), r0), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && hitBtn(p, HSHARE_BTN)) {   // v8.34: never starts the game
     armUiTap('hshare', () => shareHome(), (up) => hitBtn(toLogical(up), HSHARE_BTN), e); touchDown = null; return;
@@ -7430,6 +7430,8 @@ const VIEWS = {
     '<div class="fbbtns"><button class="btn ghost" type="button" data-a="spClose">CANCEL</button><button class="btn" type="submit">SAVE</button></div></form><div class="msg"></div>',
   poThanks: () => head('GOT IT!', 'poClose') + '<p class="fbthx">⛳</p><p class="sub">WE\'LL REACH OUT.</p><button class="btn" data-a="poClose">BACK TO THE SHOP</button>',
   fbThanks: () => head('THANKS!', 'fbClose') + '<p class="fbthx">⛳</p><p class="sub">THANKS FOR THE FEEDBACK! WE READ EVERY MESSAGE.</p><button class="btn" data-a="fbClose">BACK TO THE GAME</button>',
+  cupGate: () => '<div class="top"><span style="width:66px"></span><h2>SPOOKY CUP</h2><button class="back" data-a="cupx" aria-label="CLOSE">X</button></div>' +
+    '<p class="sub">SIGN IN TO ENTER</p><button class="btn" data-a="go:signup">CREATE ACCOUNT</button><button class="btn alt" data-a="go:login">SIGN IN</button>',
   signup: () => head('CREATE ACCOUNT') +
     '<p class="sub">SAVE YOUR GOLFER, ADD FRIENDS AND CHALLENGE THEM.</p>' +
     '<form data-f="signup" novalidate><label for="aEmail">EMAIL</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" value="' + esc(account.email) + '">' +
@@ -7460,7 +7462,7 @@ const VIEWS = {
     '<button class="btn" type="submit">SAVE USERNAME</button></form><div class="msg"></div>',
   prefs: () => { if (acctOpts.loading) return head('SETTINGS') + '<p class="empty">LOADING...</p>'; const k = account.mkt; return head('SETTINGS') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><form data-f="prefs" novalidate>' +
     '<label class="chk mkt"><input id="aMkt" type="checkbox"' + (k ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
-    '<button class="btn" type="submit">SAVE</button></form><div class="msg"></div>'; },
+    '<button class="btn" type="submit">SAVE</button></form>' + (a2hsKind() ? '<button class="btn alt" data-a="a2hs">ADD TO HOME SCREEN</button>' : '') + '<div class="msg"></div>'; },
   friends: () => {
     const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
@@ -7523,6 +7525,50 @@ const VIEWS = {
       (m.status === 'complete' ? '<button class="btn" data-a="rematch" data-id="' + esc(m.id) + '">REMATCH</button>' : '') + '<div class="msg"></div>';
   }
 };
+/* v8.55 ADD TO HOME SCREEN nudge: after round 1 or 2, not installed, at most every 3 days, never mid-round */
+const A2HS_KEY = 'dlg_a2hs_v1', A2HS_GAP = 3 * 864e5;
+let a2hsEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); a2hsEvt = e; });
+window.addEventListener('appinstalled', () => { a2hsEvt = null; a2hsHide(); try { const d = a2hsData(); d.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d)); } catch (e) {} });
+function a2hsInstalled() { try { return navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch (e) { return false; } }
+function a2hsIOS() { const u = navigator.userAgent || ''; return /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1); }
+function a2hsData() { try { return JSON.parse(localStorage.getItem(A2HS_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function a2hsKind() { return a2hsInstalled() ? null : a2hsEvt ? 'install' : a2hsIOS() ? 'ios' : null; }
+function a2hsAfterRound() {
+  const d = a2hsData(); d.rounds = (d.rounds | 0) + 1; try { localStorage.setItem(A2HS_KEY, JSON.stringify(d)); } catch (e) {}
+  if (d.done || d.rounds > 2 || (d.last && Date.now() - d.last < A2HS_GAP) || !a2hsKind()) return;
+  setTimeout(() => { if (state === 'card') a2hsShow(); }, 1600);
+}
+function a2hsHide() { const el = document.getElementById('a2hs'); if (el) el.remove(); }
+function a2hsShow(force) {
+  const kind = force || a2hsKind(); if (!kind) return false;
+  a2hsHide();
+  const d = a2hsData(); d.last = Date.now(); try { localStorage.setItem(A2HS_KEY, JSON.stringify(d)); } catch (e) {}
+  const share = '<svg width="18" height="22" viewBox="0 0 18 22" aria-hidden="true"><path d="M9 1v13M4.5 5.5 9 1l4.5 4.5M5 9H2v12h14V9h-3" fill="none" stroke="#3c9cfc" stroke-width="2"/></svg>';
+  const plus = '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="4" fill="none" stroke="#fcfcfc" stroke-width="2"/><path d="M10 5v10M5 10h10" stroke="#fcfcfc" stroke-width="2"/></svg>';
+  const el = document.createElement('div'); el.id = 'a2hs';
+  el.setAttribute('style', 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:60;width:min(320px,92vw);background:#000;border:2px solid #fcfcfc;box-shadow:0 0 0 2px #000;padding:12px 14px;font:12px/1.4 monospace;color:#fcfcfc;letter-spacing:1px;text-align:center');
+  el.innerHTML = '<button data-x style="position:absolute;right:6px;top:4px;background:none;border:0;color:#fcfcfc;font:14px monospace;padding:6px" aria-label="CLOSE">X</button>' +
+    '<div style="color:#f8d878;margin-bottom:8px">ADD TO HOME SCREEN</div>' +
+    (kind === 'install' ? '<button data-i style="background:#f8d878;color:#0c1c4c;border:0;padding:9px 22px;font:bold 12px monospace;letter-spacing:2px">INSTALL</button>'
+      : '<div style="display:flex;align-items:center;justify-content:center;gap:10px">1 ' + share + '<span style="opacity:.6">&rarr;</span> 2 ' + plus + '</div>');
+  el.addEventListener('pointerdown', e => e.stopPropagation()); el.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+  el.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (e.target.closest('[data-x]')) { a2hsHide(); return; }
+    if (e.target.closest('[data-i]') && a2hsEvt) { const ev = a2hsEvt; a2hsEvt = null; try { ev.prompt(); const r = await ev.userChoice; if (r && r.outcome === 'accepted') { const d2 = a2hsData(); d2.done = 1; localStorage.setItem(A2HS_KEY, JSON.stringify(d2)); } } catch (er) {} a2hsHide(); }
+  });
+  document.body.appendChild(el);
+  return true;
+}
+const CUP_AFTER_KEY = 'dlg_cup_after_auth';   // v8.55: signed-out Spooky Cup taps sign in first, then drop straight into the cup
+function cupEnter() {
+  if (isSignedIn()) { startCourse('spooky'); return; }
+  try { sessionStorage.setItem(CUP_AFTER_KEY, '1'); } catch (e) {}
+  showAcct('cupGate');
+}
+function cupAfterPending() { try { return sessionStorage.getItem(CUP_AFTER_KEY) === '1'; } catch (e) { return false; } }
+function cupAfterClear() { try { sessionStorage.removeItem(CUP_AFTER_KEY); } catch (e) {} }
 async function showAcct(view, opts) {
   if (!acctEl) return;
   if (!acctEl.classList.contains('on')) acctOpenAt = performance.now();   // v8.37: swallow the ghost click from the tap that opened us
@@ -7560,6 +7606,7 @@ async function afterAuth() {
   try { careerAdoptGuest(); await careerPull(); } catch (e) {}
   try { await loadAdmin(); } catch (e) {}
   try { await loadAppearance(); } catch (e) {}   // v8.31: the account's look wins on this device
+  if (cupAfterPending()) { cupAfterClear(); hideAcct(); startCourse('spooky'); return; }   // v8.55
   hideAcct(); careerMsg = { text: 'WELCOME @' + myName(), t: 0 }; setState('career');
 }
 if (acctEl) {
@@ -7639,7 +7686,9 @@ if (acctEl) {
       await loadShopItems(true); showAcct('adminStore', { keep: 1 }); setTimeout(() => acctMsg('SAVED', true), 60); return; }
     if (a === 'stset') { acctBusy(true); const r = await adminRpc('admin_store_set', { p_id: id, p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await loadShopItems(true); showAcct('adminStore', { keep: 1 }); return; }   // v8.48
     if (a === 'fbset') { acctBusy(true); const r = await adminRpc('admin_feedback_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadFeedback(); showAcct('adminFeedback', { keep: 1 }); return; }
-    if (a === 'close') { hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
+    if (a === 'a2hs') { hideAcct(); a2hsShow(); return; }   // v8.55
+    if (a === 'cupx') { cupAfterClear(); hideAcct(); return; }   // v8.55: X on the cup sign-in prompt stays put
+    if (a === 'close') { cupAfterClear(); hideAcct(); if (!['career'].includes(state)) setState('career'); return; }
     if (a.startsWith('go:')) { showAcct(a.slice(3), {}); return; }
     if (a === 'pwShow') { const i = document.getElementById(b.getAttribute('data-for')); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? 'SHOW' : 'HIDE'; } return; }
     if (a === 'signout') { signOut(); hideAcct(); setState('career'); return; }
@@ -7673,7 +7722,7 @@ if (acctEl) {
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
-if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, careerMerge, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
   get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
