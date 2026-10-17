@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.56">
+<meta name="dlg-version" content="v8.57">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.56';
+const GAME_VERSION = 'v8.57';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2428,11 +2428,13 @@ function startCourse(kind) {
   else if (kind === 'back') setCourseHoles('back', BACK_HOLES);
   else if (kind === 'coral') { if (!coralUnlocked()) return; setCourseHoles('coral', CORAL_HOLES); }   // v8.39: career course, signed-in players only
   else if (kind === 'spooky') { weather = Object.assign({}, WEATHERS[0]); setCourseHoles('spooky', spookyHoles()); }   // v8.52 SPOOKY CUP: same 4 holes, fixed wind, clear sky
+  else if (kind === 'quick3') setCourseHoles('quick3', quick3Pick());   // v8.57
   else setCourseHoles('full', FRONT_HOLES.concat(BACK_HOLES));
   openCustomize('play');
 }
 function displayHoleNum(i) {
   if (courseKind === 'back') return i + 10;
+  if (courseKind === 'quick3' && QUICK3_NUMS[i]) return QUICK3_NUMS[i];
   return i + 1;
 }
 function scoreModeForSave() {
@@ -2442,6 +2444,7 @@ function scoreModeForSave() {
   if (courseKind === 'coral') return 'coral9';
   if (courseKind === 'spooky') return 'spooky';
   if (courseKind === 'match') return 'match';
+  if (courseKind === 'quick3') return 'quick3';   // v8.57: career + analytics only, never a leaderboard mode
   return 'front9';
 }
 
@@ -2512,14 +2515,16 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
   announce(label.replace(/\s+/g, ' ') + (reason ? '. ' + reason : ''));
 }
 
-const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'CORAL CLIFFS', 'BACK'];   // v8.39: CORAL CLIFFS = career course (signed in)
-const CS_BACK_I = 4, CS_N = 4, CS_CAREER_I = 3;
+const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'QUICK 3', 'CORAL CLIFFS', 'BACK'];   // v8.57: QUICK 3 = 3 random main-course holes   // v8.39: CORAL CLIFFS = career course (signed in)
+const CS_BACK_I = 5, CS_N = 5, CS_CAREER_I = 4, CS_QUICK_I = 3;
 function coralUnlocked() { try { return !!isSignedIn(); } catch (e) { return false; } }
 let courseSel = 0;
 /* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
-const COURSE_KINDS = ['front', 'back', 'full', 'coral'];
+const COURSE_KINDS = ['front', 'back', 'full', 'quick3', 'coral'];
 const COURSE_BEST_KEY = { spooky: 'dlg_golf_best_spooky', front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9' };
-function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : i === 3 ? CORAL_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : i === CS_CAREER_I ? CORAL_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+let QUICK3_NUMS = [];   // v8.57: real hole numbers (1-18) of the current QUICK 3 set
+function quick3Pick() { const all = FRONT_HOLES.concat(BACK_HOLES), idx = []; while (idx.length < 3 && idx.length < all.length) { const k = Math.floor(Math.random() * all.length); if (!idx.includes(k)) idx.push(k); } idx.sort((a, b) => a - b); QUICK3_NUMS = idx.map(k => k + 1); return idx.map(k => all[k]); }
 function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
 
 function compileHole(def) {
@@ -3368,7 +3373,7 @@ function layoutChrome() {
       CS_HINT_Y = CS_FAIR + Math.max(3, Math.round((H - CS_FAIR - 7) / 2));
     }
     CS_BOARD = { x: bx, y: by, w: bw, h: boardH(ch) };
-    CS_CARDS = [0, 1, 2, 3].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
+    CS_CARDS = [0, 1, 2, 3, 4].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
     CS_PREV = pv;
   }
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
@@ -4605,7 +4610,7 @@ function action() {
   if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
-  if (state === 'card' && st > 1.2) { if (courseKind === 'match' && matchAfterRound()) return; openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
+  if (state === 'card' && st > 1.2) { if (courseKind === 'match' && matchAfterRound()) return; if (courseKind === 'quick3') { openBoard(null, 'front9'); return; } openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
 }
 // where the meter marker is right now: input arrives between frames, so add the time since the last update
 function meterLive() {
@@ -4730,6 +4735,7 @@ function finishRound() {
     else if (!isSignedIn()) { saveWhere = 'cupguest'; pendingSave = null; }
     else { saveWhere = 'saving'; pendingSave = saveScore(Object.assign({}, lastEntry, { mode: 'spooky' })).then(r => { saveWhere = r.ok ? 'cupin' : r.where; }, () => { saveWhere = 'error'; }); }
   }
+  else if (courseKind === 'quick3') { saveWhere = 'quick'; pendingSave = null; }   // v8.57: career only, no leaderboard
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
@@ -4737,7 +4743,7 @@ function finishRound() {
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
   try {   // career: every scored round (guest or signed in) — never practice replays or previews
-    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'spooky' ? 'spooky' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
+    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'spooky' ? 'spooky' : courseKind === 'quick3' ? 'quick3' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
       holes: scores.length, date: isDaily && dailyMeta ? dailyMeta.date : nyDateStr(), scored: !(NO_SAVE || practice) || courseKind === 'match' });
   } catch (e) {}
   try {
@@ -6806,46 +6812,45 @@ function renderBoardPanel() {
   if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > MODE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
 }
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
-function makeShareCanvas() {
-  const SW = 240, SH = 300, c = mk(SW, SH), saved = ctx, cx = SW / 2;
-  ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+const SHARE_CREST = new Image(); SHARE_CREST.src = 'shop/share-crest.webp?v=857';   // v8.57: silver official crest for the share card
+function shareModeLabel() {
+  if (courseKind === 'daily') return 'DAILY HOLE';
+  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH' })[courseKind] || 'DUMB LUCK GOLF';
+}
+function makeShareCanvas() {   // v8.57: 1080x1920 story card - grass, silver crest, score vs par, mode, @username, site
+  const SW = 1080, SH = 1920, c = mk(SW, SH), g = c.getContext('2d'), saved = ctx, cx = SW / 2;
+  // grass: deep green gradient + mown stripes + light speckle + vignette
+  const gr = g.createLinearGradient(0, 0, 0, SH); gr.addColorStop(0, '#1d5a2a'); gr.addColorStop(1, '#2f7a34'); g.fillStyle = gr; g.fillRect(0, 0, SW, SH);
+  for (let x = 0; x < SW; x += 180) { g.fillStyle = (x / 180) % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'; g.fillRect(x, 0, 180, SH); }
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 9000; i++) { const x = rnd() * SW, y = rnd() * SH, l = 6 + rnd() * 12; g.strokeStyle = rnd() < 0.5 ? 'rgba(120,190,90,0.35)' : 'rgba(10,40,15,0.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 6, y - l); g.stroke(); }
+  const vg = g.createRadialGradient(cx, SH * 0.45, SH * 0.2, cx, SH * 0.45, SH * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = vg; g.fillRect(0, 0, SW, SH);
+  // crest
+  if (SHARE_CREST.complete && SHARE_CREST.naturalWidth) {
+    const ch = 600, cw = Math.round(SHARE_CREST.naturalWidth * ch / SHARE_CREST.naturalHeight);
+    g.save(); g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 40; g.shadowOffsetY = 14; g.drawImage(SHARE_CREST, Math.round(cx - cw / 2), 150, cw, ch); g.restore();
+  }
+  // score panel
+  const total = scores.reduce((a, v) => a + (v || 0), 0), rel = total - TOTAL_PAR, aces = scores.filter(v => v === 1).length;
+  g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(90, 860, SW - 180, aces ? 700 : 620); g.fillStyle = '#D4AF37'; g.fillRect(90, 860, SW - 180, 6);
+  ctx = g; g.imageSmoothingEnabled = false;
   try {
-    rect(0, 0, SW, SH, COL.sky); drawCloud(10, 104); drawCloud(196, 236);
-    for (let x = 0; x < SW; x++) { const hh = Math.round(252 + 5 * Math.sin(x / 23) + 3 * Math.sin(x / 9 + 1)); rect(x, hh, 1, SH - hh, COL.hill); rect(x, hh, 1, 1, '#000'); }
-    rect(0, 271, SW, 1, '#000'); for (let x = 0; x < SW; x += 16) rect(x, 272, 16, SH - 272, (x >> 4) & 1 ? COL.grass : COL.fair2);
-    if (LOGO_BIG.complete) ctx.drawImage(LOGO_BIG, Math.round((SW - LOGO_BIG.width) / 2), 3);
-    rect(8, 116, 224, 100, COL.white); rect(9, 117, 222, 98, '#000');
-    const nm = player.name || 'PLAYER';
-    drawTextC(nm, 122, '#f8d878', 2, 2, cx);
-    drawTextC('FINAL ROUND  ' + fmtDate(new Date().toISOString()), 141, COL.gray, 1, 1, cx);
-    const gx = 16, cw = HOLES.length > 9 ? 10 : 20;
-    function drawShareNine(i0, ry) {
-      drawText('H', gx, ry[0], COL.lime); drawText('P', gx, ry[1], COL.lime); drawText('S', gx, ry[2], COL.lime);
-      const n = Math.min(9, HOLES.length - i0);
-      for (let j = 0; j < n; j++) {
-        const i = i0 + j, x = gx + 12 + j * cw, sc = scores[i], p = HOLES[i].par;
-        drawText(String(displayHoleNum(i)), x + (displayHoleNum(i) >= 10 ? 0 : 2), ry[0], COL.white); drawText(String(p), x + 2, ry[1], COL.white);
-        if (sc != null) { const col = sc < p ? COL.lime : sc === p ? COL.white : COL.orange; drawText(String(sc), x + (sc >= 10 ? 0 : 2), ry[2], col); }
-      }
-      rect(gx, ry[0] + 9, 208, 1, '#3c3c3c'); rect(gx, ry[1] + 9, 208, 1, '#3c3c3c');
-    }
-    if (HOLES.length > 9) { drawShareNine(0, [148, 158, 168]); drawShareNine(9, [182, 192, 202]); }
-    else drawShareNine(0, [154, 166, 178]);
-    const total = scores.reduce((a, v) => a + (v || 0), 0), rel = relSoFar();
-    drawTextC(total + ' STROKES  ' + fmtRel(rel), 194, rel <= 0 ? COL.lime : COL.orange, 2, 2, cx);
-    outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM') / 2), 224, COL.white);
-    ctx.save(); ctx.translate(46, 288); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookOf(player), { finish: 1 }); ctx.restore();
-    dimg(SPR.walkA, 150, 248);
+    const big = (str, y, col, sc) => { const x = Math.round(cx - textW(str, sc) / 2); drawText(str, x + sc / 2, y + sc / 2, '#000', sc); drawText(str, x, y, col, sc); };
+    big(shareModeLabel(), 920, '#D4AF37', 9);
+    const rs = fmtRel(rel); big(rs, 1030, rel < 0 ? '#58d854' : rel === 0 ? '#fcfcfc' : '#fc9838', rs.length > 3 ? 26 : 32);
+    big(total + (total === 1 ? ' STROKE' : ' STROKES') + '  PAR ' + TOTAL_PAR, 1300, '#fcfcfc', 6);
+    let y = 1400;
+    if (aces) { big(aces > 1 ? aces + ' HOLES IN ONE' : 'HOLE IN ONE', y, '#f8d878', 7); y += 90; }
+    if (isSignedIn() && hasUsername()) big('@' + myName(), y, '#fcfcfc', 7);
+    big('DUMBLUCKGOLF.COM', 1760, '#fcfcfc', 7);
   } finally { ctx = saved; }
-  const big = mk(SW * 4, SH * 4), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, SW * 4, SH * 4);
-  return big;
+  return c;
 }
 function shareScore() {
   try {
-    let url, aceShare = false;
-    if (window.__pendingAceShare && window.__aceCardDataUrl) {
-      url = window.__aceCardDataUrl; window.__pendingAceShare = false; aceShare = true;
-    } else url = makeShareCanvas().toDataURL('image/png');
+    try { trackEvent('share_tap', { mode: scoreModeForSave(), course: courseKind || null }); } catch (e) {}   // v8.57
+    const aceShare = scores.some(v => v === 1); window.__pendingAceShare = false;
+    const url = makeShareCanvas().toDataURL('image/png');
     const bin = atob(url.split(',')[1]), arr = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
     const blob = new Blob([arr], { type: 'image/png' }), fname = 'dumb-luck-golf-' + ((player.name || 'score').toLowerCase().replace(/[^a-z0-9]+/g, '-')) + (aceShare ? '-ace' : '') + '.png';
@@ -6900,6 +6905,7 @@ function renderCard() {
     if (courseKind === 'match' && matchCtx) saveMsg = matchCtx.submitted ? 'SENT TO MATCH VS @' + matchCtx.other.name : matchCtx.msg ? 'MATCH SAVED ON DEVICE' : 'SENDING TO MATCH...';
     else if (cardInfo.practice) saveMsg = 'PRACTICE - NOT SCORED';
     else if (cardInfo.pendingMode) saveMsg = 'SAVED LOCAL - BOARD SOON';
+    if (courseKind === 'quick3') saveMsg = 'COUNTS TOWARD CAREER';   // v8.57
     if (courseKind === 'spooky') saveMsg = ({ cupin: 'YOU\'RE IN THE SPOOKY CUP!', cupguest: 'SIGN IN TO ENTER THE SPOOKY CUP', cupsoon: 'SPOOKY CUP OPENS OCT 14', cupover: 'THE SPOOKY CUP IS OVER', rejected: 'SCORE NOT ACCEPTED' })[saveWhere] || saveMsg;   // v8.52
     drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.lime);
   }
@@ -7070,13 +7076,13 @@ function renderCourseSelect() {
     if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
     const lockC = i === CS_CAREER_I && !coralUnlocked();
     outlined(COURSE_ITEMS[i], lx, nameY, lockC ? COL.gray : sel || hov ? YEL : COL.white, 2);
-    const sub = i === CS_CAREER_I ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER  ' + list.length + ' HOLES  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
+    const sub = i === CS_QUICK_I ? '3 RANDOM HOLES' : i === CS_CAREER_I ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER  ' + list.length + ' HOLES  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
     if (lockC) { czPadlock(r.x + r.w - 14, r.y + Math.round(r.h / 2), COL.orange); if (!twoLine) drawText('SIGN IN', r.x + r.w - 26 - textW('SIGN IN'), nameY + 4, COL.orange); }
     if (twoLine) drawText(sub, lx, nameY + 18, sel ? COL.white : COL.gray);
     // personal best (right side): small BEST label over the score
     const val = pb === null ? '--' : fmtRel(pb), vcol = pb === null ? COL.grayD : pb <= 0 ? COL.lime : COL.orange;
     const vw = textW(val, 2), rx = r.x + r.w - 8;
-    if (lockC) {}
+    if (lockC || i === CS_QUICK_I) {}
     else if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
     else outlined(val, rx - vw, nameY, vcol, 2);
   });
@@ -7086,7 +7092,7 @@ function courseActivate(i) {
   SFX.click();
   if (i === CS_BACK_I) { setState('title'); return; }
   if (i === CS_CAREER_I) { if (!coralUnlocked()) { showToast(['CORAL CLIFFS IS A CAREER COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('coral'); return; }
-  startCourse(i === 0 ? 'front' : i === 1 ? 'back' : 'full');
+  startCourse(i === 0 ? 'front' : i === 1 ? 'back' : i === CS_QUICK_I ? 'quick3' : 'full');
 }
 
 /* ================= CAREER screens (state 'career' + 'auth') ================= */
@@ -7912,7 +7918,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  spooky() { return { live: cupLive(), shown: cupBoardShown(), left: cupLeft(), banner: Object.assign({}, SPOOKY_BANNER), follow: Object.assign({}, FOLLOW_BTN), logoY: LOGO_Y, menuY: MENU_Y0, tlb: Object.assign({}, TLB_R), hig: Object.assign({}, HIG_BTN), W, H, kind: courseKind, holes: HOLES.map(h => h.id), par: TOTAL_PAR, deep: DEEP_CUP, myIg: cupMyIg, igs: cupIgs }; }, hlShareText(r) { return hlShareText(r); }, get hlLast() { return hl.last && { spooky: hl.last.spooky, cup: hl.last.cup, name: hl.last.name, label: hl.last.label }; }, startSpooky() { startCourse('spooky'); }, adminSpooky() { return adminLoadSpooky().then(() => ({ ok: admin.spookyOk, rows: admin.spooky })); },  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(ps.open && shopChipEl) }; }, get psGal() { return ps.gal; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+  window.__golf = {  startQuick3() { startCourse('quick3'); return { kind: courseKind, nums: QUICK3_NUMS.slice(), par: TOTAL_PAR, n: HOLES.length }; }, finishT(arr) { scores = arr.slice(); finishRound(); return { saveWhere, kind: courseKind, mode: scoreModeForSave() }; }, shareCanvasT() { return makeShareCanvas().toDataURL('image/png'); }, careerT() { return careerLoad(); }, spooky() { return { live: cupLive(), shown: cupBoardShown(), left: cupLeft(), banner: Object.assign({}, SPOOKY_BANNER), follow: Object.assign({}, FOLLOW_BTN), logoY: LOGO_Y, menuY: MENU_Y0, tlb: Object.assign({}, TLB_R), hig: Object.assign({}, HIG_BTN), W, H, kind: courseKind, holes: HOLES.map(h => h.id), par: TOTAL_PAR, deep: DEEP_CUP, myIg: cupMyIg, igs: cupIgs }; }, hlShareText(r) { return hlShareText(r); }, get hlLast() { return hl.last && { spooky: hl.last.spooky, cup: hl.last.cup, name: hl.last.name, label: hl.last.label }; }, startSpooky() { startCourse('spooky'); }, adminSpooky() { return adminLoadSpooky().then(() => ({ ok: admin.spookyOk, rows: admin.spooky })); },  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(ps.open && shopChipEl) }; }, get psGal() { return ps.gal; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
       let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
       const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
         for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
