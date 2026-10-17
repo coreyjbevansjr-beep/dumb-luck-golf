@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.57">
+<meta name="dlg-version" content="v8.58">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.57';
+const GAME_VERSION = 'v8.58';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6812,39 +6812,40 @@ function renderBoardPanel() {
   if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > MODE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
 }
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
-const SHARE_CREST = new Image(); SHARE_CREST.src = 'shop/share-crest.webp?v=857';   // v8.57: silver official crest for the share card
 function shareModeLabel() {
   if (courseKind === 'daily') return 'DAILY HOLE';
   return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH' })[courseKind] || 'DUMB LUCK GOLF';
 }
-function makeShareCanvas() {   // v8.57: 1080x1920 story card - grass, silver crest, score vs par, mode, @username, site
-  const SW = 1080, SH = 1920, c = mk(SW, SH), g = c.getContext('2d'), saved = ctx, cx = SW / 2;
-  // grass: deep green gradient + mown stripes + light speckle + vignette
-  const gr = g.createLinearGradient(0, 0, 0, SH); gr.addColorStop(0, '#1d5a2a'); gr.addColorStop(1, '#2f7a34'); g.fillStyle = gr; g.fillRect(0, 0, SW, SH);
-  for (let x = 0; x < SW; x += 180) { g.fillStyle = (x / 180) % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'; g.fillRect(x, 0, 180, SH); }
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 9000; i++) { const x = rnd() * SW, y = rnd() * SH, l = 6 + rnd() * 12; g.strokeStyle = rnd() < 0.5 ? 'rgba(120,190,90,0.35)' : 'rgba(10,40,15,0.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 6, y - l); g.stroke(); }
-  const vg = g.createRadialGradient(cx, SH * 0.45, SH * 0.2, cx, SH * 0.45, SH * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = vg; g.fillRect(0, 0, SW, SH);
-  // crest
-  if (SHARE_CREST.complete && SHARE_CREST.naturalWidth) {
-    const ch = 600, cw = Math.round(SHARE_CREST.naturalWidth * ch / SHARE_CREST.naturalHeight);
-    g.save(); g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 40; g.shadowOffsetY = 14; g.drawImage(SHARE_CREST, Math.round(cx - cw / 2), 150, cw, ch); g.restore();
-  }
-  // score panel
+function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel look (title sky, logo, scorecard panel, golfer + pup)
+  const SW = 270, SH = 480, c = mk(SW, SH), saved = ctx, cx = SW / 2, K = 4;
   const total = scores.reduce((a, v) => a + (v || 0), 0), rel = total - TOTAL_PAR, aces = scores.filter(v => v === 1).length;
-  g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(90, 860, SW - 180, aces ? 700 : 620); g.fillStyle = '#D4AF37'; g.fillRect(90, 860, SW - 180, 6);
-  ctx = g; g.imageSmoothingEnabled = false;
+  ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
   try {
-    const big = (str, y, col, sc) => { const x = Math.round(cx - textW(str, sc) / 2); drawText(str, x + sc / 2, y + sc / 2, '#000', sc); drawText(str, x, y, col, sc); };
-    big(shareModeLabel(), 920, '#D4AF37', 9);
-    const rs = fmtRel(rel); big(rs, 1030, rel < 0 ? '#58d854' : rel === 0 ? '#fcfcfc' : '#fc9838', rs.length > 3 ? 26 : 32);
-    big(total + (total === 1 ? ' STROKE' : ' STROKES') + '  PAR ' + TOTAL_PAR, 1300, '#fcfcfc', 6);
-    let y = 1400;
-    if (aces) { big(aces > 1 ? aces + ' HOLES IN ONE' : 'HOLE IN ONE', y, '#f8d878', 7); y += 90; }
-    if (isSignedIn() && hasUsername()) big('@' + myName(), y, '#fcfcfc', 7);
-    big('DUMBLUCKGOLF.COM', 1760, '#fcfcfc', 7);
+    rect(0, 0, SW, SH, COL.sky); drawCloud(14, 150); drawCloud(200, 132); drawCloud(120, 384);
+    for (let x = 0; x < SW; x++) { const hh = Math.round(402 + 6 * Math.sin(x / 23) + 3 * Math.sin(x / 9 + 1)); rect(x, hh, 1, SH - hh, COL.hill); rect(x, hh, 1, 1, '#000'); }
+    rect(0, 433, SW, 1, '#000'); for (let x = 0; x < SW; x += 16) rect(x, 434, 16, SH - 434, (x >> 4) & 1 ? COL.grass : COL.fair2);
+    const who = isSignedIn() && hasUsername() ? '@' + myName() : '';
+    const py = 168, ph = 136 + (aces ? 24 : 0) + (who ? 24 : 0);
+    rect(14, py, SW - 28, ph, COL.white); rect(15, py + 1, SW - 30, ph - 2, '#000');
+    drawTextC(shareModeLabel(), py + 12, '#f8d878', 2, 2, cx);
+    const rs = fmtRel(rel), rsc = rs.length > 3 ? 5 : 7;
+    drawTextC(rs, py + 36, rel < 0 ? COL.lime : rel === 0 ? COL.white : COL.orange, rsc, rsc, cx);
+    drawTextC(total + (total === 1 ? ' STROKE' : ' STROKES') + '  PAR ' + TOTAL_PAR, py + 96, COL.white, 1, 1, cx);
+    let y = py + 114;
+    if (aces) { drawTextC(aces > 1 ? aces + ' HOLES IN ONE' : 'HOLE IN ONE!', y, COL.orange, 2, 2, cx); y += 24; }
+    if (who) drawTextC(who, y, COL.blue, 2, 2, cx);
+    outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM', 2) / 2), 348, COL.white, 2);
+    ctx.save(); ctx.translate(58, 458); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookOf(player), { finish: 1 }); ctx.restore();
+    dimg(SPR.walkA, 180, 410);
   } finally { ctx = saved; }
-  return c;
+  const big = mk(SW * K, SH * K), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, SW * K, SH * K);
+  // title-screen logo, drawn crisp at full size (vector when available, pixel bitmap otherwise)
+  const lw = 200, lh = Math.round(lw * 111 / 160), lx = Math.round(cx - lw / 2), ly = 18;
+  try {
+    if (typeof LOGO_VEC_OK !== 'undefined' && LOGO_VEC_OK) { bg.save(); bg.translate(lx * K, ly * K); bg.scale(lw * K / 160, lh * K / 111); drawLogoVec(bg); bg.restore(); }
+    else if (LOGO_BIG.complete) bg.drawImage(LOGO_BIG, lx * K, ly * K, lw * K, lh * K);
+  } catch (e) { if (LOGO_BIG.complete) bg.drawImage(LOGO_BIG, lx * K, ly * K, lw * K, lh * K); }
+  return big;
 }
 function shareScore() {
   try {
