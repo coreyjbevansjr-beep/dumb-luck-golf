@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.59">
+<meta name="dlg-version" content="v8.60">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.59';
+const GAME_VERSION = 'v8.60';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6866,6 +6866,7 @@ function shareScore() {
     showToast(['SCORE CARD SAVED', fname.toUpperCase().replace(/[^A-Z0-9.-]/g, '')], 3000); return 'download';
   } catch (e) { showToast(['COULD NOT MAKE THE IMAGE']); return 'error'; }
 }
+const CARD_GOLD = '#f8d878';
 function renderCard() {
   drawCourse(hole, camX);
   rect(0, PLAY_H, W, 1, '#000');
@@ -6875,12 +6876,13 @@ function renderCard() {
   // v8.59: the 244-wide card is centred on wide screens (drawTextC already centres on W/2) and sized to its content,
   // with SHARE / LEADERBOARD + the key hint always below it
   const ox = Math.max(0, Math.round((W - 256) / 2)), sumY = tall ? 136 : 96, boxH = sumY + 66;
-  rect(ox + 6, 6, 244, boxH, COL.white); rect(ox + 7, 7, 242, boxH - 2, '#000');
-  drawTextC('FINAL SCORECARD', 14, COL.orange);
-  drawText('PLAYER ' + (player.name || '--'), ox + 14, 26, COL.blue);
+  ctx.globalAlpha = 0.8; rect(ox + 6, 6, 244, boxH, '#000'); ctx.globalAlpha = 1;   // v8.60: see-through card, thin gold rim
+  rect(ox + 6, 6, 244, 1, CARD_GOLD); rect(ox + 6, 5 + boxH, 244, 1, CARD_GOLD); rect(ox + 6, 6, 1, boxH, CARD_GOLD); rect(ox + 249, 6, 1, boxH, CARD_GOLD);
+  drawTextC('FINAL SCORECARD', 14, CARD_GOLD);
+  drawText('PLAYER ' + (player.name || '--'), ox + 14, 26, COL.white);
   const x0 = ox + 12, cw = 19;
   function drawCardNine(i0, y0) {
-    drawText('HOLE', x0, y0, COL.lime); drawText('PAR', x0, y0 + 14, COL.lime); drawText('SCORE', x0, y0 + 28, COL.lime);
+    drawText('HOLE', x0, y0, CARD_GOLD); drawText('PAR', x0, y0 + 14, CARD_GOLD); drawText('SCORE', x0, y0 + 28, CARD_GOLD);
     const n = Math.min(9, HOLES.length - i0), colsX = j => x0 + 34 + j * cw;
     for (let j = 0; j < n; j++) {
       const i = i0 + j, s = scores[i], p = HOLES[i].par;
@@ -6901,8 +6903,8 @@ function renderCard() {
   drawCardNine(0, 44);
   if (tall) drawCardNine(9, 90);
   drawTextC(cardInfo.total + ' STROKES', sumY, COL.white, 2);
-  drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel <= 0 ? COL.lime : COL.orange, 2);
-  if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, COL.orange);
+  drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel < 0 ? COL.lime : cardInfo.rel === 0 ? COL.white : COL.orange, 2);
+  if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, CARD_GOLD);
   {
     let saveMsg = saveWhere === 'saving' ? 'SAVING SCORE...' : saveWhere === 'error' ? 'SCORE NOT SAVED' : saveWhere === 'practice' ? 'PRACTICE - NOT SCORED' : 'SCORE SAVED TO LEADERBOARD';
     if (courseKind === 'match' && matchCtx) saveMsg = matchCtx.submitted ? 'SENT TO MATCH VS @' + matchCtx.other.name : matchCtx.msg ? 'MATCH SAVED ON DEVICE' : 'SENDING TO MATCH...';
@@ -6910,18 +6912,17 @@ function renderCard() {
     else if (cardInfo.pendingMode) saveMsg = 'SAVED LOCAL - BOARD SOON';
     if (courseKind === 'quick3') saveMsg = 'COUNTS TOWARD CAREER';   // v8.57
     if (courseKind === 'spooky') saveMsg = ({ cupin: 'YOU\'RE IN THE SPOOKY CUP!', cupguest: 'SIGN IN TO ENTER THE SPOOKY CUP', cupsoon: 'SPOOKY CUP OPENS OCT 14', cupover: 'THE SPOOKY CUP IS OVER', rejected: 'SCORE NOT ACCEPTED' })[saveWhere] || saveMsg;   // v8.52
-    drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.lime);
+    drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.white);
   }
   {
     const by = Math.max(SHARE_BTN.y, 6 + boxH + 6);
     SHARE_BTN.y = by; LB_BTN.y = by;
   }
-  for (const [r, lab, col] of [[SHARE_BTN, 'SHARE', '#f8d878'], [LB_BTN, 'LEADERBOARD', COL.white]]) {
+  for (const [r, lab, col] of [[SHARE_BTN, 'SHARE', COL.white], [LB_BTN, 'LEADERBOARD', COL.white]]) {
     const on = mouse.seen && hit(mouse, r);
     rect(r.x, r.y, r.w, r.h, on ? '#f8d878' : COL.white); rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#1c2c5c' : '#000');
     drawText(lab, r.x + Math.round((r.w - textW(lab)) / 2), r.y + 4, col);
   }
-  if (!usingTouch && SHARE_BTN.y + 26 <= H) drawTextC('S = SHARE   ENTER = LEADERBOARD', SHARE_BTN.y + 19, COL.grayD);   // v8.59: never over the buttons
   {   // v8.43 follow prompt card (only when it fits below the buttons)
     const cw = Math.min(W - 24, 220), ch = Math.max(18, FOLLOW_TAP) + 22, cx = Math.round((W - cw) / 2);
     const cy = SHARE_BTN.y - ch - 12;   // in the open sky just above SHARE / LEADERBOARD
