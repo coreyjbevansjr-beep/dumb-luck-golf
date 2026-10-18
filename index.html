@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.63">
+<meta name="dlg-version" content="v8.64">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -95,6 +95,19 @@
   #acct .row{display:flex;gap:8px;align-items:stretch}
   #acct .row input{flex:1}
   #acct .seg{display:flex;gap:8px;margin-top:6px}
+  #acct .seg.sm button{min-height:40px;font-size:12px;letter-spacing:1px;padding:0 2px}
+  #acct .ggrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  #acct .gtile{position:relative;aspect-ratio:1;min-height:64px;background:#0c1428;border:2px solid #2c3c5c;padding:6px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0}
+  #acct .gtile img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+  #acct .gtile.own{background:#183848}
+  #acct .gtile.t-common.own{border-color:#a8b8d0}#acct .gtile.t-rare.own{border-color:#3cbcfc}#acct .gtile.t-legendary.own{border-color:#f8d878}
+  #acct .gtile.t-common{box-shadow:inset 0 0 0 1px rgba(168,184,208,.25)}#acct .gtile.t-rare{box-shadow:inset 0 0 0 1px rgba(60,188,252,.3)}#acct .gtile.t-legendary{box-shadow:inset 0 0 0 1px rgba(248,216,120,.3)}
+  #acct .gtile.sel{outline:2px solid #fcfcfc;outline-offset:2px}
+  #acct .gtile.on::after{content:'';position:absolute;right:3px;top:3px;width:6px;height:6px;background:#00e800;border:1px solid #000}
+  #acct .gline{min-height:20px;margin:12px 0 4px;font-size:11px;letter-spacing:.5px;line-height:1.5;color:#bcc8e0}
+  #acct .gline b{color:#fcfcfc}
+  #acct textarea.codes{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:14px;letter-spacing:1px;padding:8px;background:#0c1848;color:#fcfcfc;border:2px solid #3cbcfc;border-radius:0;min-height:120px}
+  #acct input[type=number],#acct input[type=datetime-local]{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;padding:10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;border-radius:0;min-height:46px}
   #acct .seg button{flex:1;min-height:56px;font:inherit;font-weight:700;font-size:18px;letter-spacing:2px;background:#183848;color:#fcfcfc;border:2px solid #fcfcfc}
   #acct .seg button small{display:block;font-size:10px;letter-spacing:1px;font-weight:400;color:#bcc8e0}
   #acct .seg button.on{background:#f8d878;color:#102860;border-color:#000}
@@ -155,6 +168,7 @@
   #acct .lbit tr.mc td{color:#7c8cac}
   #acct .lbit tr.cut td{border:0;border-top:2px dashed #fc9838;color:#fc9838;font-size:10px;letter-spacing:2px;padding:3px 0;text-align:center}
   #acct .lbit td.acts{white-space:nowrap}#acct .lbit td.acts .btn{min-height:30px;padding:0 5px;font-size:10px;letter-spacing:1px;margin:1px}
+  #acct img.lbub{width:22px;height:25px;image-rendering:pixelated;vertical-align:middle;margin:-4px 4px -4px 0;background:#183848}
   #acct .lbif{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:12px;font-size:13px}
   #acct .lbipz{margin-top:12px;display:grid;gap:8px;text-align:center}
   #acct .lbipz div{border:2px solid #D4AF37;padding:10px 6px;font-size:12px;letter-spacing:1px}
@@ -214,7 +228,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.63';
+const GAME_VERSION = 'v8.64';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1086,9 +1100,10 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   const R = (x, y, w, h, c) => parts.push([x, y, w, h, c]), D = (x, y, w, h, c) => dets.push([x, y, w, h, c]);
   const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * s, feetY + y * s, w * s, h * s); };
   const flush = () => { for (const p of parts) P(p[0] - 1, p[1] - 1, p[2] + 2, p[3] + 2, K); for (const p of parts) P(p[0], p[1], p[2], p[3], p[4]); for (const d of dets) P(d[0], d[1], d[2], d[3], d[4]); parts.length = 0; dets.length = 0; };
-  const art = slot => { const id = gear[slot], f = id && GEAR_ART[id]; if (f) { f(R, D, look, HD_SLOTS[slot]); return true; } return false; };
-  const sk = look.skin, skD = look.skinD, hc = look.hairC, hcD = shadeHex(hc, 0.72), hs = look.hair | 0, hst = look.hatStyle | 0;
   const bust = opt.crop === 'bust';
+  const artFn = id => id && (GEAR_ART[typeof gearArtOf === 'function' ? gearArtOf(id) : id] || null);
+  const art = slot => { const f = artFn(gear[slot]); if (f) { f(R, D, look, HD_SLOTS[slot], { bust }); return true; } return false; };
+  const sk = look.skin, skD = look.skinD, hc = look.hairC, hcD = shadeHex(hc, 0.72), hs = look.hair | 0, hst = look.hatStyle | 0;
   if (!bust) {
     // ---- shoes + legs + belt
     R(-7, -20, 7, 17, look.pants); R(1, -20, 7, 17, look.pants); R(0, -20, 1, 8, look.pants);
@@ -1118,7 +1133,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   flush();
   D(-2, -40, 5, 1, skD); D(-6, -50, 1, 8, skD); D(-7, -47, 1, 1, skD); D(7, -47, 1, 1, skD);
   if (art('neck')) flush();
-  const headGear = !!gear.head && !!GEAR_ART[gear.head];
+  const headGear = !!artFn(gear.head), hideHair = headGear && typeof GEAR_HIDES_HAIR !== 'undefined' && !!GEAR_HIDES_HAIR[gearArtOf(gear.head)];
   // face
   if (opt.blink) { D(-4, -46, 2, 1, K); D(3, -46, 2, 1, K); }
   else { D(-4, -47, 2, 2, '#fcfcfc'); D(-3, -47, 1, 2, '#202020'); D(3, -47, 2, 2, '#fcfcfc'); D(3, -47, 1, 2, '#202020'); }
@@ -1128,7 +1143,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   art('face') && flush();
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
-  if (!headGear) {
+  if (!hideHair) {
     if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                           // long: past the shoulders
     if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                          // ponytail out the side
     if (hs) {
@@ -1202,6 +1217,159 @@ function lookPreviewGolfer(cx, feetY, look, gear) {   // EDIT LOOK preview: same
   const blink = (st % 4.2) > 4.05;
   drawGolferHD(Math.round(px - 1), Math.round(feetY - 1), 2, look, { gear: gear || {}, blink });
 }
+/* ================= v8.64: GEAR. Server catalog (rarity + seasonal windows), locker room, redeem codes, show-off busts.
+   Gear is cosmetic and only shows on the detailed golfer (EDIT LOOK, locker, friends, boards, share card) - never on the in-game sprite. ================= */
+const GEAR_TIERS = { common: { col: '#a8b8d0', name: 'COMMON' }, rare: { col: '#3cbcfc', name: 'RARE' }, legendary: { col: '#f8d878', name: 'LEGENDARY' } };
+const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins when it loads (admin can edit names, tiers, windows)
+  { id: 'ace_chain', name: 'ACE CHAIN', slot: 'neck', tier: 'legendary', req: 'MAKE A HOLE-IN-ONE', rule: { stat: 'aces', min: 1 }, sort: 10 },
+  { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 20 },
+  { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 30 },
+  { id: 'camo_hat', name: 'CAMO HAT', slot: 'head', tier: 'rare', req: 'CODE FROM THE CAMO HAT', rule: { code: true }, sort: 40 },
+  { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '25 DUMB LUCK SHOTS', rule: { stat: 'luck', min: 25 }, sort: 50 },
+  { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'CODE FROM THE BALL MARKER', rule: { code: true }, sort: 60 },
+  { id: 'aviators', name: 'AVIATORS', slot: 'face', tier: 'common', req: 'MAKE 10 BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 70 },
+  { id: 'gold_buckle', name: 'G_GOLD BUCKLE', slot: 'waist', tier: 'common', req: 'PLAY 10 ROUNDS', rule: { stat: 'rounds', min: 10 }, sort: 80 }
+];
+const GEAR_HIDES_HAIR = { pumpkin_head: 1 };
+// ---- art (sprite units, same grid as drawGolferHD; R = outlined part, D = flat detail)
+const G_GOLD = '#f8d878', G_GOLD_D = '#c88800', G_GREEN = '#14462d';
+GEAR_ART.ace_chain = (R, D) => {
+  R(-1, -35, 3, 3, '#fcfcfc');
+  D(-3, -38, 1, 1, G_GOLD); D(-2, -37, 1, 1, G_GOLD); D(-1, -36, 1, 1, G_GOLD); D(3, -38, 1, 1, G_GOLD); D(2, -37, 1, 1, G_GOLD); D(1, -36, 1, 1, G_GOLD); D(0, -36, 1, 1, G_GOLD_D);
+  D(0, -34, 1, 1, '#bcbcbc'); D(1, -35, 1, 1, '#fcfcfc');
+};
+GEAR_ART.champ_jacket = (R, D, look, sl, o) => {
+  const G = G_GREEN, GD = '#0a2c1c', b = o && o.bust, n = b ? 8 : 15, sv = b ? 8 : 14;
+  R(-8, -37, 17, n, G); R(-7, -38, 15, 1, G); R(-11, -37, 3, sv, G); R(9, -37, 3, sv, G);
+  D(-1, -37, 3, n, look.shirt); D(-1, -38, 3, 1, look.skin); D(-2, -37, 1, 4, GD); D(2, -37, 1, 4, GD); D(-2, -33, 1, 1, '#d4af37'); D(2, -33, 1, 1, '#d4af37');
+  D(-8, -37, 2, n, GD); D(-11, -37, 1, sv, GD); D(9, -37, 1, sv, GD); D(4, -34, 2, 2, '#d4af37');
+  if (!b) { D(-8, -31, 1, 8, '#000'); D(8, -31, 1, 8, '#000'); D(-11, -24, 3, 1, '#d4af37'); D(9, -24, 3, 1, '#d4af37'); D(-2, -29, 1, 1, '#d4af37'); D(-2, -26, 1, 1, '#d4af37'); }
+};
+GEAR_ART.pumpkin_head = (R, D) => {
+  const O = '#f87800', OD = '#c84c0c', F = '#3c1800';
+  R(0, -57, 2, 3, '#3c7c18'); R(-6, -54, 13, 1, O); R(-7, -53, 15, 11, O); R(-6, -42, 13, 1, O);
+  D(-3, -53, 1, 11, OD); D(3, -53, 1, 11, OD); D(-7, -51, 1, 7, OD); D(-5, -52, 1, 2, '#fca044'); D(1, -56, 1, 2, '#2c5c10');
+  D(-5, -49, 3, 1, F); D(-4, -50, 1, 1, F); D(2, -49, 3, 1, F); D(3, -50, 1, 1, F); D(0, -47, 1, 1, F);
+  D(-4, -45, 9, 1, F); D(-3, -44, 7, 1, F); D(-2, -45, 1, 1, O); D(1, -44, 1, 1, O); D(3, -45, 1, 1, O);
+};
+GEAR_ART.camo_hat = (R, D) => {
+  const B = '#5c6c2c', c1 = '#3c4818', c2 = '#8c8c50', c3 = '#2c2414';
+  R(-5, -57, 11, 1, B); R(-6, -56, 13, 5, B); R(-7, -51, 15, 2, c1);
+  D(-4, -56, 2, 1, c1); D(1, -55, 3, 2, c2); D(-5, -54, 2, 2, c3); D(3, -53, 2, 1, c1); D(-2, -53, 2, 1, c3); D(4, -56, 1, 1, c3); D(-1, -57, 2, 1, c2); D(-3, -52, 2, 1, c2); D(5, -54, 1, 2, c2);
+  D(-7, -50, 15, 1, '#2c3810'); D(0, -58, 1, 1, c1);
+};
+GEAR_ART.lucky_club = (R, D) => {
+  R(12, -4, 5, 3, G_GOLD);
+  D(12, -28, 1, 24, '#d4af37'); D(12, -28, 1, 5, G_GREEN); D(13, -4, 3, 1, '#fce4a0'); D(12, -2, 5, 1, G_GOLD_D); D(15, -3, 1, 1, '#00a800');
+};
+GEAR_ART.lucky_marker = (R, D) => {   // shown in the locker; in play it skins the ball
+  R(-1, -5, 3, 1, G_GOLD); R(-2, -4, 5, 3, G_GOLD); R(-1, -1, 3, 1, G_GOLD);
+  D(-2, -4, 1, 3, G_GOLD_D); D(0, -4, 1, 1, '#00a800'); D(-1, -3, 3, 1, '#00a800'); D(0, -2, 1, 1, '#00a800');
+};
+GEAR_ART.aviators = (R, D) => {
+  D(-5, -48, 4, 3, '#d4af37'); D(-4, -47, 2, 2, '#203040'); D(2, -48, 4, 3, '#d4af37'); D(3, -47, 2, 2, '#203040');
+  D(-1, -48, 3, 1, '#d4af37'); D(-6, -48, 1, 1, '#d4af37'); D(6, -48, 1, 1, '#d4af37'); D(-4, -47, 1, 1, '#5c7c9c'); D(3, -47, 1, 1, '#5c7c9c');
+};
+GEAR_ART.gold_buckle = (R, D) => { R(-2, -23, 5, 3, G_GOLD); D(-2, -23, 5, 1, '#fce4a0'); D(-1, -22, 3, 1, G_GOLD_D); };
+
+// ---- state
+const GEAR_KEY = 'dlg_gear_v1__';
+const gear = { catalog: GEAR_BUILTIN.map(g => Object.assign({}, g)), owned: {}, loaded: false, busy: false, filter: 'all', sel: null, fresh: [] };
+function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
+function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
+function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
+function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
+function gearOwned(id) { return !!gear.owned[id]; }
+function gearEquipped() { const o = {}; for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; } return o; }
+function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
+function gearLoadLocal() { gear.owned = {}; try { const v = JSON.parse(localStorage.getItem(GEAR_KEY + careerId()) || 'null'); if (v && v.owned && isSignedIn()) gear.owned = v.owned; } catch (e) {} }
+function gearSetOwned(list) { const o = {}; (Array.isArray(list) ? list : []).forEach(r => { if (r && r.item) o[r.item] = { equipped: !!r.equipped, source: r.source || '' }; }); gear.owned = o; gearSaveLocal(); }
+async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ earn anything newly qualified) when signed in
+  gearLoadLocal();
+  const c = await sb('/rest/v1/gear_catalog?select=*&order=sort.asc,id.asc', isSignedIn() ? {} : { noAuth: true }, 'gear');
+  if (c.ok && Array.isArray(c.data) && c.data.length) gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} }));
+  if (isSignedIn() && hasUsername()) {
+    if (claim) { const r = await sb('/rest/v1/rpc/claim_gear', { method: 'POST', body: {} }, 'gear'); if (r.ok && Array.isArray(r.data) && r.data.length) r.data.forEach(id => { if (gear.fresh.indexOf(id) < 0) gear.fresh.push(id); }); }
+    const m = await sb('/rest/v1/rpc/my_gear', { method: 'POST', body: {} }, 'gear'); if (m.ok) gearSetOwned(m.data);
+  }
+  gear.loaded = true; return gear;
+}
+async function gearEquip(id, on) {   // optimistic; reverts if the server says no
+  const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
+  const before = JSON.stringify(gear.owned);
+  for (const k in gear.owned) { const o = gearItem(k); if (o && o.slot === g.slot) gear.owned[k].equipped = false; }
+  if (on) gear.owned[id].equipped = true;
+  const r = await sb('/rest/v1/rpc/equip_gear', { method: 'POST', body: { p_slot: g.slot, p_item: on ? id : null } }, 'gear');
+  if (r.ok) gearSetOwned(r.data); else { gear.owned = JSON.parse(before); }
+  return { ok: r.ok };
+}
+async function gearRedeem(code) {
+  const c = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (c.length !== 11 || c.slice(0, 3) !== 'DLG') return { ok: false, msg: 'CODES LOOK LIKE DLG-XXXX-XXXX' };
+  const r = await sb('/rest/v1/rpc/redeem_gear_code', { method: 'POST', body: { p_code: c } }, 'gear');
+  if (!r.ok) return { ok: false, msg: /too many/.test(String(r.data && r.data.message)) ? 'TOO MANY TRIES. TRY AGAIN IN AN HOUR.' : r.status === 0 ? "CAN'T REACH THE SERVER" : 'COULD NOT CHECK THAT CODE' };
+  const d = r.data || {}, nm = (gearItem(d.item) || {}).name || 'GEAR';
+  if (!d.ok) return { ok: false, msg: d.why === 'used' ? 'THAT CODE WAS ALREADY USED' : d.why === 'yours' ? 'YOU ALREADY USED THAT CODE' : d.why === 'have' ? 'YOU ALREADY HAVE ' + nm + ' (CODE NOT USED)' : 'CODE NOT FOUND' };
+  await gearLoad(false); gear.sel = d.item; return { ok: true, msg: nm + ' UNLOCKED!' };
+}
+// ---- item icons (item art alone, cropped; locked = dark silhouette with a thin outline). Cached once per item.
+const GEAR_ICON = new Map();
+function gearIcon(id, locked) {
+  const key = id + (locked ? '|L' : ''); if (GEAR_ICON.has(key)) return GEAR_ICON.get(key);
+  const f = GEAR_ART[gearArtOf(id)], c1 = mk(48, 80), g1 = c1.getContext('2d'); let out = null;
+  if (f) {
+    const old = ctx; ctx = g1;
+    try {
+      const parts = [], dets = [], P = (x, y, w, h, c) => { g1.fillStyle = c; g1.fillRect(24 + x, 72 + y, w, h); };
+      f((x, y, w, h, c) => parts.push([x, y, w, h, c]), (x, y, w, h, c) => dets.push([x, y, w, h, c]), lookOf(hdLookFull({})), HD_SLOTS[(gearItem(id) || {}).slot] || {}, { bust: false });
+      for (const p of parts) P(p[0] - 1, p[1] - 1, p[2] + 2, p[3] + 2, '#000'); for (const p of parts) P(...p); for (const d of dets) P(...d);
+    } finally { ctx = old; }
+    const im = g1.getImageData(0, 0, 48, 80).data; let x0 = 48, y0 = 80, x1 = -1, y1 = -1;
+    for (let y = 0; y < 80; y++) for (let x = 0; x < 48; x++) if (im[(y * 48 + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 >= 0) {
+      const w = x1 - x0 + 1, h = y1 - y0 + 1, S = Math.max(w, h) + 4; out = mk(S, S); const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+      const ox = Math.floor((S - w) / 2), oy = Math.floor((S - h) / 2);
+      if (locked) {
+        const sil = mk(w, h), s2 = sil.getContext('2d'); s2.drawImage(c1, x0, y0, w, h, 0, 0, w, h); s2.globalCompositeOperation = 'source-in'; s2.fillStyle = '#5c6c8c'; s2.fillRect(0, 0, w, h);
+        const dark = mk(w, h), d2 = dark.getContext('2d'); d2.drawImage(c1, x0, y0, w, h, 0, 0, w, h); d2.globalCompositeOperation = 'source-in'; d2.fillStyle = '#101a30'; d2.fillRect(0, 0, w, h);
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) o.drawImage(sil, ox + dx, oy + dy); o.drawImage(dark, ox, oy);
+      } else o.drawImage(c1, x0, y0, w, h, ox, oy, w, h);
+    }
+  }
+  const url = out ? (() => { const big = mk(out.width * 4, out.height * 4), b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(out, 0, 0, big.width, big.height); return big.toDataURL(); })() : '';
+  GEAR_ICON.set(key, url); return url;
+}
+// ---- show-off busts: one shared, cached renderer for leaderboards, the tournament field/board and the share card
+const BUST_SM = new Map();
+function playerBust(app, gearMap, size) {   // size 'sm' = 11x11 board chip (canvas); 'md' = 26x30 bust (canvas)
+  const src = golferHDCanvas(app, gearMap || null, 'bust'); if (size !== 'sm') return src;
+  let c = BUST_SM.get(src); if (c) return c;
+  c = mk(11, 11); const g = c.getContext('2d'); g.imageSmoothingEnabled = true; if ('imageSmoothingQuality' in g) g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 1, 0, 24, 24, 0, 0, 11, 11);
+  if (BUST_SM.size > 120) BUST_SM.clear(); BUST_SM.set(src, c); return c;
+}
+const LOADOUT = { map: new Map(), want: new Set(), timer: 0 };   // username -> { slot: item } (equipped gear only, public RPC)
+function gearFor(name) {
+  const k = String(name || '').toLowerCase(); if (!k) return null;
+  if (LOADOUT.map.has(k)) return LOADOUT.map.get(k);
+  if (!LOADOUT.want.has(k) && authOnline()) { LOADOUT.want.add(k); if (!LOADOUT.timer) LOADOUT.timer = setTimeout(gearFetchLoadouts, 250); }
+  return null;
+}
+async function gearFetchLoadouts() {
+  LOADOUT.timer = 0; const names = [...LOADOUT.want].slice(0, 60); names.forEach(n => LOADOUT.want.delete(n)); if (!names.length) return;
+  names.forEach(n => LOADOUT.map.set(n, null));   // asked once per session; boards don't re-ask every frame
+  const r = await sb('/rest/v1/rpc/gear_loadouts', isSignedIn() ? { method: 'POST', body: { p_names: names } } : { method: 'POST', body: { p_names: names }, noAuth: true }, 'gear');
+  if (r.ok && r.data && typeof r.data === 'object') for (const n in r.data) LOADOUT.map.set(n.toLowerCase(), r.data[n] || null);
+  if (LOADOUT.want.size && !LOADOUT.timer) LOADOUT.timer = setTimeout(gearFetchLoadouts, 250);
+}
+// ---- in-play ball skin (only when the player equips LUCKY MARKER)
+let LUCKY_BALL = null;
+function gearBallSprite() {
+  if (!isSignedIn() || gearEquipped().ball !== 'lucky_marker') return null;
+  if (!LUCKY_BALL) { LUCKY_BALL = mk(5, 5); const g = LUCKY_BALL.getContext('2d'); const px = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+    [' kkk ', 'kyyyk', 'kygyk', 'kyydk', ' kkk '].forEach((r, y) => [...r].forEach((ch, x) => { const c = { k: '#000', y: G_GOLD, g: '#00a800', d: G_GOLD_D }[ch]; if (c) px(x, y, c); })); }
+  return LUCKY_BALL;
+}
 /* ---- account sync ---- */
 async function saveAppearance() {
   if (!isSignedIn() || !hasUsername() || !authOnline()) return { ok: false, local: true };
@@ -1231,14 +1399,14 @@ const LOOK_ROWS = [
   ['GLOVE', 'glove', i => [GLOVE_COLS[i][0], GLOVE_COLS[i][1]]]
 ];
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy }
-function lookGearDraft() { return {}; }   // v8.62: equipped gear joins here once gear ships
-function openLookEditor() { const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false }; }
+function lookGearDraft() { return isSignedIn() ? gearEquipped() : {}; }   // v8.64: equipped gear on the EDIT LOOK golfer
+function openLookEditor() { if (!gear.loaded || isSignedIn()) gearLoad(true); const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false }; }
 function lookLayout() {
   const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide };
   if (wide) {
     const colL = 120, colR = Math.min(220, W - colL - 24), gx = Math.round((W - colL - colR - 8) / 2), top = st0 + 26, rh = 19;
     L.prev = { x: gx, y: top, w: colL, h: 150 }; L.gfeet = top + 140; L.gs = 3;
-    L.rand = { x: gx, y: top + 155, w: colL, h: 20 };
+    L.rand = { x: gx, y: top + 155, w: 64, h: 20 }; L.locker = { x: gx + 68, y: top + 155, w: colL - 68, h: 20 };
     L.cancel = { x: gx, y: top + 179, w: 58, h: 22 }; L.save = { x: gx + 62, y: top + 179, w: colL - 62, h: 22 };
     L.rows = LOOK_ROWS.map((_, i) => ({ x: gx + colL + 8, y: top + i * rh, w: colR, h: rh - 2 }));
   } else {
@@ -1247,7 +1415,7 @@ function lookLayout() {
     L.prev = { x, y: top, w, h: PH }; L.gfeet = top + PH - 9; L.gs = 3;
     L.rows = LOOK_ROWS.map((_, i) => ({ x, y: top + PH + 6 + i * rh, w, h: rh - 2 }));
     const by = top + PH + 6 + LOOK_ROWS.length * rh + 4;
-    L.rand = { x, y: by, w, h: 24 };
+    const rw = Math.floor((w - 6) / 2); L.rand = { x, y: by, w: rw, h: 24 }; L.locker = { x: x + rw + 6, y: by, w: w - rw - 6, h: 24 };
     const hw = Math.floor((w - 6) / 2);
     L.cancel = { x, y: by + 30, w: hw, h: 26 }; L.save = { x: x + hw + 6, y: by + 30, w: w - hw - 6, h: 26 };
   }
@@ -1282,6 +1450,7 @@ function renderLookEditor() {
     lookArrow(R.l, true, pressDim('lookL' + i)); lookArrow(R.r, false, pressDim('lookR' + i));
   });
   careerButton(L.rand, 'RANDOMIZE', false, 'lookRand');
+  careerButton(L.locker, 'LOCKER', false, 'lookLocker');   // v8.64
   careerButton(L.cancel, 'CANCEL', false, 'lookCancel');
   careerButton(L.save, E.busy ? 'SAVING' : 'SAVE', false, 'lookSave');
   if (E.msg) { E.msgT += 1 / 60; if (E.msgT > 2.4) E.msg = ''; else careerSoftC(E.msg, W / 2, (SAFE.t || 0) + 20, E.msgBad ? COL.orange : COL.lime); }
@@ -1319,6 +1488,7 @@ function lookPointerDown(p, e) {
     if (hit(p, R)) { lookEd.row = i; lookCycle(i, 1); return true; }
   }
   if (hitBtn(p, L.rand)) { armUiTap('lookRand', lookRandomize, up => hitBtn(toLogical(up), lookLayout().rand), e); return true; }
+  if (hitBtn(p, L.locker)) { armUiTap('lookLocker', () => { SFX.click(); showAcct('locker', {}); }, up => hitBtn(toLogical(up), lookLayout().locker), e); return true; }
   if (hitBtn(p, L.cancel)) { armUiTap('lookCancel', lookCancel, up => hitBtn(toLogical(up), lookLayout().cancel), e); return true; }
   if (hitBtn(p, L.save)) { armUiTap('lookSave', () => { SFX.click(); lookSave(); }, up => hitBtn(toLogical(up), lookLayout().save), e); return true; }
   return true;
@@ -6132,7 +6302,7 @@ function drawBall() {
   if (ball.mode === 'air') { const gy = Math.round(BASE - groundH(hole, ball.x)); rect(sx - 1, gy - 1, 3, 1, '#000'); }
   if (sy < 0) { rect(sx - 2, 1, 5, 1, COL.white); rect(sx - 1, 2, 3, 1, COL.white); rect(sx, 3, 1, 1, COL.white); drawText(Math.round(ball.h) + '', sx + 4, 1, COL.white); return; }
   if (fx.glow && ball.mode === 'air') { const c = Math.floor(performance.now() / 70) % 2 ? '#f8d878' : COL.white; rect(sx - 3, sy + 1, 7, 3, c); rect(sx - 1, sy - 1, 3, 7, c); }
-  ctx.drawImage(settings.pumpkinBall && halloweenOn() ? HW.ball : SPR.golfball, sx - 2, sy);   // v8.41 pumpkin ball skin
+  ctx.drawImage(gearBallSprite() || (settings.pumpkinBall && halloweenOn() ? HW.ball : SPR.golfball), sx - 2, sy);   // v8.41 pumpkin ball skin; v8.64 LUCKY MARKER gear
 }
 function aimDot(wx, wh, k, col) {   // k: 0 near the ball .. 1 at the far end
   const x = Math.round(wx - camX), y = Math.round(BASE - wh);
@@ -7044,7 +7214,7 @@ function renderBoardPanel() {
     const c = me ? '#f8d878' : COL.white;
     if (i < 3) drawMedal(15, y - 1, i); else drawTextR(String(i + 1), 24, y, c);
     let nx = 40;
-    if (r.verified) { const g = lbMiniGolfer(r.appearance); if (g) ctx.drawImage(g, 0, 0, 40, 40, 27, y - 2, 11, 11); }
+    if (r.verified) { const g = playerBust(r.appearance, gearFor(r.name), 'sm'); if (g) ctx.drawImage(g, 27, y - 2); }   // v8.64: detailed bust + equipped gear (cached)
     const nm = r.name.length > 14 ? r.name.slice(0, 14) : r.name;
     drawText(nm, nx, y, c); if (r.verified) drawCheck(nx + textW(nm) + 2, y - 1);
     drawTextR(String(r.strokes), sx, y, c);
@@ -7082,7 +7252,7 @@ function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel 
     for (let x = 0; x < SW; x++) { const hh = Math.round(402 + 6 * Math.sin(x / 23) + 3 * Math.sin(x / 9 + 1)); rect(x, hh, 1, SH - hh, COL.hill); rect(x, hh, 1, 1, '#000'); }
     rect(0, 433, SW, 1, '#000'); for (let x = 0; x < SW; x += 16) rect(x, 434, 16, SH - 434, (x >> 4) & 1 ? COL.grass : COL.fair2);
     const who = isSignedIn() && hasUsername() ? '@' + myName() : '';
-    const py = 168, ph = 136 + (aces ? 24 : 0) + (who ? 24 : 0);
+    const py = 168, ph = 136 + (aces ? 24 : 0) + (who ? 36 : 0);
     rect(14, py, SW - 28, ph, COL.white); rect(15, py + 1, SW - 30, ph - 2, '#000');
     drawTextC(shareModeLabel(), py + 12, '#f8d878', 2, 2, cx);
     const rs = fmtRel(rel), rsc = rs.length > 3 ? 5 : 7;
@@ -7090,7 +7260,10 @@ function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel 
     drawTextC(total + (total === 1 ? ' STROKE' : ' STROKES') + '  PAR ' + TOTAL_PAR, py + 96, COL.white, 1, 1, cx);
     let y = py + 114;
     if (aces) { drawTextC(aces > 1 ? aces + ' HOLES IN ONE' : 'HOLE IN ONE!', y, COL.orange, 2, 2, cx); y += 24; }
-    if (who) drawTextC(who, y, COL.blue, 2, 2, cx);
+    if (who) { const bw = 26, tw = textW(who, 2), x0 = Math.round(cx - (bw + 6 + tw) / 2);   // v8.64: your bust (look + equipped gear) beside your handle
+      rect(x0 - 2, y - 6, bw + 4, 34, COL.white); rect(x0 - 1, y - 5, bw + 2, 32, '#183848');
+      try { ctx.drawImage(playerBust(lookToJson(player), gearEquipped(), 'md'), x0, y - 4); } catch (e) {}
+      drawText(who, x0 + bw + 8, y + 5, COL.blue, 2); }
     outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM', 2) / 2), 348, COL.white, 2);
     ctx.save(); ctx.translate(58, 458); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookOf(player), { finish: 1 }); ctx.restore();
     dimg(SPR.walkA, 180, 410);
@@ -7628,6 +7801,7 @@ const ADMIN_VIEWS = {
     h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' + '<button class="btn alt" data-a="lbiOpen">TOURNAMENT</button>' +   // v8.63
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
       '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
+      '<button class="link" data-a="go:adminGear">GEAR + CODES</button>' +
       '<button class="link" data-a="go:adminLog">ADMIN LOG</button>' +
       '<button class="link" data-a="go:adminFeedback">FEEDBACK' + ((admin.feedback || []).filter(f => f.status === 'new').length ? ' (' + admin.feedback.filter(f => f.status === 'new').length + ' NEW)' : '') + '</button>';
     return h;
@@ -7656,6 +7830,32 @@ const ADMIN_VIEWS = {
         '<div class="acts"><button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'new' ? 'read' : 'new') + '">' + (f.status === 'new' ? 'MARK READ' : 'MARK NEW') + '</button>' +
         '<button class="btn small alt" data-a="fbset" data-id="' + f.id + '" data-n="' + (f.status === 'resolved' ? 'read' : 'resolved') + '">' + (f.status === 'resolved' ? 'REOPEN' : 'RESOLVED') + '</button></div></div>';
     }).join('') + '</div>' : '<p class="empty">NO FEEDBACK YET</p>'),
+  adminGear: o => {   // v8.64: gear catalog, seasonal windows, one-time codes, give/take
+    const G = admin.gear || [], ed = o.edit ? G.find(g => g.id === o.edit) : null, opt = (sel) => G.map(g => '<option value="' + esc(g.id) + '"' + (g.id === sel ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('');
+    const dt = v => { if (!v) return ''; const d = new Date(v); if (isNaN(d)) return ''; const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()); };
+    const win = g => g.available_from || g.available_until ? (g.available_from ? gearDay(g.available_from, 1) : '') + '-' + (g.available_until ? gearDay(g.available_until) : '') : 'ALWAYS';
+    let h = head('GEAR', 'go:admin') + '<div class="msg"></div><div class="list">' + G.map(g => '<div class="item"><div class="who wr">' + esc(g.name) + ' <span style="color:' + (GEAR_TIERS[g.tier] || GEAR_TIERS.common).col + '">' + esc(String(g.tier).toUpperCase()) + '</span><span class="st">' +
+      esc(String(g.slot).toUpperCase()) + ' · ' + win(g) + ' · ' + (g.owners | 0) + ' OWN · CODES ' + (g.used | 0) + '/' + (g.codes | 0) + (g.active ? '' : ' · OFF') + '</span></div><button class="btn small alt" data-a="gedit" data-id="' + esc(g.id) + '">EDIT</button></div>').join('') + '</div>';
+    h += '<p class="sec">REDEEM CODES</p><form data-f="gcodes" novalidate><label for="gcItem">ITEM</label><select id="gcItem">' + opt(o.codeItem || 'camo_hat') + '</select><label for="gcN">HOW MANY (1-200)</label><input id="gcN" type="number" min="1" max="200" value="10"><label for="gcNote">NOTE</label><input id="gcNote" type="text" maxlength="60" placeholder="E.G. CAMO HAT ORDERS"><button class="btn" type="submit">MAKE CODES</button></form>' +
+      (o.codes ? '<p class="sub l">' + o.codes.length + ' NEW CODES (SHOWN ONCE - COPY THEM NOW)</p><textarea class="codes" id="gcOut" readonly>' + esc(o.codes.join('\n')) + '</textarea><button class="btn alt" data-a="gcopy">COPY CODES</button>' : '');
+    h += '<p class="sec">GIVE / TAKE</p><form data-f="ggrant" novalidate><label for="ggUser">PLAYER</label><input id="ggUser" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><label for="ggItem">ITEM</label><select id="ggItem">' + opt('champ_jacket') + '</select><div class="row"><button class="btn" type="submit">GIVE</button><button class="btn alt" type="button" data-a="gtake">TAKE</button></div></form>';
+    const E = ed || { id: '', name: '', slot: 'head', tier: 'common', req: '', rule: { code: true }, art: '', active: true, sort: 100 };
+    const sel = (id, vals, cur) => '<select id="' + id + '">' + vals.map(v => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + v.toUpperCase() + '</option>').join('') + '</select>';
+    const r = E.rule || {}, rk = r.stat ? 'stat:' + r.stat : r.event ? 'event:' + r.event : r.grant ? 'grant' : 'code';
+    h += '<p class="sec">' + (ed ? 'EDIT ' + esc(ed.name) : 'NEW ITEM') + '</p><form data-f="gitem" novalidate>' +
+      '<label for="giId">ID (a-z, 0-9, _)</label><input id="giId" type="text" maxlength="24" value="' + esc(E.id) + '"' + (ed ? ' readonly' : '') + ' autocapitalize="off" spellcheck="false">' +
+      '<label for="giName">NAME</label><input id="giName" type="text" maxlength="24" value="' + esc(E.name) + '">' +
+      '<label for="giSlot">SLOT</label>' + sel('giSlot', Object.keys(HD_SLOTS), E.slot) + '<label for="giTier">TIER</label>' + sel('giTier', ['common', 'rare', 'legendary'], E.tier) +
+      '<label for="giArt">LOOKS LIKE</label>' + sel('giArt', Object.keys(GEAR_ART), E.art || (GEAR_ART[E.id] ? E.id : Object.keys(GEAR_ART)[0])) +
+      '<label for="giRule">HOW TO GET IT</label>' + sel('giRule', ['code', 'grant', 'event:spooky', 'stat:aces', 'stat:eagles', 'stat:birdies', 'stat:luck', 'stat:rounds'], rk) +
+      '<label for="giMin">NUMBER NEEDED (STATS)</label><input id="giMin" type="number" min="1" value="' + (r.min || 1) + '">' +
+      '<label for="giReq">REQUIREMENT TEXT</label><input id="giReq" type="text" maxlength="48" value="' + esc(E.req || '') + '">' +
+      '<label for="giFrom">AVAILABLE FROM (BLANK = ALWAYS)</label><input id="giFrom" type="datetime-local" value="' + dt(E.available_from) + '">' +
+      '<label for="giUntil">AVAILABLE UNTIL (BLANK = NO END)</label><input id="giUntil" type="datetime-local" value="' + dt(E.available_until) + '">' +
+      '<label class="chk"><input id="giOn" type="checkbox"' + (E.active !== false ? ' checked' : '') + '> ACTIVE (SHOWN IN THE LOCKER)</label>' +
+      '<button class="btn" type="submit">SAVE ITEM</button>' + (ed ? '<button class="btn alt" type="button" data-a="go:adminGear">NEW ITEM INSTEAD</button>' : '') + '</form>';
+    return h;
+  },
   adminStore: () => {   // v8.48: hide (kept, easy to unhide) / archive (moved to the archived list, restorable)
     const st = shopState.status, srv = !!st;
     const stLink = it => { const l = (shopState.links || {})[it.id] || {};   // v8.50 Shopify mapping: blank = PREORDER / RESTOCKING SOON fallback
@@ -7741,6 +7941,21 @@ const VIEWS = {
     h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
+  },
+  locker: o => {   // v8.64: every piece of gear; earned in colour, locked as dark outlines; tap = name · tier · how to get it
+    const F = gear.filter, signed = isSignedIn() && hasUsername();
+    const items = gear.catalog.filter(g => (g.active !== false || gearOwned(g.id)) && (F === 'all' || g.tier === F)).sort((a, b) => (a.sort || 100) - (b.sort || 100));
+    const eq = gearEquipped(), sel = items.some(g => g.id === gear.sel) ? gearItem(gear.sel) : null;
+    let line = '&nbsp;';
+    if (sel) { const T = GEAR_TIERS[sel.tier] || GEAR_TIERS.common, own = gearOwned(sel.id), w = gearWindow(sel);
+      const how = own ? (eq[sel.slot] === sel.id ? 'WEARING · TAP TO REMOVE' : 'TAP AGAIN TO WEAR') : esc(sel.req || '') + (w === 'ended' ? ' · EVENT OVER' : w === 'soon' ? ' · COMING SOON' : sel.available_until ? ' · ENDS ' + gearDay(sel.available_until) : '');
+      line = '<b>' + esc(sel.name) + '</b> · <span style="color:' + T.col + '">' + T.name + '</span> · ' + how; }
+    const segB = (k, lab) => '<button type="button" data-a="gfilt" data-n="' + k + '" class="' + (F === k ? 'on' : '') + '">' + lab + '</button>';
+    return head('LOCKER', 'lockBack') + '<div class="seg sm">' + segB('all', 'ALL') + segB('common', 'COMMON') + segB('rare', 'RARE') + segB('legendary', 'LEGEND') + '</div>' +
+      '<div class="ggrid">' + items.map(g => { const own = gearOwned(g.id); return '<button type="button" class="gtile t-' + esc(g.tier) + (own ? ' own' : '') + (eq[g.slot] === g.id ? ' on' : '') + (gear.sel === g.id ? ' sel' : '') + '" data-a="gsel" data-id="' + esc(g.id) + '" aria-label="' + esc(g.name) + '"><img alt="" src="' + gearIcon(g.id, !own) + '"></button>'; }).join('') + '</div>' +
+      '<p class="gline">' + line + '</p>' +
+      (signed ? '<form data-f="redeem" novalidate><label for="aCode">GOT A CODE?</label><div class="row"><input id="aCode" type="text" maxlength="14" placeholder="DLG-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" type="submit">REDEEM</button></div></form>'
+              : '<p class="sub">SIGN IN TO EARN AND KEEP GEAR</p>') + '<div class="msg"></div>';
   },
   friendProfile: o => {   // v8.37: accepted friends only (friend_profile() refuses anyone else)
     const P = o.prof, back = head('PROFILE', 'go:friends');
@@ -7851,7 +8066,9 @@ async function lbiLoad(force) {
   })();
   try { return await LBI.loading; } finally { LBI.loading = null; }
 }
-async function lbiLoadBoard() { const [b, f] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true)]); if (b.ok && b.data) LBI.board = b.data; if (f.ok && Array.isArray(f.data)) LBI.field = f.data; }
+async function lbiLoadBoard() { const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]); if (b.ok && b.data) LBI.board = b.data; if (f.ok && Array.isArray(f.data)) LBI.field = f.data;
+  if (l.ok && l.data && typeof l.data === 'object') { const m = {}; for (const k in l.data) m[k.toLowerCase()] = l.data[k] || {}; LBI.looks = m; } }   // v8.64: busts (look + gear)
+function lbiBust(u) { const L = (LBI.looks || {})[String(u || '').toLowerCase()] || {}; return '<img class="lbub" alt="" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">'; }
 setTimeout(() => { lbiLoad(true); }, 1500);
 setInterval(() => { if (!document.hidden) lbiLoad(true); }, 10 * 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { lbiLoad(true); lbiFlush(); } });
@@ -7909,7 +8126,7 @@ function lbiBoardHtml(B, admin) {
     if (B.cut_done && r.mc && !cutDrawn) { cutDrawn = true; h += '<tr class="cut"><td colspan="' + (admin ? 10 : 9) + '">CUT ' + lbiTp(B.cut) + '</td></tr>'; }
     const me = String(r.u || '').toUpperCase() === mine, rr = r.r || [];
     const st = admin ? (r.st === 'removed' ? ' <span class="ban">OUT</span>' : r.st === 'flagged' ? ' <span class="adm">FLAG</span>' : '') + ((r.det || []).some(d => d.review) ? ' <span class="adm">⚑</span>' : '') : '';
-    h += '<tr class="' + (me ? 'me' : '') + (r.mc ? ' mc' : '') + '"><td>' + esc(r.pos) + '</td><td class="pl">' + esc(String(r.u || '').toUpperCase()) + st + '</td><td>' + lbiTp(r.today) + '</td><td>' + esc(r.thru == null ? '-' : r.thru) + '</td><td class="tot">' + lbiTp(r.total) + '</td>' +
+    h += '<tr class="' + (me ? 'me' : '') + (r.mc ? ' mc' : '') + '"><td>' + esc(r.pos) + '</td><td class="pl">' + (admin ? '' : lbiBust(r.u)) + esc(String(r.u || '').toUpperCase()) + st + '</td><td>' + lbiTp(r.today) + '</td><td>' + esc(r.thru == null ? '-' : r.thru) + '</td><td class="tot">' + lbiTp(r.total) + '</td>' +
       [0, 1, 2, 3].map(i => '<td>' + lbiTp(rr[i]) + '</td>').join('') +
       (admin ? '<td class="acts"><button class="btn small alt" data-a="lbiP" data-id="' + esc(r.u) + '" data-n="' + (r.st === 'flagged' ? 'ok' : 'flagged') + '">' + (r.st === 'flagged' ? 'UNFLAG' : 'FLAG') + '</button><button class="btn small ' + (r.st === 'removed' ? '' : 'alt') + '" data-a="lbiP" data-id="' + esc(r.u) + '" data-n="' + (r.st === 'removed' ? 'ok' : 'removed') + '">' + (r.st === 'removed' ? 'RESTORE' : 'REMOVE') + '</button></td>' : '') + '</tr>';
   });
@@ -7926,7 +8143,7 @@ function lbiPageHtml(o) {
   else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiBoardHtml(B, false);
-  else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
+  else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + lbiBust(n) + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
   else h += '<div class="lbipz"><div><b>1ST</b>CAMO HAT + LUCKY BALL MARKER</div><div><b>2ND-6TH</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
@@ -8084,6 +8301,7 @@ async function showAcct(view, opts) {
     if (view === 'adminScores') await adminLoadScores();
     if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
     if (view === 'adminLog') await adminLoadAudit();
+    if (view === 'adminGear') { const r = await adminRpc('admin_gear_list', {}); admin.gear = r.ok && Array.isArray(r.data) ? r.data : []; if (!r.ok) acctOpts.msg = r.msg; }
     if (view === 'adminStore') await Promise.all([loadShopItems(true), adminLoadPreorders(), adminLoadSpooky()]);
     if (view === 'adminFeedback' || view === 'admin') await adminLoadFeedback();
     if (acctView !== view) return;
@@ -8094,6 +8312,7 @@ async function showAcct(view, opts) {
     acctOpts.loading = false; if (r.ok) acctOpts.prof = r.data; else acctOpts.msg = r.msg;
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
+  if (view === 'locker') { acctBox.innerHTML = VIEWS.locker(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await gearLoad(true); if (acctView !== 'locker') return; if (gear.fresh.length && !acctOpts.msg) { acctOpts.msg = 'NEW: ' + gear.fresh.map(id => (gearItem(id) || {}).name || id).join(', '); acctOpts.ok = true; gear.sel = gear.fresh[0]; } gear.fresh = []; }
   if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadH2H()]); if (acctView !== 'friends') return; }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
@@ -8118,6 +8337,21 @@ if (acctEl) {
     e.preventDefault(); const f = e.target.getAttribute('data-f'); acctMsg('');
     acctBusy(true);
     try {
+      if (f === 'redeem') { const r = await gearRedeem(val('aCode')); if (acctView !== 'locker') return; if (r.ok) { try { trackEvent('gear_redeem', { item: gear.sel }); } catch (e) {} showAcct('locker', { msg: r.msg, ok: true }); } else acctMsg(r.msg); return; }
+      if (f === 'gcodes') { const it = val('gcItem'), n = Math.round(+val('gcN')); if (!(n >= 1 && n <= 200)) { acctMsg('1-200 CODES'); return; }
+        const r = await adminRpc('admin_gear_codes', { p_item: it, p_n: n, p_note: val('gcNote') || null }); if (!r.ok) { acctMsg(r.msg); return; }
+        const L = await adminRpc('admin_gear_list', {}); if (L.ok) admin.gear = L.data; showAcct('adminGear', { codes: r.data || [], codeItem: it }); return; }
+      if (f === 'ggrant') { const u = val('ggUser'), it = val('ggItem'); if (!u) { acctMsg('TYPE A USERNAME'); return; }
+        const r = await adminRpc('admin_gear_grant', { p_username: u.replace(/^@/, ''), p_item: it, p_on: true }); if (!r.ok) { acctMsg(r.msg); return; }
+        showAcct('adminGear', { msg: 'GAVE ' + ((gearItem(it) || {}).name || it) + ' TO @' + u.replace(/^@/, '').toUpperCase(), ok: true }); return; }
+      if (f === 'gitem') { const id = val('giId').toLowerCase(), rk = val('giRule'), mn = Math.max(1, Math.round(+val('giMin') || 1));
+        if (!/^[a-z0-9_]{2,24}$/.test(id)) { acctMsg('ID: 2-24 LOWERCASE LETTERS, NUMBERS, _'); return; } if (!val('giName')) { acctMsg('GIVE IT A NAME'); return; }
+        const rule = rk === 'code' ? { code: true } : rk === 'grant' ? { grant: true } : rk.startsWith('event:') ? { event: rk.slice(6) } : { stat: rk.slice(5), min: mn };
+        const iso = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : d.toISOString(); };
+        const fr = iso(val('giFrom')), un = iso(val('giUntil')); if (fr && un && Date.parse(un) <= Date.parse(fr)) { acctMsg('UNTIL MUST BE AFTER FROM'); return; }
+        const body = { id, name: val('giName'), slot: val('giSlot'), tier: val('giTier'), art: val('giArt'), rule, req: val('giReq'), available_from: fr, available_until: un, active: !!(document.getElementById('giOn') || {}).checked, sort: ((admin.gear || []).find(g => g.id === id) || {}).sort || 100 };
+        const r = await adminRpc('admin_gear_upsert', { p: body }); if (!r.ok) { acctMsg(r.msg); return; }
+        GEAR_ICON.clear(); await gearLoad(false); showAcct('adminGear', { msg: 'SAVED ' + body.name.toUpperCase(), ok: true }); return; }
       if (f === 'signup') {
         const r = await authSignUp(val('aEmail'), val('aPass'));
         if (!r.ok) acctMsg(r.msg); else { const mk = !!(document.getElementById('aMkt') && document.getElementById('aMkt').checked); account.marketing = mk; try { localStorage.setItem(MKT_PENDING, mk ? '1' : '0'); } catch (e) {} if (r.confirm) showAcct('check', {}); else { await afterAuth(); } }
@@ -8185,6 +8419,15 @@ if (acctEl) {
     const b = e.target.closest('[data-a]'); if (!b) { if (e.target === acctEl) {} return; }
     const a = b.getAttribute('data-a'), id = b.getAttribute('data-id');
     if (a === 'fprof') { showAcct('friendProfile', { user: id, loading: true }); return; }
+    if (a === 'lockBack') { hideAcct(); return; }   // v8.64: back to EDIT LOOK
+    if (a === 'gfilt') { gear.filter = b.getAttribute('data-n'); acctBox.innerHTML = VIEWS.locker(acctOpts); return; }
+    if (a === 'gsel') { const again = gear.sel === id; gear.sel = id; const g = gearItem(id);
+      if (again && g && gearOwned(id) && isSignedIn()) { const on = gearEquipped()[g.slot] !== id; acctBox.innerHTML = VIEWS.locker(acctOpts); const r = await gearEquip(id, on); if (acctView !== 'locker') return; acctBox.innerHTML = VIEWS.locker(acctOpts); if (!r.ok) acctMsg("COULDN'T SAVE THAT. TRY AGAIN."); else { SFX.click(); try { trackEvent(on ? 'gear_equip' : 'gear_unequip', { item: id }); } catch (e) {} } return; }
+      acctBox.innerHTML = VIEWS.locker(acctOpts); return; }
+    if (a === 'gedit') { showAcct('adminGear', { edit: id }); setTimeout(() => { const f = acctBox.querySelector('form[data-f=gitem]'); if (f) f.scrollIntoView({ block: 'start' }); }, 60); return; }
+    if (a === 'gcopy') { const ta = document.getElementById('gcOut'); if (ta) { try { await navigator.clipboard.writeText(ta.value); acctMsg('COPIED', true); } catch (e) { ta.select(); acctMsg('SELECTED - COPY IT'); } } return; }
+    if (a === 'gtake') { const u = val('ggUser'), it = val('ggItem'); if (!u) { acctMsg('TYPE A USERNAME'); return; } if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; }
+      acctBusy(true); const r = await adminRpc('admin_gear_grant', { p_username: u.replace(/^@/, ''), p_item: it, p_on: false }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct('adminGear', { msg: 'TOOK ' + ((gearItem(it) || {}).name || it) + ' FROM @' + u.replace(/^@/, '').toUpperCase(), ok: true }); return; }
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
     if (a === 'spClose') { hideAcct(); return; }   // v8.52
@@ -8246,7 +8489,7 @@ if (acctEl) {
     if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
   });
   acctEl.addEventListener('input', e => { if (e.target && (e.target.id === 'fbText' || e.target.id === 'fbEmail') && acctView === 'feedback') acctMsg(''); if (e.target && e.target.id === 'fbText') { const c = document.getElementById('fbCount'); if (c) { c.textContent = e.target.value.length; c.parentNode.classList.toggle('full', e.target.value.length >= 500); } } });
-  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
+  acctEl.addEventListener('keydown', e => { if (e.key === 'Escape' && acctView === 'locker') { e.preventDefault(); hideAcct(); e.stopPropagation(); return; } if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
