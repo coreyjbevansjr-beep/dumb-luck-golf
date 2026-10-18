@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.62">
+<meta name="dlg-version" content="v8.63">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -142,6 +142,25 @@
   #acct .sub.l{text-align:left;margin-top:6px}
   #acct .kpis.h2h b{color:#f8d878}
   #acct .kpis.h2h{grid-template-columns:1fr 1fr}
+  /* v8.63 tournament */
+  #acct .lbist{color:#D4AF37;font-size:13px;letter-spacing:2px;margin-top:-4px}
+  #acct .lbis{font-size:15px;color:#bcc8e0}#acct .lbis.ok{color:#58d854}
+  #acct .lbitabs{margin-top:12px}#acct .lbitabs button{min-height:44px;font-size:13px}
+  #acct .lbiw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -6px}
+  #acct table.lbit{font-size:11px;letter-spacing:0;min-width:330px}
+  #acct .lbit th,#acct .lbit td{padding:5px 1px;border-left:0;border-right:0}
+  #acct .lbit .pl{text-align:left;padding-left:4px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #acct .lbit td.tot{color:#f8d878;font-weight:700}
+  #acct .lbit tr.me td{color:#f8d878;background:#14462D}
+  #acct .lbit tr.mc td{color:#7c8cac}
+  #acct .lbit tr.cut td{border:0;border-top:2px dashed #fc9838;color:#fc9838;font-size:10px;letter-spacing:2px;padding:3px 0;text-align:center}
+  #acct .lbit td.acts{white-space:nowrap}#acct .lbit td.acts .btn{min-height:30px;padding:0 5px;font-size:10px;letter-spacing:1px;margin:1px}
+  #acct .lbif{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:12px;font-size:13px}
+  #acct .lbipz{margin-top:12px;display:grid;gap:8px;text-align:center}
+  #acct .lbipz div{border:2px solid #D4AF37;padding:10px 6px;font-size:12px;letter-spacing:1px}
+  #acct .lbipz b{display:block;color:#D4AF37;font-size:18px;margin-bottom:4px}
+  #acct .lbipz img{margin:4px auto 0;image-rendering:auto}
+  #acct .lbidim{color:#7c8cac;text-decoration:none;text-align:center;line-height:44px}
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
@@ -195,7 +214,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.62';
+const GAME_VERSION = 'v8.63';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2593,6 +2612,7 @@ function startCourse(kind) {
 function displayHoleNum(i) {
   if (courseKind === 'back') return i + 10;
   if (courseKind === 'quick3' && QUICK3_NUMS[i]) return QUICK3_NUMS[i];
+  if (courseKind === 'lbi') return lbiHoleNo(i);   // v8.63
   return i + 1;
 }
 function scoreModeForSave() {
@@ -2602,6 +2622,7 @@ function scoreModeForSave() {
   if (courseKind === 'coral') return 'coral9';
   if (courseKind === 'spooky') return 'spooky';
   if (courseKind === 'match') return 'match';
+  if (courseKind === 'lbi') return 'lbi';   // v8.63: never a leaderboard mode
   if (courseKind === 'quick3') return 'quick3';   // v8.57: career + analytics only, never a leaderboard mode
   return 'front9';
 }
@@ -3354,7 +3375,7 @@ function layoutChrome() {
     // the logo just to force more rows.
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
-    const cupB = cupLive() ? 30 : 0;   // v8.52 SPOOKY CUP banner strip under the icon row
+    const cupB = (cupLive() || lbiBannerOn()) ? 30 : 0;   // v8.52 SPOOKY CUP banner strip under the icon row
     const skyTop = iconBot + bobPad + cupB;
     SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = 26; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 3; }
     const menuH = menuLayoutCalc().blockH; // v8.18: labels + subheadings (2x2 grid on narrow phones)
@@ -3401,7 +3422,7 @@ function layoutChrome() {
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
-    const cupB = cupLive() ? 30 : 0;   // v8.52
+    const cupB = (cupLive() || lbiBannerOn()) ? 30 : 0;   // v8.52
     LOGO_Y = Math.max(iconBot + 2 + cupB, Math.max(3, Math.round(H * 0.012)));
     SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = 26; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 2; }
     const boardH = 52, boardW = Math.min(236, W - 24), menuH = Math.max(MENU_DY, menuLayoutCalc().blockH) + 2;   // v8.19: single row = pre-v8.18 MENU_DY + 2
@@ -3608,7 +3629,13 @@ function ovActivate(i, dir = 1) {
   if (ov.kind === 'pause') {
     if (i === 0) resumeGame();
     else if (i === 1) openSettings('pause');
-    else if (i === 2) quitToMenu();
+    else if (i === 2) {
+      if (lbiQuitCounted()) {   // v8.63
+        if (lbiQuitArm < performance.now()) { lbiQuitArm = performance.now() + 3000; SFX.click(); showToast(['QUIT THE ROUND?', 'HOLES LEFT SCORE 10', 'TAP QUIT AGAIN'], 2800); return; }
+        lbiQuitArm = 0; lbiQuit(); quitToMenu(); lbiOpen('board'); return;
+      }
+      quitToMenu();
+    }
     return;
   }
   { const lab = (settingsRows()[i] || [])[0];   // v8.41 seasonal rows (by label)
@@ -3901,7 +3928,8 @@ function drawFollowPill(r, key, label) {
 }
 const followHalves = () => { const r = FOLLOW_BTN, hw = Math.floor(r.w / 2); return [{ x: r.x, y: r.y, w: hw, h: r.h }, { x: r.x + hw, y: r.y, w: r.w - hw, h: r.h }]; };
 function drawSpookyBanner() {   // v8.52: two short lines, tap = straight into the Spooky Cup round
-  const b = SPOOKY_BANNER; if (!b.on || menuPopup || !cupLive()) return;
+  const b = SPOOKY_BANNER; if (b.on && !menuPopup && !cupLive()) { drawLbiBanner(); return; }   // v8.63 tournament uses the same strip
+  if (!b.on || menuPopup || !cupLive()) return;
   const dim = pressDim('cup') || (mouse.seen && hit(mouse, b));
   rect(b.x - 1, b.y - 1, b.w + 2, b.h + 2, '#000'); rect(b.x, b.y, b.w, b.h, dim ? '#1c0838' : '#2c1050');
   rect(b.x, b.y, b.w, 1, '#fc9838'); rect(b.x, b.y + b.h - 1, b.w, 1, '#fc9838');
@@ -4505,15 +4533,18 @@ function scoreName(strk, par) {
 }
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
-function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
+function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
   camY = 0; shotFx = null;
   const src = HOLES[holeIdx];
+  const lr = courseKind === 'lbi' && lbiCtx && !lbiCtx.practice ? mulberry32(seedFromStr('LBI-' + lbiCtx.seed + '-' + holeIdx)) : null;   // v8.63: same pins + wind for everyone in a round
+  try { if (courseKind === 'lbi') lbiTeeHook(); } catch (e) {}
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
-  const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor(Math.random() * src.pins.length)] }) : src;
+  const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : Math.random()) * src.pins.length)] }) : src;
   hole = compileHole(def);
   strokes = 0; lastSpot = TEE_X; penaltySpot = null;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
+  else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
   else wind = applyWeatherToWind(hole.wind + Math.round(rnd(-2, 2)));
   placeBall(TEE_X);
@@ -4771,7 +4802,7 @@ function action() {
   if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
   if (state === 'done' && st > 0.8) { nextHole(); return; }
-  if (state === 'card' && st > 1.2) { if (courseKind === 'match' && matchAfterRound()) return; if (courseKind === 'quick3') { openBoard(null, 'front9'); return; } openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
+  if (state === 'card' && st > 1.2) { if (courseKind === 'lbi') { lbiAfterCard(); return; } if (courseKind === 'match' && matchAfterRound()) return; if (courseKind === 'quick3') { openBoard(null, 'front9'); return; } openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
 }
 // where the meter marker is right now: input arrives between frames, so add the time since the last update
 function meterLive() {
@@ -4792,13 +4823,14 @@ const SWING_ADDR = 75, DOWN_T = 0.13, FOLLOW_T = 0.45;
 const backswingTop = p => clubIdx === PUTT_I ? SWING_ADDR + 75 * p : SWING_ADDR + 215 * p;
 function launch() {
   strokes++; lastSpot = ball.x;
+  try { if (courseKind === 'lbi') lbiShotHook(); } catch (e) {}   // v8.63 shot log
   ball.shotFrom = ball.x; ball.carryX = null; ball.maxH = ball.h;
   const lie = surfAt(hole, ball.x);
   const flyer = lie === 'rough' && clubIdx !== PUTT_I ? 1 + (Math.random() * 2 - 1) * FLYER : 1;   // v8.21 flyer lies
   const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x), { vMul: (shotPerfect ? PERFECT_V : 1) * flyer, slope: lieSlope(hole, ball.x, facing) });
   ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.stopR = lv.stopR; ball.lipK = lv.lipK; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.spin = lv.spin; ball.seen = {};
   lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
-  ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < LUCK_MISHIT); forceLuck = false;   // rare DUMB LUCK on a mishit
+  ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < (courseKind === 'lbi' ? LBI_LUCK_MISHIT : LUCK_MISHIT)); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0;
   try { ghostRecShot(); ghostOnPlayerSwing(); } catch (e) {}   // career v2: ghost
   try { hlRecStart(); } catch (e) {}   // v8.42 highlight record (last shot only)
@@ -4815,7 +4847,7 @@ function flightStep() {   // v8.60: one physics step of a live shot; also used (
   const px0 = ball.x, air0 = ball.mode === 'air';
   let r = stepBall(ball, hole, wind, STEP);
   if (!r && air0 && ball.mode === 'air' && !ball.pinTried && clubIdx !== PUTT_I) pinBounce(px0);
-  if (ball.events.includes('tree') && !ball.luck && !ball.luckUsed && clubIdx !== PUTT_I && srand() < LUCK_TREE) ball.luck = true;
+  if (ball.events.includes('tree') && !ball.luck && !ball.luckUsed && clubIdx !== PUTT_I && srand() < (courseKind === 'lbi' ? LBI_LUCK_TREE : LUCK_TREE)) ball.luck = true;
   if (ball.luck && !ball.luckUsed && (r === 'water' || r === 'ob' || ball.events.includes('bounce')) && luckyKick()) r = null;
   if (!SIM) {
     if (ball.seen) for (const ev of ball.events) ball.seen[ev] = 1;
@@ -4909,6 +4941,7 @@ function resolveBall(r) {
 function finishHole() {
   fx.banner = null;
   scores[holeIdx] = Math.min(strokes, 10);
+  try { if (courseKind === 'lbi') lbiHoleHook(scores[holeIdx]); } catch (e) {}   // v8.63: every hole goes to the server as it's played
   try { careerNoteHole(scores[holeIdx] - hole.par, scores[holeIdx]); ghostRecHole(scores[holeIdx]); ghostOnPlayerHoled(); } catch (e) {}
   const d = scores[holeIdx] - hole.par;
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
@@ -4951,6 +4984,7 @@ function finishRound() {
     else if (!isSignedIn()) { saveWhere = 'cupguest'; pendingSave = null; }
     else { saveWhere = 'saving'; pendingSave = saveScore(Object.assign({}, lastEntry, { mode: 'spooky' })).then(r => { saveWhere = r.ok ? 'cupin' : r.where; }, () => { saveWhere = 'error'; }); }
   }
+  else if (courseKind === 'lbi') { saveWhere = lbiCtx && !lbiCtx.practice ? 'lbi' : 'practice'; pendingSave = null; if (lbiCtx) lbiCtx.done = true; }   // v8.63: holes were already sent one by one
   else if (courseKind === 'quick3') { saveWhere = 'quick'; pendingSave = null; }   // v8.57: career only, no leaderboard
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
@@ -4959,7 +4993,7 @@ function finishRound() {
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
   try {   // career: every scored round (guest or signed in) — never practice replays or previews
-    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'spooky' ? 'spooky' : courseKind === 'quick3' ? 'quick3' : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
+    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'spooky' ? 'spooky' : courseKind === 'quick3' ? 'quick3' : courseKind === 'lbi' ? (HOLES.length === 18 ? 'full' : 'quick3') : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
       holes: scores.length, date: isDaily && dailyMeta ? dailyMeta.date : nyDateStr(), scored: !(NO_SAVE || practice) || courseKind === 'match' });
   } catch (e) {}
   try {
@@ -5181,7 +5215,7 @@ cv.addEventListener('pointerdown', e => {
     armUiTap('share', () => shareScore(), (up) => hitBtn(toLogical(up), SHARE_BTN), e); touchDown = null; return;
   }
   if (state === 'card' && hitBtn(p, LB_BTN)) {
-    armUiTap('lb', () => { if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
+    armUiTap('lb', () => { if (courseKind === 'lbi') { lbiAfterCard(); return; } if (courseKind === 'match' && matchAfterRound()) return; if (lastEntry) openBoard(lastEntry, lastEntry.mode || null); else openBoard(null, scoreModeForSave()); }, (up) => hitBtn(toLogical(up), LB_BTN), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && !ov && (hitBtn(p, HYT_BTN) || hitBtn(p, HIG_BTN) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)))) {   // v8.43 / v8.51: never starts the game
     const [fa, fb] = followHalves(), onYt = hitBtn(p, HYT_BTN), onIg = !onYt && hitBtn(p, HIG_BTN), yt = onYt || (!onIg && p.x >= fb.x);
@@ -5193,6 +5227,9 @@ cv.addEventListener('pointerdown', e => {
   }
   if (state === 'title' && !menuPopup && !ov && SPOOKY_BANNER.on && cupLive() && hit(p, SPOOKY_BANNER)) {   // v8.52: banner -> Spooky Cup round
     const r0 = Object.assign({}, SPOOKY_BANNER); armUiTap('cup', () => { try { trackEvent('spooky_banner', {}); } catch (e) {} cupEnter(); }, (up) => hit(toLogical(up), r0), e); touchDown = null; return;
+  }
+  if (state === 'title' && !menuPopup && !ov && SPOOKY_BANNER.on && lbiBannerOn() && hit(p, SPOOKY_BANNER)) {   // v8.63: banner -> tournament page
+    const r0 = Object.assign({}, SPOOKY_BANNER); armUiTap('lbi', () => lbiOpen('board'), (up) => hit(toLogical(up), r0), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && hitBtn(p, HSHARE_BTN)) {   // v8.34: never starts the game
     armUiTap('hshare', () => shareHome(), (up) => hitBtn(toLogical(up), HSHARE_BTN), e); touchDown = null; return;
@@ -7034,7 +7071,7 @@ function renderBoardPanel() {
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function shareModeLabel() {
   if (courseKind === 'daily') return 'DAILY HOLE';
-  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH' })[courseKind] || 'DUMB LUCK GOLF';
+  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH', lbi: lbiName(false) })[courseKind] || 'DUMB LUCK GOLF';
 }
 function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel look (title sky, logo, scorecard panel, golfer + pup)
   const SW = 270, SH = 480, c = mk(SW, SH), saved = ctx, cx = SW / 2, K = 4;
@@ -7132,8 +7169,9 @@ function renderCard() {
     else if (cardInfo.practice) saveMsg = 'PRACTICE - NOT SCORED';
     else if (cardInfo.pendingMode) saveMsg = 'SAVED LOCAL - BOARD SOON';
     if (courseKind === 'quick3') saveMsg = 'COUNTS TOWARD CAREER';   // v8.57
+    let lbiCol = null; if (courseKind === 'lbi') { const m = lbiCardMsg(); saveMsg = m[0]; lbiCol = m[1]; }   // v8.63
     if (courseKind === 'spooky') saveMsg = ({ cupin: 'YOU\'RE IN THE SPOOKY CUP!', cupguest: 'SIGN IN TO ENTER THE SPOOKY CUP', cupsoon: 'SPOOKY CUP OPENS OCT 14', cupover: 'THE SPOOKY CUP IS OVER', rejected: 'SCORE NOT ACCEPTED' })[saveWhere] || saveMsg;   // v8.52
-    drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.white);
+    drawTextC(saveMsg, sumY + 58, lbiCol ? lbiCol : (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.white);
   }
   {
     const by = Math.max(SHARE_BTN.y, 6 + boxH + 6);
@@ -7587,7 +7625,7 @@ const ADMIN_VIEWS = {
     h += '<p class="sec">DAILY PLAYERS (ET)</p><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
       (S.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table>';
     h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · HOME SCREEN ' + (S.home_screen_share || 0) + '%</p>';
-    h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' +
+    h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' + '<button class="btn alt" data-a="lbiOpen">TOURNAMENT</button>' +   // v8.63
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
       '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
       '<button class="link" data-a="go:adminLog">ADMIN LOG</button>' +
@@ -7757,6 +7795,237 @@ const VIEWS = {
       (m.status === 'complete' ? '<button class="btn" data-a="rematch" data-id="' + esc(m.id) + '">REMATCH</button>' : '') + '<div class="msg"></div>';
   }
 };
+/* ================= v8.63 TOURNAMENT (THE LUCKY BOUNCE INVITATIONAL; name + every date come from the server config row) =================
+   Hidden until the server says so (lbi_info.visible = reg_open .. show_until). 18 holes, one counted round per window, server validates
+   every hole (order, 1-10, shot log, minimum time) and computes positions / ties / the cut / MC / playoff. #test&lbi forces the preview. */
+var LBI = { info: null, at: 0, skew: 0, board: null, field: null, adm: null, loading: null, lastBanner: null };
+const LBI_FORCE = /^#test/.test(location.hash) && /[#&]lbi(&|=|$)/.test(location.hash);
+const LBI_RNAME = ['ROUND 1', 'ROUND 2', 'MOVING DAY', 'FINAL ROUND'];
+const LBI_LUCK_MISHIT = 0.03, LBI_LUCK_TREE = 0.04;   // DUMB LUCK is rarer in the tournament
+const LBI_AFTER_KEY = 'dlg_lbi_after_auth', LBI_Q_KEY = 'dlg_lbi_q_v1';
+let lbiCtx = null, lbiQ = [], lbiFlushing = false, lbiQuitArm = 0;
+try { lbiQ = JSON.parse(localStorage.getItem(LBI_Q_KEY) || '[]') || []; } catch (e) { lbiQ = []; }
+function lbiNow() { return Date.now() + LBI.skew; }
+function lbiCfg() { return LBI.info && LBI.info.cfg; }
+function lbiT(iso) { const t = Date.parse(iso); return isFinite(t) ? t : 0; }
+function lbiShown() { const c = lbiCfg(); if (!c) return false; const t = lbiNow(); return (t >= lbiT(c.reg_open) && t < lbiT(c.show_until)) || (LBI_FORCE && t < lbiT(c.show_until)); }
+function lbiBannerOn() { try { return !!LBI && lbiShown() && !cupLive(); } catch (e) { return false; } }
+function lbiFmtDay(iso) { try { return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).format(new Date(iso)).toUpperCase(); } catch (e) { return String(iso).slice(5, 10); } }
+function lbiLeft(ms) { const s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'D ' + h + 'H' : h ? h + 'H ' + m + 'M' : m + 'M ' + (s % 60) + 'S'; }
+function lbiTp(v) { return v == null ? '-' : v === 0 ? 'E' : v > 0 ? '+' + v : String(v); }
+function lbiName(short) { const n = String((lbiCfg() || {}).name || 'THE INVITATIONAL').toUpperCase(); return short && textW(n) > 196 ? n.replace(/^THE /, '') : n; }
+function lbiMyRound(r) { const me = LBI.info && LBI.info.me; return me && (me.rounds || []).find(x => x.r === r) || null; }
+/* where we are in the week: pre (registration) | live | gap | final (waiting on lock / playoff) | done (locked) */
+function lbiPhase() {
+  const c = lbiCfg(); if (!c) return { k: 'none' };
+  const t = lbiNow(), R = (c.r || []).map(w => [lbiT(w[0]), lbiT(w[1])]);
+  if (c.locked) return { k: 'done' };
+  if (t < R[0][0]) return { k: 'pre', next: 1, at: R[0][0] };
+  for (let i = 0; i < 4; i++) { if (t >= R[i][0] && t < R[i][1]) return { k: 'live', rnd: i + 1, ends: R[i][1] }; if (i < 3 && t >= R[i][1] && t < R[i + 1][0]) return { k: 'gap', next: i + 2, at: R[i + 1][0] }; }
+  if (t >= lbiT(c.lock_at) && t < lbiT(c.playoff_end)) return { k: 'final', playoff: true, ends: lbiT(c.playoff_end) };
+  return { k: 'final', at: lbiT(c.lock_at) };
+}
+function lbiStatusLine() {
+  const p = lbiPhase(), c = lbiCfg() || {}, t = lbiNow();
+  if (p.k === 'pre') return 'STARTS ' + lbiFmtDay(new Date(p.at).toISOString());
+  if (p.k === 'live') return LBI_RNAME[p.rnd - 1] + ' · ' + lbiLeft(p.ends - t) + ' LEFT';
+  if (p.k === 'gap') return LBI_RNAME[p.next - 1] + ' · ' + lbiFmtDay(new Date(p.at).toISOString());
+  if (p.k === 'final') return p.playoff ? ((LBI.board && (LBI.board.playoff || []).length) ? 'PLAYOFF TODAY' : 'FINAL RESULTS TODAY') : 'FINAL RESULTS ' + lbiFmtDay(c.lock_at);
+  if (p.k === 'done') return LBI.info && LBI.info.winner ? 'WINNER @' + String(LBI.info.winner).toUpperCase() : 'FINAL';
+  return '';
+}
+async function lbiRpc(fn, body, anonOk) { return sb('/rest/v1/rpc/' + fn, { method: 'POST', noAuth: anonOk && !isSignedIn(), body: body || {} }, 'lbi'); }
+function lbiErr(r) { const m = (r && r.data && (r.data.message || r.data.msg)) || ''; return r && r.status === 0 ? "CAN'T REACH THE SERVER" : m ? String(m).toUpperCase() : 'SOMETHING WENT WRONG'; }
+async function lbiLoad(force) {
+  if (LBI.loading) return LBI.loading;
+  if (!force && LBI.info && performance.now() - LBI.at < 60000) return LBI.info;
+  LBI.loading = (async () => {
+    const r = await lbiRpc('lbi_info', {}, true);
+    if (r.ok && r.data && typeof r.data === 'object') {
+      LBI.info = r.data; LBI.at = performance.now();
+      if (r.data.now) { const s = Date.parse(r.data.now); if (isFinite(s)) LBI.skew = s - Date.now(); }
+      if (!r.data.cfg && LBI_FORCE) LBI.info.cfg = null;
+    }
+    const on = lbiBannerOn(); if (on !== LBI.lastBanner) { LBI.lastBanner = on; try { layoutChrome(); } catch (e) {} }
+    return LBI.info;
+  })();
+  try { return await LBI.loading; } finally { LBI.loading = null; }
+}
+async function lbiLoadBoard() { const [b, f] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true)]); if (b.ok && b.data) LBI.board = b.data; if (f.ok && Array.isArray(f.data)) LBI.field = f.data; }
+setTimeout(() => { lbiLoad(true); }, 1500);
+setInterval(() => { if (!document.hidden) lbiLoad(true); }, 10 * 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { lbiLoad(true); lbiFlush(); } });
+
+/* ---- title banner (same slot as the Spooky Cup strip; brand green + gold) ---- */
+function drawLbiFlag(x, y) { rect(x + 1, y, 1, 9, '#fcfcfc'); rect(x + 2, y, 5, 3, '#D4AF37'); rect(x + 2, y + 3, 3, 1, '#D4AF37'); rect(x - 1, y + 9, 5, 1, '#000'); }
+function drawLbiBanner() {
+  const b = SPOOKY_BANNER; if (!b.on || menuPopup || !lbiBannerOn()) return;
+  const dim = pressDim('lbi') || (mouse.seen && hit(mouse, b));
+  rect(b.x - 1, b.y - 1, b.w + 2, b.h + 2, '#000'); rect(b.x, b.y, b.w, b.h, dim ? '#0c2c1c' : '#14462D');
+  rect(b.x, b.y, b.w, 1, '#D4AF37'); rect(b.x, b.y + b.h - 1, b.w, 1, '#D4AF37');
+  drawLbiFlag(b.x + 7, b.y + 8); drawLbiFlag(b.x + b.w - 14, b.y + 8);
+  const l1 = lbiName(true), me = LBI.info && LBI.info.me, p = lbiPhase();
+  let l2 = lbiStatusLine();
+  if (p.k === 'pre') l2 = (me && me.registered ? "YOU'RE IN · " : 'REGISTER · ') + l2;
+  if (textW(l2) > b.w - 34) l2 = l2.replace(' LEFT', '');
+  drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2) + 1, b.y + 5, '#000'); drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2), b.y + 4, '#D4AF37');
+  drawText(l2, Math.round(b.x + (b.w - textW(l2)) / 2), b.y + 15, COL.white);
+}
+function lbiOpen(tab) {
+  try { trackEvent('lbi_open', {}); } catch (e) {}
+  showAcct('lbi', { tab: tab || 'board' }); lbiRefresh();
+}
+async function lbiRefresh() {
+  await Promise.all([lbiLoad(true), lbiLoadBoard()]);
+  if (acctView === 'lbi') lbiRender();
+}
+function lbiRender(msg, ok) { if (acctView !== 'lbi') return; const y = acctEl.scrollTop; acctBox.innerHTML = VIEWS.lbi(acctOpts); acctEl.scrollTop = y; if (msg) acctMsg(msg, ok); }
+
+/* ---- tournament page ---- */
+function lbiAction() {   // [label, data-a, data-n, alt?] or a status line
+  const I = LBI.info || {}, me = I.me, p = lbiPhase(), c = lbiCfg() || {}, t = lbiNow();
+  if (p.k === 'done') return null;
+  if (!isSignedIn()) return (p.k === 'pre' || (p.k === 'live' && t < lbiT(c.reg_close))) ? ['SIGN IN TO ENTER', 'lbiGate'] : null;
+  if (!me || !me.registered) return t >= lbiT(c.reg_open) && t < lbiT(c.reg_close) || (I.preview && t < lbiT(c.reg_close)) ? ['REGISTER', 'lbiReg'] : { s: 'REGISTRATION CLOSED' };
+  if (me.status === 'removed') return { s: 'NOT IN THE FIELD' };
+  if (me.mc) return { s: 'MISSED THE CUT' };
+  if (p.k === 'live') { const r = lbiMyRound(p.rnd);
+    if (!r) return ['TEE OFF · ' + LBI_RNAME[p.rnd - 1], 'lbiPlay', p.rnd];
+    if (!r.closed) return ['RESUME · HOLE ' + (r.thru + 1), 'lbiPlay', p.rnd];
+    return { s: LBI_RNAME[p.rnd - 1] + ' IN · ' + lbiTp(r.tp), ok: 1 }; }
+  if (p.k === 'final' && p.playoff && me.playoff) { const r = lbiMyRound(5);
+    if (!c.playoff_hole) return { s: 'PLAYOFF HOLE SOON' };
+    if (!r || !r.closed) return ['PLAYOFF · HOLE ' + c.playoff_hole, 'lbiPlay', 5];
+    return { s: 'PLAYOFF IN · ' + (r.tp + (c.playoff_hole ? FRONT_HOLES.concat(BACK_HOLES)[c.playoff_hole - 1].par : 0)) + ' STROKES', ok: 1 }; }
+  if (p.k === 'pre') return { s: "YOU'RE IN", ok: 1 };
+  return null;
+}
+function lbiBoardHtml(B, admin) {
+  const rows = (B && B.rows) || [], mine = hasUsername() ? myName() : '';
+  if (!rows.length) return '<p class="empty">NO SCORES YET</p>';
+  let h = '<div class="lbiw"><table class="lbit"><tr><th>POS</th><th class="pl">PLAYER</th><th>TODAY</th><th>THRU</th><th>TOT</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th>' + (admin ? '<th></th>' : '') + '</tr>';
+  let cutDrawn = false;
+  rows.forEach(r => {
+    if (B.cut_done && r.mc && !cutDrawn) { cutDrawn = true; h += '<tr class="cut"><td colspan="' + (admin ? 10 : 9) + '">CUT ' + lbiTp(B.cut) + '</td></tr>'; }
+    const me = String(r.u || '').toUpperCase() === mine, rr = r.r || [];
+    const st = admin ? (r.st === 'removed' ? ' <span class="ban">OUT</span>' : r.st === 'flagged' ? ' <span class="adm">FLAG</span>' : '') + ((r.det || []).some(d => d.review) ? ' <span class="adm">⚑</span>' : '') : '';
+    h += '<tr class="' + (me ? 'me' : '') + (r.mc ? ' mc' : '') + '"><td>' + esc(r.pos) + '</td><td class="pl">' + esc(String(r.u || '').toUpperCase()) + st + '</td><td>' + lbiTp(r.today) + '</td><td>' + esc(r.thru == null ? '-' : r.thru) + '</td><td class="tot">' + lbiTp(r.total) + '</td>' +
+      [0, 1, 2, 3].map(i => '<td>' + lbiTp(rr[i]) + '</td>').join('') +
+      (admin ? '<td class="acts"><button class="btn small alt" data-a="lbiP" data-id="' + esc(r.u) + '" data-n="' + (r.st === 'flagged' ? 'ok' : 'flagged') + '">' + (r.st === 'flagged' ? 'UNFLAG' : 'FLAG') + '</button><button class="btn small ' + (r.st === 'removed' ? '' : 'alt') + '" data-a="lbiP" data-id="' + esc(r.u) + '" data-n="' + (r.st === 'removed' ? 'ok' : 'removed') + '">' + (r.st === 'removed' ? 'RESTORE' : 'REMOVE') + '</button></td>' : '') + '</tr>';
+  });
+  return h + '</table></div>';
+}
+function lbiPageHtml(o) {
+  const I = LBI.info, c = lbiCfg();
+  if (!I || !c) return head('TOURNAMENT', 'lbiClose') + (I ? '<p class="empty">NOT OPEN YET</p>' : '<p class="empty">LOADING...</p>') + '<div class="msg"></div>';
+  const tab = o.tab || 'board', a = lbiAction(), B = LBI.board || {}, F = LBI.field || [];
+  let h = head(esc(c.name), 'lbiClose') + '<p class="sub lbist">' + esc(lbiStatusLine()) + '</p>';
+  if (I.preview) h += '<p class="sub" style="color:#fc9838">ADMIN PREVIEW · PLAYERS SEE THIS ' + lbiFmtDay(c.reg_open) + '</p>';
+  if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
+  if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
+  else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
+  h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
+  if (tab === 'board') h += lbiBoardHtml(B, false);
+  else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
+  else h += '<div class="lbipz"><div><b>1ST</b>CAMO HAT + LUCKY BALL MARKER</div><div><b>2ND-6TH</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
+  h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
+  h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
+  if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
+  return h;
+}
+function lbiGateHtml() { return '<div class="top"><span style="width:66px"></span><h2>' + esc((lbiCfg() || {}).name || 'TOURNAMENT') + '</h2><button class="back" data-a="lbiGateX" aria-label="CLOSE">X</button></div>' +
+  '<p class="sub">SIGN IN TO ENTER</p><button class="btn" data-a="go:signup">CREATE ACCOUNT</button><button class="btn alt" data-a="go:login">SIGN IN</button>'; }
+
+/* ---- admin ---- */
+const LBI_DATES = [['reg_open', 'REGISTRATION OPENS'], ['reg_close', 'REGISTRATION CLOSES'], ['r1_start', 'R1 START'], ['r1_end', 'R1 END'], ['r2_start', 'R2 START'], ['r2_end', 'R2 END (CUT)'],
+  ['r3_start', 'R3 START'], ['r3_end', 'R3 END'], ['r4_start', 'R4 START'], ['r4_end', 'R4 END'], ['lock_at', 'RESULTS + PLAYOFF DAY'], ['playoff_end', 'PLAYOFF ENDS'], ['show_until', 'HIDE AFTER']];
+function lbiEt(iso) { try { const p = {}; new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).forEach(x => p[x.type] = x.value); return p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute; } catch (e) { return ''; } }
+function lbiCfgDate(c, k) { if (c[k]) return c[k]; const m = /^r([1-4])_(start|end)$/.exec(k); return m ? c.r[m[1] - 1][m[2] === 'start' ? 0 : 1] : ''; }
+async function lbiAdminLoad() { const r = await lbiRpc('lbi_admin_board', {}); LBI.adm = r.ok ? r.data : null; return r; }
+function lbiAdminHtml(o) {
+  const A = LBI.adm; let h = head('TOURNAMENT ADMIN', 'lbiBack') + '<div class="msg"></div>';
+  if (!A) return h + '<p class="empty">' + (o.loading ? 'LOADING...' : 'ADMIN ONLY') + '</p>';
+  const c = A.cfg, sel = (id, v, opts) => '<select id="' + id + '">' + opts.map(([k, l]) => '<option value="' + k + '"' + (String(k) === String(v == null ? '' : v) ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
+  h += '<p class="sub">ALL TIMES EASTERN · YYYY-MM-DD HH:MM</p><form data-f="lbiCfg" novalidate><label for="lbN">NAME</label><input id="lbN" type="text" maxlength="40" value="' + esc(c.name) + '">' +
+    LBI_DATES.map(([k, l]) => '<label for="lbD_' + k + '">' + l + '</label><input id="lbD_' + k + '" type="text" inputmode="numeric" maxlength="16" value="' + esc(lbiEt(lbiCfgDate(c, k))) + '">').join('') +
+    [0, 1, 2, 3].map(i => '<label for="lbC' + i + '">R' + (i + 1) + ' COURSE</label>' + sel('lbC' + i, c.courses[i], [['full', 'HOLES 1-18'], ['rev', 'HOLES 10-18, THEN 1-9']])).join('') +
+    '<label for="lbPH">PLAYOFF HOLE</label>' + sel('lbPH', c.playoff_hole, [['', 'NOT SET']].concat(Array.from({ length: 18 }, (_, i) => [i + 1, 'HOLE ' + (i + 1) + ' · PAR ' + FRONT_HOLES.concat(BACK_HOLES)[i].par]))) +
+    '<label for="lbR">OFFICIAL RULES LINK</label><input id="lbR" type="text" inputmode="url" maxlength="500" placeholder="https://" autocapitalize="off" spellcheck="false" value="' + esc(c.rules_url || '') + '">' +
+    '<button class="btn" type="submit">SAVE SETTINGS</button></form>';
+  h += '<p class="sec">BOARD' + (A.cut_done ? ' · CUT ' + lbiTp(A.cut) : '') + ((A.playoff || []).length ? ' · PLAYOFF ' + A.playoff.map(x => '@' + String(x).toUpperCase()).join(' ') : '') + '</p>' + lbiBoardHtml(A, true);
+  const rv = (A.rows || []).filter(r => (r.det || []).some(d => d.review));
+  if (rv.length) h += '<p class="sec">REVIEW</p><div class="list">' + rv.map(r => '<div class="item"><div class="who wr">' + at(r.u) + '<span class="st hot">' + (r.det || []).filter(d => d.review).map(d => 'R' + d.r + ': ' + esc(d.review) + (d.secs ? ' · ' + Math.round(d.secs / 60) + ' MIN' : '')).join(' · ') + '</span></div></div>').join('') + '</div>';
+  h += '<div class="row" style="margin-top:12px"><button class="btn alt" data-a="lbiCsv">EXPORT CSV</button><button class="btn' + (c.locked ? ' alt' : '') + '" data-a="lbiLock">' + (o.lockArm ? 'TAP AGAIN TO CONFIRM' : c.locked ? 'UNLOCK RESULTS' : 'LOCK FINAL RESULTS') + '</button></div>';
+  h += '<p class="sub" style="margin-top:8px">' + (A.entries || []).length + ' REGISTERED · EVERY CHANGE GOES IN THE ADMIN LOG</p>';
+  return h;
+}
+function lbiCsv() {
+  const A = LBI.adm || {}, em = {}; (A.entries || []).forEach(e => em[String(e.u).toLowerCase()] = e);
+  const q = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const out = [['pos', 'player', 'email', 'status', 'note', 'total', 'r1', 'r2', 'r3', 'r4', 'today', 'thru', 'playoff_strokes', 'r1_holes', 'r2_holes', 'r3_holes', 'r4_holes', 'r1_min', 'r2_min', 'r3_min', 'r4_min', 'review', 'registered_at_utc']];
+  const seen = {};
+  (A.rows || []).forEach(r => { const e = em[String(r.u).toLowerCase()] || {}, d = {}; (r.det || []).forEach(x => d[x.r] = x); seen[String(r.u).toLowerCase()] = 1;
+    out.push([r.pos, r.u, e.email, r.st, r.note, r.total, ...[0, 1, 2, 3].map(i => (r.r || [])[i]), r.today, r.thru, r.po,
+      ...[1, 2, 3, 4].map(i => d[i] ? (d[i].s || []).map(v => v == null ? '' : v).join(' ') : ''), ...[1, 2, 3, 4].map(i => d[i] && d[i].secs ? Math.round(d[i].secs / 6) / 10 : ''),
+      (r.det || []).filter(x => x.review).map(x => 'R' + x.r + ' ' + x.review).join('; '), e.at]); });
+  (A.entries || []).forEach(e => { if (!seen[String(e.u).toLowerCase()]) out.push(['', e.u, e.email, e.st, e.note, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', e.at]); });
+  const csv = out.map(r => r.map(q).join(',')).join('\n'), name = String((A.cfg || {}).name || 'tournament').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + nyDateStr() + '.csv';
+  try { const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), l = document.createElement('a'); l.href = u; l.download = name; document.body.appendChild(l); l.click(); setTimeout(() => { URL.revokeObjectURL(u); l.remove(); }, 4000); } catch (e) {}
+  window.__lbiCsv = csv; return csv;
+}
+
+/* ---- playing a round ---- */
+function lbiHoles(course, rnd, ph) { const all = FRONT_HOLES.concat(BACK_HOLES); if (rnd === 5) return [all[(ph || 18) - 1]]; return course === 'rev' ? BACK_HOLES.concat(FRONT_HOLES) : all; }
+function lbiHoleNo(i) { if (!lbiCtx) return i + 1; if (lbiCtx.rnd === 5) return lbiCtx.ph || 1; return lbiCtx.course === 'rev' ? (i < 9 ? i + 10 : i - 8) : i + 1; }
+function lbiBegin(d, practice) {
+  const c = lbiCfg() || {};
+  if (practice) {   // practice: the round's course, random pins / wind like any normal round; never sent anywhere
+    const p = lbiPhase(), rnd = p.rnd || p.next || 1;
+    lbiCtx = { practice: true, rnd, course: (c.courses || [])[rnd - 1] || 'full', from: 0, prev: [] };
+    weather = pickWeather(); setCourseHoles('lbi', lbiHoles(lbiCtx.course, rnd));
+  } else {
+    lbiCtx = { practice: false, rnd: d.rnd, course: d.course, seed: String(d.seed || ''), ph: d.playoff_hole, from: d.from | 0, prev: (d.scores || []).map(v => v == null ? undefined : v), err: '', sentTp: null };
+    weather = pickWeather(mulberry32(seedFromStr('LBI-W-' + lbiCtx.seed)));
+    setCourseHoles('lbi', lbiHoles(d.course, d.rnd, d.playoff_hole));
+  }
+  hideAcct(); setState('title'); startRound();
+}
+async function lbiPlay(rnd, btn) {
+  const r = await lbiRpc('lbi_start', { p_round: rnd });
+  if (!r.ok) { lbiRender(lbiErr(r)); return; }
+  if (r.data.closed) { await lbiRefresh(); return; }
+  try { trackEvent('lbi_round_start', { round: rnd }); } catch (e) {}
+  lbiBegin(r.data, false);
+}
+function lbiQSave() { try { localStorage.setItem(LBI_Q_KEY, JSON.stringify(lbiQ.slice(-60))); } catch (e) {} }
+function lbiSend(fn, body) { if (!lbiCtx || lbiCtx.practice || NO_SAVE) return; lbiQ.push({ fn, body, uid: account.user && account.user.id }); lbiQSave(); lbiFlush(); }
+async function lbiFlush() {
+  if (lbiFlushing || !lbiQ.length || !isSignedIn()) return; lbiFlushing = true;
+  try {
+    while (lbiQ.length) {
+      const j = lbiQ[0]; if (j.uid && account.user && j.uid !== account.user.id) { lbiQ.shift(); continue; }
+      const r = await lbiRpc(j.fn, j.body);
+      if (r.status === 0 || r.status >= 500 || r.status === 401) { setTimeout(lbiFlush, 5000); break; }   // offline / token refresh: keep the order, retry
+      lbiQ.shift(); lbiQSave();
+      if (!r.ok && lbiCtx && !lbiCtx.practice) lbiCtx.err = (j.fn === 'lbi_hole' ? 'HOLE ' + j.body.p_hole + ': ' : '') + lbiErr(r);
+      if (r.ok && j.fn === 'lbi_hole' && lbiCtx && r.data) lbiCtx.sentTp = r.data.tp;
+    }
+  } finally { lbiFlushing = false; }
+}
+function lbiTeeHook() { if (!lbiCtx) return; lbiCtx.shots = []; lbiCtx.teeAt = performance.now(); if (!lbiCtx.practice) lbiSend('lbi_tee', { p_round: lbiCtx.rnd, p_hole: holeIdx + 1 }); }
+function lbiShotHook() { if (lbiCtx && lbiCtx.shots) lbiCtx.shots.push(Math.round(performance.now() - (lbiCtx.teeAt || 0))); }
+function lbiHoleHook(n) { if (!lbiCtx || lbiCtx.practice) return; lbiSend('lbi_hole', { p_round: lbiCtx.rnd, p_hole: holeIdx + 1, p_strokes: n, p_shots: (lbiCtx.shots || []).slice(0, 10) }); }
+function lbiQuitCounted() { return courseKind === 'lbi' && lbiCtx && !lbiCtx.practice && state !== 'card'; }
+function lbiQuit() { lbiSend('lbi_quit', { p_round: lbiCtx.rnd }); lbiCtx.quit = true; }
+function lbiCardMsg() {
+  if (!lbiCtx || lbiCtx.practice) return ['PRACTICE - NOT SCORED', COL.orange];
+  if (lbiCtx.err) return [lbiCtx.err.slice(0, 34), COL.orange];
+  if (lbiQ.length) return ['SENDING SCORES...', COL.white];
+  return [(lbiCtx.rnd === 5 ? 'PLAYOFF' : LBI_RNAME[lbiCtx.rnd - 1]) + ' IN!', COL.lime];
+}
+function lbiAfterCard() { setState('title'); lbiCtx = null; lbiOpen('board'); }
+setTimeout(lbiFlush, 2500);
+Object.assign(VIEWS, { lbi: o => lbiPageHtml(o), lbiAdmin: o => lbiAdminHtml(o), lbiGate: () => lbiGateHtml() });   // v8.63
 /* v8.55 ADD TO HOME SCREEN nudge: after round 1 or 2, not installed, at most every 3 days, never mid-round */
 const A2HS_KEY = 'dlg_a2hs_v1', A2HS_GAP = 3 * 864e5;
 let a2hsEvt = null;
@@ -7840,6 +8109,8 @@ async function afterAuth() {
   try { await loadAdmin(); } catch (e) {}
   try { await loadAppearance(); } catch (e) {}   // v8.31: the account's look wins on this device
   if (cupAfterPending()) { cupAfterClear(); hideAcct(); startCourse('spooky'); return; }   // v8.55
+  try { await lbiLoad(true); } catch (e) {}
+  { let la = false; try { la = sessionStorage.getItem(LBI_AFTER_KEY) === '1'; sessionStorage.removeItem(LBI_AFTER_KEY); } catch (e) {} if (la) { hideAcct(); setState('title'); lbiOpen('board'); return; } }   // v8.63
   hideAcct(); careerMsg = { text: 'WELCOME @' + myName(), t: 0 }; setState('career');
 }
 if (acctEl) {
@@ -7866,6 +8137,13 @@ if (acctEl) {
         const r = await sb('/rest/v1/rpc/spooky_set_ig', { method: 'POST', body: { p_ig: v } }, 'spooky');
         if (!r.ok) { acctMsg(r.status === 0 ? "CAN'T REACH THE SERVER" : 'COULD NOT SAVE'); return; }
         cupMyIg = v; await cupLoadIgs(true); hideAcct(); if (board && board.modeId === 'spooky') loadBoardTab();
+      } else if (f === 'lbiCfg') {   // v8.63
+        const p = { name: val('lbN').trim() }; for (const [k] of LBI_DATES) p[k] = val('lbD_' + k).trim();
+        p.courses = [0, 1, 2, 3].map(i => val('lbC' + i)); p.playoff_hole = val('lbPH') ? +val('lbPH') : null; p.rules_url = val('lbR').trim();
+        const bad = LBI_DATES.find(([k]) => !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(p[k])); if (bad) { acctMsg(bad[1] + ': USE YYYY-MM-DD HH:MM'); return; }
+        if (p.rules_url && !/^https:\/\/\S{4,}$/.test(p.rules_url)) { acctMsg('RULES LINK MUST START WITH https://'); return; }
+        const r = await lbiRpc('lbi_admin_config', { p }); if (!r.ok) { acctMsg(/check constraint/i.test(lbiErr(r)) ? 'DATES OUT OF ORDER' : lbiErr(r)); return; }
+        await lbiAdminLoad(); await lbiLoad(true); showAcct('lbiAdmin', { msg: 'SAVED', ok: true });
       } else if (f === 'preorder') {
         const nm = document.getElementById('poName').value.trim(), em = document.getElementById('poEmail').value.trim(), q = +document.getElementById('poQty').value;
         Object.assign(acctOpts, { name: nm, email: em, qty: q });
@@ -7910,6 +8188,21 @@ if (acctEl) {
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
     if (a === 'spClose') { hideAcct(); return; }   // v8.52
+    if (a.startsWith('lbi')) {   // v8.63 tournament
+      if (a === 'lbiClose' || a === 'lbiGateX') { try { sessionStorage.removeItem(LBI_AFTER_KEY); } catch (e) {} hideAcct(); return; }
+      if (a === 'lbiOpen') { lbiOpen('board'); return; }
+      if (a === 'lbiTab') { acctOpts.tab = b.getAttribute('data-n'); lbiRender(); return; }
+      if (a === 'lbiGate') { try { sessionStorage.setItem(LBI_AFTER_KEY, '1'); } catch (e) {} showAcct('lbiGate'); return; }
+      if (a === 'lbiReg') { acctBusy(true); const r = await lbiRpc('lbi_register', {}); acctBusy(false); if (!r.ok) { acctMsg(lbiErr(r)); return; } try { trackEvent('lbi_register', {}); } catch (e) {} await lbiRefresh(); lbiRender(); return; }
+      if (a === 'lbiPlay') { acctBusy(true); await lbiPlay(+b.getAttribute('data-n')); acctBusy(false); return; }
+      if (a === 'lbiPrac') { lbiBegin(null, true); return; }
+      if (a === 'lbiAdmin') { showAcct('lbiAdmin', { loading: true }); const r = await lbiAdminLoad(); if (acctView === 'lbiAdmin') showAcct('lbiAdmin', { msg: r.ok ? '' : lbiErr(r) }); return; }
+      if (a === 'lbiBack') { lbiOpen('board'); return; }
+      if (a === 'lbiCsv') { lbiCsv(); acctMsg('CSV DOWNLOADED', true); return; }
+      if (a === 'lbiLock') { if (!acctOpts.lockArm) { showAcct('lbiAdmin', { lockArm: true }); return; } acctBusy(true); const r = await lbiRpc('lbi_admin_lock', { p_lock: !(LBI.adm && LBI.adm.cfg.locked) }); await lbiAdminLoad(); await lbiLoad(true); showAcct('lbiAdmin', { msg: r.ok ? (r.data.locked ? 'LOCKED · WINNER ' + (r.data.winner ? '@' + String(r.data.winner).toUpperCase() : '-') : 'UNLOCKED') : lbiErr(r), ok: r.ok }); return; }
+      if (a === 'lbiP') { const n = b.getAttribute('data-n'); let note = ''; if (n !== 'ok') { note = window.prompt((n === 'removed' ? 'REMOVE @' : 'FLAG @') + String(id).toUpperCase() + ' - REASON (OPTIONAL)', '') ; if (note === null) return; }
+        acctBusy(true); const r = await lbiRpc('lbi_admin_player', { p_username: id, p_status: n, p_note: note || '' }); await lbiAdminLoad(); showAcct('lbiAdmin', { msg: r.ok ? '@' + String(id).toUpperCase() + ' ' + (n === 'ok' ? 'RESTORED' : n.toUpperCase()) : lbiErr(r), ok: r.ok }); return; }
+    }
     if (a === 'poClose') { const back = acctView === 'poThanks' || acctView === 'preorder'; hideAcct(); if (back && state === 'title') { menuPopup = { kind: 'shop', t: 0.2 }; } return; }
     if (a === 'pofill') { acctBusy(true); const r = await adminRpc('admin_preorder_set', { p_id: Number(id), p_status: b.getAttribute('data-n') }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } await adminLoadPreorders(); showAcct('adminStore', { keep: 1 }); return; }
     if (a === 'stlink') { const l = (shopState.links || {})[id] || {}, h = String((document.getElementById('slH_' + id) || {}).value || '').trim().toLowerCase(), u = String((document.getElementById('slU_' + id) || {}).value || '').trim();   // v8.50
@@ -8201,7 +8494,7 @@ if (/test/.test(location.hash)) {
     get ghost() { const G = ghostPlay && ghostPlay.hole; return ghostPlay ? { name: ghostPlay.name, x: G && G.x, h: G && G.h, next: G && G.next, shots: G && G.shots.length, anim: !!(G && G.anim), holed: G && G.holed } : null; },
     get ghostRec() { return ghostRec ? JSON.parse(JSON.stringify(ghostRec)) : null; }, ghostCompare() { return ghostCompare(); },
     startMatch(id, watch) { const m = social.matches.find(x => x.id === id); return m ? startMatchRound(m, !!watch) : null; }, careerLayout() { return careerLayout(); },
-    career(id) { return careerLoad(id); }, get courseKind() { return courseKind; }, get holesLen() { return HOLES.length; }, finishRoundNow() { finishRound(); }, matchAfterRound() { return matchAfterRound(); },
+    career(id) { return careerLoad(id); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get holesLen() { return HOLES.length; }, finishRoundNow() { finishRound(); }, matchAfterRound() { return matchAfterRound(); },
     get state() { return state; }, get hole() { return holeIdx; }, get strokes() { return strokes; }, get scores() { return scores.slice(); },
     get ball() { return ball ? { x: ball.x, h: ball.h, mode: ball.mode, lie: surfAt(hole, ball.x) } : null; }, get cup() { return hole ? hole.cup : null; },
     get player() { return Object.assign({}, player); }, get board() { return board ? { rows: board.rows, hi: board.hi } : null; },
@@ -8247,7 +8540,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
