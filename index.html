@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.66">
+<meta name="dlg-version" content="v8.67">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -67,7 +67,8 @@
   #acct .stlink{display:flex;gap:6px;margin:-2px 0 10px;flex-wrap:wrap}#acct .stlink input{flex:1 1 140px;width:auto !important;font-size:16px !important;padding:8px !important}
   #acct .box{max-width:440px;margin:0 auto;background:#000;border:3px solid #fcfcfc;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5);padding:14px 14px 16px}
   #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px}
-  #acct .back{background:none;border:0;color:#fcfcfc;font:inherit;font-size:14px;letter-spacing:2px;padding:10px 4px;min-height:44px;cursor:pointer}
+  #acct .back{background:none;border:0;color:#fcfcfc;font:inherit;font-size:14px;letter-spacing:2px;padding:12px 14px 12px 6px;margin:-6px 0 -6px -6px;min-height:52px;min-width:80px;text-align:left;cursor:pointer;touch-action:manipulation}
+  #acct .back[aria-label]{min-width:52px;text-align:center;padding:12px;margin:-6px -6px -6px 0}
   #acct h2{margin:0;font-size:20px;letter-spacing:3px;color:#f8d878;text-shadow:2px 2px 0 #000;text-align:center;flex:1}
   #acct .sub{font-size:12px;letter-spacing:1px;color:#bcc8e0;line-height:1.5;margin:0 0 12px;text-align:center}
   #acct label{display:block;font-size:12px;letter-spacing:2px;margin:12px 0 6px;color:#f8d878}
@@ -228,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.66';
+const GAME_VERSION = 'v8.67';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1680,7 +1681,7 @@ async function lookSave() {
 function lookCancel() { lookEd = null; lookDrag = null; SFX.click(); }
 function lookPointerDown(p, e) {
   const L = lookLayout();
-  if (hitBtn(p, careerBackR())) { armUiTap('lookBack', lookCancel, up => hitBtn(toLogical(up), careerBackR()), e); return true; }
+  if (hitBack(p, careerBackR())) { armUiTap('lookBack', lookCancel, up => hitBack(toLogical(up), careerBackR()), e); return true; }
   if (hit(p, { x: L.view.x - 4, y: L.view.y, w: L.view.w + 10, h: L.view.h })) {
     for (let i = 0; i < L.rows.length; i++) {
       const R = L.rows[i]; if (!R.vis) continue;
@@ -4569,7 +4570,7 @@ function customKey(e) {
 function customPointer(p) {
   // name overlay owns its own DOM taps; canvas taps below still work for look / tee-off / back
   if (cz.kb) return;
-  if (hitBtn(p, CZ_BACK_R)) { czCancel(); return; }
+  if (hitBack(p, CZ_BACK_R)) { czCancel(); return; }
   if (hitBtn(p, nameHitRect())) { openKb(); return; }
   for (const r of [1, 2, 3, 4, 5]) {
     if (hitBtn(p, ARROW_L(r))) { cz.row = r; czStep(r, -1); return; }
@@ -5409,6 +5410,10 @@ function hitExpand(r, minCss = 44) {
   return { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, w, h, i: r.i };
 }
 function hitBtn(p, r) { return r ? hit(p, hitExpand(r)) : false; }
+// v8.67: '< BACK' (top-left, right under the status bar / notch): generous thumb target - reaches the screen edge on the left, a bit above the label
+// (into the safe-area strip), a little below (stops short of the first card / preview under it) and well to the right, at least 52 css px
+function backHitR(r) { return r ? hitExpand({ x: 0, y: Math.max(0, r.y - 10), w: r.x + r.w + 22, h: (r.y - Math.max(0, r.y - 10)) + r.h + 4 }, 52) : r; }
+function hitBack(p, r) { return r ? hit(p, backHitR(r)) : false; }
 let touchDown = null;
 let uiTap = null;            // { key, act, still, cx, cy }
 let lastUiTapAt = 0;
@@ -5626,11 +5631,12 @@ cv.addEventListener('pointerdown', e => {
     armUiTap('fs', () => toggleFullscreen(), (up) => hitBtn(toLogical(up), FS_BTN), e); touchDown = null; return;
   }
   if (state === 'course') {   // v8.16: course cards + '< BACK'
-    const hitCs = i => i === CS_BACK_I ? hitBtn(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
-    for (const i of [0, 1, 2, 3, 4]) {
+    // v8.67 fix: since v8.57 (QUICK 3 made 5 cards) '< BACK' is index 5, but this list stopped at 4, so BACK taps were never checked
+    const hitCs = i => i === CS_BACK_I ? hitBack(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
+    for (const i of [CS_BACK_I, ...Array.from({ length: CS_N }, (_, k) => k)]) {
       if (!hitCs(i)) continue;
       courseSel = i;
-      armUiTap('course' + i, () => courseActivate(i), (up) => { const q = toLogical(up); return i === CS_BACK_I ? hitBtn(q, CS_BACK_R) : hit(q, CS_CARDS[i]); }, e);
+      armUiTap('course' + i, () => courseActivate(i), (up) => { const q = toLogical(up); return i === CS_BACK_I ? hitBack(q, CS_BACK_R) : hit(q, CS_CARDS[i]); }, e);
       break;
     }
     touchDown = null; return;
@@ -5660,7 +5666,7 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'custom') {
     if (!cz || cz.kb) { touchDown = null; return; }
     // arm specific customize controls
-    if (hitBtn(p, CZ_BACK_R)) { armUiTap('czback', () => czCancel(), (up) => hitBtn(toLogical(up), CZ_BACK_R), e); touchDown = null; return; }
+    if (hitBack(p, CZ_BACK_R)) { armUiTap('czback', () => czCancel(), (up) => hitBack(toLogical(up), CZ_BACK_R), e); touchDown = null; return; }
     if (hitBtn(p, nameHitRect())) { armUiTap('czname', () => openKb(), (up) => hitBtn(toLogical(up), nameHitRect()), e); touchDown = null; return; }
     let armed = false;
     for (const r of [1, 2, 3, 4, 5]) {
@@ -7016,7 +7022,7 @@ const PS_CSS = `
 .ps-bell{position:absolute;right:22px;top:-11px;width:16px;height:9px;border-radius:9px 9px 0 0;background:#D4AF37;border:2px solid #000;border-bottom:0}
 .ps-detail{display:grid;grid-template-columns:1fr;gap:12px;width:100%;max-width:760px;margin:0 auto;animation:psPop .3s}
 @media (min-width:640px),(orientation:landscape) and (min-width:560px){.ps-detail{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center}}
-.ps-back{justify-self:start;grid-column:1/-1;min-height:40px;padding:0 12px;background:#000;border:2px solid #D4AF37;font-weight:800;letter-spacing:2px;font-size:12px}
+.ps-back{justify-self:start;grid-column:1/-1;min-height:44px;padding:0 16px;background:#000;border:2px solid #D4AF37;font-weight:800;letter-spacing:2px;font-size:12px}
 .ps-gal{position:relative;width:100%;max-width:380px;justify-self:center}
 .ps-main{position:relative;aspect-ratio:1;max-height:46vh;margin:0 auto;overflow:hidden;border:3px solid #000;box-shadow:inset 0 0 0 2px #D4AF37;
   background:radial-gradient(ellipse 55% 25% at 50% 90%,rgba(255,230,150,.35),transparent 70%),radial-gradient(circle at 50% 40%,#1c5a3a,#0a2416 70%)}
@@ -7037,7 +7043,7 @@ const PS_CSS = `
 @media (max-height:520px){#proShop{padding-top:calc(var(--pst,0px) + 10px);padding-bottom:calc(var(--psb,0px) + 8px)}.ps-room{min-height:0}
   .ps-head{padding:8px 52px 0}.ps-sign{padding:4px 12px 4px 6px}.ps-sign span{font-size:16px}.ps-crest{width:28px;height:28px}.ps-x{top:4px}
   .ps-body{padding:8px 14px 10px}.ps-card{gap:3px;padding-bottom:8px}.ps-stage{height:min(30vw,27vh,170px);min-height:84px}.ps-cta,.ps-soon{min-height:40px}
-  .ps-counter{height:12px}.ps-bell{top:-10px}.ps-detail{gap:6px}.ps-back{min-height:36px}.ps-main{max-height:52vh}.ps-thumbs{margin-top:4px}.ps-thumbs button{width:40px;height:40px}}
+  .ps-counter{height:12px}.ps-bell{top:-10px}.ps-detail{gap:6px}.ps-back{min-height:44px}.ps-main{max-height:52vh}.ps-thumbs{margin-top:4px}.ps-thumbs button{width:40px;height:40px}}
 @media (min-width:900px) and (min-height:600px){.ps-sign span{font-size:28px}.ps-crest{width:48px;height:48px}.ps-name{font-size:15px}.ps-price{font-size:22px}.ps-info h3{font-size:26px}.ps-info .ps-price{font-size:32px}.ps-spec{font-size:13px}.ps-cta{font-size:16px;min-height:52px}.ps-tags span{font-size:13px}.ps-stage{height:min(30vh,260px)}}
 @media (prefers-reduced-motion:reduce){#proShop,#proShop *,#proShop *:before,#proShop *:after{animation:none !important;transition:none !important}
   .ps-room{transform:none !important}.ps-card:after{display:none}}
@@ -7949,7 +7955,7 @@ function careerPointerDown(p, e) {   // returns true when handled
   if (state === 'career' && lookEd) return lookPointerDown(p, e);
   if (state === 'career') {
     const L = careerLayout();
-    if (hitBtn(p, L.back)) { armUiTap('careerBack', () => { SFX.click(); setState('title'); }, (up) => hitBtn(toLogical(up), careerLayout().back), e); return true; }
+    if (hitBack(p, L.back)) { armUiTap('careerBack', () => { SFX.click(); setState('title'); }, (up) => hitBack(toLogical(up), careerLayout().back), e); return true; }
     if (!isSignedIn()) {
       if (hitBtn(p, L.cta)) { armUiTap('careerCta', () => { SFX.click(); showAcct('signup'); }, (up) => hitBtn(toLogical(up), careerLayout().cta), e); return true; }
       if (L.golf && hit(p, { x: L.golf.cx - 40, y: L.golf.feet - 80, w: 80, h: 86 })) { armUiTap('careerLook', () => { SFX.click(); openLookEditor(); }, () => true, e); return true; }
