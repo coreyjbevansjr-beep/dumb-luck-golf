@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.58">
+<meta name="dlg-version" content="v8.59">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.58';
+const GAME_VERSION = 'v8.59';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6872,10 +6872,13 @@ function renderCard() {
   // extend fairway (not bare dirt) into extra portrait height under the HUD
   for (let sx = 0; sx < W; sx += 16) rect(sx, PLAY_H + 1, Math.min(16, W - sx), Math.max(0, H - PLAY_H - 1), (sx >> 4) & 1 ? COL.grass : COL.fair2);
   const tall = HOLES.length > 9;
-  rect(6, 6, 244, tall ? 196 : 176, COL.white); rect(7, 7, 242, tall ? 194 : 174, '#000');
+  // v8.59: the 244-wide card is centred on wide screens (drawTextC already centres on W/2) and sized to its content,
+  // with SHARE / LEADERBOARD + the key hint always below it
+  const ox = Math.max(0, Math.round((W - 256) / 2)), sumY = tall ? 136 : 96, boxH = sumY + 66;
+  rect(ox + 6, 6, 244, boxH, COL.white); rect(ox + 7, 7, 242, boxH - 2, '#000');
   drawTextC('FINAL SCORECARD', 14, COL.orange);
-  drawText('PLAYER ' + (player.name || '--'), 14, 26, COL.blue);
-  const x0 = 12, cw = 19;
+  drawText('PLAYER ' + (player.name || '--'), ox + 14, 26, COL.blue);
+  const x0 = ox + 12, cw = 19;
   function drawCardNine(i0, y0) {
     drawText('HOLE', x0, y0, COL.lime); drawText('PAR', x0, y0 + 14, COL.lime); drawText('SCORE', x0, y0 + 28, COL.lime);
     const n = Math.min(9, HOLES.length - i0), colsX = j => x0 + 34 + j * cw;
@@ -6893,11 +6896,10 @@ function renderCard() {
       drawText(String(TOTAL_PAR), x0 + 34 + n * cw - 4, y0 + 14, COL.white);
       drawText(String(cardInfo.total), x0 + 34 + n * cw - 4, y0 + 28, COL.white);
     }
-    rect(12, y0 + 9, 232, 1, '#3c3c3c'); rect(12, y0 + 23, 232, 1, '#3c3c3c');
+    rect(ox + 12, y0 + 9, 232, 1, '#3c3c3c'); rect(ox + 12, y0 + 23, 232, 1, '#3c3c3c');
   }
   drawCardNine(0, 44);
   if (tall) drawCardNine(9, 90);
-  const sumY = tall ? 136 : 96;
   drawTextC(cardInfo.total + ' STROKES', sumY, COL.white, 2);
   drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel <= 0 ? COL.lime : COL.orange, 2);
   if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, COL.orange);
@@ -6911,7 +6913,7 @@ function renderCard() {
     drawTextC(saveMsg, sumY + 58, (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.lime);
   }
   {
-    const by = Math.max(SHARE_BTN.y, sumY + 72);
+    const by = Math.max(SHARE_BTN.y, 6 + boxH + 6);
     SHARE_BTN.y = by; LB_BTN.y = by;
   }
   for (const [r, lab, col] of [[SHARE_BTN, 'SHARE', '#f8d878'], [LB_BTN, 'LEADERBOARD', COL.white]]) {
@@ -6919,11 +6921,11 @@ function renderCard() {
     rect(r.x, r.y, r.w, r.h, on ? '#f8d878' : COL.white); rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#1c2c5c' : '#000');
     drawText(lab, r.x + Math.round((r.w - textW(lab)) / 2), r.y + 4, col);
   }
-  if (!usingTouch) drawTextC('S = SHARE   ENTER = LEADERBOARD', Math.min(H - 12, SHARE_BTN.y + 18), COL.grayD);
+  if (!usingTouch && SHARE_BTN.y + 26 <= H) drawTextC('S = SHARE   ENTER = LEADERBOARD', SHARE_BTN.y + 19, COL.grayD);   // v8.59: never over the buttons
   {   // v8.43 follow prompt card (only when it fits below the buttons)
     const cw = Math.min(W - 24, 220), ch = Math.max(18, FOLLOW_TAP) + 22, cx = Math.round((W - cw) / 2);
     const cy = SHARE_BTN.y - ch - 12;   // in the open sky just above SHARE / LEADERBOARD
-    CARD_FOLLOW.on = cy >= sumY + 76;
+    CARD_FOLLOW.on = cy >= 6 + boxH + 4;
     if (CARD_FOLLOW.on) {
       rect(cx, cy, cw, ch, '#f8a0d8'); rect(cx + 1, cy + 1, cw - 2, ch - 2, '#140c24');
       drawTextC('GET CLIPS + NEW HOLES FIRST', cy + 5, COL.white);
@@ -6932,7 +6934,7 @@ function renderCard() {
     }
   }
   const f = Math.floor(st * 7) % 2;
-  dimg(f ? SPR.walkA : SPR.walkB, 96, 190);
+  dimg(f ? SPR.walkA : SPR.walkB, ox + 96, Math.max(190, SHARE_BTN.y + 28));
 }
 function render() {
   renderScene();
