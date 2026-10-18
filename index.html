@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.61">
+<meta name="dlg-version" content="v8.62">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -132,7 +132,8 @@
   #acct .plink{background:none;border:0;padding:6px 0;min-height:44px;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer;text-align:left}
   #acct .plink .chev{color:#3cbcfc}
   #acct .fprof{display:flex;align-items:center;gap:12px;margin-top:6px}
-  #acct .fprof .fgolf{width:112px;height:112px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c}
+  #acct .fprof .fgolf{width:80px;height:160px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;padding:4px 16px}
+  #acct img.fbust{width:39px;height:45px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;align-self:center}
   #acct .fprof .big{text-align:left;margin:0 0 4px}
   #acct .fprof .rank{font-size:12px;letter-spacing:1px;margin:0 0 6px;color:#bcc8e0}
   #acct .fprof .rank b{color:#f8d878}
@@ -194,7 +195,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.61';
+const GAME_VERSION = 'v8.62';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -547,7 +548,7 @@ async function authSetPassword(password) {   // after a recovery link (session f
 function signOut() {
   if (authOnline() && isSignedIn()) { try { fetch(authBase() + '/auth/v1/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {} }
   account.user = null; account.profile = null; account.status = '';
-  social.friends = []; social.matches = []; social.h2h = null;
+  social.friends = []; social.matches = []; social.h2h = null; social.looks = {};
   if (typeof admin !== 'undefined') { admin.is = false; admin.unlock = false; admin.names = []; admin.checked = false; }
   saveSession();
 }
@@ -612,7 +613,20 @@ const social = { friends: [], matches: [], loaded: false, busy: false };
 async function loadFriends() {
   const r = await sb('/rest/v1/my_friends?select=id,status,direction,friend_id,friend_username&order=created_at.desc', {}, 'friends');
   social.friends = r.ok && Array.isArray(r.data) ? r.data : [];
+  if (social.friends.some(f => f.status === 'accepted')) loadFriendLooks();
   return r;
+}
+async function loadFriendLooks() {   // v8.62: accepted friends' looks (server: friend_looks(), look data only)
+  const r = await sb('/rest/v1/rpc/friend_looks', { method: 'POST', body: {} }, 'flooks');
+  if (!r.ok || !r.data || typeof r.data !== 'object') return r;
+  const m = {}; for (const k in r.data) m[k.toLowerCase()] = r.data[k] || {};
+  social.looks = m;
+  if (acctView === 'friends' && acctEl && !acctEl.querySelector('input:focus')) acctEl.querySelectorAll('img.fbust[data-u]').forEach(im => { const L = m[im.dataset.u.toLowerCase()]; if (L) im.src = golferHDImg(L.appearance, L.gear, 'bust', 2); });
+  return r;
+}
+function friendBust(username) {   // small cached head + shoulders; default golfer until their look arrives
+  const L = (social.looks || {})[String(username).toLowerCase()] || {};
+  return '<img class="fbust" alt="" data-u="' + esc(username) + '" src="' + golferHDImg(L.appearance, L.gear, 'bust', 2) + '">';
 }
 async function addFriend(username) {
   username = String(username || '').trim().replace(/^@/, '');
@@ -1026,6 +1040,149 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   line(ex, ey, hx, hy, look.skin); line(ex, ey + 1, hx, hy + 1, look.skin);
   rect(hx - 1, hy - 1, 3, 4, K); rect(hx, hy, 2, 2, look.glove || look.skin);     // hands / glove
 }
+/* ================= v8.62: detailed golfer (EDIT LOOK + friend avatars + busts). The in-game sprite (drawGolfer above) is untouched. ================= */
+// Sprite units: x from the body centre (+ = viewer's right), y up from the soles (rows are negative). Drawn at s logical px per unit.
+// Gear attaches to these slots; each box is the area an item may cover (x, y = top-left in sprite units).
+const HD_SLOTS = {
+  head:  { x: -8, y: -61, w: 17, h: 12, what: 'hat / headwear' },
+  face:  { x: -6, y: -48, w: 13, h: 3,  what: 'eyewear' },
+  neck:  { x: -4, y: -39, w: 9,  h: 5,  what: 'chain / necklace' },
+  torso: { x: -11, y: -38, w: 23, h: 16, what: 'shirt / jacket' },
+  logo:  { x: 2,  y: -35, w: 4,  h: 4,  what: 'chest logo' },
+  waist: { x: -7, y: -22, w: 15, h: 2,  what: 'belt / buckle' },
+  hands: { x: 9,  y: -22, w: 3,  h: 3,  what: 'glove (lead hand)' },
+  feet:  { x: -9, y: -4,  w: 19, h: 4,  what: 'shoes' },
+  held:  { x: 12, y: -27, w: 5,  h: 27, what: 'club / bag' },
+  ball:  { x: 0,  y: 0,   w: 0,  h: 0,  what: 'ball skin (in play)' }
+};
+const GEAR_ART = {};   // itemId -> (R, D, look, slot) => void   (R = outlined part, D = flat detail; sprite units)
+function hdLookFull(app) {   // a complete look from saved appearance; missing keys use the default golfer (never the viewer's own look)
+  const o = {}; for (const k in LOOK_KEYS) { const v = app && app[k]; o[k] = Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : LOOK_DEFAULT[k]; }
+  return o;
+}
+function drawGolferHD(cx, feetY, s, look, opt) {
+  // look = lookOf(...) colours; opt.gear = { slot: itemId }; opt.blink; opt.crop = 'bust' (head + shoulders only)
+  opt = opt || {}; const gear = opt.gear || {}, K = '#000';
+  const parts = [], dets = [];
+  const R = (x, y, w, h, c) => parts.push([x, y, w, h, c]), D = (x, y, w, h, c) => dets.push([x, y, w, h, c]);
+  const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * s, feetY + y * s, w * s, h * s); };
+  const flush = () => { for (const p of parts) P(p[0] - 1, p[1] - 1, p[2] + 2, p[3] + 2, K); for (const p of parts) P(p[0], p[1], p[2], p[3], p[4]); for (const d of dets) P(d[0], d[1], d[2], d[3], d[4]); parts.length = 0; dets.length = 0; };
+  const art = slot => { const id = gear[slot], f = id && GEAR_ART[id]; if (f) { f(R, D, look, HD_SLOTS[slot]); return true; } return false; };
+  const sk = look.skin, skD = look.skinD, hc = look.hairC, hcD = shadeHex(hc, 0.72), hs = look.hair | 0, hst = look.hatStyle | 0;
+  const bust = opt.crop === 'bust';
+  if (!bust) {
+    // ---- shoes + legs + belt
+    R(-7, -20, 7, 17, look.pants); R(1, -20, 7, 17, look.pants); R(0, -20, 1, 8, look.pants);
+    R(-9, -3, 9, 3, look.shoe); R(1, -3, 9, 3, look.shoe);
+    flush();
+    D(-7, -20, 1, 17, look.pantsD); D(1, -20, 1, 17, look.pantsD); D(-3, -16, 1, 12, look.pantsD); D(4, -16, 1, 12, look.pantsD);   // shade + crease
+    D(-9, -1, 9, 1, look.shoeD); D(1, -1, 9, 1, look.shoeD); D(-9, -3, 1, 2, look.shoeD); D(1, -3, 1, 2, look.shoeD);
+    D(-6, -3, 3, 1, shadeHex(look.shoe, 0.85)); D(4, -3, 3, 1, shadeHex(look.shoe, 0.85));                                  // laces
+    if (art('feet')) flush();
+    R(-7, -22, 15, 2, '#2c1c10'); flush(); D(-1, -22, 3, 2, '#f8d878'); D(0, -22, 1, 1, '#c88800');                         // belt + buckle
+    if (art('waist')) flush();
+  }
+  // ---- torso + arms (bust: shoulders only)
+  const y0 = -38, armsTo = bust ? -31 : -23;
+  R(-11, -37, 3, bust ? 8 : 7, look.shirt); R(9, -37, 3, bust ? 8 : 7, look.shirt);                                        // sleeves
+  if (!bust) { R(-11, -30, 3, 8, sk); R(9, -30, 3, 8, sk); }                                                                 // forearms
+  R(-8, -37, 17, bust ? 8 : 15, look.shirt); R(-7, y0, 15, 1, look.shirt);                                                   // body, rounded shoulders
+  flush();
+  D(-8, -37, 2, bust ? 8 : 15, look.shirtD); D(-11, -37, 1, bust ? 8 : 7, look.shirtD); D(9, -37, 1, bust ? 8 : 7, look.shirtD);
+  D(-8, -31, 1, 1, K); D(8, -31, 1, 1, K);                                                                                   // armpits
+  if (!bust) { D(-8, -30, 1, 8, K); D(8, -30, 1, 8, K); D(-11, -30, 1, 8, skD); D(9, -30, 1, 8, skD); }                      // arm / body edge
+  D(-1, y0, 3, 2, sk); D(-3, y0, 2, 2, look.shirtD); D(2, y0, 2, 2, look.shirtD); D(0, -36, 1, 4, look.shirtD);              // polo collar + placket
+  if (art('torso')) flush();
+  art('logo') && flush();
+  // ---- neck + head
+  R(-2, -40, 5, 2, sk); R(-5, -52, 11, 12, sk); R(-6, -51, 13, 10, sk); R(-7, -48, 1, 3, sk); R(7, -48, 1, 3, sk);
+  flush();
+  D(-2, -40, 5, 1, skD); D(-6, -50, 1, 8, skD); D(-7, -47, 1, 1, skD); D(7, -47, 1, 1, skD);
+  if (art('neck')) flush();
+  const headGear = !!gear.head && !!GEAR_ART[gear.head];
+  // face
+  if (opt.blink) { D(-4, -46, 2, 1, K); D(3, -46, 2, 1, K); }
+  else { D(-4, -47, 2, 2, '#fcfcfc'); D(-3, -47, 1, 2, '#202020'); D(3, -47, 2, 2, '#fcfcfc'); D(3, -47, 1, 2, '#202020'); }
+  const brow = hs ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
+  D(0, -46, 1, 2, skD); D(-2, -43, 5, 1, skD); D(-3, -44, 1, 1, skD); D(3, -44, 1, 1, skD);                                   // nose + smile
+  flush();
+  art('face') && flush();
+  // ---- hair (under the hat)
+  const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
+  if (!headGear) {
+    if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                           // long: past the shoulders
+    if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                          // ponytail out the side
+    if (hs) {
+      if (!capOn) {
+        if (hs === 4) { R(-6, -54, 13, 4, hc); R(-5, -55, 3, 1, hc); R(-1, -55, 3, 1, hc); R(3, -55, 3, 1, hc); }
+        else { R(-5, -54, 11, 1, hc); R(-6, -53, 13, 3, hc); }
+      }
+      R(-6, -50, 1, 3, hc); R(6, -50, 1, 3, hc);                                                                              // sideburns
+    }
+    flush();
+    if (hs) {
+      if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); }
+      if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); }
+      if (!capOn && hs === 4) { D(-4, -53, 1, 1, hcD); D(0, -52, 1, 1, hcD); D(4, -53, 1, 1, hcD); D(-2, -51, 1, 1, hcD); D(2, -51, 1, 1, hcD); }
+      if (!capOn && hs !== 4) { D(-6, -53, 1, 3, hcD); D(-3, -50, 3, 1, hc); D(2, -50, 2, 1, hc); }
+    } else if (!capOn && !visorOn) D(2, -51, 2, 1, shadeHex(sk, 1.08));                                                       // bald shine
+  }
+  // ---- headwear
+  if (headGear) { art('head'); flush(); }
+  else if (capOn) {
+    R(-5, -57, 11, 1, look.hat); R(-6, -56, 13, 5, look.hat); R(-7, -51, 15, 2, look.hatD);
+    flush();
+    D(-6, -56, 1, 5, look.hatD); D(0, -56, 1, 4, look.hatD); D(0, -58, 1, 1, look.hatD); D(-7, -50, 15, 1, shadeHex(look.hatD, 0.8));
+    const hi = look.hatIdx | 0;
+    if (hi === 11) { D(-2, -55, 5, 3, '#14462d'); D(-1, -54, 3, 1, COL.lime); }                                              // DLG cap badge
+    if (hi === 10) { D(-4, -60, 1, 2, '#f8d878'); D(0, -61, 1, 3, '#f8d878'); D(4, -60, 1, 2, '#f8d878'); D(-4, -58, 9, 1, '#f8d878'); }
+  } else if (visorOn) {
+    R(-6, -52, 13, 2, look.hat); R(-7, -50, 15, 1, look.hatD);
+    flush(); D(-6, -52, 1, 2, look.hatD);
+  }
+  flush();
+  if (bust) return;
+  // ---- held item (club by default), then the hand on top of it
+  if (!art('held')) {
+    R(12, -3, 4, 2, '#bcbcbc'); flush();
+    D(12, -27, 1, 25, '#7c7c7c'); D(12, -27, 1, 5, '#2c2c2c'); D(15, -3, 1, 2, '#7c7c7c');                                  // shaft, grip, toe
+  }
+  flush();
+  R(-11, -22, 3, 3, sk); R(9, -22, 3, 3, look.glove || sk); flush();
+  D(-11, -20, 3, 1, skD); D(9, -20, 3, 1, look.glove ? shadeHex(look.glove, 0.8) : skD);
+  if (art('hands')) flush();
+  flush();
+}
+// offscreen render for HTML <img> (friend profile) and cached busts (lists, boards). Never re-rendered per frame.
+const HD_CACHE = new Map();
+function hdKey(app, gear, kind) { return kind + '|' + JSON.stringify(hdLookFull(app)) + '|' + JSON.stringify(gear || {}); }
+function golferHDCanvas(app, gear, kind) {   // kind: 'full' (32x64 units) | 'bust' (26x30 units, head + shoulders); 1 px per unit
+  const key = hdKey(app, gear, kind); let cv2 = HD_CACHE.get(key);
+  if (cv2) return cv2;
+  const full = kind !== 'bust', w = full ? 32 : 26, h = full ? 64 : 30;
+  cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h;
+  const c2 = cv2.getContext('2d'); c2.imageSmoothingEnabled = false; const old = ctx; ctx = c2;
+  try { drawGolferHD(full ? 15 : 13, full ? 62 : 58, 1, lookOf(hdLookFull(app)), { gear: gear || {}, crop: full ? null : 'bust' }); } finally { ctx = old; }
+  if (HD_CACHE.size > 120) HD_CACHE.delete(HD_CACHE.keys().next().value);
+  HD_CACHE.set(key, cv2); return cv2;
+}
+const HD_URL = new Map();
+function golferHDImg(app, gear, kind, scale) {
+  const key = hdKey(app, gear, kind) + '|' + scale; let u = HD_URL.get(key); if (u) return u;
+  const src = golferHDCanvas(app, gear, kind), out = document.createElement('canvas'); out.width = src.width * scale; out.height = src.height * scale;
+  const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
+  if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
+}
+function lookPreviewGolfer(cx, feetY, look, gear) {   // EDIT LOOK preview: same tee patch as careerGolfer, detailed golfer on it (2 px per unit)
+  const s = 3, px = cx;
+  ctx.globalAlpha = 0.08; czEllipse(px, feetY - 15 * s, 17 * s, 19 * s, COL.white); czEllipse(px, feetY - 13 * s, 11 * s, 13 * s, COL.white); ctx.globalAlpha = 1;
+  const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
+  czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
+  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
+  ctx.globalAlpha = 0.28; czEllipse(px, feetY, 9 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
+  const blink = (st % 4.2) > 4.05;
+  drawGolferHD(Math.round(px - 1), Math.round(feetY - 1), 2, look, { gear: gear || {}, blink });
+}
 /* ---- account sync ---- */
 async function saveAppearance() {
   if (!isSignedIn() || !hasUsername() || !authOnline()) return { ok: false, local: true };
@@ -1055,21 +1212,22 @@ const LOOK_ROWS = [
   ['GLOVE', 'glove', i => [GLOVE_COLS[i][0], GLOVE_COLS[i][1]]]
 ];
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy }
+function lookGearDraft() { return {}; }   // v8.62: equipped gear joins here once gear ships
 function openLookEditor() { const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false }; }
 function lookLayout() {
   const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide };
   if (wide) {
     const colL = 120, colR = Math.min(220, W - colL - 24), gx = Math.round((W - colL - colR - 8) / 2), top = st0 + 26, rh = 19;
-    L.prev = { x: gx, y: top, w: colL, h: 128 }; L.gfeet = top + 112; L.gs = 3;
-    L.rand = { x: gx, y: top + 133, w: colL, h: 20 };
-    L.cancel = { x: gx, y: top + 157, w: 58, h: 22 }; L.save = { x: gx + 62, y: top + 157, w: colL - 62, h: 22 };
+    L.prev = { x: gx, y: top, w: colL, h: 150 }; L.gfeet = top + 140; L.gs = 3;
+    L.rand = { x: gx, y: top + 155, w: colL, h: 20 };
+    L.cancel = { x: gx, y: top + 179, w: 58, h: 22 }; L.save = { x: gx + 62, y: top + 179, w: colL - 62, h: 22 };
     L.rows = LOOK_ROWS.map((_, i) => ({ x: gx + colL + 8, y: top + i * rh, w: colR, h: rh - 2 }));
   } else {
-    const w = Math.min(244, W - 12), x = Math.round((W - w) / 2), rh = 22, total = 118 + 6 + LOOK_ROWS.length * rh + 6 + 26 + 30;
+    const w = Math.min(244, W - 12), x = Math.round((W - w) / 2), rh = 22, PH = 142, total = PH + 6 + LOOK_ROWS.length * rh + 6 + 26 + 30;
     const top = Math.max(st0 + 28, Math.round((H - sb0 - total) / 2));
-    L.prev = { x, y: top, w, h: 118 }; L.gfeet = top + 110; L.gs = 3;
-    L.rows = LOOK_ROWS.map((_, i) => ({ x, y: top + 124 + i * rh, w, h: rh - 2 }));
-    const by = top + 124 + LOOK_ROWS.length * rh + 4;
+    L.prev = { x, y: top, w, h: PH }; L.gfeet = top + PH - 9; L.gs = 3;
+    L.rows = LOOK_ROWS.map((_, i) => ({ x, y: top + PH + 6 + i * rh, w, h: rh - 2 }));
+    const by = top + PH + 6 + LOOK_ROWS.length * rh + 4;
     L.rand = { x, y: by, w, h: 24 };
     const hw = Math.floor((w - 6) / 2);
     L.cancel = { x, y: by + 30, w: hw, h: 26 }; L.save = { x: x + hw + 6, y: by + 30, w: w - hw - 6, h: 26 };
@@ -1089,7 +1247,7 @@ function renderLookEditor() {
   careerDrawBack('lookBack');
   outlined('EDIT LOOK', Math.round((W - textW('EDIT LOOK', 2)) / 2), (SAFE.t || 0) + 8, CAREER_YEL, 2);
   const P = L.prev; czBoard(P.x, P.y, P.w, P.h, 0.9, false);
-  careerGolfer(P.x + Math.round(P.w / 2), L.gfeet, L.gs, lookOf(d));
+  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet, lookOf(d), lookGearDraft());   // v8.62: detailed golfer (EDIT LOOK only)
   if (lookLocked(d)) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 6, COL.orange); }
   LOOK_ROWS.forEach((row, i) => {
     const R = L.rows[i], sel = i === E.row, v = d[row[1]], [sw, lab] = row[2](v);
@@ -7542,7 +7700,7 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item"><div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
   },
@@ -7554,7 +7712,7 @@ const VIEWS = {
     const fmtB = v => v == null ? '--' : (v > 0 ? '+' + v : v === 0 ? 'E' : String(v));
     const avg = S.nineHoles ? fmtB(Math.round(S.nineRel / S.nineHoles * 10) / 10) : '--';
     const f = social.friends.find(x => x.status === 'accepted' && String(x.friend_username).toLowerCase() === String(P.username).toLowerCase());
-    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferImg(P.appearance, 4) + '"><div><p class="big">' + at(P.username) + '</p>' +
+    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferHDImg(P.appearance, P.gear, 'full', 3) + '"><div><p class="big">' + at(P.username) + '</p>' +
       '<p class="rank">DLG TOUR <b>' + esc(r.name) + '</b></p><div class="xpbar"><i style="width:' + Math.round(r.frac * 100) + '%"></i></div><p class="sub l">' + (P.xp | 0) + ' XP' + (r.next ? ' · NEXT: ' + esc(r.next) : '') + '</p></div></div>' +
       '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
       '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
