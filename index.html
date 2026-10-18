@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.64">
+<meta name="dlg-version" content="v8.65">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -228,7 +228,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.64';
+const GAME_VERSION = 'v8.65';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -654,12 +654,12 @@ async function loadFriendLooks() {   // v8.62: accepted friends' looks (server: 
   if (!r.ok || !r.data || typeof r.data !== 'object') return r;
   const m = {}; for (const k in r.data) m[k.toLowerCase()] = r.data[k] || {};
   social.looks = m;
-  if (acctView === 'friends' && acctEl && !acctEl.querySelector('input:focus')) acctEl.querySelectorAll('img.fbust[data-u]').forEach(im => { const L = m[im.dataset.u.toLowerCase()]; if (L) im.src = golferHDImg(L.appearance, L.gear, 'bust', 2); });
+  if (acctView === 'friends' && acctEl && !acctEl.querySelector('input:focus')) acctEl.querySelectorAll('img.fbust[data-u]').forEach(im => { const L = m[im.dataset.u.toLowerCase()]; if (L) im.src = golferHDImg(L.appearance, L.gear, 'bust', 1); });
   return r;
 }
 function friendBust(username) {   // small cached head + shoulders; default golfer until their look arrives
   const L = (social.looks || {})[String(username).toLowerCase()] || {};
-  return '<img class="fbust" alt="" data-u="' + esc(username) + '" src="' + golferHDImg(L.appearance, L.gear, 'bust', 2) + '">';
+  return '<img class="fbust" alt="" data-u="' + esc(username) + '" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">';
 }
 async function addFriend(username) {
   username = String(username || '').trim().replace(/^@/, '');
@@ -1093,52 +1093,92 @@ function hdLookFull(app) {   // a complete look from saved appearance; missing k
   const o = {}; for (const k in LOOK_KEYS) { const v = app && app[k]; o[k] = Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : LOOK_DEFAULT[k]; }
   return o;
 }
+function hdMix(a, b, k) { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16), m = sh => Math.round(((x >> sh) & 255) * (1 - k) + ((y >> sh) & 255) * k); return '#' + ((m(16) << 16) | (m(8) << 8) | m(0)).toString(16).padStart(6, '0'); }
 function drawGolferHD(cx, feetY, s, look, opt) {
   // look = lookOf(...) colours; opt.gear = { slot: itemId }; opt.blink; opt.crop = 'bust' (head + shoulders only)
-  opt = opt || {}; const gear = opt.gear || {}, K = '#000';
+  // v8.65: half-unit detail layer (F) - shading, folds, face, stitching. Drawn only at even scales (2 px per unit and up), so every pixel stays crisp.
+  opt = opt || {}; const gear = opt.gear || {}, K = '#000', fine = s % 2 === 0;
   const parts = [], dets = [];
   const R = (x, y, w, h, c) => parts.push([x, y, w, h, c]), D = (x, y, w, h, c) => dets.push([x, y, w, h, c]);
+  const F = (x, y, w, h, c) => { if (fine && c) dets.push([x, y, w, h, c]); };
   const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * s, feetY + y * s, w * s, h * s); };
   const flush = () => { for (const p of parts) P(p[0] - 1, p[1] - 1, p[2] + 2, p[3] + 2, K); for (const p of parts) P(p[0], p[1], p[2], p[3], p[4]); for (const d of dets) P(d[0], d[1], d[2], d[3], d[4]); parts.length = 0; dets.length = 0; };
   const bust = opt.crop === 'bust';
   const artFn = id => id && (GEAR_ART[typeof gearArtOf === 'function' ? gearArtOf(id) : id] || null);
-  const art = slot => { const f = artFn(gear[slot]); if (f) { f(R, D, look, HD_SLOTS[slot], { bust }); return true; } return false; };
-  const sk = look.skin, skD = look.skinD, hc = look.hairC, hcD = shadeHex(hc, 0.72), hs = look.hair | 0, hst = look.hatStyle | 0;
+  const art = slot => { const f = artFn(gear[slot]); if (f) { flush(); f(R, D, look, HD_SLOTS[slot], { bust, F }); return true; } return false; };   // body detail lands first, gear always on top
+  const L = (c, k) => shadeHex(c, k);
+  const sk = look.skin, skD = look.skinD, skL = L(sk, 1.1), hc = look.hairC, hcD = L(hc, 0.72), hcL = L(hc, 1.3), hs = look.hair | 0, hst = look.hatStyle | 0;
+  const sh = look.shirt, shD = look.shirtD, shL = L(sh, 1.14), shF = L(sh, 0.9);
   if (!bust) {
     // ---- shoes + legs + belt
-    R(-7, -20, 7, 17, look.pants); R(1, -20, 7, 17, look.pants); R(0, -20, 1, 8, look.pants);
+    const pa = look.pants, paD = look.pantsD, paL = L(pa, 1.14), paF = L(pa, 0.88);
+    R(-7, -20, 7, 17, pa); R(1, -20, 7, 17, pa); R(0, -20, 1, 8, pa);
     R(-9, -3, 9, 3, look.shoe); R(1, -3, 9, 3, look.shoe);
     flush();
-    D(-7, -20, 1, 17, look.pantsD); D(1, -20, 1, 17, look.pantsD); D(-3, -16, 1, 12, look.pantsD); D(4, -16, 1, 12, look.pantsD);   // shade + crease
-    D(-9, -1, 9, 1, look.shoeD); D(1, -1, 9, 1, look.shoeD); D(-9, -3, 1, 2, look.shoeD); D(1, -3, 1, 2, look.shoeD);
-    D(-6, -3, 3, 1, shadeHex(look.shoe, 0.85)); D(4, -3, 3, 1, shadeHex(look.shoe, 0.85));                                  // laces
+    D(-7, -20, 1, 17, paD); D(1, -20, 1, 17, paD); D(-3, -16, 1, 12, paD); D(4, -16, 1, 12, paD);   // shade + crease
+    F(-2.5, -15, 0.5, 11, paL); F(4.5, -15, 0.5, 11, paL);                                           // crease highlight
+    F(-6, -19.5, 0.5, 2, paF); F(-5.5, -18, 0.5, 1, paF); F(6.5, -19.5, 0.5, 2, paF); F(6, -18, 0.5, 1, paF);   // pockets
+    F(-6, -11, 2, 0.5, paF); F(-5.5, -10.5, 1.5, 0.5, paD); F(2, -11.5, 2, 0.5, paF); F(2.5, -11, 1.5, 0.5, paD);   // knee folds
+    F(-7, -4.5, 7, 0.5, paF); F(-5, -4, 3, 0.5, paD); F(1, -4.5, 7, 0.5, paF); F(4, -4, 3, 0.5, paD);       // hem break over the shoe
+    F(0, -13, 1, 0.5, paD); F(-1, -20, 0.5, 6, paF); F(1.5, -20, 0.5, 6, paF);                              // fly + seam
+    const so = look.shoe, soD = look.shoeD, soL = L(so, 1.18);
+    D(-9, -1, 9, 1, soD); D(1, -1, 9, 1, soD); D(-9, -3, 1, 2, soD); D(1, -3, 1, 2, soD);
+    D(-6, -3, 3, 1, L(so, 0.85)); D(4, -3, 3, 1, L(so, 0.85));                                        // laces
+    F(-9, -0.5, 9, 0.5, '#e8e4dc'); F(1, -0.5, 9, 0.5, '#e8e4dc'); F(-8, -0.5, 1, 0.5, '#bcb8b0'); F(8, -0.5, 1, 0.5, '#bcb8b0');   // welt
+    F(-8.5, -3, 2, 0.5, soL); F(7.5, -3, 2, 0.5, soL); F(-8.5, -2.5, 1, 0.5, soL); F(8.5, -2.5, 1, 0.5, soL);   // toe cap shine
+    F(-6, -2.5, 0.5, 0.5, '#fcfcfc'); F(-4, -2.5, 0.5, 0.5, '#fcfcfc'); F(4, -2.5, 0.5, 0.5, '#fcfcfc'); F(6, -2.5, 0.5, 0.5, '#fcfcfc');   // eyelets
+    F(-1.5, -3, 0.5, 2, soD); F(1, -3, 0.5, 2, soD);                                                   // heel tabs
     if (art('feet')) flush();
     R(-7, -22, 15, 2, '#2c1c10'); flush(); D(-1, -22, 3, 2, '#f8d878'); D(0, -22, 1, 1, '#c88800');                         // belt + buckle
+    F(-5, -22, 0.5, 2, '#4c3420'); F(5, -22, 0.5, 2, '#4c3420'); F(-7, -22, 15, 0.5, '#4c3420'); F(-1, -22, 1, 0.5, '#fcf0b8'); F(1.5, -21, 0.5, 1, '#c88800');
     if (art('waist')) flush();
   }
   // ---- torso + arms (bust: shoulders only)
   const y0 = -38, armsTo = bust ? -31 : -23;
-  R(-11, -37, 3, bust ? 8 : 7, look.shirt); R(9, -37, 3, bust ? 8 : 7, look.shirt);                                        // sleeves
+  R(-11, -37, 3, bust ? 8 : 7, sh); R(9, -37, 3, bust ? 8 : 7, sh);                                        // sleeves
   if (!bust) { R(-11, -30, 3, 8, sk); R(9, -30, 3, 8, sk); }                                                                 // forearms
-  R(-8, -37, 17, bust ? 8 : 15, look.shirt); R(-7, y0, 15, 1, look.shirt);                                                   // body, rounded shoulders
+  R(-8, -37, 17, bust ? 8 : 15, sh); R(-7, y0, 15, 1, sh);                                                   // body, rounded shoulders
   flush();
-  D(-8, -37, 2, bust ? 8 : 15, look.shirtD); D(-11, -37, 1, bust ? 8 : 7, look.shirtD); D(9, -37, 1, bust ? 8 : 7, look.shirtD);
+  D(-8, -37, 2, bust ? 8 : 15, shD); D(-11, -37, 1, bust ? 8 : 7, shD); D(9, -37, 1, bust ? 8 : 7, shD);
   D(-8, -31, 1, 1, K); D(8, -31, 1, 1, K);                                                                                   // armpits
-  if (!bust) { D(-8, -30, 1, 8, K); D(8, -30, 1, 8, K); D(-11, -30, 1, 8, skD); D(9, -30, 1, 8, skD); }                      // arm / body edge
-  D(-1, y0, 3, 2, sk); D(-3, y0, 2, 2, look.shirtD); D(2, y0, 2, 2, look.shirtD); D(0, -36, 1, 4, look.shirtD);              // polo collar + placket
+  F(3, -37.5, 4, 0.5, shL); F(5, -37, 2.5, 0.5, shL); F(10, -37, 1.5, 0.5, shL); F(-6, -37.5, 2, 0.5, shF);              // shoulder light
+  F(-11, -30.5, 3, 0.5, shD); F(9, -30.5, 3, 0.5, shD); F(10, -31, 1, 0.5, shF);                                           // sleeve hems
+  F(-6, -33, 0.5, 1, shF); F(-5.5, -32, 0.5, 1, shF); F(-5, -31, 0.5, 1.5, shF);                                         // fabric folds from the arm
+  F(6.5, -33, 0.5, 1, shF); F(6, -32, 0.5, 1, shF); F(5.5, -31, 0.5, 1.5, shF);
+  if (!bust) {
+    D(-8, -30, 1, 8, K); D(8, -30, 1, 8, K); D(-11, -30, 1, 8, skD); D(9, -30, 1, 8, skD);                      // arm / body edge
+    F(-4, -28, 2, 0.5, shF); F(-3, -27.5, 1.5, 0.5, shF); F(3, -27, 2, 0.5, shF); F(4, -26.5, 1.5, 0.5, shF);          // waist folds
+    F(-7, -23.5, 15, 0.5, shD); F(-6, -24, 3, 0.5, shF); F(4, -24, 3, 0.5, shF);                                         // tucked-in hem
+    F(11, -29, 0.5, 6, skL); F(-9.5, -29, 0.5, 6, skL);                                                                    // forearm light
+  }
+  D(-1, y0, 3, 2, sk); D(-3, y0, 2, 2, shD); D(2, y0, 2, 2, shD); D(0, -36, 1, 4, shD);              // polo collar + placket
+  F(-3, -36.5, 0.5, 0.5, K); F(3.5, -36.5, 0.5, 0.5, K); F(-2.5, -36, 1, 0.5, shF); F(2, -36, 1, 0.5, shF);              // collar tips
+  F(0, -34.5, 0.5, 0.5, shL); F(0, -33, 0.5, 0.5, shL); F(-0.5, -36, 0.5, 4, shF);                                        // buttons
+  F(-1, y0, 3, 0.5, skD);
   if (art('torso')) flush();
   art('logo') && flush();
   // ---- neck + head
   R(-2, -40, 5, 2, sk); R(-5, -52, 11, 12, sk); R(-6, -51, 13, 10, sk); R(-7, -48, 1, 3, sk); R(7, -48, 1, 3, sk);
   flush();
   D(-2, -40, 5, 1, skD); D(-6, -50, 1, 8, skD); D(-7, -47, 1, 1, skD); D(7, -47, 1, 1, skD);
+  F(6, -50, 0.5, 7, skL); F(5, -51.5, 1, 0.5, skL); F(-4, -41, 9, 0.5, skD);   // rim light, jaw shadow
+  F(-6.5, -47.5, 0.5, 1.5, skD); F(7, -47.5, 0.5, 1.5, L(sk, 0.88));                                      // inner ears
   if (art('neck')) flush();
   const headGear = !!artFn(gear.head), hideHair = headGear && typeof GEAR_HIDES_HAIR !== 'undefined' && !!GEAR_HIDES_HAIR[gearArtOf(gear.head)];
   // face
-  if (opt.blink) { D(-4, -46, 2, 1, K); D(3, -46, 2, 1, K); }
-  else { D(-4, -47, 2, 2, '#fcfcfc'); D(-3, -47, 1, 2, '#202020'); D(3, -47, 2, 2, '#fcfcfc'); D(3, -47, 1, 2, '#202020'); }
+  const blush = hdMix(sk, '#e85c5c', 0.25);
+  if (opt.blink) { D(-4, -46, 2, 1, K); D(3, -46, 2, 1, K); F(-4.5, -46, 0.5, 0.5, K); F(5, -46, 0.5, 0.5, K); }
+  else {
+    D(-4, -47, 2, 2, '#fcfcfc'); D(-3, -47, 1, 2, '#202020'); D(3, -47, 2, 2, '#fcfcfc'); D(3, -47, 1, 2, '#202020');
+    F(-3, -47, 1, 0.5, '#4c3420'); F(3, -47, 1, 0.5, '#4c3420'); F(-3, -47, 0.5, 0.5, '#fcfcfc'); F(3, -47, 0.5, 0.5, '#fcfcfc');   // iris + catchlight
+    F(-4, -47.5, 2.5, 0.5, K); F(2.5, -47.5, 2.5, 0.5, K); F(-4, -45, 2, 0.5, L(sk, 0.9)); F(3, -45, 2, 0.5, L(sk, 0.9));       // lids
+  }
   const brow = hs ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
+  F(-5, -49.5, 2, 0.5, brow); F(4, -49.5, 2, 0.5, brow);
   D(0, -46, 1, 2, skD); D(-2, -43, 5, 1, skD); D(-3, -44, 1, 1, skD); D(3, -44, 1, 1, skD);                                   // nose + smile
+  F(0.5, -46.5, 0.5, 1.5, skL); F(-0.5, -44.5, 0.5, 0.5, skD); F(1, -44.5, 0.5, 0.5, skD);                                  // nose light + nostrils
+  F(-1.5, -43, 0.5, 0.5, L(sk, 0.62)); F(2.5, -43, 0.5, 0.5, L(sk, 0.62)); F(-1, -42.5, 3, 0.5, L(sk, 1.06));                 // mouth corners, lip light
+  F(-5, -45, 1.5, 1, blush); F(4.5, -45, 1.5, 1, blush);                                                                      // cheeks
   flush();
   art('face') && flush();
   // ---- hair (under the hat)
@@ -1155,24 +1195,35 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     }
     flush();
     if (hs) {
-      if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); }
-      if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); }
-      if (!capOn && hs === 4) { D(-4, -53, 1, 1, hcD); D(0, -52, 1, 1, hcD); D(4, -53, 1, 1, hcD); D(-2, -51, 1, 1, hcD); D(2, -51, 1, 1, hcD); }
-      if (!capOn && hs !== 4) { D(-6, -53, 1, 3, hcD); D(-3, -50, 3, 1, hc); D(2, -50, 2, 1, hc); }
-    } else if (!capOn && !visorOn) D(2, -51, 2, 1, shadeHex(sk, 1.08));                                                       // bald shine
+      if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
+      if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); F(-10, -46, 0.5, 4, hcL); F(-9.5, -48, 0.5, 0.5, '#c88800'); }
+      if (!capOn && hs === 4) { D(-4, -53, 1, 1, hcD); D(0, -52, 1, 1, hcD); D(4, -53, 1, 1, hcD); D(-2, -51, 1, 1, hcD); D(2, -51, 1, 1, hcD);
+        F(-4, -54.5, 1, 0.5, hcL); F(0, -54.5, 1, 0.5, hcL); F(4, -54.5, 1, 0.5, hcL); F(-2, -53, 0.5, 0.5, hcL); F(2.5, -52.5, 0.5, 0.5, hcL); }
+      if (!capOn && hs !== 4) { D(-6, -53, 1, 3, hcD); D(-3, -50, 3, 1, hc); D(2, -50, 2, 1, hc);
+        F(-2, -53.5, 3, 0.5, hcL); F(1, -54, 2, 0.5, hcL); F(3.5, -53, 1.5, 0.5, hcL); F(-4, -52, 0.5, 1.5, hcD); F(0, -51.5, 0.5, 1.5, hcD); F(4, -52, 0.5, 1.5, hcD); }
+      F(6, -48, 0.5, 1, hcD); F(-6, -48, 0.5, 1, hcD);
+    } else if (!capOn && !visorOn) { D(2, -51, 2, 1, L(sk, 1.08)); F(1.5, -51.5, 1, 0.5, L(sk, 1.16)); }                     // bald shine
   }
   // ---- headwear
   if (headGear) { art('head'); flush(); }
   else if (capOn) {
-    R(-5, -57, 11, 1, look.hat); R(-6, -56, 13, 5, look.hat); R(-7, -51, 15, 2, look.hatD);
+    const ht = look.hat, htD = look.hatD, htL = L(ht, 1.2);
+    R(-5, -57, 11, 1, ht); R(-6, -56, 13, 5, ht); R(-7, -51, 15, 2, htD);
     flush();
-    D(-6, -56, 1, 5, look.hatD); D(0, -56, 1, 4, look.hatD); D(0, -58, 1, 1, look.hatD); D(-7, -50, 15, 1, shadeHex(look.hatD, 0.8));
+    D(-6, -56, 1, 5, htD); D(0, -56, 1, 4, htD); D(0, -58, 1, 1, htD); D(-7, -50, 15, 1, L(htD, 0.8));
+    F(-4, -57, 3, 0.5, htL); F(2, -57, 2.5, 0.5, htL); F(-3, -56.5, 0.5, 4, L(ht, 0.9)); F(3.5, -56.5, 0.5, 4, L(ht, 0.9));   // crown light + panel seams
+    F(-4.5, -55, 0.5, 0.5, htD); F(5, -55, 0.5, 0.5, htD); F(0, -58, 1, 0.5, htL);                                            // vents + button
+    for (let k = -6; k <= 7; k += 1) F(k, -51, 0.5, 0.5, L(htD, 1.25));                                                       // brim stitching
+    F(-6, -52, 13, 0.5, L(ht, 0.82));                                                                                          // crown meets brim
     const hi = look.hatIdx | 0;
-    if (hi === 11) { D(-2, -55, 5, 3, '#14462d'); D(-1, -54, 3, 1, COL.lime); }                                              // DLG cap badge
-    if (hi === 10) { D(-4, -60, 1, 2, '#f8d878'); D(0, -61, 1, 3, '#f8d878'); D(4, -60, 1, 2, '#f8d878'); D(-4, -58, 9, 1, '#f8d878'); }
+    if (hi === 11) { D(-2, -55, 5, 3, '#14462d'); D(-1, -54, 3, 1, COL.lime); F(-2, -55, 5, 0.5, '#2c6c45'); F(-1.5, -53, 4, 0.5, '#0a2c1c'); }   // DLG cap badge
+    if (hi === 10) { D(-4, -60, 1, 2, '#f8d878'); D(0, -61, 1, 3, '#f8d878'); D(4, -60, 1, 2, '#f8d878'); D(-4, -58, 9, 1, '#f8d878');
+      F(-4, -58, 9, 0.5, '#fcf0b8'); F(0, -61, 0.5, 2, '#fcf0b8'); F(-2, -58.5, 1, 0.5, '#e8382c'); F(2, -58.5, 1, 0.5, '#3cbcfc'); }
   } else if (visorOn) {
-    R(-6, -52, 13, 2, look.hat); R(-7, -50, 15, 1, look.hatD);
-    flush(); D(-6, -52, 1, 2, look.hatD);
+    const ht = look.hat, htD = look.hatD;
+    R(-6, -52, 13, 2, ht); R(-7, -50, 15, 1, htD);
+    flush(); D(-6, -52, 1, 2, htD);
+    F(-5, -52, 11, 0.5, L(ht, 1.2)); F(-6, -50.5, 13, 0.5, L(ht, 0.8)); for (let k = -6; k <= 7; k += 1) F(k, -50, 0.5, 0.5, L(htD, 1.25));
   }
   flush();
   if (bust) return;
@@ -1180,23 +1231,28 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   if (!art('held')) {
     R(12, -3, 4, 2, '#bcbcbc'); flush();
     D(12, -27, 1, 25, '#7c7c7c'); D(12, -27, 1, 5, '#2c2c2c'); D(15, -3, 1, 2, '#7c7c7c');                                  // shaft, grip, toe
+    F(12.5, -22, 0.5, 19, '#bcbcbc'); F(12, -26, 1, 0.5, '#4c4c4c'); F(12, -24, 1, 0.5, '#4c4c4c'); F(13, -3, 2, 0.5, '#fcfcfc'); F(13, -2, 2, 0.5, '#9c9c9c');
   }
   flush();
-  R(-11, -22, 3, 3, sk); R(9, -22, 3, 3, look.glove || sk); flush();
-  D(-11, -20, 3, 1, skD); D(9, -20, 3, 1, look.glove ? shadeHex(look.glove, 0.8) : skD);
+  const gl = look.glove;
+  R(-11, -22, 3, 3, sk); R(9, -22, 3, 3, gl || sk); flush();
+  D(-11, -20, 3, 1, skD); D(9, -20, 3, 1, gl ? L(gl, 0.8) : skD);
+  F(-10.5, -21.5, 2, 0.5, skL); F(-11, -21, 0.5, 0.5, skD); F(-10, -21, 0.5, 0.5, skD);                                       // knuckles
+  if (gl) { F(9.5, -21.5, 2, 0.5, L(gl, 1.1)); F(10, -21, 0.5, 0.5, L(gl, 0.82)); F(11, -21, 0.5, 0.5, L(gl, 0.82)); F(9, -19.5, 1.5, 0.5, L(gl, 0.7)); }   // seams + strap
+  else { F(9.5, -21.5, 2, 0.5, skL); F(10, -21, 0.5, 0.5, skD); F(11, -21, 0.5, 0.5, skD); }
   if (art('hands')) flush();
   flush();
 }
 // offscreen render for HTML <img> (friend profile) and cached busts (lists, boards). Never re-rendered per frame.
 const HD_CACHE = new Map();
 function hdKey(app, gear, kind) { return kind + '|' + JSON.stringify(hdLookFull(app)) + '|' + JSON.stringify(gear || {}); }
-function golferHDCanvas(app, gear, kind) {   // kind: 'full' (32x64 units) | 'bust' (26x30 units, head + shoulders); 1 px per unit
+function golferHDCanvas(app, gear, kind) {   // kind: 'full' (32x64 units) | 'bust' (26x30 units, head + shoulders); v8.65: 2 px per unit (half-unit detail)
   const key = hdKey(app, gear, kind); let cv2 = HD_CACHE.get(key);
   if (cv2) return cv2;
-  const full = kind !== 'bust', w = full ? 32 : 26, h = full ? 64 : 30;
+  const full = kind !== 'bust', w = full ? 64 : 52, h = full ? 128 : 60;
   cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h;
   const c2 = cv2.getContext('2d'); c2.imageSmoothingEnabled = false; const old = ctx; ctx = c2;
-  try { drawGolferHD(full ? 15 : 13, full ? 62 : 58, 1, lookOf(hdLookFull(app)), { gear: gear || {}, crop: full ? null : 'bust' }); } finally { ctx = old; }
+  try { drawGolferHD(full ? 30 : 26, full ? 124 : 116, 2, lookOf(hdLookFull(app)), { gear: gear || {}, crop: full ? null : 'bust' }); } finally { ctx = old; }
   if (HD_CACHE.size > 120) HD_CACHE.delete(HD_CACHE.keys().next().value);
   HD_CACHE.set(key, cv2); return cv2;
 }
@@ -1220,57 +1276,97 @@ function lookPreviewGolfer(cx, feetY, look, gear) {   // EDIT LOOK preview: same
 /* ================= v8.64: GEAR. Server catalog (rarity + seasonal windows), locker room, redeem codes, show-off busts.
    Gear is cosmetic and only shows on the detailed golfer (EDIT LOOK, locker, friends, boards, share card) - never on the in-game sprite. ================= */
 const GEAR_TIERS = { common: { col: '#a8b8d0', name: 'COMMON' }, rare: { col: '#3cbcfc', name: 'RARE' }, legendary: { col: '#f8d878', name: 'LEGENDARY' } };
-const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins when it loads (admin can edit names, tiers, windows)
-  { id: 'ace_chain', name: 'ACE CHAIN', slot: 'neck', tier: 'legendary', req: 'MAKE A HOLE-IN-ONE', rule: { stat: 'aces', min: 1 }, sort: 10 },
-  { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 20 },
-  { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 30 },
-  { id: 'camo_hat', name: 'CAMO HAT', slot: 'head', tier: 'rare', req: 'CODE FROM THE CAMO HAT', rule: { code: true }, sort: 40 },
-  { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '25 DUMB LUCK SHOTS', rule: { stat: 'luck', min: 25 }, sort: 50 },
-  { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'CODE FROM THE BALL MARKER', rule: { code: true }, sort: 60 },
-  { id: 'aviators', name: 'AVIATORS', slot: 'face', tier: 'common', req: 'MAKE 10 BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 70 },
-  { id: 'gold_buckle', name: 'G_GOLD BUCKLE', slot: 'waist', tier: 'common', req: 'PLAY 10 ROUNDS', rule: { stat: 'rounds', min: 10 }, sort: 80 }
+const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins when it loads (admin can edit names, tiers, windows). v8.65: Corey's approved list
+  { id: 'ace_chain', name: 'ACE CHAIN', slot: 'neck', tier: 'legendary', req: 'FIRST HOLE-IN-ONE', rule: { stat: 'aces', min: 1 }, sort: 10 },
+  { id: 'birdie_glove', name: 'BIRDIE GLOVE', slot: 'hands', tier: 'common', req: '3 BIRDIES IN ONE ROUND', rule: { stat: 'bRound', min: 3 }, sort: 20 },
+  { id: 'underpar_visor', name: 'UNDER-PAR VISOR', slot: 'head', tier: 'rare', req: 'FINISH 18 HOLES UNDER PAR', rule: { stat: 'u18', min: 1 }, sort: 30 },
+  { id: 'streak_shades', name: 'STREAK SHADES', slot: 'face', tier: 'common', req: 'PLAY THE DAILY 7 DAYS IN A ROW', rule: { stat: 'daily.top', min: 7 }, sort: 40 },
+  { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 50 },
+  { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 60 },
+  { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
+  { id: 'camo_hat', name: 'DLG CAMO HAT', slot: 'head', tier: 'rare', req: 'TOP 6 IN A DLG TOURNAMENT OR MERCH CODE', rule: { grant: true, code: true }, sort: 80 },
+  { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 }
 ];
 const GEAR_HIDES_HAIR = { pumpkin_head: 1 };
 // ---- art (sprite units, same grid as drawGolferHD; R = outlined part, D = flat detail)
-const G_GOLD = '#f8d878', G_GOLD_D = '#c88800', G_GREEN = '#14462d';
-GEAR_ART.ace_chain = (R, D) => {
+const G_GOLD = '#f8d878', G_GOLD_D = '#c88800', G_GOLD_L = '#fcf0b8', G_GREEN = '#14462d';
+const gF = o => (o && o.F) || (() => {});   // half-unit detail (v8.65)
+GEAR_ART.ace_chain = (R, D, look, sl, o) => {
+  const F = gF(o);
   R(-1, -35, 3, 3, '#fcfcfc');
   D(-3, -38, 1, 1, G_GOLD); D(-2, -37, 1, 1, G_GOLD); D(-1, -36, 1, 1, G_GOLD); D(3, -38, 1, 1, G_GOLD); D(2, -37, 1, 1, G_GOLD); D(1, -36, 1, 1, G_GOLD); D(0, -36, 1, 1, G_GOLD_D);
   D(0, -34, 1, 1, '#bcbcbc'); D(1, -35, 1, 1, '#fcfcfc');
+  F(-3, -38, 0.5, 0.5, G_GOLD_L); F(-2, -37, 0.5, 0.5, G_GOLD_L); F(-1, -36, 0.5, 0.5, G_GOLD_L); F(3.5, -38, 0.5, 0.5, G_GOLD_D); F(2.5, -37, 0.5, 0.5, G_GOLD_D); F(1.5, -36, 0.5, 0.5, G_GOLD_D);   // links
+  F(-0.5, -35, 0.5, 0.5, '#fcfcfc'); F(-1, -34, 0.5, 1, '#d8d8e0'); F(0, -33.5, 1, 0.5, '#7c7c8c'); F(0.5, -34.5, 0.5, 0.5, '#7c7c8c'); F(1.5, -35, 0.5, 0.5, '#e8e8f0');   // golf-ball dimples
 };
 GEAR_ART.champ_jacket = (R, D, look, sl, o) => {
-  const G = G_GREEN, GD = '#0a2c1c', b = o && o.bust, n = b ? 8 : 15, sv = b ? 8 : 14;
+  const F = gF(o), G = G_GREEN, GD = '#0a2c1c', GL = '#2c6c45', b = o && o.bust, n = b ? 8 : 15, sv = b ? 8 : 14;
   R(-8, -37, 17, n, G); R(-7, -38, 15, 1, G); R(-11, -37, 3, sv, G); R(9, -37, 3, sv, G);
   D(-1, -37, 3, n, look.shirt); D(-1, -38, 3, 1, look.skin); D(-2, -37, 1, 4, GD); D(2, -37, 1, 4, GD); D(-2, -33, 1, 1, '#d4af37'); D(2, -33, 1, 1, '#d4af37');
   D(-8, -37, 2, n, GD); D(-11, -37, 1, sv, GD); D(9, -37, 1, sv, GD); D(4, -34, 2, 2, '#d4af37');
-  if (!b) { D(-8, -31, 1, 8, '#000'); D(8, -31, 1, 8, '#000'); D(-11, -24, 3, 1, '#d4af37'); D(9, -24, 3, 1, '#d4af37'); D(-2, -29, 1, 1, '#d4af37'); D(-2, -26, 1, 1, '#d4af37'); }
+  F(3, -38, 4, 0.5, GL); F(5, -37.5, 3, 0.5, GL); F(10, -37, 1.5, 0.5, GL); F(-3, -37, 0.5, 4, GL); F(3, -37, 0.5, 4, GL);   // shoulder + lapel light
+  F(4, -34, 2, 0.5, G_GOLD_L); F(4.5, -33, 1, 0.5, G_GOLD_D); F(-6, -33, 0.5, 2, GD); F(6.5, -32, 0.5, 2, GD);              // crest, folds
+  if (!b) { D(-8, -31, 1, 8, '#000'); D(8, -31, 1, 8, '#000'); D(-11, -24, 3, 1, '#d4af37'); D(9, -24, 3, 1, '#d4af37'); D(-2, -29, 1, 1, '#d4af37'); D(-2, -26, 1, 1, '#d4af37');
+    F(-2, -29, 0.5, 0.5, G_GOLD_L); F(-2, -26, 0.5, 0.5, G_GOLD_L); F(-5, -27, 2, 0.5, GD); F(3, -26, 2.5, 0.5, GD); F(-11, -23.5, 3, 0.5, G_GOLD_D); F(9, -23.5, 3, 0.5, G_GOLD_D);
+    F(-7, -24, 6, 0.5, GD); F(3, -24, 5, 0.5, GD); F(4, -29, 2, 0.5, GD); }                                                       // pocket flaps, hem
 };
-GEAR_ART.pumpkin_head = (R, D) => {
-  const O = '#f87800', OD = '#c84c0c', F = '#3c1800';
+GEAR_ART.pumpkin_head = (R, D, look, sl, o) => {
+  const F = gF(o), O = '#f87800', OD = '#c84c0c', OL = '#fca044', Fc = '#3c1800';
   R(0, -57, 2, 3, '#3c7c18'); R(-6, -54, 13, 1, O); R(-7, -53, 15, 11, O); R(-6, -42, 13, 1, O);
-  D(-3, -53, 1, 11, OD); D(3, -53, 1, 11, OD); D(-7, -51, 1, 7, OD); D(-5, -52, 1, 2, '#fca044'); D(1, -56, 1, 2, '#2c5c10');
-  D(-5, -49, 3, 1, F); D(-4, -50, 1, 1, F); D(2, -49, 3, 1, F); D(3, -50, 1, 1, F); D(0, -47, 1, 1, F);
-  D(-4, -45, 9, 1, F); D(-3, -44, 7, 1, F); D(-2, -45, 1, 1, O); D(1, -44, 1, 1, O); D(3, -45, 1, 1, O);
+  D(-3, -53, 1, 11, OD); D(3, -53, 1, 11, OD); D(-7, -51, 1, 7, OD); D(-5, -52, 1, 2, OL); D(1, -56, 1, 2, '#2c5c10');
+  D(-5, -49, 3, 1, Fc); D(-4, -50, 1, 1, Fc); D(2, -49, 3, 1, Fc); D(3, -50, 1, 1, Fc); D(0, -47, 1, 1, Fc);
+  D(-4, -45, 9, 1, Fc); D(-3, -44, 7, 1, Fc); D(-2, -45, 1, 1, O); D(1, -44, 1, 1, O); D(3, -45, 1, 1, O);
+  F(5, -52, 0.5, 6, OL); F(0, -53.5, 2, 0.5, OL); F(-5.5, -53, 0.5, 9, OD); F(6.5, -50, 0.5, 6, OD); F(0.5, -57, 0.5, 2, '#5cac2c');   // ridges, stem light
+  F(-4, -49.5, 1, 0.5, '#fcd860'); F(3, -49.5, 1, 0.5, '#fcd860'); F(-3, -44.5, 6, 0.5, '#fc9c1c'); F(0, -47, 0.5, 0.5, '#fcd860');   // candle glow
 };
-GEAR_ART.camo_hat = (R, D) => {
-  const B = '#5c6c2c', c1 = '#3c4818', c2 = '#8c8c50', c3 = '#2c2414';
+GEAR_ART.camo_hat = (R, D, look, sl, o) => {
+  const F = gF(o), B = '#5c6c2c', c1 = '#3c4818', c2 = '#8c8c50', c3 = '#2c2414';
   R(-5, -57, 11, 1, B); R(-6, -56, 13, 5, B); R(-7, -51, 15, 2, c1);
   D(-4, -56, 2, 1, c1); D(1, -55, 3, 2, c2); D(-5, -54, 2, 2, c3); D(3, -53, 2, 1, c1); D(-2, -53, 2, 1, c3); D(4, -56, 1, 1, c3); D(-1, -57, 2, 1, c2); D(-3, -52, 2, 1, c2); D(5, -54, 1, 2, c2);
   D(-7, -50, 15, 1, '#2c3810'); D(0, -58, 1, 1, c1);
+  F(-1, -55.5, 3, 2, '#14462d'); F(-0.5, -55, 0.5, 1, '#00e800'); F(0.5, -55, 0.5, 1, '#00e800'); F(1.5, -55, 0.5, 1, '#00e800');   // DLG patch
+  F(-3.5, -57, 2, 0.5, c2); F(-6, -53.5, 1, 1, c1); F(5.5, -55.5, 1, 1, c3); F(2, -52.5, 1, 0.5, c3);                             // finer camo
+  for (let k = -6; k <= 7; k += 1) F(k, -51, 0.5, 0.5, '#7c8c3c');                                                                  // brim stitching
 };
-GEAR_ART.lucky_club = (R, D) => {
+GEAR_ART.lucky_club = (R, D, look, sl, o) => {
+  const F = gF(o);
   R(12, -4, 5, 3, G_GOLD);
   D(12, -28, 1, 24, '#d4af37'); D(12, -28, 1, 5, G_GREEN); D(13, -4, 3, 1, '#fce4a0'); D(12, -2, 5, 1, G_GOLD_D); D(15, -3, 1, 1, '#00a800');
+  F(12.5, -23, 0.5, 19, G_GOLD_L); F(12, -27, 1, 0.5, '#2c6c45'); F(12, -25, 1, 0.5, '#2c6c45'); F(14, -3, 0.5, 0.5, '#00e800'); F(15.5, -3.5, 0.5, 0.5, '#00e800'); F(13, -3.5, 1, 0.5, '#fcfcfc');   // shine, grip wraps, clover
 };
-GEAR_ART.lucky_marker = (R, D) => {   // shown in the locker; in play it skins the ball
+GEAR_ART.lucky_marker = (R, D, look, sl, o) => {   // shown in the locker; in play it skins the ball
+  const F = gF(o);
   R(-1, -5, 3, 1, G_GOLD); R(-2, -4, 5, 3, G_GOLD); R(-1, -1, 3, 1, G_GOLD);
   D(-2, -4, 1, 3, G_GOLD_D); D(0, -4, 1, 1, '#00a800'); D(-1, -3, 3, 1, '#00a800'); D(0, -2, 1, 1, '#00a800');
+  F(-1, -5, 1, 0.5, G_GOLD_L); F(2, -3.5, 0.5, 1.5, G_GOLD_D); F(0, -3, 1, 0.5, '#00e800');
 };
-GEAR_ART.aviators = (R, D) => {
+GEAR_ART.birdie_glove = (R, D, look, sl, o) => {   // v8.65: lead-hand glove with a little blue bird
+  const F = gF(o);
+  R(9, -22, 3, 3, '#fcfcfc');
+  D(9, -20, 3, 1, '#c8d0e0'); D(10, -22, 1, 1, '#3cbcfc');
+  F(9.5, -21, 0.5, 0.5, '#c8d0e0'); F(10.5, -21, 0.5, 0.5, '#c8d0e0'); F(11, -22, 0.5, 0.5, '#2c7cbc'); F(10, -21.5, 0.5, 0.5, '#f8d878');   // knuckles, bird + beak
+  F(9, -19.5, 3, 0.5, '#3cbcfc'); F(11.5, -20, 0.5, 1, '#2c7cbc');                                                                    // cuff strap
+};
+GEAR_ART.underpar_visor = (R, D, look, sl, o) => {   // v8.65: white tour visor, green under-par mark; hair shows above it
+  const F = gF(o);
+  R(-6, -53, 13, 2, '#fcfcfc'); R(-7, -51, 15, 2, '#14462d');
+  D(-6, -53, 1, 2, '#c8d0e0'); D(-1, -53, 3, 1, '#00a800'); D(-7, -50, 15, 1, '#0a2c1c');
+  F(-1, -52.5, 3, 0.5, '#00e800'); F(-5, -53, 4, 0.5, '#fcfcfc'); F(3, -52.5, 3, 0.5, '#e0e4ec'); F(-6, -51.5, 13, 0.5, '#c8d0e0');      // -1 mark, band shading
+  for (let k = -6; k <= 7; k += 1) F(k, -51, 0.5, 0.5, '#2c6c45');                                                                    // brim stitching
+  F(5, -50.5, 2, 0.5, '#2c6c45');
+};
+GEAR_ART.streak_shades = (R, D, look, sl, o) => {   // v8.65: wraparound shades with a fire-mirror lens
+  const F = gF(o);
+  D(-6, -48, 13, 1, '#101018'); D(-5, -47, 4, 2, '#fc5c00'); D(2, -47, 4, 2, '#fc5c00'); D(-1, -47, 3, 1, '#101018'); D(-7, -48, 1, 1, '#101018'); D(7, -48, 1, 1, '#101018');
+  F(-5, -47, 4, 0.5, '#f8d878'); F(2, -47, 4, 0.5, '#f8d878'); F(-5, -46.5, 4, 0.5, '#fca044'); F(2, -46.5, 4, 0.5, '#fca044');            // mirror gradient
+  F(-4.5, -47, 0.5, 0.5, '#fcfcfc'); F(2.5, -47, 0.5, 0.5, '#fcfcfc'); F(-5, -45.5, 4, 0.5, '#c83c00'); F(2, -45.5, 4, 0.5, '#c83c00');   // glint + lower rim
+  F(-1, -46.5, 3, 0.5, '#101018'); F(-7, -47.5, 1, 0.5, '#3c3c48'); F(7, -47.5, 1, 0.5, '#3c3c48');
+};
+GEAR_ART.aviators = (R, D) => {   // legacy art (kept so an admin can still pick it under LOOKS LIKE)
   D(-5, -48, 4, 3, '#d4af37'); D(-4, -47, 2, 2, '#203040'); D(2, -48, 4, 3, '#d4af37'); D(3, -47, 2, 2, '#203040');
   D(-1, -48, 3, 1, '#d4af37'); D(-6, -48, 1, 1, '#d4af37'); D(6, -48, 1, 1, '#d4af37'); D(-4, -47, 1, 1, '#5c7c9c'); D(3, -47, 1, 1, '#5c7c9c');
 };
-GEAR_ART.gold_buckle = (R, D) => { R(-2, -23, 5, 3, G_GOLD); D(-2, -23, 5, 1, '#fce4a0'); D(-1, -22, 3, 1, G_GOLD_D); };
+GEAR_ART.gold_buckle = (R, D) => { R(-2, -23, 5, 3, G_GOLD); D(-2, -23, 5, 1, '#fce4a0'); D(-1, -22, 3, 1, G_GOLD_D); };   // legacy art
 
 // ---- state
 const GEAR_KEY = 'dlg_gear_v1__';
@@ -1316,27 +1412,27 @@ async function gearRedeem(code) {
 const GEAR_ICON = new Map();
 function gearIcon(id, locked) {
   const key = id + (locked ? '|L' : ''); if (GEAR_ICON.has(key)) return GEAR_ICON.get(key);
-  const f = GEAR_ART[gearArtOf(id)], c1 = mk(48, 80), g1 = c1.getContext('2d'); let out = null;
+  const f = GEAR_ART[gearArtOf(id)], c1 = mk(96, 160), g1 = c1.getContext('2d'); let out = null;
   if (f) {
     const old = ctx; ctx = g1;
     try {
-      const parts = [], dets = [], P = (x, y, w, h, c) => { g1.fillStyle = c; g1.fillRect(24 + x, 72 + y, w, h); };
-      f((x, y, w, h, c) => parts.push([x, y, w, h, c]), (x, y, w, h, c) => dets.push([x, y, w, h, c]), lookOf(hdLookFull({})), HD_SLOTS[(gearItem(id) || {}).slot] || {}, { bust: false });
+      const parts = [], dets = [], P = (x, y, w, h, c) => { g1.fillStyle = c; g1.fillRect(48 + x * 2, 144 + y * 2, w * 2, h * 2); };
+      f((x, y, w, h, c) => parts.push([x, y, w, h, c]), (x, y, w, h, c) => dets.push([x, y, w, h, c]), lookOf(hdLookFull({})), HD_SLOTS[(gearItem(id) || {}).slot] || {}, { bust: false, F: (x, y, w, h, c) => dets.push([x, y, w, h, c]) });
       for (const p of parts) P(p[0] - 1, p[1] - 1, p[2] + 2, p[3] + 2, '#000'); for (const p of parts) P(...p); for (const d of dets) P(...d);
     } finally { ctx = old; }
-    const im = g1.getImageData(0, 0, 48, 80).data; let x0 = 48, y0 = 80, x1 = -1, y1 = -1;
-    for (let y = 0; y < 80; y++) for (let x = 0; x < 48; x++) if (im[(y * 48 + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const im = g1.getImageData(0, 0, 96, 160).data; let x0 = 96, y0 = 160, x1 = -1, y1 = -1;
+    for (let y = 0; y < 160; y++) for (let x = 0; x < 96; x++) if (im[(y * 96 + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
     if (x1 >= 0) {
-      const w = x1 - x0 + 1, h = y1 - y0 + 1, S = Math.max(w, h) + 4; out = mk(S, S); const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+      const w = x1 - x0 + 1, h = y1 - y0 + 1, S = Math.max(w, h) + 8; out = mk(S, S); const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
       const ox = Math.floor((S - w) / 2), oy = Math.floor((S - h) / 2);
       if (locked) {
         const sil = mk(w, h), s2 = sil.getContext('2d'); s2.drawImage(c1, x0, y0, w, h, 0, 0, w, h); s2.globalCompositeOperation = 'source-in'; s2.fillStyle = '#5c6c8c'; s2.fillRect(0, 0, w, h);
         const dark = mk(w, h), d2 = dark.getContext('2d'); d2.drawImage(c1, x0, y0, w, h, 0, 0, w, h); d2.globalCompositeOperation = 'source-in'; d2.fillStyle = '#101a30'; d2.fillRect(0, 0, w, h);
-        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) o.drawImage(sil, ox + dx, oy + dy); o.drawImage(dark, ox, oy);
+        for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) o.drawImage(sil, ox + dx, oy + dy); o.drawImage(dark, ox, oy);
       } else o.drawImage(c1, x0, y0, w, h, ox, oy, w, h);
     }
   }
-  const url = out ? (() => { const big = mk(out.width * 4, out.height * 4), b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(out, 0, 0, big.width, big.height); return big.toDataURL(); })() : '';
+  const url = out ? (() => { const big = mk(out.width * 2, out.height * 2), b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(out, 0, 0, big.width, big.height); return big.toDataURL(); })() : '';
   GEAR_ICON.set(key, url); return url;
 }
 // ---- show-off busts: one shared, cached renderer for leaderboards, the tournament field/board and the share card
@@ -1345,7 +1441,7 @@ function playerBust(app, gearMap, size) {   // size 'sm' = 11x11 board chip (can
   const src = golferHDCanvas(app, gearMap || null, 'bust'); if (size !== 'sm') return src;
   let c = BUST_SM.get(src); if (c) return c;
   c = mk(11, 11); const g = c.getContext('2d'); g.imageSmoothingEnabled = true; if ('imageSmoothingQuality' in g) g.imageSmoothingQuality = 'high';
-  g.drawImage(src, 1, 0, 24, 24, 0, 0, 11, 11);
+  g.drawImage(src, 2, 0, 48, 48, 0, 0, 11, 11);
   if (BUST_SM.size > 120) BUST_SM.clear(); BUST_SM.set(src, c); return c;
 }
 const LOADOUT = { map: new Map(), want: new Set(), timer: 0 };   // username -> { slot: item } (equipped gear only, public RPC)
@@ -1529,13 +1625,14 @@ const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ac
 const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
 function careerBlank() {
   return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
-           best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '' };
+           best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '',
+           bRound: 0, u18: 0, clean: 0, cleanTop: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
 }
 function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
 function careerClean(c) {
   const b = careerBlank();
   if (!c || typeof c !== 'object') return b;
-  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
+  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
   for (const k of ['front', 'back', 'full', 'daily', 'coral']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
   if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
   if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
@@ -1567,7 +1664,7 @@ function careerAdoptGuest() {   // first sign-in on this device: keep the rounds
 }
 /* per-round buffer: filled hole by hole, committed only when a scored round finishes (quits never count) */
 let careerRun = null, careerLast = null, careerMsg = null, careerSignOutArm = 0;
-function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0 }; }
+function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0 }; }
 function careerNoteHole(d, strokesOnHole) {
   if (!careerRun) careerRoundStart();
   if (strokesOnHole === 1) careerRun.aces++;
@@ -1575,8 +1672,9 @@ function careerNoteHole(d, strokesOnHole) {
   else if (d === -1) careerRun.birdies++;
 }
 function careerNoteLuck() { if (!careerRun) careerRoundStart(); careerRun.luck++; }
+function careerNoteLost() { if (!careerRun) careerRoundStart(); careerRun.lost = (careerRun.lost | 0) + 1; }   // v8.65: water / out of bounds = a lost ball
 function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel, strokes, holes, date, scored }
-  const run = careerRun || { birdies: 0, eagles: 0, aces: 0, luck: 0 };
+  const run = careerRun || { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0 };
   careerRun = null;
   if (!info || !info.scored) return null;
   try { careerRoundRow(info, run); } catch (e) {}
@@ -1585,6 +1683,9 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck;
   c.rounds++; c.holes += info.holes;
   c.birdies += run.birdies; c.eagles += run.eagles; c.aces += run.aces; c.luck += run.luck;
+  c.bRound = Math.max(c.bRound | 0, run.birdies);   // v8.65 gear stats (BIRDIE GLOVE / UNDER-PAR VISOR / LUCKY CLUB)
+  if (info.kind !== 'daily' && info.holes >= 18 && info.rel < 0) c.u18 = (c.u18 | 0) + 1;
+  if (info.kind !== 'daily') { c.clean = run.lost ? 0 : (c.clean | 0) + 1; c.cleanTop = Math.max(c.cleanTop | 0, c.clean); }
   let pb = false;
   if (info.kind !== 'daily' && info.holes % 9 === 0) {
     c.nineHoles += info.holes; c.nineRel += info.rel;
@@ -1638,6 +1739,8 @@ function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, u
   a.recent.concat(b.recent).forEach(r => { const key = r.kind + '|' + r.rel + '|' + r.strokes + '|' + r.date; if (!seen[key]) { seen[key] = 1; rec.push(r); } });
   m.recent = rec.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0)).slice(0, 5);
   m.look = a.look || b.look;
+  m.bRound = Math.max(a.bRound, b.bRound); m.u18 = Math.max(a.u18, b.u18); m.cleanTop = Math.max(a.cleanTop, b.cleanTop);
+  m.clean = (a.updated >= b.updated ? a : b).clean;   // v8.65: the current no-lost-ball run comes from the newer copy
   m.updated = a.updated >= b.updated ? a.updated : b.updated;
   return m;
 }
@@ -5086,6 +5189,7 @@ function resolveBall(r) {
   if (r === 'water' || r === 'ob') {
     strokes++;
     penaltyKind = r;
+    if (!SIM) { try { careerNoteLost(); } catch (e) {} }   // v8.65
     penaltySpot = null;
     if (r === 'water' && hole.drop != null && Math.abs(hole.cup - hole.drop) < Math.abs(hole.cup - lastSpot)) penaltySpot = hole.drop;   // v8.20: island holes use the DROP ZONE
     if (r === 'water') { SFX.splash(); showMsg(penaltySpot != null ? 'WATER +1  TO DROP ZONE' : 'WATER  +1 STROKE', COL.blue, 2.0); announce(penaltySpot != null ? 'water, plus one stroke. ball moved to the drop zone' : 'water, plus one stroke'); }
@@ -7262,7 +7366,7 @@ function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel 
     if (aces) { drawTextC(aces > 1 ? aces + ' HOLES IN ONE' : 'HOLE IN ONE!', y, COL.orange, 2, 2, cx); y += 24; }
     if (who) { const bw = 26, tw = textW(who, 2), x0 = Math.round(cx - (bw + 6 + tw) / 2);   // v8.64: your bust (look + equipped gear) beside your handle
       rect(x0 - 2, y - 6, bw + 4, 34, COL.white); rect(x0 - 1, y - 5, bw + 2, 32, '#183848');
-      try { ctx.drawImage(playerBust(lookToJson(player), gearEquipped(), 'md'), x0, y - 4); } catch (e) {}
+      try { ctx.drawImage(playerBust(lookToJson(player), gearEquipped(), 'md'), x0, y - 4, 26, 30); } catch (e) {}
       drawText(who, x0 + bw + 8, y + 5, COL.blue, 2); }
     outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM', 2) / 2), 348, COL.white, 2);
     ctx.save(); ctx.translate(58, 458); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookOf(player), { finish: 1 }); ctx.restore();
@@ -7841,13 +7945,13 @@ const ADMIN_VIEWS = {
     h += '<p class="sec">GIVE / TAKE</p><form data-f="ggrant" novalidate><label for="ggUser">PLAYER</label><input id="ggUser" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><label for="ggItem">ITEM</label><select id="ggItem">' + opt('champ_jacket') + '</select><div class="row"><button class="btn" type="submit">GIVE</button><button class="btn alt" type="button" data-a="gtake">TAKE</button></div></form>';
     const E = ed || { id: '', name: '', slot: 'head', tier: 'common', req: '', rule: { code: true }, art: '', active: true, sort: 100 };
     const sel = (id, vals, cur) => '<select id="' + id + '">' + vals.map(v => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + v.toUpperCase() + '</option>').join('') + '</select>';
-    const r = E.rule || {}, rk = r.stat ? 'stat:' + r.stat : r.event ? 'event:' + r.event : r.grant ? 'grant' : 'code';
+    const r = E.rule || {}, cx = !!(r.any || r.score || r.dailyRun || (r.grant && r.code)), rk = cx ? 'keep' : r.stat ? 'stat:' + r.stat : r.event ? 'event:' + r.event : r.grant ? 'grant' : 'code';   // v8.65: combined rules stay as they are unless changed
     h += '<p class="sec">' + (ed ? 'EDIT ' + esc(ed.name) : 'NEW ITEM') + '</p><form data-f="gitem" novalidate>' +
       '<label for="giId">ID (a-z, 0-9, _)</label><input id="giId" type="text" maxlength="24" value="' + esc(E.id) + '"' + (ed ? ' readonly' : '') + ' autocapitalize="off" spellcheck="false">' +
       '<label for="giName">NAME</label><input id="giName" type="text" maxlength="24" value="' + esc(E.name) + '">' +
       '<label for="giSlot">SLOT</label>' + sel('giSlot', Object.keys(HD_SLOTS), E.slot) + '<label for="giTier">TIER</label>' + sel('giTier', ['common', 'rare', 'legendary'], E.tier) +
       '<label for="giArt">LOOKS LIKE</label>' + sel('giArt', Object.keys(GEAR_ART), E.art || (GEAR_ART[E.id] ? E.id : Object.keys(GEAR_ART)[0])) +
-      '<label for="giRule">HOW TO GET IT</label>' + sel('giRule', ['code', 'grant', 'event:spooky', 'stat:aces', 'stat:eagles', 'stat:birdies', 'stat:luck', 'stat:rounds'], rk) +
+      '<label for="giRule">HOW TO GET IT</label>' + sel('giRule', (cx ? ['keep'] : []).concat(['code', 'grant', 'event:spooky', 'stat:aces', 'stat:bRound', 'stat:u18', 'stat:daily.top', 'stat:cleanTop', 'stat:eagles', 'stat:birdies', 'stat:luck', 'stat:rounds']), rk) +
       '<label for="giMin">NUMBER NEEDED (STATS)</label><input id="giMin" type="number" min="1" value="' + (r.min || 1) + '">' +
       '<label for="giReq">REQUIREMENT TEXT</label><input id="giReq" type="text" maxlength="48" value="' + esc(E.req || '') + '">' +
       '<label for="giFrom">AVAILABLE FROM (BLANK = ALWAYS)</label><input id="giFrom" type="datetime-local" value="' + dt(E.available_from) + '">' +
@@ -7965,7 +8069,7 @@ const VIEWS = {
     const fmtB = v => v == null ? '--' : (v > 0 ? '+' + v : v === 0 ? 'E' : String(v));
     const avg = S.nineHoles ? fmtB(Math.round(S.nineRel / S.nineHoles * 10) / 10) : '--';
     const f = social.friends.find(x => x.status === 'accepted' && String(x.friend_username).toLowerCase() === String(P.username).toLowerCase());
-    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferHDImg(P.appearance, P.gear, 'full', 3) + '"><div><p class="big">' + at(P.username) + '</p>' +
+    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferHDImg(P.appearance, P.gear, 'full', 2) + '"><div><p class="big">' + at(P.username) + '</p>' +
       '<p class="rank">DLG TOUR <b>' + esc(r.name) + '</b></p><div class="xpbar"><i style="width:' + Math.round(r.frac * 100) + '%"></i></div><p class="sub l">' + (P.xp | 0) + ' XP' + (r.next ? ' · NEXT: ' + esc(r.next) : '') + '</p></div></div>' +
       '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
       '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
@@ -8346,7 +8450,8 @@ if (acctEl) {
         showAcct('adminGear', { msg: 'GAVE ' + ((gearItem(it) || {}).name || it) + ' TO @' + u.replace(/^@/, '').toUpperCase(), ok: true }); return; }
       if (f === 'gitem') { const id = val('giId').toLowerCase(), rk = val('giRule'), mn = Math.max(1, Math.round(+val('giMin') || 1));
         if (!/^[a-z0-9_]{2,24}$/.test(id)) { acctMsg('ID: 2-24 LOWERCASE LETTERS, NUMBERS, _'); return; } if (!val('giName')) { acctMsg('GIVE IT A NAME'); return; }
-        const rule = rk === 'code' ? { code: true } : rk === 'grant' ? { grant: true } : rk.startsWith('event:') ? { event: rk.slice(6) } : { stat: rk.slice(5), min: mn };
+        const keep = ((admin.gear || []).find(g => g.id === id) || {}).rule;
+        const rule = rk === 'keep' && keep ? keep : rk === 'code' ? { code: true } : rk === 'grant' ? { grant: true } : rk.startsWith('event:') ? { event: rk.slice(6) } : { stat: rk.slice(5), min: mn };
         const iso = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : d.toISOString(); };
         const fr = iso(val('giFrom')), un = iso(val('giUntil')); if (fr && un && Date.parse(un) <= Date.parse(fr)) { acctMsg('UNTIL MUST BE AFTER FROM'); return; }
         const body = { id, name: val('giName'), slot: val('giSlot'), tier: val('giTier'), art: val('giArt'), rule, req: val('giReq'), available_from: fr, available_until: un, active: !!(document.getElementById('giOn') || {}).checked, sort: ((admin.gear || []).find(g => g.id === id) || {}).sort || 100 };
@@ -8492,7 +8597,7 @@ if (acctEl) {
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape' && acctView === 'locker') { e.preventDefault(); hideAcct(); e.stopPropagation(); return; } if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
-if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
   get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
