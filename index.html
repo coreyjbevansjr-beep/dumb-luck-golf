@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.60">
+<meta name="dlg-version" content="v8.61">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -194,7 +194,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.60';
+const GAME_VERSION = 'v8.61';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4049,7 +4049,7 @@ function boardTabRects() {
 function boardTabRects0() {
   const out = [], mw = 45, mx = 14;
   if (board && board.modeId === 'spooky') {   // v8.52 SPOOKY CUP: prize line + countdown instead of mode / period tabs
-    if (isSignedIn()) out.push({ kind: 'ig', v: 1, label: cupMyIg ? '@' + cupMyIg.toUpperCase().slice(0, 6) : '+ IG', x: 196, y: 11, w: 46, h: 12 });
+    if (isSignedIn()) { const lab = cupMyIg ? (cupMyIg.length <= 15 ? '@' + cupMyIg.toUpperCase() : 'MY IG') : '+ ADD IG', w = textW(lab) + 8; out.push({ kind: 'ig', v: 1, label: lab, x: Math.round(133 - w / 2), y: 58, w, h: 11 }); }   // v8.61: your full handle, in the column header row
     [['scope', 'all', 'EVERYONE'], ['scope', 'friends', 'FRIENDS']].forEach(([k, v, l], i) => out.push({ kind: k, v, label: l, x: 130 + i * 57, y: 44, w: 55, h: 12 }));
     return out;
   }
@@ -5093,7 +5093,9 @@ cv.addEventListener('pointerdown', e => {
   }
   if (state === 'board') {
     const tb = board && boardTabRects().find(t => hit(p, { x: t.x, y: t.y - 2, w: t.w, h: t.h + 4 }));
-    if (tb) armUiTap('btab', () => boardSetTab(tb.kind, tb.v), () => true, e);
+    const bo = boardOrigin(), ir = board && board.igRects && board.igRects.find(q => hit(p, { x: q.x + bo.x, y: q.y + bo.y, w: q.w, h: q.h }));
+    if (ir) armUiTap('big', () => { SFX.click(); if (ir.ig) { try { window.open('https://www.instagram.com/' + encodeURIComponent(ir.ig) + '/', '_blank', 'noopener'); } catch (er) {} } else showAcct('spookyIg', { ig: '' }); }, () => true, e);   // v8.61
+    else if (tb) armUiTap('btab', () => boardSetTab(tb.kind, tb.v), () => true, e);
     else if (st > 0.3) armUiTap('board', () => closeBoard(), () => true, e);
     touchDown = null; return;
   }
@@ -6819,12 +6821,14 @@ function renderBoardPanel() {
   } else drawTextC('LEADERBOARD', 12, COL.orange, 2);
   for (const t of boardTabRects0()) {
     const on = boardTabOn(t);
+    if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828'); drawText(t.label, t.x + 4, t.y + 2, on ? '#000' : COL.gray); continue; }   // v8.61 IG chip (pink)
     rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
     drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
   }
   const hy = 60;
-  drawTextR('#', 24, hy, COL.lime); drawText('PLAYER', 40, hy, COL.lime); drawTextR('STRK', 162, hy, COL.lime);
-  drawTextR('PAR', 189, hy, COL.lime); drawText(cup ? 'IG' : 'DATE', 195, hy, COL.lime);
+  const sx = cup ? 214 : 162, px = cup ? 240 : 189;   // v8.61: SPOOKY CUP has no date column - IG gets its own line
+  drawTextR('#', 24, hy, COL.lime); drawText('PLAYER', 40, hy, COL.lime); drawTextR('STRK', sx, hy, COL.lime);
+  drawTextR('PAR', px, hy, COL.lime); if (!cup) drawText('DATE', 195, hy, COL.lime);
   rect(14, hy + 9, 228, 1, '#3c3c3c');
   const rows = board.rows;
   if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawTextC('LOADING...', 120, COL.white); }
@@ -6836,19 +6840,28 @@ function renderBoardPanel() {
     drawTextC(boardScope === 'friends' ? 'ADD FRIENDS ON THE CAREER SCREEN' : boardPeriod === 'weekly' ? 'NEW WEEK EVERY MONDAY' : 'FINISH A ROUND TO', 118, COL.gray);
     if (boardScope !== 'friends') drawTextC('GET ON THE BOARD', 128, COL.gray);
   }
-  else rows.forEach((r, i) => {
-    const y = 73 + i * 12, me = i === board.hi || r.me;
-    if (me) rect(12, y - 2, 232, 11, COL.blueD);
+  else { board.igRects = []; let yy = 73; rows.forEach((r, i) => {
+    const me = i === board.hi || r.me, own = r.verified && isSignedIn() && hasUsername() && String(r.name).toUpperCase() === myName();
+    const ig = cup ? (r.ig || (own ? '' : null)) : null, two = cup && ig != null, rh = two ? 21 : 12;
+    if (yy + rh - 3 > 194) return;   // keep inside the board
+    const y = yy; yy += rh;
+    if (me) rect(12, y - 2, 232, rh - 1, COL.blueD);
     const c = me ? '#f8d878' : COL.white;
     if (i < 3) drawMedal(15, y - 1, i); else drawTextR(String(i + 1), 24, y, c);
     let nx = 40;
     if (r.verified) { const g = lbMiniGolfer(r.appearance); if (g) ctx.drawImage(g, 0, 0, 40, 40, 27, y - 2, 11, 11); }
     const nm = r.name.length > 14 ? r.name.slice(0, 14) : r.name;
     drawText(nm, nx, y, c); if (r.verified) drawCheck(nx + textW(nm) + 2, y - 1);
-    drawTextR(String(r.strokes), 162, y, c);
-    drawTextR(fmtRel(r.to_par), 189, y, me ? c : (r.to_par <= 0 ? COL.lime : COL.orange));
-    if (cup && r.ig) drawText('@' + r.ig.slice(0, 7).toUpperCase(), 195, y, me ? c : '#f8a0d8'); else drawText(fmtDate(r.created_at), 195, y, me ? c : COL.gray);
-  });
+    drawTextR(String(r.strokes), sx, y, c);
+    drawTextR(fmtRel(r.to_par), px, y, me ? c : (r.to_par <= 0 ? COL.lime : COL.orange));
+    if (!cup) drawText(fmtDate(r.created_at), 195, y, me ? c : COL.gray);
+    else if (two) {   // v8.61: full @handle on its own line, tap = open Instagram (own row without one: + ADD IG)
+      const lab = ig ? '@' + ig.toUpperCase() : '+ ADD IG', w = textW(lab);
+      drawText(lab, 40, y + 10, ig ? '#f8a0d8' : COL.gray);
+      if (ig) rect(40, y + 18, w, 1, '#7c3c6c');
+      board.igRects.push({ x: 38, y: y + 7, w: w + 4, h: 13, ig: ig || '' });
+    }
+  }); }
   rect(14, 195, 228, 1, '#3c3c3c');
   if (rows && !board.needSignIn) {
     const m = board.me, e = board.entry;
@@ -7976,7 +7989,7 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, liveShotT(dx, c, a, p) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); clubIdx = c; angle = a; facing = shotFacing = 1; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); return shotPred; }, simVerifyT(n) {   // v8.60: pre-sim vs real flight, many random shots (luck/tree/pin/wind)
+  window.__golf = {  cupBoardT(rows, myIg, signed) { if (signed) { account.user = Object.assign({ id: 'test-user', expires_at: 9e9 }, account.user || {}); account.profile = Object.assign({}, account.profile || {}, { username: 'scorey' }); } cupMyIg = myIg || ''; if (!board || board.modeId !== 'spooky') openBoard(null, 'spooky'); board.rows = rows; board.hi = -1; board.src = 'online'; st = 1; return board.modeId; }, snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, liveShotT(dx, c, a, p) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); clubIdx = c; angle = a; facing = shotFacing = 1; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; launch(); return shotPred; }, simVerifyT(n) {   // v8.60: pre-sim vs real flight, many random shots (luck/tree/pin/wind)
       const out = { n: 0, match: 0, mism: [], cups: 0, luck: 0, pin: 0, tree: 0, hb: 0, hbWrong: 0 };
       for (let i = 0; i < n; i++) {
         const hi = Math.floor(Math.random() * HOLES.length); hole = compileHole(HOLES[hi]); wind = Math.round(Math.random() * 28 - 14);
