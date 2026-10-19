@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.82">
+<meta name="dlg-version" content="v8.83">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.82';
+const GAME_VERSION = 'v8.83';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -9577,11 +9577,14 @@ function labRender(now) {
         for (let i = 0; i < fw; i++) { const k = i / fw, off = Math.round(Math.sin(t * 5.5 - i * 0.55) * 1.6 * k), hh = Math.max(1, Math.round(fh * (1 - 0.55 * k))); ctx.fillStyle = (i + Math.floor(t * 6)) % 7 === 0 ? '#c82800' : '#f83800'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, hh); ctx.fillStyle = '#fc7840'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, 1); }
       }
     }
-    // grain: faint specks drifting downhill across the green (shows the fall line everywhere; never a putt line)
-    { const aB = lerp(0.55, 0.9, LAB.readK); ctx.fillStyle = '#eaffd0';
-      for (const q of LAB.parts || []) { const f = Math.sin(Math.PI * clamp(q.life / q.max, 0, 1)) * aB; if (f < 0.04) continue; const p = labProj(q.x, q.y, labHE(q.x, q.y)); if (!p || p.y < 0 || p.y > sb.bot) continue;
-        const p2 = labProj(q.x - q.dx * 0.9, q.y - q.dy * 0.9, labHE(q.x - q.dx * 0.9, q.y - q.dy * 0.9)); ctx.globalAlpha = f; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
-        if (p2) { ctx.globalAlpha = f * 0.5; ctx.fillRect(Math.round((p.x + p2.x) / 2), Math.round((p.y + p2.y) / 2), 1, 1); ctx.globalAlpha = f * 0.25; ctx.fillRect(Math.round(p2.x), Math.round(p2.y), 1, 1); } }
+    // v8.83 slope dots: dotted fall lines rolling downhill along the break (faster + brighter where steeper)
+    { const aB = lerp(0.8, 1, LAB.readK), T = (now || performance.now()) / 1000; ctx.fillStyle = '#eaffd0';
+      for (const ln of labFlow()) { const n = ln.p.length, Ls = ln.s[n - 1], sp = ln.v, off = (T * sp + ln.ph) % LAB_DOT_GAP;
+        for (let d = off, j = 0; d < Ls; d += LAB_DOT_GAP) { while (j < n - 2 && ln.s[j + 1] < d) j++;
+          const u = (d - ln.s[j]) / Math.max(1e-6, ln.s[j + 1] - ln.s[j]), x = lerp(ln.p[j][0], ln.p[j + 1][0], u), y = lerp(ln.p[j][1], ln.p[j + 1][1], u);
+          const pp = labProj(x, y, labHE(x, y)); if (!pp || pp.y < 0 || pp.y > sb.bot) continue;
+          const e = Math.min(1, d / 1.2, (Ls - d) / 1.2); ctx.globalAlpha = aB * ln.a * Math.max(0, e);
+          const r = clamp(0.15 * pp.s, 0.9, 4); labEllipse(pp.x, pp.y, r, Math.max(0.8, r * 0.6), '#f6ffe8'); } }
       ctx.globalAlpha = 1; }
     // aim chevrons (direction only, 1-4 ft straight out; no read of the break)
     if (['aim', 'power', 'accuracy'].includes(LAB.phase) && LAB.readK < 0.5) {
@@ -9662,6 +9665,21 @@ function labParts(dt) {
     if (m > 1e-4) { q.dx = -gx / m; q.dy = -gy / m; const sp = clamp(m * 110, 0.25, 3.2); q.x += q.dx * sp * dt; q.y += q.dy * sp * dt; }
     if (q.life > q.max || g.surf(q.x, q.y) !== 'green') labPartSpawn(q, false);
   }
+}
+const LAB_DOT_GAP = 0.85;   // v8.83: ft between slope dots
+function labFlow() {   // v8.83: streamlines down the fall line, traced once per green (picture only; never touches physics)
+  const g = LAB.g; if (!g) return []; if (g.flow) return g.flow;
+  const out = [], occ = new Set(), cs = 1.15, key = (x, y) => Math.floor(x / cs) + ',' + Math.floor(y / cs), R = mulberry32(0x9e3779b1);
+  for (let y = g.gcy - g.ay; y <= g.gcy + g.ay; y += 2.6) for (let x = g.gcx - g.ax; x <= g.gcx + g.ax; x += 2.6) {
+    let px = x + (R() - 0.5) * 1.5, py = y + (R() - 0.5) * 1.5; if (g.surf(px, py) !== 'green' || occ.has(key(px, py))) continue;
+    const pts = [[px, py]], sl = [0], mine = new Set([key(px, py)]); let msum = 0;
+    for (let i = 0; i < 70; i++) { const [gx, gy] = labGrad(px, py), m = Math.hypot(gx, gy); if (m < 0.004) break;
+      px -= gx / m * 0.35; py -= gy / m * 0.35; const k = key(px, py); if (g.surf(px, py) !== 'green' || (occ.has(k) && !mine.has(k))) break;
+      mine.add(k); msum += m; pts.push([px, py]); sl.push(sl[sl.length - 1] + 0.35); }
+    if (pts.length < 9) continue; mine.forEach(k => occ.add(k));
+    const m = msum / (pts.length - 1); out.push({ p: pts, s: sl, v: clamp(m * 70, 0.35, 3.4), a: clamp(0.5 + m * 14, 0.55, 1), ph: R() * LAB_DOT_GAP });
+  }
+  return (g.flow = out);
 }
 function labFlatPower() { const b = LAB.ball, g = LAB.g, d = Math.hypot(g.cupX - b.x, g.cupY - b.y); return clamp(Math.sqrt(2 * LAB_MU * (d + 1)) / LAB_VMAX, 0.02, 1); }
 /* ---- flow ---- */
