@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.80">
+<meta name="dlg-version" content="v8.81">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.80';
+const GAME_VERSION = 'v8.81';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1743,7 +1743,7 @@ const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ac
 const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
 function careerBlank() {
   return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
-           best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '',
+           best: { front: null, back: null, full: null, daily: null, coral: null, roller: null, nycf: null, nycb: null, nyc18: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '',
            bRound: 0, u18: 0, clean: 0, cleanTop: 0, saves: 0, bounty: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
 }
 function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
@@ -1751,7 +1751,7 @@ function careerClean(c) {
   const b = careerBlank();
   if (!c || typeof c !== 'object') return b;
   for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop', 'saves', 'bounty']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
-  for (const k of ['front', 'back', 'full', 'daily', 'coral']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
+  for (const k of ['front', 'back', 'full', 'daily', 'coral', 'roller', 'nycf', 'nycb', 'nyc18']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
   if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
   if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
   if (c.look && typeof c.look === 'object') b.look = { skin: clamp(c.look.skin | 0, 0, SKINS.length - 1), shirt: clamp(c.look.shirt | 0, 0, SHIRTS.length - 1),
@@ -1806,7 +1806,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   c.rounds++; c.holes += info.holes;
   c.birdies += run.birdies; c.eagles += run.eagles; c.aces += run.aces; c.luck += run.luck;
   c.bRound = Math.max(c.bRound | 0, run.birdies);   // v8.65 gear stats (BIRDIE GLOVE / UNDER-PAR VISOR / LUCKY CLUB)
-  if (info.kind !== 'daily' && info.holes >= 18 && info.rel < 0) c.u18 = (c.u18 | 0) + 1;
+  if (info.kind !== 'daily' && info.kind !== 'nyc18' && info.holes >= 18 && info.rel < 0) c.u18 = (c.u18 | 0) + 1;   // v8.75: UNDER-PAR VISOR keeps counting the same 18s as before (not BIG APPLE yet)
   if (info.kind !== 'daily') { c.clean = run.lost ? 0 : (c.clean | 0) + 1; c.cleanTop = Math.max(c.cleanTop | 0, c.clean); }
   let pb = false;
   if (info.kind !== 'daily' && info.holes % 9 === 0) {
@@ -2686,6 +2686,191 @@ const CORAL_HOLES = [
    pads:[[506,520]],
    pts:[[0,'tee',12],[24,'rough',12],[48,'water',8],[118,'rough',12],[132,'fair',12],[260,'fair',18],[300,'sand',20],[322,'fair',20],[460,'fair',24],[490,'water',16],[504,'rough',22],[524,'fair',30],[580,'green',34],[664,'sand',32],[682,'rough',32],[720,'end',34]] }
 ];
+/* ================= v8.69: HIGH ROLLER (members-only 9, signed-in players) =================
+   A desert resort course on the edge of a casino town, played from dawn to neon night. One backdrop style (flat mesas +
+   a far skyline that lights up after dark), lush resort turf, white sand, turquoise water. No props: the holes are the show.
+   New light mechanics: ramps (a rolling ball that hits the lip fast enough takes off) and wide rock walls with a gap
+   underneath (low runners get through; walls only stop balls in the air, same as the Daily bank walls). */
+const hrBg = o => (R, w, h, hz, H1) => {
+  if (o.sun) { const sx = o.sun[0], sy = hz - o.sun[1], r = o.sun[2]; for (let y = -r; y <= r; y++) { const hw = Math.round(Math.sqrt(r * r - y * y)); R(sx - hw, sy + y, hw * 2, 1, o.sunC); } }
+  // far skyline (one cluster, right of centre): dark blocks; lit windows from dusk on
+  for (let x = 300, i = 0; x < 430; i++) { const bw = 8 + Math.floor(H1(i + 400) * 10), top = hz - 22 - Math.floor(H1(i + 420) * 34) - (i === 4 ? 26 : 0);
+    R(x, top, bw - 1, h - top, o.city); if (o.lit) for (let y = top + 3; y < hz; y += 4) for (let k = x + 2; k < x + bw - 2; k += 3) if (H1(k * 7 + y) < 0.35) R(k, y, 1, 2, H1(k + y * 3) < 0.3 ? '#f878f8' : '#fce4a0');
+    if (i === 4 && o.lit) { R(x + Math.floor(bw / 2) - 1, top - 8, 2, 8, o.city); R(x + Math.floor(bw / 2) - 1, top - 9, 2, 1, '#f83800'); }
+    x += bw; }
+  // flat-topped mesas, two layers
+  const mesa = (x0, mw, ht, col, cap) => {   // flat cap, sheer cliff band, then a talus slope flaring out to the desert floor
+    const top = hz - ht, cliff = Math.round(ht * 0.55);
+    for (let y = top; y < h; y++) { const k = y - top, fl = k < cliff ? 0 : Math.round((k - cliff) * 0.9), xl = x0 - fl, ww = mw + fl * 2;
+      R(xl - 1, y, ww + 2, 1, '#000'); R(xl, y, ww, 1, k < 2 ? cap : col); if (k === Math.round(cliff * 0.45) || k === cliff) R(xl + 2, y, ww - 4, 1, cap); }
+  };
+  mesa(10, 70, 46, o.m1, o.m1c); mesa(150, 110, 30, o.m1, o.m1c); mesa(450, 60, 40, o.m1, o.m1c);
+  for (let x = 0; x < w; x++) { const top = hz + 2 + Math.round(3 * Math.sin(x / 23) + 2 * Math.sin(x / 7)); R(x, top, 1, h - top, o.near); }
+};
+const hrC = (o) => Object.assign({}, COL, { grass: '#1c9c4c', fair2: '#2cac5c', green: '#58e07c', green2: '#48d06c', grassD: '#4c7c2c', sand: '#fcf4dc', sandD: '#d8ccb0',
+  dirt: '#b8643c', dirtD: '#7c3c20', dirtL: '#d8844c', water: '#3cdcd8', waterD: '#109ca8' }, o || {});
+Object.assign(THEMES, {
+  hrDawn:   { sky: '#f8b8a8', bg: hrBg({ sun: [90, 6, 14], sunC: '#fce4c0', city: '#b47c88', m1: '#c87c74', m1c: '#e09c88', near: '#a8645c' }), C: hrC() },
+  hrMorn:   { sky: '#a8dcfc', clouds: true, bg: hrBg({ city: '#8cacc8', m1: '#d8946c', m1c: '#f0b088', near: '#c87c54' }), C: hrC() },
+  hrDay:    { sky: '#58b8fc', clouds: true, bg: hrBg({ city: '#7c9cbc', m1: '#c8743c', m1c: '#e8945c', near: '#b8643c' }), C: hrC() },
+  hrGold:   { sky: '#fcc878', bg: hrBg({ sun: [200, 60, 12], sunC: '#fcf0b8', city: '#a87c58', m1: '#c86c34', m1c: '#f0a050', near: '#a85c30' }), C: hrC({ grass: '#3c9c3c', fair2: '#4cac44' }) },
+  hrSunset: { sky: '#f87858', bg: hrBg({ sun: [250, 10, 18], sunC: '#fcd878', city: '#5c2c3c', m1: '#7c2c34', m1c: '#b84c3c', near: '#5c2028', lit: true }), C: hrC({ grass: '#2c8c44', fair2: '#3c9c4c', dirt: '#8c3c2c', dirtD: '#5c2018', dirtL: '#b8543c' }) },
+  hrDusk:   { sky: '#5c3c88', stars: true, noMoon: true, bg: hrBg({ city: '#2c1c48', m1: '#3c2c5c', m1c: '#5c4480', near: '#2c2044', lit: true }), C: hrC({ grass: '#1c7c4c', fair2: '#248c58', green: '#48c87c', green2: '#3cb870', dirt: '#5c3c48', dirtD: '#3c2434', dirtL: '#7c5464', water: '#3cbcd8', waterD: '#1c6c98' }) },
+  hrNight:  { sky: '#0c0c2c', stars: true, bg: hrBg({ city: '#1c1438', m1: '#1c1c3c', m1c: '#34305c', near: '#14142c', lit: true }), C: hrC({ grass: '#146c44', fair2: '#1c7c4c', green: '#3cc87c', green2: '#2cb86c', grassD: '#244c34', sand: '#d8d8f0', sandD: '#a8a8cc', dirt: '#3c2c48', dirtD: '#24182c', dirtL: '#5c4c6c', water: '#7c3cc8', waterD: '#3c1c78' }) }
+});
+const ROLLER_HOLES = [
+ // split tiers: lay up on the low fairway short of the creek (three-shotter), or double down - a full drive carries the creek onto the high shelf
+ { name:'DOUBLE DOWN', theme:'hrDawn', par:5, cup:560, pins:[546,560,576], wind:2, windR:[-2,4], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[140,'fair',10],[148,'rough',10],[152,'water',10],[174,'rough',10],[180,'fair',22],[350,'fair',22],[470,'fair',12],[480,'rough',12],[484,'water',12],[514,'rough',10],[520,'fair',10],[530,'green',10],[594,'rough',10],[602,'sand',10],[620,'rough',12],[656,'end',14]] },
+ // a giant windmill guards the front of the green: time your pitch, or bump-and-run a low one under the blades
+ { name:'SPIN CYCLE', theme:'hrMorn', par:4, cup:330, pins:[318,330,346], wind:-2, windR:[-5,2], deco:[],
+   movers:[{ kind:'windmill', x:292, w:22, hBot:0, hTop:36, period:2.2, phase:0.1 }],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[150,'fair',14],[200,'fair',10],[250,'sand',10],[266,'fair',10],[302,'green',10],[364,'rough',10],[372,'sand',10],[390,'rough',12],[420,'end',14]] },
+ // sky-high tee, ninety feet straight down to a small green: the drop takes yards off every club
+ { name:'FREE FALL', theme:'hrDay', par:3, cup:150, pins:[138,150,162], wind:3, windR:[0,6], deco:[],
+   pts:[[0,'tee',96],[24,'rough',94],[34,'rough',88],[52,'rough',14],[70,'fair',10],[108,'sand',8],[124,'green',8],[176,'rough',8],[184,'water',6],[220,'rough',10],[250,'end',12]] },
+ // tiny island green in a turquoise lake; drop zone on the little tee island if you get wet
+ { name:'LONG SHOT', theme:'hrGold', par:3, cup:172, pins:[168,172,177], wind:-3, windR:[-6,2], drop:128, deco:[],
+   pts:[[0,'tee',18],[22,'rough',16],[32,'water',8],[118,'rough',10],[122,'fair',10],[136,'rough',10],[140,'water',8],[158,'rough',10],[161,'green',10],[183,'rough',10],[186,'water',8],[240,'rough',12],[262,'end',14]] },
+ // downhill runway into a kicker lip: a low driver that hits the lip fast jumps the ravine; or lay up and wedge over
+ { name:'LAUNCH PAD', theme:'hrDay', par:4, cup:376, pins:[362,376,392], wind:2, windR:[-3,5], deco:[],
+   ramps:[[232, 0.72, 30]],
+   pts:[[0,'tee',30],[24,'rough',30],[40,'fair',28],[120,'fair',8],[200,'fair',8],[232,'fair',16],[233,'water',2],[290,'rough',10],[300,'fair',12],[330,'sand',12],[344,'green',12],[408,'rough',12],[416,'sand',12],[432,'rough',14],[460,'end',16]] },
+ // trampoline islands across the water: bounce your way on, or fly it all the way
+ { name:'BOUNCE HOUSE', theme:'hrGold', par:3, cup:200, pins:[190,200,212], wind:2, windR:[-3,4], drop:130, deco:[],
+   pads:[[70,84],[124,138]],
+   pts:[[0,'tee',20],[22,'rough',18],[34,'water',6],[66,'fair',10],[88,'water',6],[120,'fair',12],[142,'water',6],[174,'rough',12],[180,'green',12],[226,'rough',12],[232,'water',6],[262,'rough',12],[282,'end',14]] },
+ // the green hides at the bottom of a slot canyon: run it in off the rim and you're wet, fly it in and you're golden
+ { name:'THE NEEDLE', theme:'hrSunset', par:4, cup:322, pins:[310,322,332], wind:-3, windR:[-6,1], deco:[],
+   pts:[[0,'tee',40],[24,'rough',40],[40,'fair',40],[250,'fair',40],[270,'rough',40],[286,'rough',38],[294,'water',4],[302,'green',4],[338,'sand',4],[346,'rough',38],[356,'rough',40],[390,'end',40]] },
+ // a rock wall across the fairway: normal shots bounce back off it; a sky-high driver clears it, or find the back door - low runners slip under
+ { name:'BACK DOOR', theme:'hrDusk', par:4, cup:384, pins:[370,384,398], wind:3, windR:[-1,6], deco:[],
+   walls:[[150, 9, 52, 16]],
+   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[175,'fair',12],[300,'fair',4],[334,'sand',4],[350,'green',4],[416,'rough',4],[432,'sand',4],[448,'rough',6],[472,'end',8]] },
+ // neon par 5: a trampoline right where a flushed drive lands - hit it and the ball hops 150 yards down the hill
+ { name:'JACKPOT', theme:'hrNight', par:5, cup:660, pins:[644,660,676], wind:2, windR:[-3,5], deco:[],
+   pads:[[206,222]],
+   pts:[[0,'tee',20],[24,'rough',20],[44,'fair',18],[130,'fair',26],[180,'fair',16],[204,'fair',18],[226,'fair',16],[300,'fair',6],[360,'fair',10],[456,'fair',12],[462,'rough',12],[466,'water',12],[500,'rough',12],[508,'fair',14],[596,'fair',16],[606,'sand',14],[620,'fair',14],[628,'green',14],[694,'sand',14],[710,'rough',14],[760,'end',16]] }
+];
+/* ================= v8.75: BIG APPLE LINKS (New York City 18, par 72; FRONT 9 / BACK 9 / FULL 18) =================
+   One identity: a pixel NYC skyline across every hole, the time of day moving from a Central Park morning to Broadway at
+   night. Each hole's backdrop carries its landmark (painted into the cached backdrop, not props). Ground is park turf,
+   rooftop concrete, harbor water or Coney sand. No random decoration. Uses only existing mechanics + v8.69 ramps/walls. */
+const nycBg = o => (R, w, h, hz, H1) => {
+  const ring = (cx, cy, r, c, n) => { for (let k = 0; k < (n || 90); k++) { const a = k / (n || 90) * Math.PI * 2; R(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1, c); } };
+  const tower = (x, top, bw, c) => { R(x - 1, top - 1, bw + 2, h - top + 1, '#000'); R(x, top, bw, h - top, c); if (o.lit) for (let y = top + 3; y < hz; y += 4) for (let k = x + 2; k < x + bw - 2; k += 3) if (H1(k * 13 + y * 7) < 0.4) R(k, y, 1, 2, H1(k + y) < 0.15 ? '#f8a8f8' : '#fce4a0'); };
+  if (o.sun) { const [sx, sy, r] = o.sun; for (let y = -r; y <= r; y++) { const hw = Math.round(Math.sqrt(r * r - y * y)); R(sx - hw, hz - sy + y, hw * 2, 1, o.sunC || '#fcf0b8'); } }
+  // far skyline: one continuous band of blocks (lighter), then the landmark, then a nearer band (darker)
+  for (let x = 0, i = 0; x < w; i++) { const bw = 10 + Math.floor(H1(i + 300) * 14), top = hz - 18 - Math.floor(H1(i + 330) * (o.low ? 16 : 40)); R(x, top, bw - 1, h - top, o.far); x += bw; }
+  const L = o.mark, c = o.markC || o.near, lx = o.markX || 180;
+  if (L === 'esb') { tower(lx, hz - 96, 22, c); tower(lx + 4, hz - 108, 14, c); tower(lx + 7, hz - 118, 8, c); R(lx + 10, hz - 134, 2, 16, c); if (o.lit) R(lx + 6, hz - 112, 10, 2, '#f8d878'); }
+  if (L === 'chrysler') { tower(lx, hz - 86, 18, c); for (let k = 0; k < 7; k++) { const ww = 16 - k * 2; R(lx + 1 + k, hz - 90 - k * 4, ww, 4, k % 2 ? '#d8d8e0' : c); } R(lx + 8, hz - 128, 2, 12, '#d8d8e0'); }
+  if (L === 'liberty') { const g = o.markC || '#5cb89c'; R(lx - 10, hz - 22, 24, 22, '#8c8474'); R(lx - 6, hz - 30, 16, 8, '#8c8474'); R(lx - 2, hz - 56, 8, 26, g); R(lx - 1, hz - 62, 6, 6, g); for (let k = 0; k < 5; k++) R(lx - 3 + k * 2, hz - 66 + (k % 2), 1, 3, g); R(lx + 5, hz - 74, 2, 18, g); R(lx + 4, hz - 78, 4, 4, '#f8d878'); }
+  if (L === 'bridge') { const bc = o.markC || '#8c6c54'; for (const tx of [lx, lx + 150]) { R(tx - 1, hz - 70, 20, 70, '#000'); R(tx, hz - 69, 18, 69, bc); R(tx + 3, hz - 56, 4, 14, o.skyC); R(tx + 11, hz - 56, 4, 14, o.skyC); R(tx - 2, hz - 72, 22, 3, bc); }
+    for (let x = lx - 60; x < lx + 230; x++) { const u = (x - lx - 9) / 150, sag = Math.round(56 * (1 - 4 * (u - 0.5) * (u - 0.5))); const y = x < lx + 9 ? hz - 70 + Math.round((lx + 9 - x) * 0.9) : x > lx + 159 ? hz - 70 + Math.round((x - lx - 159) * 0.9) : hz - 70 + sag; if (y < hz - 12) R(x, y, 1, 1, '#2c2c3c'); if (x % 6 === 0 && y < hz - 14) R(x, y, 1, hz - 14 - y, '#5c5c6c'); }
+    R(lx - 60, hz - 14, 290, 3, '#2c2c3c'); }
+  if (L === 'park') for (let x = 0; x < w; x++) { const top = hz - 12 - Math.round(4 * Math.abs(Math.sin(x / 9)) + 3 * Math.abs(Math.sin(x / 4.3))); R(x, top, 1, h - top, '#2c6c34'); if ((x * 7) % 11 === 0) R(x, top + 1, 1, 1, '#4c9c44'); }
+  if (L === 'unisphere') { const uc = '#b8c0c8'; ring(lx, hz - 52, 26, uc, 140); for (let k = -2; k <= 2; k++) { const rr = Math.round(26 * Math.cos(k * 0.55)); for (let y = -26; y <= 26; y += 2) { const xx = Math.round(Math.sqrt(Math.max(0, 1 - y * y / 676)) * rr); R(lx + xx, hz - 52 + y, 1, 1, uc); } } R(lx - 26, hz - 52, 53, 1, uc); R(lx - 1, hz - 26, 3, 26, uc); }
+  if (L === 'wheel') { const wc = '#f8f8f8'; ring(lx, hz - 46, 34, wc, 160); ring(lx, hz - 46, 30, '#f83800', 140); for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; for (let r = 0; r < 34; r += 2) R(Math.round(lx + Math.cos(a) * r), Math.round(hz - 46 + Math.sin(a) * r), 1, 1, wc); } R(lx - 14, hz - 46, 2, 46, '#7c7c8c'); R(lx + 12, hz - 46, 2, 46, '#7c7c8c');
+    const px = lx + 120; R(px, hz - 100, 4, 100, '#c83800'); R(px - 12, hz - 104, 28, 4, '#c83800'); for (let k = 0; k < 7; k++) R(px - 12 + k * 4, hz - 100, 1, 10, '#5c5c6c'); }
+  if (L === 'stadium') { R(lx - 60, hz - 40, 200, 40, '#000'); R(lx - 59, hz - 39, 198, 39, o.markC || '#c8c8c0'); for (let k = 0; k < 18; k++) R(lx - 54 + k * 11, hz - 36, 5, 12, '#2c2c3c'); R(lx - 59, hz - 42, 198, 3, '#f8f8f8');
+    for (const tx of [lx - 70, lx + 150]) { R(tx, hz - 92, 3, 92, '#5c5c6c'); R(tx - 8, hz - 100, 19, 9, '#000'); for (let k = 0; k < 4; k++) R(tx - 7 + k * 5, hz - 99, 3, 3, o.lit ? '#fcfcfc' : '#bcbcbc'); } }
+  if (L === 'wtc') { const tc = o.markC || '#7c9cbc'; for (let y = hz - 120; y < hz; y++) { const k = (y - (hz - 120)) / 120, hw = Math.round(3 + k * 9); R(lx - hw - 1, y, hw * 2 + 2, 1, '#000'); R(lx - hw, y, hw * 2, 1, tc); } R(lx, hz - 136, 1, 16, tc); }
+  if (L === 'neon') for (let k = 0; k < 6; k++) { const bx = 40 + k * 70, bw = 24 + (k % 3) * 6, top = hz - 60 - (k % 2) * 24; tower(bx, top, bw, o.near); const cols = ['#f83800', '#3cbcfc', '#f878f8', '#f8d878', '#58d854']; R(bx + 3, top + 6, bw - 6, 8, cols[k % 5]); R(bx + 3, top + 18, bw - 6, 3, cols[(k + 2) % 5]); }
+  // near band
+  for (let x = 0, i = 0; x < w; i++) { const bw = 16 + Math.floor(H1(i + 500) * 20), top = hz - 4 - Math.floor(H1(i + 530) * (o.low ? 8 : 22)); if (!(L === 'park' || L === 'stadium' || o.low)) tower(x, top, bw - 2, o.near); x += bw; }
+  if (o.harbor) { R(0, hz - 6, w, h - hz + 6, o.harbor); for (let x = 0; x < w; x += 9) R(x + ((x / 9) % 2) * 4, hz - 3, 4, 1, '#fcfcfc'); }
+};
+const nycC = (o) => Object.assign({}, COL, { grass: '#48a848', fair2: '#58b858', green: '#68e080', green2: '#58d070', grassD: '#3c6c3c', sand: '#e8dcc0', sandD: '#c0b090',
+  dirt: '#8c8c94', dirtD: '#5c5c64', dirtL: '#b4b4bc', water: '#4c8cb8', waterD: '#2c5c88' }, o || {});
+const NYC_PARK_C = nycC({ dirt: '#8c5c34', dirtD: '#5c3c20', dirtL: '#a87444', grass: '#3c9c3c', fair2: '#4cac44' });
+const NYC_NIGHT_C = nycC({ grass: '#287c4c', fair2: '#2c8c54', green: '#44c070', green2: '#38b064', grassD: '#244c34', dirt: '#3c3c4c', dirtD: '#24242c', dirtL: '#5c5c6c', sand: '#c8c0b0', sandD: '#8c8478', water: '#2c3c6c', waterD: '#141c3c' });
+Object.assign(THEMES, {
+  nycPark:    { sky: '#a8dcfc', clouds: true, bg: nycBg({ mark: 'park', far: '#8ca8c4', near: '#5c7c9c' }), C: NYC_PARK_C },
+  nycNeon:    { sky: '#140c34', stars: true, noMoon: true, bg: nycBg({ mark: 'neon', far: '#2c2450', near: '#1c1838', lit: true }), C: NYC_NIGHT_C },
+  nycMorn:    { sky: '#b8e0f8', clouds: true, bg: nycBg({ mark: 'chrysler', markX: 300, far: '#9cb4cc', near: '#6c849c' }), C: nycC() },
+  nycDay:     { sky: '#68bcf8', clouds: true, bg: nycBg({ mark: 'esb', markX: 260, far: '#90aac4', near: '#5c7894' }), C: nycC() },
+  nycGold:    { sky: '#fcc878', bg: nycBg({ sun: [120, 50, 12], far: '#c09c78', near: '#8c6c54', mark: 'wtc', markX: 330, markC: '#a8946c' }), C: nycC({ dirt: '#9c8c7c', dirtD: '#6c5c4c', dirtL: '#c0ac94' }) },
+  nycHarbor:  { sky: '#88ccf8', clouds: true, bg: nycBg({ mark: 'liberty', markX: 230, far: '#9cb0c4', low: true, near: '#7c94ac', harbor: '#4c8cb8' }), C: nycC() },
+  nycBridge:  { sky: '#6c5c9c', stars: true, noMoon: true, bg: nycBg({ mark: 'bridge', markX: 120, skyC: '#6c5c9c', far: '#4c3c6c', near: '#2c2448', lit: true, low: true, markC: '#9c7c64' }), C: nycC({ water: '#4c5ca8', waterD: '#2c2c6c', grass: '#2c8c54', fair2: '#349c5c', dirt: '#5c5468', dirtD: '#3c3448', dirtL: '#7c748c' }) },
+  nycTerminal:{ sky: '#8cc4ec', clouds: true, bg: nycBg({ mark: 'chrysler', markX: 160, far: '#9cb0c4', near: '#6c849c' }), C: nycC() },
+  nycSunset:  { sky: '#f88c5c', bg: nycBg({ sun: [300, 14, 18], sunC: '#fcd878', mark: 'esb', markX: 150, far: '#9c5c5c', near: '#5c3040', markC: '#4c2434', lit: true }), C: nycC({ grass: '#3c8c44', fair2: '#4c9c4c', dirt: '#7c5c5c', dirtD: '#4c3434', dirtL: '#9c7c74' }) },
+  nycStadium: { sky: '#0c1438', stars: true, noMoon: true, bg: nycBg({ mark: 'stadium', markX: 150, far: '#1c2448', near: '#141838', lit: true, low: true, markC: '#9c9cac' }), C: NYC_NIGHT_C },
+  nycAve:     { sky: '#78c4f8', clouds: true, bg: nycBg({ mark: 'esb', markX: 330, far: '#9cb4cc', near: '#6c849c' }), C: nycC() },
+  nycRink:    { sky: '#d0e8f8', clouds: true, bg: nycBg({ mark: 'esb', markX: 120, far: '#b0c0d0', near: '#7c8ca0', markC: '#8c9cb0' }), C: nycC({ green: '#a8e8f8', green2: '#98d8f0' }) },
+  nycQueens:  { sky: '#88c8f8', clouds: true, bg: nycBg({ mark: 'unisphere', markX: 200, far: '#a0b4c8', low: true, near: '#7c94ac' }), C: NYC_PARK_C },
+  nycMet:     { sky: '#c0e0f8', clouds: true, bg: nycBg({ mark: 'park', far: '#a8bccc', near: '#7c94ac' }), C: nycC({ dirt: '#c8bca8', dirtD: '#9c9080', dirtL: '#e0d8c8' }) },
+  nycFerry:   { sky: '#f8c088', bg: nycBg({ sun: [80, 30, 12], mark: 'liberty', markX: 300, far: '#b0947c', low: true, near: '#8c7464', harbor: '#5c84a8', markC: '#4c9c84' }), C: nycC({ water: '#5c84a8', waterD: '#34587c' }) },
+  nycConey:   { sky: '#70c8fc', clouds: true, bg: nycBg({ mark: 'wheel', markX: 140, far: '#a8c0d4', low: true, near: '#8ca4bc' }), C: nycC({ dirt: '#c8a87c', dirtD: '#9c7c54', dirtL: '#e0c49c', sand: '#f8e8b8', water: '#3c9cd8', waterD: '#1c6ca8' }) },
+  nycBattery: { sky: '#f8987c', bg: nycBg({ sun: [60, 20, 16], sunC: '#fcd878', mark: 'wtc', markX: 250, far: '#a8707c', low: true, near: '#7c4c5c', harbor: '#5c6c9c', lit: true, markC: '#8c7c9c' }), C: nycC({ water: '#5c6c9c', waterD: '#343c6c' }) },
+  nycBroadway:{ sky: '#0c0828', stars: true, noMoon: true, bg: nycBg({ mark: 'neon', far: '#24183c', near: '#18122c', lit: true }), C: NYC_NIGHT_C }
+});
+const NYC_FRONT = [
+ // the Pond guards the green: lay up on the Sheep Meadow or carry it
+ { name:'CENTRAL PARK', theme:'nycPark', par:4, cup:360, pins:[346,360,376], wind:2, windR:[-3,4], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[140,'fair',16],[200,'fair',12],[262,'fair',10],[270,'rough',10],[274,'water',10],[304,'rough',10],[310,'fair',10],[326,'green',10],[392,'rough',10],[400,'sand',10],[416,'rough',12],[450,'end',14]] },
+ // rooftop to rooftop across 7th Avenue; short and you're down in the street with the cabs
+ { name:'TIMES SQUARE', theme:'nycNeon', par:3, cup:172, pins:[162,172,184], wind:1, windR:[-3,3], deco:[],
+   movers:[{ kind:'slide', skin:'taxi', x:92, w:18, hBot:0, hTop:10, period:2.4, phase:0, amp:30 }, { kind:'slide', skin:'bus', x:112, w:26, hBot:0, hTop:16, period:3.2, phase:0.5, amp:20 }],
+   pts:[[0,'tee',44],[22,'fair',44],[44,'fair',42],[50,'rough',8],[144,'rough',8],[150,'fair',30],[154,'green',30],[196,'sand',30],[206,'rough',30],[232,'end',32]] },
+ // the elevated rail park: two drops to street level along the way (no penalty, just a long way up)
+ { name:'THE HIGH LINE', theme:'nycMorn', par:5, cup:600, pins:[586,600,614], wind:2, windR:[-2,5], deco:[],
+   pts:[[0,'tee',30],[24,'rough',30],[44,'fair',30],[146,'fair',30],[150,'rough',6],[176,'rough',6],[180,'fair',30],[366,'fair',30],[370,'rough',6],[396,'rough',6],[400,'fair',30],[540,'fair',30],[550,'sand',30],[560,'green',30],[632,'sand',30],[640,'rough',30],[680,'end',30]] },
+ // the green sits on top of the wedge: a sheer front face, and anything long runs off the back
+ { name:'FLATIRON', theme:'nycDay', par:4, cup:326, pins:[312,326,340], wind:-2, windR:[-5,2], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[250,'fair',10],[290,'rough',10],[298,'green',34],[352,'rough',34],[356,'rough',30],[400,'rough',10],[440,'end',12]] },
+ // a skybridge spans the canyon: loft it over, or punch it low underneath like a trader on a deadline
+ { name:'WALL STREET', theme:'nycGold', par:4, cup:370, pins:[356,370,384], wind:3, windR:[-1,6], deco:[],
+   walls:[[160, 10, 56, 22]],
+   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[200,'fair',12],[300,'fair',6],[320,'sand',6],[336,'green',6],[404,'rough',6],[420,'end',8]] },
+ // island green in the harbor under Lady Liberty; drop zone on the pier
+ { name:'LADY LIBERTY', theme:'nycHarbor', par:3, cup:170, pins:[166,170,175], wind:-3, windR:[-6,2], drop:128, deco:[],
+   pts:[[0,'tee',18],[22,'rough',16],[32,'water',8],[118,'rough',10],[122,'fair',10],[136,'rough',10],[140,'water',8],[156,'rough',10],[159,'green',10],[182,'rough',10],[185,'water',8],[240,'rough',12],[262,'end',14]] },
+ // carry the East River to Brooklyn, or lay up and use the little tower pier
+ { name:'BROOKLYN BRIDGE', theme:'nycBridge', par:4, cup:380, pins:[366,380,394], wind:3, windR:[-1,6], deco:[],
+   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[108,'fair',12],[114,'rough',12],[118,'water',12],[150,'rough',10],[153,'fair',10],[165,'rough',10],[168,'water',10],[218,'rough',12],[224,'fair',12],[330,'sand',10],[344,'green',10],[404,'rough',10],[420,'sand',10],[436,'rough',12],[466,'end',14]] },
+ // run it down the concourse and hit the lip fast to jump the open track cut; or lay up and go over
+ { name:'GRAND CENTRAL', theme:'nycTerminal', par:5, cup:594, pins:[580,594,608], wind:2, windR:[-3,5], deco:[],
+   ramps:[[236, 0.72, 30]],
+   pts:[[0,'tee',32],[24,'rough',32],[40,'fair',30],[120,'fair',14],[200,'fair',14],[236,'fair',22],[238,'rough',2],[300,'rough',2],[306,'fair',20],[470,'fair',22],[530,'sand',20],[546,'fair',20],[560,'green',20],[626,'sand',20],[640,'rough',20],[680,'end',22]] },
+ // tee off from the 86th-floor deck: the drop adds yards to everything
+ { name:'EMPIRE STATE', theme:'nycSunset', par:4, cup:486, pins:[470,486,502], wind:3, windR:[0,6], deco:[],
+   pts:[[0,'tee',110],[24,'rough',108],[34,'rough',100],[54,'rough',14],[70,'fair',10],[280,'fair',10],[290,'sand',8],[340,'sand',8],[350,'fair',10],[420,'fair',10],[430,'sand',10],[450,'green',10],[516,'rough',10],[526,'sand',10],[542,'rough',12],[566,'end',14]] }
+];
+const NYC_BACK = [
+ // the green is beyond the outfield wall: lay up in the outfield and loft it over
+ { name:'YANKEE STADIUM', theme:'nycStadium', par:4, cup:336, pins:[322,336,352], wind:2, windR:[-2,5], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[262,'fair',10],[268,'rough',36],[274,'rough',36],[280,'rough',12],[290,'fair',12],[300,'green',12],[370,'rough',12],[378,'sand',12],[394,'rough',14],[420,'end',16]] },
+ // the long one up the avenue: cabs and buses in the landing zones, a steam grate that can bounce one a block, and the Plaza fountain
+ { name:'FIFTH AVENUE', theme:'nycAve', par:5, cup:680, pins:[664,680,696], wind:2, windR:[-3,5], deco:[],
+   pads:[[210,224]],
+   movers:[{ kind:'slide', skin:'taxi', x:300, w:18, hBot:0, hTop:10, period:2.4, phase:0, amp:30 }, { kind:'slide', skin:'bus', x:470, w:26, hBot:0, hTop:16, period:3.2, phase:0.4, amp:24 }],
+   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[160,'fair',16],[204,'fair',14],[260,'fair',12],[400,'fair',14],[564,'fair',12],[574,'rough',12],[578,'water',12],[610,'rough',12],[614,'fair',12],[632,'sand',12],[648,'green',12],[716,'sand',12],[734,'rough',12],[774,'end',14]] },
+ // the green is the rink, sunk below the plaza: the walls hold anything long
+ { name:'ROCKEFELLER RINK', theme:'nycRink', par:3, cup:150, pins:[142,150,160], wind:-2, windR:[-4,2], deco:[],
+   pts:[[0,'tee',20],[24,'rough',20],[44,'fair',20],[118,'fair',20],[124,'rough',18],[130,'green',6],[176,'rough',6],[182,'rough',20],[188,'fair',20],[232,'end',20]] },
+ // under the Unisphere: a long waste bunker eats lazy drives; carry it or lay up
+ { name:'FLUSHING MEADOWS', theme:'nycQueens', par:4, cup:370, pins:[354,370,388], wind:-2, windR:[-5,3], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[210,'fair',10],[216,'sand',8],[252,'sand',8],[258,'fair',10],[330,'rough',10],[336,'green',10],[404,'rough',10],[412,'sand',10],[428,'rough',12],[460,'end',14]] },
+ // straight up the Met steps: the green is on the top landing
+ { name:'THE MET STEPS', theme:'nycMet', par:4, cup:330, pins:[316,330,346], wind:-1, windR:[-4,3], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[240,'fair',10],[250,'rough',10],[252,'rough',15],[258,'rough',15],[260,'rough',20],[266,'rough',20],[268,'rough',25],[274,'rough',25],[276,'rough',30],[282,'rough',30],[284,'rough',35],[290,'rough',35],[292,'fair',40],[300,'green',40],[362,'rough',40],[380,'rough',30],[420,'end',30]] },
+ // water all the way to St. George; bail out on the ferry pier drop zone
+ { name:'STATEN FERRY', theme:'nycFerry', par:3, cup:186, pins:[178,186,196], wind:2, windR:[-3,4], drop:136, deco:[],
+   pts:[[0,'tee',16],[22,'rough',14],[30,'water',8],[128,'rough',10],[130,'fair',10],[142,'rough',10],[146,'water',8],[166,'rough',10],[170,'green',10],[204,'rough',10],[210,'sand',10],[222,'rough',12],[250,'end',14]] },
+ // boardwalk tee, the beach in the landing zone, the Cyclone rattling past and a bounce on the boardwalk; the Atlantic is long
+ { name:'CONEY ISLAND', theme:'nycConey', par:5, cup:584, pins:[568,584,600], wind:3, windR:[0,6], deco:[],
+   pads:[[296,310]],
+   movers:[{ kind:'slide', skin:'coaster', x:390, w:20, hBot:0, hTop:14, period:2.2, phase:0.2, amp:20 }],
+   pts:[[0,'tee',18],[24,'rough',18],[44,'fair',16],[190,'fair',14],[200,'sand',12],[264,'sand',12],[272,'fair',14],[440,'fair',14],[500,'fair',12],[530,'sand',12],[546,'fair',12],[552,'green',12],[616,'sand',10],[630,'rough',10],[640,'water',8],[700,'end',8]] },
+ // the green runs right up to the seawall: long is the harbor
+ { name:'BATTERY PARK', theme:'nycBattery', par:4, cup:350, pins:[336,350,366], wind:2, windR:[-2,5], deco:[],
+   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[250,'fair',10],[300,'sand',10],[316,'green',10],[380,'rough',10],[386,'water',10],[450,'end',8]] },
+ // finale under the lights: off the rooftop, down to the street, up onto the stage
+ { name:'BROADWAY', theme:'nycBroadway', par:4, cup:384, pins:[368,384,400], wind:2, windR:[-3,4], deco:[],
+   pts:[[0,'tee',40],[24,'rough',40],[40,'fair',38],[120,'fair',12],[300,'fair',12],[320,'rough',12],[330,'sand',14],[344,'rough',24],[350,'green',24],[420,'rough',24],[428,'sand',24],[444,'rough',26],[480,'end',28]] }
+];
+const NYC_HOLES = NYC_FRONT.concat(NYC_BACK);
 /* v8.39 WILD Daily rotation: new backdrops (city, moon, lava, snow, canyon, pier, theme park) */
 const DAILY_WILD = [
   // Rooftop golf: tee off a skyscraper, a taxi and a bus run the street below, rooftop green
@@ -3003,13 +3188,15 @@ function startCourse(kind) {
   if (kind === 'front') setCourseHoles('front', FRONT_HOLES);
   else if (kind === 'back') setCourseHoles('back', BACK_HOLES);
   else if (kind === 'coral') { if (!coralUnlocked()) return; setCourseHoles('coral', CORAL_HOLES); }   // v8.39: career course, signed-in players only
+  else if (kind === 'roller') { if (!coralUnlocked()) return; setCourseHoles('roller', ROLLER_HOLES); }   // v8.69: members course, same gate as Coral Cliffs
+  else if (kind === 'nycf' || kind === 'nycb' || kind === 'nyc18') setCourseHoles(kind, kindHoles(kind));   // v8.75 BIG APPLE LINKS (open to everyone)
   else if (kind === 'spooky') { weather = Object.assign({}, WEATHERS[0]); setCourseHoles('spooky', spookyHoles()); }   // v8.52 SPOOKY CUP: same 4 holes, fixed wind, clear sky
   else if (kind === 'quick3') setCourseHoles('quick3', quick3Pick());   // v8.57
   else setCourseHoles('full', FRONT_HOLES.concat(BACK_HOLES));
   openCustomize('play');
 }
 function displayHoleNum(i) {
-  if (courseKind === 'back') return i + 10;
+  if (courseKind === 'back' || courseKind === 'nycb') return i + 10;
   if (courseKind === 'quick3' && QUICK3_NUMS[i]) return QUICK3_NUMS[i];
   if (courseKind === 'lbi') return lbiHoleNo(i);   // v8.63
   return i + 1;
@@ -3019,6 +3206,8 @@ function scoreModeForSave() {
   if (courseKind === 'back') return 'back9';
   if (courseKind === 'full') return 'full18';
   if (courseKind === 'coral') return 'coral9';
+  if (courseKind === 'roller') return 'roller9';
+  if (courseKind === 'nycf') return 'nyc_front9'; if (courseKind === 'nycb') return 'nyc_back9'; if (courseKind === 'nyc18') return 'nyc18';   // v8.75: career + analytics only until a board exists   // v8.69: career + analytics only (no leaderboard board yet)
   if (courseKind === 'spooky') return 'spooky';
   if (courseKind === 'match') return 'match';
   if (courseKind === 'lbi') return 'lbi';   // v8.63: never a leaderboard mode
@@ -3136,14 +3325,30 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
   announce(label.replace(/\s+/g, ' ') + (reason ? '. ' + reason : ''));
 }
 
-const COURSE_ITEMS = ['FRONT 9', 'BACK 9', 'FULL 18', 'QUICK 3', 'CORAL CLIFFS', 'BACK'];   // v8.57: QUICK 3 = 3 random main-course holes   // v8.39: CORAL CLIFFS = career course (signed in)
-const CS_BACK_I = 5, CS_N = 5, CS_CAREER_I = 4, CS_QUICK_I = 3;
+/* v8.75 Choose Course = course groups. The header names the course (< > or Left/Right switch courses); the cards under it
+   are that course's play options. DUMB LUCK COUNTRY CLUB is the original Front 9 + Back 9 (same kinds, modes, best keys and
+   leaderboards as before - display names only). */
+const CS_GROUPS = [
+  { name: 'DUMB LUCK COUNTRY CLUB', opts: ['front', 'back', 'full', 'quick3'] },
+  { name: 'BIG APPLE LINKS', opts: ['nycf', 'nycb', 'nyc18'] },
+  { name: 'CORAL CLIFFS', opts: ['coral'], gate: 'career' },
+  { name: 'HIGH ROLLER', opts: ['roller'], gate: 'members' }
+];
+const CS_KIND_LABEL = { front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', quick3: 'QUICK 3', nycf: 'FRONT 9', nycb: 'BACK 9', nyc18: 'FULL 18', coral: 'PLAY 9 HOLES', roller: 'PLAY 9 HOLES' };
+const CS_NMAX = Math.max(...CS_GROUPS.map(g => g.opts.length));
+let csGroup = 0, COURSE_ITEMS = [], CS_N = 0, CS_BACK_I = 0;
+const csKind = i => (CS_GROUPS[csGroup].opts[i] || null);
+function csApplyGroup(g) {
+  csGroup = ((g % CS_GROUPS.length) + CS_GROUPS.length) % CS_GROUPS.length;
+  const o = CS_GROUPS[csGroup].opts; CS_N = o.length; CS_BACK_I = CS_N; COURSE_ITEMS = o.map(k => CS_KIND_LABEL[k]).concat(['BACK']);
+}
+csApplyGroup(0);
 function coralUnlocked() { try { return !!isSignedIn(); } catch (e) { return false; } }
 let courseSel = 0;
 /* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
-const COURSE_KINDS = ['front', 'back', 'full', 'quick3', 'coral'];
-const COURSE_BEST_KEY = { spooky: 'dlg_golf_best_spooky', front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9' };
-function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : i === CS_CAREER_I ? CORAL_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+const COURSE_BEST_KEY = { spooky: 'dlg_golf_best_spooky', front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9', roller: 'dlg_golf_best_roller9', nycf: 'dlg_golf_best_nyc_front9', nycb: 'dlg_golf_best_nyc_back9', nyc18: 'dlg_golf_best_nyc18' };
+function kindHoles(k) { return k === 'front' ? FRONT_HOLES : k === 'back' ? BACK_HOLES : k === 'coral' ? CORAL_HOLES : k === 'roller' ? ROLLER_HOLES : k === 'nycf' ? NYC_FRONT : k === 'nycb' ? NYC_BACK : k === 'nyc18' ? NYC_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+function courseHoleList(i) { return kindHoles(csKind(i)); }
 let QUICK3_NUMS = [];   // v8.57: real hole numbers (1-18) of the current QUICK 3 set
 function quick3Pick() { const all = FRONT_HOLES.concat(BACK_HOLES), idx = []; while (idx.length < 3 && idx.length < all.length) { const k = Math.floor(Math.random() * all.length); if (!idx.includes(k)) idx.push(k); } idx.sort((a, b) => a - b); QUICK3_NUMS = idx.map(k => k + 1); const th = quick3Theme(); return idx.map(k => all[k].theme === 'day' ? Object.assign({}, all[k], { theme: th }) : all[k]); }
 function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
@@ -3164,8 +3369,9 @@ function compileHole(def) {
   const hl = { def, par: def.par, cup: def.cup, len, Hs, Ss, deco: def.deco || [], wind: def.wind, name: def.name || '', theme: def.theme || 'day' };
   hl.oaks = (def.deco || []).filter(d => d[0] === 'oak').map(([, dx]) => { const base = groundH(hl, dx + 18); return { x0: dx + 12, x1: dx + 22, base, top: base + 4 }; });  // short: ~0.75+ driver clears; topped/low shots clip
   // Daily specials (optional)
-  hl.walls = (def.walls || []).map(([x, hBot, hTop]) => ({ x, hBot: hBot || 0, hTop: hTop == null ? 30 : hTop, g0: groundH(hl, x) }));   // v8.20: heights are above the ground (matches the drawing)
+  hl.walls = (def.walls || []).map(([x, hBot, hTop, ww]) => ({ x, hBot: hBot || 0, hTop: hTop == null ? 30 : hTop, g0: groundH(hl, x), ww: ww || 0 }));   // v8.69: optional draw width (rock face)   // v8.20: heights are above the ground (matches the drawing)
   hl.pads = (def.pads || []).map(([x0, x1]) => ({ x0, x1 }));
+  hl.ramps = (def.ramps || []).map(([x, kick, minV]) => ({ x, kick: kick || 0.5, minV: minV || 30 }));   // v8.69: kicker lips (HIGH ROLLER)
   hl.movers = (def.movers || []).map(m => { const o = Object.assign({ kind: 'slide', x: 0, w: 14, hBot: 0, hTop: 28, period: 2.5, phase: 0, amp: 40 }, m); o.g0 = groundH(hl, o.x); return o; });
   hl.drop = def.drop != null ? def.drop : null;
   hl.grav = def.grav || 1;   // v8.39: low-gravity Daily (moon); every other hole stays 1
@@ -3300,10 +3506,10 @@ function stepBallRaw(b, hl, wind, dt) {
     if (hl.walls && hl.walls.length) {
       let near = false;
       for (const w of hl.walls) {
-        const rh = b.h - (w.g0 || 0);
-        if (Math.abs(b.x - w.x) < 10 && rh >= w.hBot - 2 && rh <= w.hTop + 2) near = true;
-        if (!b.wallHit && (px - w.x) * (b.x - w.x) <= 0 && rh >= w.hBot && rh <= w.hTop) {
-          b.x = w.x + Math.sign(px - w.x || -1) * 1.2;
+        const rh = b.h - (w.g0 || 0), wx = w.ww ? w.x + (px < w.x ? -1 : 1) * w.ww / 2 : w.x;   // v8.69: wide rock face -> bounce off its near side
+        if (Math.abs(b.x - wx) < 10 && rh >= w.hBot - 2 && rh <= w.hTop + 2) near = true;
+        if (!b.wallHit && (px - wx) * (b.x - wx) <= 0 && rh >= w.hBot && rh <= w.hTop) {
+          b.x = wx + Math.sign(px - wx || -1) * 1.2;
           b.vx = -b.vx * 0.72;
           b.vy *= 0.9;
           b.wallHit = true;
@@ -3362,6 +3568,9 @@ function stepBallRaw(b, hl, wind, dt) {
     }
     v -= Math.sign(v) * fr;
     const nx = b.x + v * dt;
+    if (hl.ramps && hl.ramps.length && v > 0) for (const rp of hl.ramps) if (b.x < rp.x && nx >= rp.x && v >= rp.minV) {   // v8.69: rolled off a kicker lip fast enough -> airborne
+      b.mode = 'air'; b.x = nx; b.h = groundH(hl, nx) + 0.5; b.vy = v * rp.kick; b.vx = v * 0.9; b.spin = 0; b.events.push('ramp'); return null;
+    }
     if (Math.abs(nx - hl.cup) > 3 || (b.vx && v && Math.sign(v) !== Math.sign(b.vx))) b.overCup = false;   // v8.27: a ball rolling back over the hole gets a fresh check (was: only after >3Y away)
     if (!b.overCup && ((b.x - hl.cup) * (nx - hl.cup) <= 0 || Math.abs(nx - hl.cup) < 0.5)) {
       b.overCup = true;                       // one capture/lip check per pass over the hole
@@ -3875,6 +4084,7 @@ let MM_BOX = { x: 160, y: 173, w: 92, h: 12 }, MM_GAP = 6;   // v8.10: mini map 
 let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 120, h: 14 }, CZ_GOLF = { x: 128, y: 200, s: 3 }, DONE_R = { x: 60, y: 124, w: 136, h: 22 };
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
 let CZ_HEAD_Y = 6, CZ_COLX = 128, CZ_PANEL = { x: 8, y: 200, w: 240, h: 160 }, CZ_PITCH = 29, CZ_CTRL = { al: 122, sw: 152, ar: 214, aw: 28, sww: 60 };   // v8.14 customize layout
+let CS_ARW_L = { x: 0, y: 0, w: 0, h: 0 }, CS_ARW_R = { x: 0, y: 0, w: 0, h: 0 };   // v8.75 course switch arrows
 let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
@@ -4059,25 +4269,26 @@ function layoutChrome() {
     const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
     const top = SAFE.t || 0, bot = H - (SAFE.b || 0);
     const cardMin = Math.max(Math.ceil(44 / sy), 22), GAP = 4, PAD = 6;
-    const boardH = ch => PAD * 2 + CS_N * ch + (CS_N - 1) * GAP;
+    const boardHn = (ch, n) => PAD * 2 + n * ch + (n - 1) * GAP, boardH = ch => boardHn(ch, CS_NMAX);   // v8.75: sized for the biggest course so switching courses never moves the preview
     CS_BACK_R = { x: 2 + (SAFE.l || 0), y: top + 2, w: 66, h: 22 };
     let bx, by, bw, ch, pv = null;
     if (portrait) {
       bw = Math.min(240, W - 16); bx = Math.round((W - bw) / 2);
-      CS_HEAD = { x: Math.round(W / 2), y: top + 30 };
+      CS_HEAD = { x: Math.round(W / 2), y: top + 28 };
       CS_FAIR = H - Math.max(36, 28 + (SAFE.b || 0) + 4);          // same grass strip as the title screen
-      const boardBot = CS_FAIR - 8, stageTop = CS_HEAD.y + 14 + 10;
+      const boardBot = CS_FAIR - 8, stageTop = CS_HEAD.y + 50;   // v8.75: course name header (2 lines) + sub line
       ch = Math.max(cardMin, 44);
       while (ch > Math.max(cardMin, 32) && boardBot - boardH(ch) - 10 - stageTop < 70) ch--;
       by = boardBot - boardH(ch);
       const room = by - 10 - stageTop;
+      by = boardBot - boardHn(ch, CS_N);   // fewer options: board hugs the grass, preview stays put
       if (room >= 60) { const ph = Math.min(room, Math.round(bw * 0.52)); pv = { x: bx, y: stageTop + Math.round((room - ph) / 2), w: bw, h: ph }; }
       CS_HINT_Y = CS_FAIR + Math.max(4, Math.round((H - (SAFE.b || 0) - CS_FAIR - 7) / 2));
     } else {
       const cw = Math.min(W - 16, 440), x0 = Math.round((W - cw) / 2), leftW = Math.round(cw * 0.42);
       bw = Math.min(240, cw - leftW - 6); bx = x0 + leftW + 6 + Math.round((cw - leftW - 6 - bw) / 2);
       CS_HEAD = { x: bx + Math.round(bw / 2), y: top + 6 };
-      by = top + 26;
+      by = top + 56;
       const fairMax = Math.min(H - 22, bot - 18);
       ch = Math.max(cardMin, 40);
       while (ch > Math.max(cardMin, 26) && by + boardH(ch) + 10 > fairMax) ch--;
@@ -4086,8 +4297,10 @@ function layoutChrome() {
       if (pw >= 100) pv = { x: x0 + 2, y: by, w: pw, h: ph };
       CS_HINT_Y = CS_FAIR + Math.max(3, Math.round((H - CS_FAIR - 7) / 2));
     }
-    CS_BOARD = { x: bx, y: by, w: bw, h: boardH(ch) };
-    CS_CARDS = [0, 1, 2, 3, 4].map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
+    CS_BOARD = { x: bx, y: by, w: bw, h: boardHn(ch, CS_N) };
+    CS_ARW_L = { x: (SAFE.l || 0) + 2, y: CS_HEAD.y - 6, w: 30, h: 34 }; CS_ARW_R = { x: W - (SAFE.r || 0) - 32, y: CS_HEAD.y - 6, w: 30, h: 34 };
+    if (!portrait) { CS_ARW_L.x = bx - 2; CS_ARW_R.x = bx + bw - 28; }
+    CS_CARDS = Array.from({ length: CS_N }, (_, i) => i).map(i => ({ x: bx + PAD, y: by + PAD + i * (ch + GAP), w: bw - PAD * 2, h: ch, i }));
     CS_PREV = pv;
   }
   KB_Y0 = Math.min(H - 90, Math.max(CZ_Y[0] + 90, Math.round(H * 0.55)));
@@ -5644,7 +5857,7 @@ function finishRound() {
     else { saveWhere = 'saving'; pendingSave = saveScore(Object.assign({}, lastEntry, { mode: 'spooky' })).then(r => { saveWhere = r.ok ? 'cupin' : r.where; }, () => { saveWhere = 'error'; }); }
   }
   else if (courseKind === 'lbi') { saveWhere = lbiCtx && !lbiCtx.practice ? 'lbi' : 'practice'; pendingSave = null; if (lbiCtx) lbiCtx.done = true; }   // v8.63: holes were already sent one by one
-  else if (courseKind === 'quick3') { saveWhere = 'quick'; pendingSave = null; }   // v8.57: career only, no leaderboard
+  else if (courseKind === 'quick3' || courseKind === 'roller' || /^nyc/.test(courseKind)) { saveWhere = 'quick'; pendingSave = null; }   // v8.69: HIGH ROLLER is career-only too   // v8.57: career only, no leaderboard
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
@@ -5652,7 +5865,7 @@ function finishRound() {
     pendingSave = saveScore(lastEntry).then(r => { saveWhere = r.where; if (r.pendingMode) cardInfo.pendingMode = true; }, () => { saveWhere = 'error'; });
   }
   try {   // career: every scored round (guest or signed in) — never practice replays or previews
-    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'spooky' ? 'spooky' : courseKind === 'quick3' ? 'quick3' : courseKind === 'lbi' ? (HOLES.length === 18 ? 'full' : 'quick3') : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
+    careerCommitRound({ kind: isDaily ? 'daily' : courseKind === 'match' ? 'match' : courseKind === 'coral' ? 'coral' : courseKind === 'roller' ? 'roller' : /^nyc/.test(courseKind) ? courseKind : courseKind === 'spooky' ? 'spooky' : courseKind === 'quick3' ? 'quick3' : courseKind === 'lbi' ? (HOLES.length === 18 ? 'full' : 'quick3') : courseKind === 'back' ? 'back' : courseKind === 'full' ? 'full' : 'front', rel, strokes: total,
       holes: scores.length, date: isDaily && dailyMeta ? dailyMeta.date : nyDateStr(), scored: !(NO_SAVE || practice) || courseKind === 'match' });
   } catch (e) {}
   try {
@@ -5925,6 +6138,7 @@ cv.addEventListener('pointerdown', e => {
     armUiTap('fs', () => toggleFullscreen(), (up) => hitBtn(toLogical(up), FS_BTN), e); touchDown = null; return;
   }
   if (state === 'course') {   // v8.16: course cards + '< BACK'
+    for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) if (hitBtn(p, r)) { armUiTap('csarw' + d, () => csSwitch(d), (up) => hitBtn(toLogical(up), r), e); touchDown = null; return; }   // v8.75 course switch
     // v8.67 fix: since v8.57 (QUICK 3 made 5 cards) '< BACK' is index 5, but this list stopped at 4, so BACK taps were never checked
     const hitCs = i => i === CS_BACK_I ? hitBack(p, CS_BACK_R) : hit(p, CS_CARDS[i]);
     for (const i of [CS_BACK_I, ...Array.from({ length: CS_N }, (_, k) => k)]) {
@@ -6036,6 +6250,8 @@ addEventListener('keydown', e => {
   if ([' ', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
   if (state === 'course') {
     if (k === 'Escape') { setState('title'); return; }
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') { csSwitch(-1); return; }
+    if (k === 'ArrowRight' || k === 'd' || k === 'D') { csSwitch(1); return; }   // v8.75
     if (k === 'ArrowUp' || k === 'w' || k === 'W') { courseSel = (courseSel + COURSE_ITEMS.length - 1) % COURSE_ITEMS.length; SFX.tick(); return; }
     if (k === 'ArrowDown' || k === 's' || k === 'S') { courseSel = (courseSel + 1) % COURSE_ITEMS.length; SFX.tick(); return; }
     if ((k === ' ' || k === 'Enter') && !e.repeat) courseActivate(courseSel);
@@ -6690,15 +6906,27 @@ function drawCourse(hl, cam) {
   }
   if (hl.walls) for (const w of hl.walls) {
     const sx = Math.round(w.x - cam);
-    if (sx < -6 || sx > W + 6) continue;
+    if (sx < -6 - (w.ww || 0) || sx > W + 6 + (w.ww || 0)) continue;
     const g0 = groundH(hl, w.x);
     const top = Math.round(BASE - (g0 + w.hTop));
     const bot = Math.round(BASE - (g0 + w.hBot));
     const hh = Math.max(4, bot - top);
+    if (w.ww) {   // v8.69: wide rock face (HIGH ROLLER BACK DOOR); the dark gap under it is the way through
+      const hw = Math.round(w.ww / 2), C = themeOf(hl).C || COL;
+      rect(sx - hw - 1, top - 1, w.ww + 2, hh + 2, '#000'); rect(sx - hw, top, w.ww, hh, C.dirt);
+      for (let k = 3; k < hh - 1; k += 6) rect(sx - hw + 1 + (k % 4), top + k, w.ww - 4, 1, C.dirtD);
+      rect(sx - hw, top, w.ww, 2, C.dirtL);
+      if (w.hBot > 0) { const gy = Math.round(BASE - g0); rect(sx - hw + 1, bot - 2, w.ww - 2, 1, C.dirtD); for (let k = bot + 3; k < gy - 1; k += 3) { rect(sx - hw - 3, k, 2, 1, '#f8d878'); rect(sx + hw + 1, k, 2, 1, '#f8d878'); } }   // the gap stays open (you can see through it) + little yellow guide marks either side
+      continue;
+    }
     rect(sx - 3, top, 7, hh, '#000');
     rect(sx - 2, top + 1, 5, hh - 2, '#7c6c54');
     rect(sx - 1, top + 2, 2, 2, '#bcb090');
     for (let k = 4; k < hh - 2; k += 5) rect(sx - 1, top + k, 3, 1, '#5c4c3c');
+  }
+  if (hl.ramps) for (const rp of hl.ramps) {   // v8.69: kicker lip: yellow/black chevrons on the last few yards
+    for (let k = 0; k < 14; k++) { const wx = rp.x - 14 + k, sx = Math.round(wx - cam); if (sx < 0 || sx >= W) continue; const gy = Math.round(BASE - groundH(hl, wx)); rect(sx, gy - 3, 1, 3, (k >> 1) % 2 ? '#000' : '#f8d878'); }
+    { const sx = Math.round(rp.x - cam), gy = Math.round(BASE - groundH(hl, rp.x)); if (sx > -4 && sx < W + 4) { rect(sx, gy - 11, 1, 8, '#000'); rect(sx - 2, gy - 12, 5, 4, '#000'); rect(sx - 1, gy - 11, 3, 2, '#f8d878'); } }   // little lip marker post
   }
   if (hl.drop != null) {   // v8.20: DROP ZONE marker (white stakes + label)
     const sx = Math.round(hl.drop - cam), gy = Math.round(BASE - groundH(hl, hl.drop));
@@ -6743,7 +6971,8 @@ function drawCourse(hl, cam) {
       }
     }
   }
-  if (halloweenOn()) hwDrawCourseDeco(hl, cam);   // v8.41: pumpkins, gravestones, bare trees (decoration only)
+  const hwHole = halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '');   // v8.69/v8.75: HIGH ROLLER + BIG APPLE stay clean (no seasonal props/tint)
+  if (hwHole) hwDrawCourseDeco(hl, cam);   // v8.41: pumpkins, gravestones, bare trees (decoration only)
   if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery
   // ground columns
   for (let sx = 0; sx < W; sx++) {
@@ -6794,7 +7023,7 @@ function drawCourse(hl, cam) {
     text3(ctx, 'DLG', fx + 5, fgy - 26, COL.white);
     if (rt) ctx.restore();
   }
-  if (halloweenOn()) hwTint(th);   // v8.41 dusk tint
+  if (hwHole) hwTint(th);   // v8.41 dusk tint
   todTint(hl);   // v8.76
   if (th.dim) { ctx.fillStyle = th.dim; ctx.fillRect(0, 0, W, PLAY_H); }   // night: everything dims; golfer + ball are drawn after, so they pop
 }
@@ -7914,7 +8143,7 @@ function renderBoardPanel() {
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function shareModeLabel() {
   if (courseKind === 'daily') return 'DAILY HOLE';
-  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH', lbi: lbiName(false) })[courseKind] || 'DUMB LUCK GOLF';
+  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', roller: 'HIGH ROLLER', nycf: 'BIG APPLE FRONT', nycb: 'BIG APPLE BACK', nyc18: 'BIG APPLE 18', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH', lbi: lbiName(false) })[courseKind] || 'DUMB LUCK GOLF';
 }
 function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel look (title sky, logo, scorecard panel, golfer + pup)
   const SW = 270, SH = 480, c = mk(SW, SH), saved = ctx, cx = SW / 2, K = 4;
@@ -8014,7 +8243,7 @@ function renderCard() {
     if (courseKind === 'match' && matchCtx) saveMsg = matchCtx.submitted ? 'SENT TO MATCH VS @' + matchCtx.other.name : matchCtx.msg ? 'MATCH SAVED ON DEVICE' : 'SENDING TO MATCH...';
     else if (cardInfo.practice) saveMsg = 'PRACTICE - NOT SCORED';
     else if (cardInfo.pendingMode) saveMsg = 'SAVED LOCAL - BOARD SOON';
-    if (courseKind === 'quick3') saveMsg = 'COUNTS TOWARD CAREER';   // v8.57
+    if (courseKind === 'quick3' || courseKind === 'roller' || /^nyc/.test(courseKind)) saveMsg = 'COUNTS TOWARD CAREER';   // v8.57
     let lbiCol = null; if (courseKind === 'lbi') { const m = lbiCardMsg(); saveMsg = m[0]; lbiCol = m[1]; }   // v8.63
     if (courseKind === 'spooky') saveMsg = ({ cupin: 'YOU\'RE IN THE SPOOKY CUP!', cupguest: 'SIGN IN TO ENTER THE SPOOKY CUP', cupsoon: 'SPOOKY CUP OPENS OCT 14', cupover: 'THE SPOOKY CUP IS OVER', rejected: 'SCORE NOT ACCEPTED' })[saveWhere] || saveMsg;   // v8.52
     drawTextC(saveMsg, sumY + 58, lbiCol ? lbiCol : (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.white);
@@ -8121,7 +8350,7 @@ function csCompiled(def) { let h = csHoleCache.get(def); if (!h) { h = compileHo
 function drawCoursePreview(r, ci) {
   const list = courseHoleList(ci), n = list.length;
   const k = Math.floor(Math.max(0, st - csPrevMark) / 2.6) % n, hl = csCompiled(list[k]);
-  const holeNo = ci === 1 ? k + 10 : k + 1, YEL = '#f8d878';
+  const ck = csKind(ci), holeNo = ck === 'back' || ck === 'nycb' ? k + 10 : k + 1, YEL = '#f8d878';
   czBoard(r.x, r.y, r.w, r.h, 0.9, false);
   const ix = r.x + 4, iy = r.y + 4, iw = r.w - 8, ih = r.h - 8;
   // caption: HOLE n (gold) / PAR p  LEN Y ; hole name along the bottom band
@@ -8167,8 +8396,19 @@ function renderCourseSelect() {
     outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
-  const t = 'CHOOSE COURSE';
-  outlined(t, Math.round(CS_HEAD.x - textW(t, 2) / 2), CS_HEAD.y, YEL, 2);
+  {   // v8.75: course name header; < > switch courses
+    const g = CS_GROUPS[csGroup], all = kindHoles(g.opts[g.opts.length - 1] === 'quick3' ? 'full' : g.opts[g.opts.length - 1]), par = all.reduce((a, h) => a + h.par, 0);
+    const words = g.name.split(' '); let lines = [g.name];
+    if (textW(g.name, 2) > (CS_ARW_R.x - CS_ARW_L.x - CS_ARW_L.w - 8)) { let best = null; for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), m = Math.max(textW(a, 2), textW(b, 2)); if (!best || m < best.m) best = { m, l: [a, b] }; } if (best) lines = best.l; }
+    const y0 = lines.length > 1 ? CS_HEAD.y - 4 : CS_HEAD.y + 4;
+    lines.forEach((ln, k) => outlined(ln, Math.round(CS_HEAD.x - textW(ln, 2) / 2), y0 + k * 16, YEL, 2));
+    const lock = g.gate && !coralUnlocked();
+    const sub = all.length + ' HOLES  PAR ' + par + (g.gate === 'members' ? '  MEMBERS' : g.gate === 'career' ? '  CAREER' : '');
+    drawText(sub, Math.round(CS_HEAD.x - textW(sub) / 2), y0 + lines.length * 16 + 2, lock ? COL.orange : COL.white);
+    const dw = CS_GROUPS.length * 6 - 2; for (let k = 0; k < CS_GROUPS.length; k++) rect(Math.round(CS_HEAD.x - dw / 2) + k * 6, y0 + lines.length * 16 + 12, 4, 2, k === csGroup ? YEL : '#5c6c8c');
+    for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) { const on = hoverOk && hitBtn(mouse, r), cx = r.x + Math.round(r.w / 2), cy = r.y + Math.round(r.h / 2), col = on ? YEL : COL.white;
+      for (let k = 0; k <= 8; k++) rect(cx + d * (4 - k) - 1, cy - k - 1, 3, 2 * k + 3, '#000'); for (let k = 0; k < 8; k++) rect(cx + d * (4 - k), cy - k, 1, 2 * k + 1, col); }
+  }
   // preview follows the highlighted course (keeps the last one while BACK is focused)
   const ci = courseSel < CS_BACK_I ? courseSel : csPrevSel;
   if (ci !== csPrevSel || st < csPrevMark) { csPrevSel = ci; csPrevMark = st; }
@@ -8178,21 +8418,21 @@ function renderCourseSelect() {
   czBoard(b.x, b.y, b.w, b.h, 0.9, false);
   CS_CARDS.forEach((r, i) => {
     const sel = i === courseSel, hov = hoverOk && hit(mouse, r), list = courseHoleList(i);
-    const par = list.reduce((a, h) => a + h.par, 0), pb = courseBest(COURSE_KINDS[i]);
+    const kd = csKind(i), par = list.reduce((a, h) => a + h.par, 0), pb = courseBest(kd);
     if (sel) { ctx.globalAlpha = 0.55; rect(r.x, r.y, r.w, r.h, '#3c64b4'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, YEL); }
     else { ctx.globalAlpha = 0.35; rect(r.x, r.y, r.w, r.h, '#000'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, '#2c4c8c'); }
     const twoLine = r.h >= 30, nameY = twoLine ? r.y + Math.round((r.h - 25) / 2) : r.y + Math.round((r.h - 14) / 2);
     const lx = r.x + 10 + (sel ? 12 : 0);
     if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
-    const lockC = i === CS_CAREER_I && !coralUnlocked();
+    const lockC = (kd === 'coral' || kd === 'roller') && !coralUnlocked();
     outlined(COURSE_ITEMS[i], lx, nameY, lockC ? COL.gray : sel || hov ? YEL : COL.white, 2);
-    const sub = i === CS_QUICK_I ? '3 RANDOM HOLES' : i === CS_CAREER_I ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER  ' + list.length + ' HOLES  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
+    const sub = kd === 'quick3' ? '3 RANDOM HOLES' : kd === 'coral' ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER COURSE  PAR ' + par) : kd === 'roller' ? (lockC ? 'MEMBERS - SIGN IN TO PLAY' : 'MEMBERS COURSE  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
     if (lockC) { czPadlock(r.x + r.w - 14, r.y + Math.round(r.h / 2), COL.orange); if (!twoLine) drawText('SIGN IN', r.x + r.w - 26 - textW('SIGN IN'), nameY + 4, COL.orange); }
     if (twoLine) drawText(sub, lx, nameY + 18, sel ? COL.white : COL.gray);
     // personal best (right side): small BEST label over the score
     const val = pb === null ? '--' : fmtRel(pb), vcol = pb === null ? COL.grayD : pb <= 0 ? COL.lime : COL.orange;
     const vw = textW(val, 2), rx = r.x + r.w - 8;
-    if (lockC || i === CS_QUICK_I) {}
+    if (lockC || kd === 'quick3') {}
     else if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
     else outlined(val, rx - vw, nameY, vcol, 2);
   });
@@ -8201,9 +8441,12 @@ function renderCourseSelect() {
 function courseActivate(i) {
   SFX.click();
   if (i === CS_BACK_I) { setState('title'); return; }
-  if (i === CS_CAREER_I) { if (!coralUnlocked()) { showToast(['CORAL CLIFFS IS A CAREER COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('coral'); return; }
-  startCourse(i === 0 ? 'front' : i === 1 ? 'back' : i === CS_QUICK_I ? 'quick3' : 'full');
+  const k = csKind(i);
+  if (k === 'roller') { if (!coralUnlocked()) { showToast(['HIGH ROLLER IS A MEMBERS COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('roller'); return; }
+  if (k === 'coral') { if (!coralUnlocked()) { showToast(['CORAL CLIFFS IS A CAREER COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('coral'); return; }
+  startCourse(k);
 }
+function csSwitch(d) { csApplyGroup(csGroup + d); courseSel = 0; csPrevSel = 0; csPrevMark = st; try { layoutChrome(); } catch (e) {} SFX.tick(); }   // v8.75
 
 /* ================= CAREER screens (state 'career' + 'auth') ================= */
 const CAREER_YEL = '#f8d878';
@@ -9837,6 +10080,67 @@ if (/test/.test(location.hash)) {
   window.__golf = {  cupBoardT(rows, myIg, signed) { if (signed) { account.user = Object.assign({ id: 'test-user', expires_at: 9e9 }, account.user || {}); account.profile = Object.assign({}, account.profile || {}, { username: 'scorey' }); } cupMyIg = myIg || ''; if (!board || board.modeId !== 'spooky') openBoard(null, 'spooky'); board.rows = rows; board.hi = -1; board.src = 'online'; st = 1; return board.modeId; }, snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, aimShotT(dx, c, a) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; },
     swingShotT(dx, c, a, p, seed) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; setState('power'); meter.pos = 0; meter.dir = 1; this._sw = { p, seed: seed >>> 0 }; },
     swingGoT() { const s = this._sw; meter.power = s.p; errPx = 0; shotSweet = true; shotPerfect = false; testSeed = s.seed; setState('swing'); },
+    botT(o) {   // v8.69: seeded greedy shot-search bot (fairness check for new holes); pure sims, no game state touched
+      o = o || {}; const defs = o.course === 'front' ? FRONT_HOLES : o.course === 'back' ? BACK_HOLES : o.course === 'coral' ? CORAL_HOLES : o.course === 'nyc' ? NYC_HOLES : ROLLER_HOLES, out = [];
+      let seed = (o.seed || 1) >>> 0; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+      const est = (hl, x, s) => { const d = Math.abs(hl.cup - x); if (s === 'green') return d < 6 ? 1 : d < 22 ? 1.5 : 2; return 1 + (d <= 12 ? 0.95 : d <= 70 ? 1.05 : d <= 160 ? 1.2 + (d - 70) / 300 : 1.5 + (d - 160) / 120) + (s === 'sand' ? 0.3 : s === 'rough' ? 0.1 : 0); };
+      const sim = (hl, w, x, c, a, p, err, t0) => { const dir = hl.cup >= x ? 1 : -1;
+        const lv = launchVel(c, a, p, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir) });
+        const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0, padHits: 0, wallHit: false, moverHit: false };
+        let r = null, n = 0, ramp = 0, pad = 0; const base = performance.now() / 1000;
+        while (!r && n++ < 240 * 40) { b._t0 = t0 + n * STEP - base; r = stepBall(b, hl, w, STEP); if (b.events.includes('ramp')) ramp = 1; if (b.events.includes('pad')) pad = 1; b.events.length = 0; }
+        return { r: r || 'stop', x: b.x, ramp, pad, wall: b.wallHit, mover: b.moverHit }; };
+      const cands = [];
+      for (let c = 0; c < PUTT_I; c++) { const C = CLUBS[c]; for (let k = 0; k < 6; k++) { const a = Math.round(C.min + (C.max - C.min) * k / 5); for (let p = 0.25; p <= 1.001; p += 0.05) cands.push([c, a, +p.toFixed(2)]); } }
+      for (let p = 0.04; p <= 1.001; p += 0.02) cands.push([PUTT_I, 0, +p.toFixed(2)]);
+      for (const hi of (o.holes || defs.map((d, i) => i))) {
+        const def = defs[hi], res = { name: def.name, par: def.par, plays: [], feats: {} };
+        const winds = o.winds || [def.windR ? def.windR[0] : -4, def.wind || 0, def.windR ? def.windR[1] : 4];
+        for (const pin of (def.pins || [def.cup])) for (const w of winds) {
+          const hl = compileHole(Object.assign({}, def, { cup: pin, pins: undefined })); hl.cup = pin;
+          for (let tr = 0; tr < (o.trials || 1); tr++) {
+          let x = TEE_X, strokes = 0; const path = [];
+          const outc = (r, x0) => { if (r.r === 'cup') return 0; if (r.r === 'water' || r.r === 'ob') { const sp = (r.r === 'water' && hl.drop != null && Math.abs(hl.cup - hl.drop) < Math.abs(hl.cup - x0)) ? hl.drop : x0; return 1 + est(hl, sp, surfAt(hl, sp)) + 0.01; } return est(hl, r.x, surfAt(hl, r.x)); };
+          const nz = o.noise == null ? 1 : o.noise;
+          while (strokes < 10) {
+            const t00 = rnd() * 10; let best = null;
+            for (const t0 of (hl.movers && hl.movers.length ? [t00, t00 + 0.55, t00 + 1.1, t00 + 1.65] : [t00])) for (const [c, a, p] of cands) {
+              if (c === PUTT_I && Math.abs(hl.cup - x) > 60) continue;
+              const r = sim(hl, w, x, c, a, p, 0, t0); let cost = outc(r, x);
+              if (nz > 0) { const sp = (c === PUTT_I ? 0.012 : 0.03) * nz; let tot = cost; for (const dp of [-sp, sp]) tot += outc(sim(hl, w, x, c, a, clamp(p + dp, 0.02, 1), 0, t0 + 0.3), x); cost = tot / 3; }   // expected cost under a little execution noise
+              if (!best || cost < best.cost) best = { cost, c, a, p, t0 };
+            }
+            // execute with noise (gaussian-ish power error), so the result is what a decent player would get
+            const g = (rnd() + rnd() + rnd() - 1.5) / 1.5, pe = clamp(best.p + g * (best.c === PUTT_I ? 0.012 : 0.03) * nz, 0.02, 1);
+            const r = sim(hl, w, x, best.c, best.a, pe, 0, best.t0 + (rnd() - 0.5) * 0.16);   // swing moment chosen (players can wait for a windmill), +-80ms timing slop
+            strokes++; path.push([Math.round(x), best.c, best.a, +pe.toFixed(3), r.r, Math.round(r.x)]);
+            for (const f of ['ramp', 'pad', 'wall', 'mover']) if (r[f]) res.feats[f] = (res.feats[f] || 0) + 1;
+            if (r.r === 'cup') break;
+            if (r.r === 'water' || r.r === 'ob') { strokes++; if (r.r === 'water' && hl.drop != null && Math.abs(hl.cup - hl.drop) < Math.abs(hl.cup - x)) x = hl.drop; }
+            else x = r.x;
+          }
+          res.plays.push({ pin, w, strokes, path });
+          }
+        }
+        const ss = res.plays.map(p => p.strokes); res.min = Math.min(...ss); res.max = Math.max(...ss); res.avg = +(ss.reduce((a, b) => a + b, 0) / ss.length).toFixed(2);
+        out.push(res);
+      }
+      return out;
+    },
+    trajT(pts, c, a, p, w, x0) {   // v8.69: carry / total / apex of one shot on a test profile (hole design aid)
+      const hl = typeof pts === 'number' ? compileHole(ROLLER_HOLES[pts]) : compileHole({ name: 't', par: 4, cup: 2000, pts }), x = x0 || TEE_X, C = CLUBS[c]; a = a === 'def' ? C.def : a === 'min' ? C.min : a === 'max' ? C.max : a;
+      const lv = launchVel(c, a, p, 0, surfAt(hl, x), 1, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, 1) });
+      const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
+      let r = null, n = 0, apex = 0, carry = null; const hs = {}, ev = [];
+      while (!r && n++ < 9600) { r = stepBall(b, hl, w || 0, STEP); if (b.events.length) ev.push(...b.events.map(e => e + '@' + Math.round(b.x))); b.events.length = 0;
+        if (b.mode === 'air') { apex = Math.max(apex, b.h - groundH(hl, b.x)); for (let X = 50; X <= 400; X += 25) if (hs[X] == null && b.x >= X) hs[X] = Math.round(b.h - groundH(hl, b.x)); } else if (carry == null) carry = Math.round(b.x - x); }
+      return { c, a, p, r: r || 'stop', carry, total: Math.round(b.x - x), apex: Math.round(apex), hs, ev: ev.slice(0, 8) };
+    },
+    teeSpreadT(hi, n) {   // v8.69: how forgiving is the tee shot: share of random club/angle/power tee shots that stay dry
+      const def = ROLLER_HOLES[hi], hl = compileHole(def); let dry = 0, k = 0;
+      for (let i = 0; i < n; i++) { const c = Math.floor(Math.random() * PUTT_I), C = CLUBS[c], a = C.min + Math.random() * (C.max - C.min), p = 0.3 + Math.random() * 0.7; const r = simulateShot(hl, def.wind || 0, TEE_X, c, a, p, 0, 1); k++; if (r.res !== 'water' && r.res !== 'ob') dry++; }
+      return +(dry / k).toFixed(2);
+    },
     seedShotT(dx, c, a, p, seed) { testSeed = seed >>> 0; return this.liveShotT(dx, c, a, p); },
     sndLogStart() { sndLog = []; return performance.timeOrigin / 1000; }, sndLogTake() { const l = sndLog || []; sndLog = null; return l; },
     synthOffline(A, ev) { const f = { tone: (t0, a) => synthTone(A, t0, a[0], a[1], a[2], a[3], a[4]), noise: (t0, a) => synthNoise(A, t0, a[0], a[1]), thump: (t0, a) => synthThump(A, t0, a[0], a[1], a[2]) }; for (const e of ev) if (f[e.fn] && e.t >= 0) f[e.fn](e.t, e.a); },
@@ -9940,7 +10244,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin } : null; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startCourseT(k) { startCourse(k); return courseKind; }, courseSelT(i) { courseSel = i; }, courseGroupT(g) { csApplyGroup(g); courseSel = 0; layoutChrome(); return CS_GROUPS[csGroup].name; }, get csArrows() { return { l: Object.assign({}, CS_ARW_L), r: Object.assign({}, CS_ARW_R) }; }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin } : null; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
