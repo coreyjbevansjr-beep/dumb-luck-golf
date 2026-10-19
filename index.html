@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.78">
+<meta name="dlg-version" content="v8.79">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.78';
+const GAME_VERSION = 'v8.79';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1737,13 +1737,13 @@ const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize
 function careerBlank() {
   return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
            best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '',
-           bRound: 0, u18: 0, clean: 0, cleanTop: 0, saves: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
+           bRound: 0, u18: 0, clean: 0, cleanTop: 0, saves: 0, bounty: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
 }
 function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
 function careerClean(c) {
   const b = careerBlank();
   if (!c || typeof c !== 'object') return b;
-  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop', 'saves']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
+  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop', 'saves', 'bounty']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
   for (const k of ['front', 'back', 'full', 'daily', 'coral']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
   if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
   if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
@@ -1775,13 +1775,14 @@ function careerAdoptGuest() {   // first sign-in on this device: keep the rounds
 }
 /* per-round buffer: filled hole by hole, committed only when a scored round finishes (quits never count) */
 let careerRun = null, careerLast = null, careerMsg = null, careerSignOutArm = 0;
-function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0, saves: 0 }; }
+function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0, saves: 0, bounty: 0, bountyXp: 0 }; }
 function careerNoteSave() { if (!careerRun) careerRoundStart(); careerRun.saves = (careerRun.saves | 0) + 1; }   // v8.78
 function careerNoteHole(d, strokesOnHole) {
   if (!careerRun) careerRoundStart();
   if (strokesOnHole === 1) careerRun.aces++;
   else if (d <= -2) careerRun.eagles++;
   else if (d === -1) careerRun.birdies++;
+  if (holeIdx === bountyIdx && d <= -1) { careerRun.bounty = (careerRun.bounty | 0) + 1; careerRun.bountyXp = (careerRun.bountyXp | 0) + (strokesOnHole === 1 ? CAREER_XP.ace : d <= -2 ? CAREER_XP.eagle : CAREER_XP.birdie); }   // v8.79 BOUNTY: the hole's XP again
 }
 function careerNoteLuck() { if (!careerRun) careerRoundStart(); careerRun.luck++; }
 function careerNoteLost() { if (!careerRun) careerRoundStart(); careerRun.lost = (careerRun.lost | 0) + 1; }   // v8.65: water / out of bounds = a lost ball
@@ -1794,6 +1795,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   let xp = info.kind === 'daily' ? X.daily : info.holes >= 18 ? X.eighteen : X.nine;
   xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck + (run.saves | 0) * X.save;
   c.saves = (c.saves | 0) + (run.saves | 0);   // v8.78
+  xp += run.bountyXp | 0; c.bounty = (c.bounty | 0) + (run.bounty | 0);   // v8.79
   c.rounds++; c.holes += info.holes;
   c.birdies += run.birdies; c.eagles += run.eagles; c.aces += run.aces; c.luck += run.luck;
   c.bRound = Math.max(c.bRound | 0, run.birdies);   // v8.65 gear stats (BIRDIE GLOVE / UNDER-PAR VISOR / LUCKY CLUB)
@@ -1852,7 +1854,7 @@ function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, u
   a.recent.concat(b.recent).forEach(r => { const key = r.kind + '|' + r.rel + '|' + r.strokes + '|' + r.date; if (!seen[key]) { seen[key] = 1; rec.push(r); } });
   m.recent = rec.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0)).slice(0, 5);
   m.look = a.look || b.look;
-  m.bRound = Math.max(a.bRound, b.bRound); m.u18 = Math.max(a.u18, b.u18); m.cleanTop = Math.max(a.cleanTop, b.cleanTop); m.saves = Math.max(a.saves | 0, b.saves | 0);
+  m.bRound = Math.max(a.bRound, b.bRound); m.u18 = Math.max(a.u18, b.u18); m.cleanTop = Math.max(a.cleanTop, b.cleanTop); m.saves = Math.max(a.saves | 0, b.saves | 0); m.bounty = Math.max(a.bounty | 0, b.bounty | 0);
   m.clean = (a.updated >= b.updated ? a : b).clean;   // v8.65: the current no-lost-ball run comes from the newer copy
   m.updated = a.updated >= b.updated ? a.updated : b.updated;
   return m;
@@ -3321,7 +3323,7 @@ function stepBallRaw(b, hl, wind, dt) {
       b.h = gh;
       const pad = onBouncePad(hl, b.x) && (b.padHits || 0) < 2;
       if (b.spin) { const sp0 = b.spin; b.spin = 0; if (!pad) { b.vx *= 1 - sp0; if (sp0 >= 0.45 && s === 'green') b.events.push(sp0 > 1 ? 'spinback' : 'check'); } }   // v8.21 backspin bites on the first landing
-      const sp = SURF[b.rough ? 'rough' : s] || SURF.fair;
+      const sp = (cond.firm && s === 'green' && !b.rough) ? SURF_FIRM : (SURF[b.rough ? 'rough' : s] || SURF.fair);   // v8.79 FIRM greens
       b.rough = false;
       const iv = -b.vy;
       b.events.push(pad ? 'pad' : 'bounce');
@@ -3389,6 +3391,35 @@ const GPV = {
   spread(lie, k, dv) { if (lie === 'sand') return (k === 'punch' || k === 'flop') ? 0.9 : 2.4; if (lie === 'rough') return k === 'punch' ? 0.7 : 1.5; return dv ? 1.1 : 0; }
 };
 let shotKind = 'n';
+/* ================= v8.79 ROUND CONDITIONS, DAILY PINS, BOUNTY HOLE. Everything is seeded per round: the Daily from the NY date and
+   Quick / course rounds from a fresh seed (tournament, Spooky Cup, friend matches and the LAB: no gusts / firm greens).
+   GUSTS: the hole's wind shifts up to 4 MPH between shots. FIRM: greens bounce higher and release on landing (putts are unchanged). ================= */
+let roundSeed = 0, cond = { gust: false, firm: false }, bountyIdx = -1, holeWind = 0;
+const SURF_FIRM = { rest: 0.36, keep: 0.68, dec: 30 };
+GPV.round = (seed, kind) => {
+  roundSeed = seed >>> 0; const r = mulberry32(roundSeed ^ 0x9e3779b9);
+  const off = kind === 'spooky' || kind === 'match' || kind === 'lbi' || kind === 'lab';
+  const g = r(), f = r(), b = r();
+  cond = { gust: !off && g < 0.22, firm: !off && f < 0.2 && !(weather && weather.id === 'rain') };
+  bountyIdx = kind !== 'match' && kind !== 'lab' && HOLES.length >= 3 ? Math.floor(b * HOLES.length) : -1;
+  return cond;
+};
+GPV.windFor = (base, hi, stroke) => {
+  if (!cond.gust || (hole && hole.def && hole.def.calm)) return base;
+  const r = mulberry32((roundSeed ^ Math.imul(hi + 1, 0x85ebca6b) ^ Math.imul(stroke + 3, 0xc2b2ae35)) >>> 0);
+  return clamp(base + Math.round((r() * 2 - 1) * 4), -18, 18);
+};
+function roundSeedNow() {
+  if (courseKind === 'daily' && dailyMeta) return seedFromStr('DLG-DAILY-C-' + dailyMeta.date);
+  if (courseKind === 'lbi' && lbiCtx && !lbiCtx.practice) return seedFromStr('LBI-C-' + lbiCtx.seed);
+  return (Math.random() * 4294967296) >>> 0;
+}
+function gustUpdate() {   // wind for the next shot (no-op unless GUSTS)
+  if (!cond.gust || !hole) return;
+  const w0 = wind; wind = GPV.windFor(holeWind, holeIdx, strokes);
+  if (Math.abs(wind - w0) >= 3 && strokes > 0) showMsg('WIND SHIFT', COL.blue, 1.0);
+}
+function weatherChipLabel() { return weather && weather.label ? weather.label + (cond.gust ? ' GUSTS' : '') + (cond.firm ? ' FIRM' : '') : ''; }
 function shotKindsNow() { return hole && ball ? GPV.kinds(clubIdx, surfAt(hole, ball.x), Math.abs(hole.cup - ball.x)) : ['n']; }
 function shotKindValid() { if (!shotKindsNow().includes(shotKind)) shotKind = 'n'; return shotKind; }
 function cycleShotKind(d) { const ks = shotKindsNow(); if (ks.length < 2) return; shotKind = ks[(ks.indexOf(shotKindValid()) + (d || 1) + ks.length) % ks.length]; SFX.click(); angFlash = 0.3; }
@@ -5043,20 +5074,21 @@ function scoreName(strk, par) {
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
 function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (!(courseKind === 'lbi' && lbiCtx && lbiCtx.from)) flySeen = new Set();   // v8.77: fresh round = fresh flyovers
-  if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
+  if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { GPV.round(roundSeedNow(), courseKind); } catch (e) { cond = { gust: false, firm: false }; bountyIdx = -1; }   /* v8.79 */ try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
   camY = 0; shotFx = null; yardFx = null;
   const src = HOLES[holeIdx];
   const lr = courseKind === 'lbi' && lbiCtx && !lbiCtx.practice ? mulberry32(seedFromStr('LBI-' + lbiCtx.seed + '-' + holeIdx)) : null;   // v8.63: same pins + wind for everyone in a round
   try { if (courseKind === 'lbi') lbiTeeHook(); } catch (e) {}
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
-  const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : Math.random()) * src.pins.length)] }) : src;
+  const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : mulberry32(seedFromStr('DLG-PIN-' + nyDateStr() + '-' + (src.name || holeIdx)))()) * src.pins.length)] }) : src;   // v8.79: today's pin (same for everyone on a given day)
   hole = compileHole(def);
   strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
   else wind = applyWeatherToWind(hole.wind + Math.round(rnd(-2, 2)));
+  holeWind = wind; if (cond.gust) wind = GPV.windFor(holeWind, holeIdx, 0);   // v8.79
   placeBall(TEE_X);
   try { ghostStartHole(); } catch (e) {}
   announce('hole ' + displayHoleNum(holeIdx) + ', ' + (hole.name || '') + ', par ' + hole.par + ', ' + Math.round(Math.abs(hole.cup - TEE_X)) + ' yards, wind ' + (wind === 0 ? 'calm' : Math.abs(wind) + (wind > 0 ? ' helping' : ' against')));
@@ -5541,6 +5573,7 @@ function resolveBall(r) {
   }
   if (strokes >= 10) { showMsg('PICK UP', COL.orange, 1.5); finishHole(); return; }
   facing = hole.cup >= ball.x ? 1 : -1;
+  gustUpdate();   // v8.79
   autoClub(); shotKind = 'n';
   const lie = surfAt(hole, ball.x);
   if (lie === 'sand') showMsg('IN THE SAND', COL.sand, 1.2); else if (ball.divot) showMsg('IN A DIVOT', COL.white, 1.2);
@@ -5556,6 +5589,7 @@ function finishHole() {
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
   if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1); } catch (e) {} }   // v8.78
   holeSave = false;
+  if (holeIdx === bountyIdx && d <= -1 && !SIM) { if (!doneInfo.save) showMsg('BOUNTY!  2X XP', '#f8d878', 2.2); doneInfo.bounty = true; }   // v8.79
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
   if (d <= -2) grantAch('eagle', 'GOLD CROWN HAT!');
   else if (d === -1) grantAch('birdie', 'GOLD TRAIL!');
@@ -6117,7 +6151,7 @@ function update(dt) {
     if (st > 2.0) {
       dogPop = null;
       if (strokes >= 10) { finishHole(); break; }
-      placeBall(penaltySpot != null ? penaltySpot : lastSpot); penaltySpot = null; setState('aim');
+      gustUpdate(); placeBall(penaltySpot != null ? penaltySpot : lastSpot); penaltySpot = null; setState('aim');
     }
     break;
   case 'holed':
@@ -7020,7 +7054,7 @@ function drawMeter() {
   if (['power', 'accuracy', 'swing', 'flight'].includes(state)) drawTextR(Math.round(showP * 100) + '%', 136, HUD_Y0 + 30, showP >= PERFECT_POW ? '#f8d878' : COL.white);
   // weather chip (just above HUD, right side)
   if (weather && weather.label) {
-    const wl = weather.label, ww = textW(wl) + 14;
+    const wl = weatherChipLabel(), ww = textW(wl) + 14;
     const wx = W - ww - 4, wy = HUD_Y0 - 14;
     rect(wx, wy, ww, 12, '#000'); rect(wx + 1, wy + 1, ww - 2, 10, '#0c1848');
     // tiny icon
@@ -7042,7 +7076,8 @@ function drawHUD() {
   const rel = relSoFar();
   const y1 = HUD_Y0 + 2, y2 = HUD_Y0 + 15;
   // row 1: hole, par, stroke, total
-  hudCell(0, y1, 'HOLE ' + displayHoleNum(holeIdx), COL.white);
+  hudCell(0, y1, 'HOLE ' + displayHoleNum(holeIdx), holeIdx === bountyIdx ? '#f8d878' : COL.white);
+  if (holeIdx === bountyIdx) { const [bx, bw] = HUD_COLS[0], cx = bx + bw - 6, cy = y1 + 5; rect(cx - 1, cy - 2, 3, 5, '#f8d878'); rect(cx - 2, cy - 1, 5, 3, '#f8d878'); rect(cx, cy - 1, 1, 3, '#a87c28'); }   // v8.79 bounty coin
   hudCell(1, y1, 'PAR ' + hole.par, COL.white);
   hudCell(2, y1, 'STROKE ' + strokes, COL.white);
   hudCell(3, y1, 'TOTAL ' + fmtRel(rel), rel <= 0 ? COL.lime : COL.orange);
@@ -7061,7 +7096,7 @@ function drawHUD() {
 function mmRect() {
   const b = Object.assign({}, MM_BOX);
   if (weather && weather.label) {
-    const ww = textW(weather.label) + 14, wx = W - ww - 4, wy = HUD_Y0 - 14;
+    const ww = textW(weatherChipLabel()) + 14, wx = W - ww - 4, wy = HUD_Y0 - 14;
     if (b.y < wy + 12 && b.y + b.h > wy && b.x + b.w > wx - 3) {
       b.x = Math.max((SAFE.l || 0) + 2, wx - 3 - b.w); b.w = Math.min(b.w, wx - 3 - b.x);
     }
@@ -9236,6 +9271,7 @@ function renderScene() {
       ? ['DAILY CHALLENGE', title, 'PAR ' + hole.par + '  ·  ' + yards + ' YARDS', wind === 0 ? 'WIND CALM' : 'WIND ' + (wind > 0 ? '>' : '<') + ' ' + Math.abs(wind) + ' MPH']
       : [title, 'PAR ' + hole.par, yards + ' YARDS', wind === 0 ? 'WIND CALM' : 'WIND ' + (wind > 0 ? '>' : '<') + ' ' + Math.abs(wind) + ' MPH'];
     const cols = isDaily ? [COL.orange, '#f8d878', COL.white, COL.blue] : ['#f8d878', COL.orange, COL.white, COL.blue];
+    if (holeIdx === bountyIdx) { lines.push('BOUNTY HOLE  BIRDIE = 2X XP'); cols.push('#f8d878'); }   // v8.79
     msgBox(lines, 36, cols);
   }
   if (roundTip) drawRoundTip();
