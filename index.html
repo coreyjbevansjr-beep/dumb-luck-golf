@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.77">
+<meta name="dlg-version" content="v8.78">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.77';
+const GAME_VERSION = 'v8.78';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1732,18 +1732,18 @@ const CAREER_KEY = 'dlg_career_v1__';
 const CAREER_RANKS = [   // DLG Tour rank by lifetime XP
   { name: 'AMATEUR', xp: 0 }, { name: 'CLUB PRO', xp: 500 }, { name: 'TOUR PRO', xp: 1500 }, { name: 'LEGEND', xp: 4000 }
 ];
-const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ace: 50, luck: 5, even: 20, under: 40, pb: 25, streak: 5 };
+const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ace: 50, luck: 5, even: 20, under: 40, pb: 25, streak: 5, save: 10 };   // v8.78 save = GREAT SAVE
 const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
 function careerBlank() {
   return { v: 1, rounds: 0, holes: 0, nineHoles: 0, nineRel: 0, birdies: 0, eagles: 0, aces: 0, luck: 0, xp: 0,
            best: { front: null, back: null, full: null, daily: null, coral: null }, daily: { last: '', streak: 0, top: 0 }, recent: [], look: null, updated: '',
-           bRound: 0, u18: 0, clean: 0, cleanTop: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
+           bRound: 0, u18: 0, clean: 0, cleanTop: 0, saves: 0 };   // v8.65: most birdies in one round, 18-hole rounds under par, rounds in a row with no lost ball (+ best run)
 }
 function careerId() { return isSignedIn() ? account.user.id : 'guest'; }
 function careerClean(c) {
   const b = careerBlank();
   if (!c || typeof c !== 'object') return b;
-  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
+  for (const k of ['rounds', 'holes', 'nineHoles', 'nineRel', 'birdies', 'eagles', 'aces', 'luck', 'xp', 'bRound', 'u18', 'clean', 'cleanTop', 'saves']) b[k] = Number.isFinite(+c[k]) ? Math.round(+c[k]) : 0;
   for (const k of ['front', 'back', 'full', 'daily', 'coral']) { const v = c.best && c.best[k]; if (v && Number.isFinite(+v.rel)) b.best[k] = { rel: Math.round(+v.rel), strokes: Math.round(+v.strokes) || 0 }; }
   if (c.daily) b.daily = { last: String(c.daily.last || '').slice(0, 10), streak: Math.max(0, +c.daily.streak | 0), top: Math.max(0, +c.daily.top | 0) };
   if (Array.isArray(c.recent)) b.recent = c.recent.slice(0, 5).map(r => ({ kind: String(r.kind || ''), rel: +r.rel | 0, strokes: +r.strokes | 0, date: String(r.date || '').slice(0, 10) }));
@@ -1775,7 +1775,8 @@ function careerAdoptGuest() {   // first sign-in on this device: keep the rounds
 }
 /* per-round buffer: filled hole by hole, committed only when a scored round finishes (quits never count) */
 let careerRun = null, careerLast = null, careerMsg = null, careerSignOutArm = 0;
-function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0 }; }
+function careerRoundStart() { careerRun = { birdies: 0, eagles: 0, aces: 0, luck: 0, lost: 0, saves: 0 }; }
+function careerNoteSave() { if (!careerRun) careerRoundStart(); careerRun.saves = (careerRun.saves | 0) + 1; }   // v8.78
 function careerNoteHole(d, strokesOnHole) {
   if (!careerRun) careerRoundStart();
   if (strokesOnHole === 1) careerRun.aces++;
@@ -1791,7 +1792,8 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   try { careerRoundRow(info, run); } catch (e) {}
   const c = careerLoad(), X = CAREER_XP;
   let xp = info.kind === 'daily' ? X.daily : info.holes >= 18 ? X.eighteen : X.nine;
-  xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck;
+  xp += run.birdies * X.birdie + run.eagles * X.eagle + run.aces * X.ace + run.luck * X.luck + (run.saves | 0) * X.save;
+  c.saves = (c.saves | 0) + (run.saves | 0);   // v8.78
   c.rounds++; c.holes += info.holes;
   c.birdies += run.birdies; c.eagles += run.eagles; c.aces += run.aces; c.luck += run.luck;
   c.bRound = Math.max(c.bRound | 0, run.birdies);   // v8.65 gear stats (BIRDIE GLOVE / UNDER-PAR VISOR / LUCKY CLUB)
@@ -1850,7 +1852,7 @@ function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, u
   a.recent.concat(b.recent).forEach(r => { const key = r.kind + '|' + r.rel + '|' + r.strokes + '|' + r.date; if (!seen[key]) { seen[key] = 1; rec.push(r); } });
   m.recent = rec.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0)).slice(0, 5);
   m.look = a.look || b.look;
-  m.bRound = Math.max(a.bRound, b.bRound); m.u18 = Math.max(a.u18, b.u18); m.cleanTop = Math.max(a.cleanTop, b.cleanTop);
+  m.bRound = Math.max(a.bRound, b.bRound); m.u18 = Math.max(a.u18, b.u18); m.cleanTop = Math.max(a.cleanTop, b.cleanTop); m.saves = Math.max(a.saves | 0, b.saves | 0);
   m.clean = (a.updated >= b.updated ? a : b).clean;   // v8.65: the current no-lost-ball run comes from the newer copy
   m.updated = a.updated >= b.updated ? a.updated : b.updated;
   return m;
@@ -3238,7 +3240,9 @@ const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER 
 const lieSlope = (hl, x, dir) => clamp(Math.atan(slopeAt(hl, x) * dir) * 180 / Math.PI, -6, 6);   // v8.21: uphill lie launches higher, downhill lower
 function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   o = o || {};
-  const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), splash = isSplash(clubIdx, lie, dist), lk = splash ? 1 : (LIE_K[lie] || LIE_K.fair)[clubIdx];
+  const kind = clubIdx === PUTT_I ? 'n' : (o.kind || 'n');   // v8.78 shot height: n | punch | flop | bump
+  const c = CLUBS[clubIdx], miss = 1 - 0.025 * Math.abs(errPx), splash = isSplash(clubIdx, lie, dist) && kind !== 'punch' && kind !== 'bump', lk = splash ? 1 : (LIE_K[lie] || LIE_K.fair)[clubIdx];
+  if (kind === 'punch') angDeg = Math.max(6, Math.min(angDeg, c.def) - 10); else if (kind === 'flop') angDeg = Math.min(82, angDeg + 14); else if (kind === 'bump') angDeg = Math.min(angDeg, 16);
   if (clubIdx === PUTT_I) {
     const v = Math.sqrt(2 * SURF.green.dec * puttRange(dist) * power) * miss * lk;
     const pc = puttCup(Math.abs(dist || 0));
@@ -3246,7 +3250,7 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   }
   const chip = isChip(clubIdx, dist), pw = clamp(power, 0, 1);
   let v = c.v * Math.sqrt(pw * chipK(clubIdx, dist));
-  v *= miss * lk * (o.vMul || 1);
+  v *= miss * lk * (o.vMul || 1) * SHOT_V[kind] * (o.divot ? DIVOT_V : 1);
   const slope = clubIdx === PUTT_I ? 0 : clamp(o.slope || 0, -6, 6);
   const a = (angDeg + errPx * 0.8 + slope + (splash ? SPLASH_LIFT : 0)) * Math.PI / 180;
   // v8.20 loft: above the club's stock loft = more wind and less roll; below = less wind, more run (v8.21: punch floor 0.75 -> 0.6)
@@ -3256,7 +3260,11 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   if (lie === 'rough') spin *= 0.3; else if (lie === 'sand' && !splash) spin *= 0.6;
   let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3);
   if (splash) { rollK *= 0.45; spin = Math.max(spin, 0.5); }
-  return { vx: dir * v * Math.cos(a), vy: v * Math.sin(a), mode: 'air', rough: Math.abs(errPx) > 4, capV: chip ? CHIP_CAPV : AIR_CAPV, windK: clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1), rollK, spin: clamp(spin, 0, 1.1), splash, slope };
+  let windK = clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1);
+  if (kind === 'punch') { windK *= 0.7; rollK = Math.min(1.45, rollK * 1.2); spin *= 0.5; }   // under the wind, runs out
+  else if (kind === 'flop') { windK *= 1.1; rollK *= 0.6; spin += 0.25; }                       // up and soft, the wind gets it
+  else if (kind === 'bump') { windK *= 0.6; rollK = Math.min(1.45, Math.max(rollK, 1.12) * 1.25); spin = 0; }   // low chip that rolls
+  return { vx: dir * v * Math.cos(a), vy: v * Math.sin(a), mode: 'air', rough: Math.abs(errPx) > 4, capV: chip ? CHIP_CAPV : AIR_CAPV, windK, rollK, spin: clamp(spin, 0, 1.1), splash, slope };
 }
 // Advance a ball by dt. Returns null while moving, otherwise 'stop' | 'cup' | 'water' | 'ob'.
 const iv0 = b => Math.abs(b.vy);
@@ -3356,12 +3364,40 @@ function stepBallRaw(b, hl, wind, dt) {
   return 'stop';
 }
 const STEP = 1 / 240;
-function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir) {
-  const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir) });
+function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir, kind, ex) {
+  const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir), kind, divot: ex && ex.divot });
   const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
   let r = null, n = 0;
   while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; }
   return { res: r || 'stop', x: b.x };
+}
+
+/* ================= v8.78 SHOT HEIGHTS + LIES (2D: no draw / fade, only height). Skill, not assistance:
+   PUNCH  low, ~10% less carry, 30% less wind, runs out; slightly tighter strike window
+   FLOP   +14 deg, ~14% less carry, lands soft (little roll), more wind; strike window ~half, mishits 1.5x worse
+   BUMP   (iron / 9 iron / wedge within 70Y) low chip that rolls, little wind
+   Lies add spread to the strike: rough and sand scatter the ball (sand much more unless you PUNCH or FLOP), and a fairway ball can
+   settle in a DIVOT (less carry + a little spread). Up / downhill lies already change the launch (lieSlope). ================= */
+const SHOT_V = { n: 1, punch: 0.9, flop: 0.86, bump: 0.97 }, DIVOT_V = 0.93;
+const SHOT_LABEL = { n: 'NORMAL', punch: 'PUNCH', flop: 'FLOP', bump: 'BUMP & RUN' };
+const SHOT_SWEET = { n: 1, punch: 0.85, flop: 0.55, bump: 1 };
+const GPV = {
+  DIVOT_P: 0.08,
+  kinds(c, lie, d) { if (c === PUTT_I) return ['n']; const k = ['n', 'punch']; if (c >= 3) k.push('flop'); if (c >= 2 && d <= 70 && lie !== 'sand') k.push('bump'); return k; },
+  cleanP(k) { return SHOT_SWEET[k] || 1; },   // balance-bot model of the strike window
+  errK(k) { return k === 'flop' ? 1.5 : 1; },
+  spread(lie, k, dv) { if (lie === 'sand') return (k === 'punch' || k === 'flop') ? 0.9 : 2.4; if (lie === 'rough') return k === 'punch' ? 0.7 : 1.5; return dv ? 1.1 : 0; }
+};
+let shotKind = 'n';
+function shotKindsNow() { return hole && ball ? GPV.kinds(clubIdx, surfAt(hole, ball.x), Math.abs(hole.cup - ball.x)) : ['n']; }
+function shotKindValid() { if (!shotKindsNow().includes(shotKind)) shotKind = 'n'; return shotKind; }
+function cycleShotKind(d) { const ks = shotKindsNow(); if (ks.length < 2) return; shotKind = ks[(ks.indexOf(shotKindValid()) + (d || 1) + ks.length) % ks.length]; SFX.click(); angFlash = 0.3; }
+const gaussM = () => { let u = 0; for (let i = 0; i < 6; i++) u += Math.random(); return u - 3; };
+function lieLabel() {
+  const lie = surfAt(hole, ball.x);
+  let n = ball.divot && lie === 'fair' ? 'DIVOT' : ({ tee:'TEE', fair:'FAIRWAY', rough:'ROUGH', sand:'SAND', green:'GREEN', water:'WATER', ob:'O.B.' }[lie] || '');
+  if (lie === 'fair' || lie === 'rough' || lie === 'sand') { const ls = lieSlope(hole, ball.x, facing); if (Math.abs(ls) >= 2) n = (n === 'FAIRWAY' ? 'FAIR' : n) + (ls > 0 ? ' UP' : ' DN'); }
+  return n;
 }
 
 /* ---------------- sound ---------------- */
@@ -3700,7 +3736,7 @@ const SWEET_ERR = 3.3, PERFECT_ERR = 2, PERFECT_POW = 0.9, SHORT_SLOW = 0.7, SHO
 const shortGameNow = () => !!(hole && ball && (clubIdx === PUTT_I || isChip(clubIdx, Math.abs(hole.cup - ball.x))));
 const isShort = () => state === 'aim' ? shortGameNow() : !!meter.short;   // locked in when the swing starts
 const pwSpeed = () => PW_SPEED * (meter.short ? SHORT_SLOW : 1), accSpeed = () => ACC_SPEED * (meter.short ? SHORT_SLOW : 1);
-const sweetErr = () => isShort() ? SHORT_SWEET : SWEET_ERR;
+const sweetErr = () => (isShort() ? SHORT_SWEET : SWEET_ERR) * (clubIdx === PUTT_I ? 1 : (SHOT_SWEET[shotKind] || 1));   // v8.78: FLOP / PUNCH tighten the window
 let shotSweet = false, shotPerfect = false, angFlash = 0;
 const held = {};   // aim keys currently held -> seconds held (hold to speed up)
 let errPx = 0, swingAng = 75, camX = 0, camHold = null, introFrom = 0, introTo = 0;
@@ -3778,7 +3814,7 @@ let paused = false, ov = null, ovRects = [], fsArmed = false, shareArmed = false
 let roundTip = false, tipOkR = { x: 0, y: 0, w: 88, h: 24 };   // hole-1 power-meter tip (stays until OK)
 const GAME_STATES = ['intro', 'aim', 'power', 'accuracy', 'swing', 'flight', 'penalty', 'holed', 'done'];
 const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
-const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.26: loft pill in the bottom HUD
+const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 }, SHOT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.78 shot height pill   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
 const HSHARE_BTN = { x: 190, y: 0, w: 20, h: 22 };   // v8.34
 const YOUTUBE_URL = 'https://www.youtube.com/@dumbluckgolf', HYT_BTN = { x: 136, y: 0, w: 20, h: 22 };
@@ -4037,6 +4073,8 @@ function layoutChrome() {
       const aw = Math.min(tapW, Math.floor((LOFT_PILL.w - 20) / 2));
       Object.assign(LOFT_UP, { x: LOFT_PILL.x, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
       Object.assign(LOFT_DN, { x: LOFT_PILL.x + LOFT_PILL.w - aw, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
+      if (port) Object.assign(SHOT_PILL, { x: 2, y: LOFT_PILL.y, w: 138, h: LOFT_PILL.h });   // v8.78: under the meter, same band as the loft pill
+      else { const sx = LOFT_PILL.x + LOFT_PILL.w + 4, sw = Math.min(84, W - sr - 2 - sx); Object.assign(SHOT_PILL, sw >= 60 ? { x: sx, y: LOFT_PILL.y, w: sw, h: LOFT_PILL.h } : { x: 0, y: -99, w: 0, h: 0 }); }
     }
     CLUB_PAD.x = meterR + 1; CLUB_PAD.y = CLUB_BTN.y - clubGap;
     CLUB_PAD.w = Math.min(W, CLUB_BTN.x + CLUB_BTN.w + clubGap) - CLUB_PAD.x;
@@ -4273,6 +4311,8 @@ function drawOverlay() {
   drawTextC(hint, y + h + 6, COL.gray);
 }
 const loftShown = () => state === 'aim' && !paused && !ov && !roundTip && hole && clubIdx !== PUTT_I && LOFT_PILL.w >= 60;
+const shotPillShown = () => ['aim', 'power', 'accuracy'].includes(state) && !paused && !ov && !roundTip && hole && ball && SHOT_PILL.w >= 60 && shotKindsNow().length > 1 && (state === 'aim' || shotKind !== 'n');
+const inShotCtl = p => state === 'aim' && shotPillShown() && hit(p, SHOT_PILL);
 const inLoftCtl = p => loftShown() && hit(p, LOFT_PILL);
 function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bottom HUD, club-button style (hidden for the putter)
   if (!loftShown()) return;
@@ -4293,8 +4333,20 @@ function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bot
   const ax = Math.round(mid + (mw - tw) / 2), ay = Math.round(P.y + (P.h - 7 * sc) / 2) + (P.h >= 30 ? 3 : 0), col = angFlash > 0 ? YEL : COL.white;
   drawText(a, ax, ay, col, sc, sc);
   edge(ax + tw - 2, ay, 3, 3, col);   // degree ring
-  if (P.y >= HUD_Y0 + 50) drawTextR('LOFT ANGLE', P.x - 6, Math.round(P.y + (P.h - 7) / 2), COL.gray);   // portrait band label
+  if (P.y >= HUD_Y0 + 50 && !shotPillShown()) drawTextR('LOFT ANGLE', P.x - 6, Math.round(P.y + (P.h - 7) / 2), COL.gray);   // portrait band label
   if (P.h >= 30) drawText('LOFT', Math.round(mid + (mw - textW('LOFT')) / 2), P.y + 3, COL.gray);
+}
+function drawShotPill() {   // v8.78: [ SHOT  PUNCH  . . o . ] tap to cycle; dimmed (not tappable) while swinging
+  if (!shotPillShown()) return;
+  const P = SHOT_PILL, ks = shotKindsNow(), k = shotKindValid(), on = k !== 'n', YEL = '#f8d878', live = state === 'aim';
+  ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
+  const c = live ? (on ? YEL : COL.white) : COL.gray;
+  rect(P.x, P.y, P.w, 1, c); rect(P.x, P.y + P.h - 1, P.w, 1, c); rect(P.x, P.y, 1, P.h, c); rect(P.x + P.w - 1, P.y, 1, P.h, c);
+  const lab = SHOT_LABEL[k], sc = P.h >= 22 && textW(lab, 2) + 40 <= P.w ? 2 : 1, ty = Math.round(P.y + (P.h - 7 * sc) / 2) - (P.h >= 30 ? 3 : 0);
+  drawText(lab, Math.round(P.x + (P.w - textW(lab, sc)) / 2), ty, on ? YEL : COL.white, sc, sc);
+  const dy = P.h >= 30 ? P.y + P.h - 7 : P.y + P.h - 4, dx0 = Math.round(P.x + P.w / 2 - (ks.length * 6 - 2) / 2);
+  ks.forEach((q, i) => rect(dx0 + i * 6, dy, q === k ? 4 : 2, 2, q === k ? c : COL.gray));
+  if (P.h >= 30) drawText('SHOT', P.x + 4, P.y + 3, COL.gray);
 }
 function drawPauseButton() {   // top-left so it never clashes with the scorecard
   if (!GAME_STATES.includes(state) || paused) return;
@@ -4325,10 +4377,10 @@ function clubYards() {
   if (!hole || !ball) return '';
   if (clubIdx === PUTT_I) return puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y';
   if (state !== 'aim' && clubYdCache && clubYdCache.c === clubIdx) return clubYdCache.t;
-  const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, wind].join(':');
+  const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, wind, shotKind, !!ball.divot].join(':');
   if (!clubYdCache || clubYdCache.key !== key) {
     let reach = 0;
-    try { reach = Math.abs(simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing).x - ball.x); } catch (e) {}
+    try { reach = Math.abs(simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing, shotKindValid(), { divot: ball.divot }).x - ball.x); } catch (e) {}
     clubYdCache = { key, c: clubIdx, t: Math.round(reach) + 'Y' };
   }
   return clubYdCache.t;
@@ -5000,7 +5052,7 @@ function startHole() {
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
   const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : Math.random()) * src.pins.length)] }) : src;
   hole = compileHole(def);
-  strokes = 0; lastSpot = TEE_X; penaltySpot = null;
+  strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
@@ -5016,8 +5068,9 @@ function startHole() {
   setState('intro'); SFX.jingle();
 }
 function placeBall(x) {
-  ball = { x, h: groundH(hole, x), vx: 0, vy: 0, mode: 'stop', rough: false, events: [], rollSteps: 0 };
-  facing = hole.cup >= ball.x ? 1 : -1;
+  const tl = !!(ball && ball.treeLast);
+  ball = { x, h: groundH(hole, x), vx: 0, vy: 0, mode: 'stop', rough: false, events: [], rollSteps: 0, treeLast: tl };
+  facing = hole.cup >= ball.x ? 1 : -1; shotKind = 'n';
   autoClub(); swingAng = 75;
 }
 function autoClub() {
@@ -5259,7 +5312,7 @@ function celebrateLuck() {
   setTimeout(() => { if (dogPop && dogPop.kind === 'laugh') SFX.laugh(); }, 400);
   SFX.luck();
 }
-let holedDur = 0.9;
+let holedDur = 0.9, holeSave = false;
 function celebrateHoleOut() {   // chip-in from off the green
   const gh = groundH(hole, hole.cup) + 2;
   fxBurst(hole.cup, gh, 40, CONFETTI, 75, { up: true, conf: true, g: 50, life: 1.7, stars: 0 });
@@ -5332,6 +5385,7 @@ function commitAccuracy(acc) {
   shotSweet = Math.abs(raw) <= sweetErr();                     // inside the green zone = clean contact, no hook/slice
   shotPerfect = clubIdx !== PUTT_I && meter.power >= PERFECT_POW && Math.abs(raw) <= PERFECT_ERR;
   errPx = shotSweet ? 0 : clamp(raw, ACC_MIN * 128, -ACC_MIN * 128);   // a wild early click is a big slice, never a backwards shot
+  if (!shotSweet && clubIdx !== PUTT_I && shotKind === 'flop') errPx = clamp(errPx * 1.5, ACC_MIN * 128, -ACC_MIN * 128);   // v8.78
   SFX.tick(); setState('swing');
 }
 const SWING_ADDR = 75, DOWN_T = 0.13, FOLLOW_T = 0.45;
@@ -5342,7 +5396,11 @@ function launch() {
   ball.shotFrom = ball.x; ball.carryX = null; ball.maxH = ball.h;
   const lie = surfAt(hole, ball.x);
   const flyer = lie === 'rough' && clubIdx !== PUTT_I ? 1 + (Math.random() * 2 - 1) * FLYER : 1;   // v8.21 flyer lies
-  const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x), { vMul: (shotPerfect ? PERFECT_V : 1) * flyer, slope: lieSlope(hole, ball.x, facing) });
+  const kind = shotKindValid(), divot = !!ball.divot && lie === 'fair';   // v8.78
+  if (clubIdx !== PUTT_I) { const sd = GPV.spread(lie, kind, divot); if (sd) errPx = clamp(errPx + gaussM() * sd, ACC_MIN * 128, -ACC_MIN * 128); }   // lie spread
+  ball.recov = clubIdx !== PUTT_I && (kind === 'punch' || kind === 'flop' || isSplash(clubIdx, lie, Math.abs(hole.cup - ball.x))) && (lie === 'rough' || lie === 'sand' || divot || !!ball.treeLast);
+  ball.kind = kind; ball.divot = false;
+  const lv = launchVel(clubIdx, angle, meter.power, errPx, lie, facing, Math.abs(hole.cup - ball.x), { vMul: (shotPerfect ? PERFECT_V : 1) * flyer, slope: lieSlope(hole, ball.x, facing), kind, divot });
   ball.vx = lv.vx; ball.vy = lv.vy; ball.mode = lv.mode; ball.rough = lv.rough; ball.capV = lv.capV; ball.stopR = lv.stopR; ball.lipK = lv.lipK; ball.windK = lv.windK; ball.rollK = lv.rollK; ball.spin = lv.spin; ball.seen = {};
   lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < (courseKind === 'lbi' ? LBI_LUCK_MISHIT : LUCK_MISHIT)); forceLuck = false;   // rare DUMB LUCK on a mishit
@@ -5440,6 +5498,8 @@ function resolveBall(r) {
   if (courseKind === 'lab' && !SIM && labResolve(r)) return;   // v8.74 LAB: green -> putting view (nothing saved)
   try { ghostRecResolve(r); } catch (e) {}
   try { hlRecEnd(r); } catch (e) {}
+  if (ball.recov && (r === 'cup' || (r === 'stop' && surfAt(hole, ball.x) === 'green'))) holeSave = true;   // v8.78 recovery that found the green
+  ball.treeLast = !!(ball.seen && ball.seen.tree); ball.recov = false;
   if (r === 'cup') {
     SFX.cup(); hap([20, 40, 20, 40, 60]);
     const left = 0;
@@ -5468,6 +5528,7 @@ function resolveBall(r) {
     setState('penalty'); return;
   }
   ball.mode = 'stop';
+  ball.divot = !SIM && clubIdx !== PUTT_I && surfAt(hole, ball.x) === 'fair' && Math.abs(ball.x - (ball.shotFrom != null ? ball.shotFrom : lastSpot)) > 60 && Math.random() < GPV.DIVOT_P;   // v8.78
   {
     const carry = Math.abs((ball.carryX != null ? ball.carryX : ball.x) - (ball.shotFrom || lastSpot));
     const total = Math.abs(ball.x - (ball.shotFrom || lastSpot));
@@ -5480,9 +5541,9 @@ function resolveBall(r) {
   }
   if (strokes >= 10) { showMsg('PICK UP', COL.orange, 1.5); finishHole(); return; }
   facing = hole.cup >= ball.x ? 1 : -1;
-  autoClub();
+  autoClub(); shotKind = 'n';
   const lie = surfAt(hole, ball.x);
-  if (lie === 'sand') showMsg('IN THE SAND', COL.sand, 1.2);
+  if (lie === 'sand') showMsg('IN THE SAND', COL.sand, 1.2); else if (ball.divot) showMsg('IN A DIVOT', COL.white, 1.2);
   setState('aim'); swingAng = 75;
 }
 function finishHole() {
@@ -5493,6 +5554,8 @@ function finishHole() {
   try { careerNoteHole(scores[holeIdx] - hole.par, scores[holeIdx]); ghostRecHole(scores[holeIdx]); ghostOnPlayerHoled(); } catch (e) {}
   const d = scores[holeIdx] - hole.par;
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
+  if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1); } catch (e) {} }   // v8.78
+  holeSave = false;
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
   if (d <= -2) grantAch('eagle', 'GOLD CROWN HAT!');
   else if (d === -1) grantAch('birdie', 'GOLD TRAIL!');
@@ -5762,6 +5825,11 @@ cv.addEventListener('pointerdown', e => {
     if (hitBtn(p, PAUSE_BTN)) armUiTap('pause', () => pauseGame(), (up) => hitBtn(toLogical(up), PAUSE_BTN), e);
     touchDown = null; return;
   }
+  if (inShotCtl(p)) {   // v8.78: shot height pill (never swings)
+    try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+    armUiTap('shotk', () => cycleShotKind(1), (up) => hit(toLogical(up), SHOT_PILL), e);
+    touchDown = null; return;
+  }
   if (inLoftCtl(p)) {   // v8.26: HUD loft pill (middle = dead zone, never swings)
     try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
     const ak = hit(p, LOFT_UP) ? 'up' : hit(p, LOFT_DN) ? 'down' : null;
@@ -5945,6 +6013,7 @@ addEventListener('keydown', e => {
     else if (k === 'q' || k === 'Q') setClub(clubIdx - 1);
     else if (k === 'e' || k === 'E' || k === 'Tab') setClub(clubIdx + 1);
     else if (k >= '1' && k <= '6') setClub(+k - 1);
+    else if (k === 'f' || k === 'F') cycleShotKind(1);   // v8.78 shot height
   }
 });
 
@@ -6764,9 +6833,9 @@ function flushAimDots() {
 let sgCache = null;
 function shortTarget() {
   if (!shortGameNow() && !(meter.short && state !== 'aim')) return null;
-  const key = [holeIdx, clubIdx, ball.x.toFixed(2), Math.round(angle), facing, wind].join(':');
+  const key = [holeIdx, clubIdx, ball.x.toFixed(2), Math.round(angle), facing, wind, shotKind, !!ball.divot].join(':');
   if (sgCache && sgCache.key === key) return sgCache;
-  const sim = p => simulateShot(hole, wind, ball.x, clubIdx, angle, p, 0, facing);
+  const sim = p => simulateShot(hole, wind, ball.x, clubIdx, angle, p, 0, facing, shotKindValid(), { divot: ball.divot });
   const cost = r => r.res === 'cup' ? -1 : (r.res === 'water' || r.res === 'ob') ? 1e6 : Math.abs(r.x - hole.cup);
   let best = null, cups = [];
   for (let p = 0.02; p <= 1.0001; p += 0.02) { const c = cost(sim(p)); if (c < 0) cups.push(p); if (!best || c < best.c) best = { p, c }; }
@@ -6864,7 +6933,7 @@ function drawAim() {
     if (live) { const ex = Math.round(r.x - camX), ey = Math.round(BASE - groundH(hole, r.x)) - 6; rect(ex - 2, ey - 1, 5, 5, '#000'); rect(ex - 1, ey, 3, 3, dc); }
     return;
   }
-  const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, Math.abs(hole.cup - ball.x), { slope: lieSlope(hole, ball.x, facing) });
+  const lv = launchVel(clubIdx, angle, 1, 0, surfAt(hole, ball.x), facing, Math.abs(hole.cup - ball.x), { slope: lieSlope(hole, ball.x, facing), kind: shotKindValid() });
   const len = [80, 74, 68, 62, 56][clubIdx] * lenK, dt = 1 / 120;
   let x = ball.x, h = ball.h + 3, vy = lv.vy, run = 0, next = 6 + gap * phase;
   for (let i = 0; i < 400 && run < len; i++) {
@@ -6983,9 +7052,8 @@ function drawHUD() {
   hudCell(1, y2, at, angFlash > 0 ? '#f8d878' : COL.white, angFlash > 0 ? COL.white : COL.lime);
   const wt = wind === 0 ? 'CALM' : (wind > 0 ? '>' : '<') + Math.abs(wind) + 'MPH', [wx, ww] = HUD_COLS[2], wtx = wx + Math.round((ww - textW(wt) - 8) / 2);
   box(wx, y2, ww, 11); drawText('W', wtx, y2 + 2, COL.blue); drawText(wt, wtx + 8, y2 + 2, COL.white);
-  const lie = surfAt(hole, ball.x);
-  const lieName = { tee:'TEE', fair:'FAIRWAY', rough:'ROUGH', sand:'SAND', green:'GREEN', water:'WATER', ob:'O.B.' }[lie] || '';
-  hudCell(3, y2, lieName, lie === 'sand' ? COL.sand : COL.lime);
+  const lie = surfAt(hole, ball.x), lieName = lieLabel();   // v8.78: + DIVOT / UP / DN
+  hudCell(3, y2, lieName, lie === 'sand' ? COL.sand : lie === 'rough' || ball.divot ? '#f8d878' : COL.lime);
   drawMeter();
   drawMiniMap();   // v8.10: minimap + yardage moved into the dirt strip (was here, bottom-right of the HUD)
 }
@@ -7897,6 +7965,7 @@ function render() {
   if (state === 'title') { drawSpookyBanner(); drawHomeYtButton(); drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
+  drawShotPill();   // v8.78
   drawClubButton();
   drawOverlay();
   drawToast();
