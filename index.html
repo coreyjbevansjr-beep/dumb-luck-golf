@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.80">
+<meta name="dlg-version" content="v8.82">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.80';
+const GAME_VERSION = 'v8.82';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -242,6 +242,7 @@ const GALLERY_ITEMS = [];
    ========================================================= */
 const GW = 256, GH = 240, PLAY0 = 186, BASE0 = 172;   // design frame; BASE0 = ground y for height 0
 let W = GW, H = GH, PLAY_H = PLAY0, BASE = BASE0;
+let flyZm = 1;   // v8.78 hole-flyover zoom multiplier (only applied in the intro flyover)
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d');   // swapped briefly when drawing the share card
 ctx.imageSmoothingEnabled = false;
@@ -5142,7 +5143,7 @@ const CAM_MIN = -120;   // allow portrait zoom to frame the tee golfer with left
 const WORLD_Z_PORTRAIT = 1.35;   // mild portrait zoom — keep sky + full golfer on screen
 let camY = 0;                    // screen-space Y shift (positive = show higher ball)
 function isPortraitPlay() { return H > W * 1.15 && GAME_STATES.includes(state); }
-function worldZoom() { return isPortraitPlay() ? WORLD_Z_PORTRAIT : 1; }
+function worldZoom() { return (isPortraitPlay() ? WORLD_Z_PORTRAIT : 1) * (state === 'intro' ? flyZm : 1); }   // v8.78: flyover zoom
 function camMax() { return hole ? Math.max(CAM_MIN, hole.len - W + 40) : CAM_MIN; }
 /** camX so world X maps to screen sx after zoom about W/2. */
 function camForScreenX(worldX, sx) {
@@ -6091,7 +6092,7 @@ function update(dt) {
     break;
   }
   case 'intro': {
-    if (fly) { camX = flyCam(st); if (st > fly.dur) introEnd(false); break; }   // v8.77 flyover (same intro state + camera, just tee -> pin -> tee)
+    if (fly) { flyCam(st); if (st > fly.dur) introEnd(false); break; }   // v8.77 flyover (v8.78: slower, zoomed, stops at each hidden collider)
     const t = clamp((st - 0.6) / 2.0, 0, 1), e = t * t * (3 - 2 * t);
     camX = lerp(introFrom, introTo, e);
     if (st > 3.0) introEnd(false);
@@ -6931,12 +6932,15 @@ function rollPreview(p) {   // where a putt at power p stops
   if (!rollCache || rollCache.key !== key) rollCache = { key, r: simulateShot(hole, wind, ball.x, PUTT_I, 0, Math.max(0.005, p), 0, facing) };
   return rollCache.r;
 }
-/* v8.77 HOLE FLYOVER: at the first tee of each hole in a round the intro camera flies tee -> pin -> tee (2.5-3.5s by length)
-   while every collider you can't fully see is outlined in dotted gold: the low oak-trunk stoppers, the exact hit faces of
-   the bank walls, the full sweep lanes of sliding gates and the windmill block boxes. After that they never show again on
-   that hole (tap skips; a skip flashes them for 0.6s, on the mini map too). Camera + drawing only: physics, timing of
-   shots, scoring and stats are untouched. */
+/* v8.77 HOLE FLYOVER: at the first tee of each hole in a round the intro camera flies out from the tee and back while every
+   collider you can't fully see is outlined in dotted gold: the low oak-trunk stoppers, the exact hit faces of the bank walls,
+   the full sweep lanes of sliding gates and the windmill block boxes. After that they never show again on that hole (tap
+   skips; a skip flashes them for 0.6s, on the mini map too). Camera + drawing only: physics, timing of shots, scoring and
+   stats are untouched.
+   v8.78: slower (5-7s by hole length + stops) and zoomed in 1.4-1.8x over the play zoom: eases out, pauses ~0.6s framed
+   on each hidden collider (close ones share a stop) and on the pin, then eases back out to the normal play view at the tee. */
 const HID_GOLD = '#D4AF37', HID_SKIP_FLASH = 0.6;
+const FLY_ZM = 1.8, FLY_ZM_MIN = 1.4, FLY_STOP = 0.6, FLY_HOLD = 0.35;
 let fly = null, flySeen = new Set(), hidList = [], hidFlash = 0;
 function hiddenColliders(hl) {
   const out = [];
@@ -6949,32 +6953,64 @@ function hiddenColliders(hl) {
   return out;
 }
 function flyStart() {
-  hidFlash = 0; fly = null;
+  hidFlash = 0; fly = null; flyZm = 1;
   try { hidList = hiddenColliders(hole); } catch (e) { hidList = []; }
   if (flySeen.has(holeIdx)) return;   // a retry of this hole in this round: no second flyover
   flySeen.add(holeIdx);
-  const dist = Math.abs(hole.cup - TEE_X), dur = clamp(2.5 + (dist - 150) / 450, 2.5, 3.5);
-  fly = { dur, tee: introTo, pin: null };
+  const dist = Math.abs(hole.cup - TEE_X);
+  fly = { dur: clamp(5 + (dist - 150) / 300, 5, 7), tee: introTo, pin: null, keys: null };   // dur is final once flyPlan() has run (first intro frame)
 }
-function flyCam(t) {   // tee hold, ease out to the pin, short hold, quicker ease home
-  const f = fly, D = f.dur;
-  if (f.pin == null) { const Z = worldZoom(); f.pin = clamp(camForScreenX(hole.cup, W * (hole.cup >= TEE_X ? 0.62 : 0.38)), CAM_MIN, camMax()); f.tee = camTarget(); }
-  const e = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
-  const t1 = 0.3, t2 = D - 1.0, t3 = D - 0.65;
-  if (t < t1) return f.tee;
-  if (t < t2) return lerp(f.tee, f.pin, e((t - t1) / (t2 - t1)));
-  if (t < t3) return f.pin;
-  return lerp(f.pin, f.tee, e((t - t3) / (D - t3)));
+function flyPlan() {   // keyframes {t, c: world x at screen centre, m: zoom multiplier, y: camY, dip}; built on the first intro frame
+  const f = fly; flyZm = 1;
+  const Z0 = worldZoom(), dir = hole.cup >= TEE_X ? 1 : -1, dist = Math.abs(hole.cup - TEE_X);
+  f.tee = camTarget();
+  const view = W / (Z0 * FLY_ZM), topKeep = Math.max(36, (SAFE.t || 0) + 6) + 60;   // clear of the hole-name box
+  const cg = groundH(hole, hole.cup);
+  const items = hidList.map(o => ({ x0: o.x0, x1: o.x1, h0: o.h0, h1: o.h1 })).concat([{ x0: hole.cup - 18, x1: hole.cup + 18, h0: cg, h1: cg + PIN_H + 4, pin: true }]);
+  items.sort((a, b) => dir * ((a.x0 + a.x1) - (b.x0 + b.x1)));
+  const groups = [];
+  for (const o of items) {
+    const g = groups[groups.length - 1];
+    if (g && Math.max(g.x1, o.x1) - Math.min(g.x0, o.x0) <= view * 0.8) { g.x0 = Math.min(g.x0, o.x0); g.x1 = Math.max(g.x1, o.x1); g.h0 = Math.min(g.h0, o.h0); g.h1 = Math.max(g.h1, o.h1); g.pin = g.pin || o.pin; }
+    else groups.push(Object.assign({}, o));
+  }
+  const stops = groups.map(g => {
+    const m = clamp(W * 0.8 / (Z0 * Math.max(24, g.x1 - g.x0)), FLY_ZM_MIN, FLY_ZM), Z = Z0 * m;
+    const top = BASE - Z * g.h1, bot = BASE - Z * g.h0;
+    return { c: (g.x0 + g.x1) / 2, m, y: Math.max(0, Math.min(topKeep - top, PLAY_H - 10 - bot)) };
+  });
+  const n = stops.length, tee = { c: f.tee + W / 2, m: 1, y: 0 };
+  const dur = clamp(5 + (dist - 150) / 300 + 0.35 * (n - 1), 5, 7), ret = clamp(1.1 + dist / 600, 1.2, 1.8);
+  let p = FLY_STOP, travel = dur - FLY_HOLD - ret - n * p;
+  if (travel < 0.6 * n) { p = Math.max(0.3, (dur - FLY_HOLD - ret - 0.6 * n) / n); travel = Math.max(0.4 * n, dur - FLY_HOLD - ret - n * p); }
+  const pts = [tee].concat(stops), wts = stops.map((s, i) => 0.4 + Math.sqrt(Math.abs(s.c - pts[i].c) / 100)), wsum = wts.reduce((a, b) => a + b, 0);
+  const dipOf = (a, b) => Math.min(Math.min(a.m, b.m) - 1 + 0.35, 0.6) * clamp((Math.abs(b.c - a.c) - view) / (3 * view), 0, 1);
+  const K = [Object.assign({ t: 0 }, tee), Object.assign({ t: FLY_HOLD }, tee)];
+  let t = FLY_HOLD;
+  stops.forEach((s, i) => { t += travel * wts[i] / wsum; K.push(Object.assign({ t, dip: dipOf(pts[i], s) }, s)); t += p; K.push(Object.assign({ t }, s)); });
+  const last = stops[n - 1];
+  K.push(Object.assign({ t: t + ret, dip: dipOf(last, tee) }, tee));
+  f.keys = K; f.dur = t + ret; f.stops = n; f.pin = last.c - W / 2;
+}
+function flyCam(t) {   // eased leg by leg (zero speed at every stop), zoom dips a little on long legs so it never whips
+  if (!fly.keys) flyPlan();
+  const K = fly.keys; let i = 0;
+  while (i < K.length - 2 && t >= K[i + 1].t) i++;
+  const a = K[i], b = K[i + 1], s = b.t > a.t ? clamp((t - a.t) / (b.t - a.t), 0, 1) : 1, u = s * s * s * (s * (s * 6 - 15) + 10);
+  flyZm = Math.max(1, lerp(a.m, b.m, u) - (b.dip || 0) * Math.sin(Math.PI * s));
+  const Z = worldZoom(), Z0 = Z / flyZm;
+  camX = clamp(lerp(a.c, b.c, u) - W / 2, CAM_MIN + W / 2 * (1 / Z - 1 / Z0), camMax() + W / 2 * (1 / Z0 - 1 / Z));
+  camY = lerp(a.y, b.y, u);
 }
 function introEnd(skipped) {
-  if (fly && skipped) hidFlash = HID_SKIP_FLASH;
-  fly = null;
+  if (fly) { if (skipped) { hidFlash = HID_SKIP_FLASH; if (fly.keys) camX = fly.tee; } camY = 0; }   // a skip lands on the normal tee view
+  fly = null; flyZm = 1;
   if (matchCtx && matchCtx.watch) { setState('watch'); ghostOnPlayerHoled(); return; }
   setState('aim'); if (holeIdx === 0) openRoundTip();
 }
 function hidAlpha() {
   if (!hidList.length || paused || ov) return 0;
-  if (state === 'intro' && fly) { const t = st; return t < 0.25 ? t / 0.25 : t > fly.dur - 0.3 ? Math.max(0, (fly.dur - t) / 0.3) : 1; }
+  if (state === 'intro' && fly) return Math.min(1, st / 0.2);   // v8.78: on for the whole flyover
   if (state === 'aim' && hidFlash > 0) return Math.min(1, hidFlash / 0.15);
   return 0;
 }
@@ -9940,7 +9976,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin } : null; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin, keys: fly.keys ? fly.keys.map(k => Object.assign({}, k)) : null } : null; }, get flyZm() { return flyZm; }, get st() { return st; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
