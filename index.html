@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.76">
+<meta name="dlg-version" content="v8.77">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.76';
+const GAME_VERSION = 'v8.77';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4990,7 +4990,8 @@ function scoreName(strk, par) {
 }
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
-function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
+function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (!(courseKind === 'lbi' && lbiCtx && lbiCtx.from)) flySeen = new Set();   // v8.77: fresh round = fresh flyovers
+  if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
   camY = 0; shotFx = null; yardFx = null;
   const src = HOLES[holeIdx];
@@ -5009,7 +5010,8 @@ function startHole() {
   announce('hole ' + displayHoleNum(holeIdx) + ', ' + (hole.name || '') + ', par ' + hole.par + ', ' + Math.round(Math.abs(hole.cup - TEE_X)) + ' yards, wind ' + (wind === 0 ? 'calm' : Math.abs(wind) + (wind > 0 ? ' helping' : ' against')));
   introFrom = clamp(hole.cup - 128, CAM_MIN, hole.len - W + 40);
   introTo = camTarget();
-  camHold = null; camX = introFrom; msg = null; dogPop = null; fxClear();
+  flyStart();   // v8.77: tee -> pin flyover (first visit to this hole this round), or the old pin -> tee pan
+  camHold = null; camX = fly ? fly.tee : introFrom; msg = null; dogPop = null; fxClear();
   scheduleWildlife();
   setState('intro'); SFX.jingle();
 }
@@ -5308,7 +5310,7 @@ function action() {
   if (state === 'title') { menuActivate(titleSel); return; }
   if (state === 'course') { courseActivate(courseSel); return; }
   if (state === 'board') { if (st > 0.3) closeBoard(); return; }
-  if (state === 'intro') { if (st > 0.3) { setState('aim'); if (holeIdx === 0) openRoundTip(); } return; }
+  if (state === 'intro') { if (st > 0.3) introEnd(true); return; }   // v8.77: tap skips the flyover (still flashes the hidden stuff)
   if (roundTip) return;   // swing blocked until OK
   if (state === 'aim') { meter.pos = 0; meter.dir = 1; meter.short = shortGameNow(); for (const k in held) delete held[k]; setState('power'); SFX.tick(); return; }
   if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
@@ -5972,12 +5974,14 @@ function update(dt) {
     break;
   }
   case 'intro': {
+    if (fly) { camX = flyCam(st); if (st > fly.dur) introEnd(false); break; }   // v8.77 flyover (same intro state + camera, just tee -> pin -> tee)
     const t = clamp((st - 0.6) / 2.0, 0, 1), e = t * t * (3 - 2 * t);
     camX = lerp(introFrom, introTo, e);
-    if (st > 3.0) { if (matchCtx && matchCtx.watch) { setState('watch'); ghostOnPlayerHoled(); } else { setState('aim'); if (holeIdx === 0) openRoundTip(); } }
+    if (st > 3.0) introEnd(false);
     break;
   }
   case 'aim': {
+    if (hidFlash > 0) hidFlash = Math.max(0, hidFlash - dt);   // v8.77
     camX = (camHold != null) ? camHold : lerp(camX, camTarget(), Math.min(1, dt * 5));
     camY = lerp(camY, camYTarget(), Math.min(1, dt * 6));
     swingAng = lerp(swingAng, SWING_ADDR + (clubIdx === PUTT_I ? 1 : 2.5) * Math.sin(st * 3), Math.min(1, dt * 12));   // settle + gentle waggle
@@ -6777,6 +6781,74 @@ function rollPreview(p) {   // where a putt at power p stops
   if (!rollCache || rollCache.key !== key) rollCache = { key, r: simulateShot(hole, wind, ball.x, PUTT_I, 0, Math.max(0.005, p), 0, facing) };
   return rollCache.r;
 }
+/* v8.77 HOLE FLYOVER: at the first tee of each hole in a round the intro camera flies tee -> pin -> tee (2.5-3.5s by length)
+   while every collider you can't fully see is outlined in dotted gold: the low oak-trunk stoppers, the exact hit faces of
+   the bank walls, the full sweep lanes of sliding gates and the windmill block boxes. After that they never show again on
+   that hole (tap skips; a skip flashes them for 0.6s, on the mini map too). Camera + drawing only: physics, timing of
+   shots, scoring and stats are untouched. */
+const HID_GOLD = '#D4AF37', HID_SKIP_FLASH = 0.6;
+let fly = null, flySeen = new Set(), hidList = [], hidFlash = 0;
+function hiddenColliders(hl) {
+  const out = [];
+  for (const o of hl.oaks || []) out.push({ kind: 'oak', x0: o.x0, x1: o.x1, h0: o.base - 2, h1: o.top });
+  for (const w of hl.walls || []) { const g = w.g0 || 0; out.push({ kind: 'wall', x0: w.x - 3, x1: w.x + 3, h0: g + w.hBot, h1: g + w.hTop }); }
+  for (const m of hl.movers || []) {
+    const g = m.g0 || 0, hw = (m.w || 14) / 2, a = m.kind === 'windmill' ? 0 : (m.amp || 40);
+    out.push({ kind: m.kind === 'windmill' ? 'windmill' : 'slide', x0: m.x - a - hw, x1: m.x + a + hw, h0: g + (m.hBot || 0) - 2, h1: g + (m.hTop || 28) });
+  }
+  return out;
+}
+function flyStart() {
+  hidFlash = 0; fly = null;
+  try { hidList = hiddenColliders(hole); } catch (e) { hidList = []; }
+  if (flySeen.has(holeIdx)) return;   // a retry of this hole in this round: no second flyover
+  flySeen.add(holeIdx);
+  const dist = Math.abs(hole.cup - TEE_X), dur = clamp(2.5 + (dist - 150) / 450, 2.5, 3.5);
+  fly = { dur, tee: introTo, pin: null };
+}
+function flyCam(t) {   // tee hold, ease out to the pin, short hold, quicker ease home
+  const f = fly, D = f.dur;
+  if (f.pin == null) { const Z = worldZoom(); f.pin = clamp(camForScreenX(hole.cup, W * (hole.cup >= TEE_X ? 0.62 : 0.38)), CAM_MIN, camMax()); f.tee = camTarget(); }
+  const e = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+  const t1 = 0.3, t2 = D - 1.0, t3 = D - 0.65;
+  if (t < t1) return f.tee;
+  if (t < t2) return lerp(f.tee, f.pin, e((t - t1) / (t2 - t1)));
+  if (t < t3) return f.pin;
+  return lerp(f.pin, f.tee, e((t - t3) / (D - t3)));
+}
+function introEnd(skipped) {
+  if (fly && skipped) hidFlash = HID_SKIP_FLASH;
+  fly = null;
+  if (matchCtx && matchCtx.watch) { setState('watch'); ghostOnPlayerHoled(); return; }
+  setState('aim'); if (holeIdx === 0) openRoundTip();
+}
+function hidAlpha() {
+  if (!hidList.length || paused || ov) return 0;
+  if (state === 'intro' && fly) { const t = st; return t < 0.25 ? t / 0.25 : t > fly.dur - 0.3 ? Math.max(0, (fly.dur - t) / 0.3) : 1; }
+  if (state === 'aim' && hidFlash > 0) return Math.min(1, hidFlash / 0.15);
+  return 0;
+}
+function drawHidden() {
+  const a = hidAlpha(); if (a <= 0 || !hole) return;
+  const now = performance.now() / 1000, pulse = 0.62 + 0.38 * Math.sin(now * Math.PI * 5), march = Math.floor(now * 8);
+  for (const o of hidList) {
+    const p0 = w2s(o.x0 - camX, BASE - o.h1), p1 = w2s(o.x1 - camX, BASE - o.h0);
+    const x0 = Math.round(p0.x) - 1, y0 = Math.round(p0.y) - 1, x1 = Math.round(p1.x) + 1, y1 = Math.min(Math.round(p1.y) + 1, PLAY_H - 1);
+    if (x1 < 0 || x0 > W || y1 < 0 || y0 > PLAY_H) continue;
+    const w = Math.max(3, x1 - x0), h = Math.max(3, y1 - y0);
+    ctx.globalAlpha = a * 0.22 * pulse; rect(x0 + 1, y0 + 1, w - 1, h - 1, HID_GOLD);   // soft glow inside
+    ctx.globalAlpha = a * 0.35 * pulse; rect(x0 - 2, y0 - 2, w + 5, 1, HID_GOLD); rect(x0 - 2, y0 + h + 2, w + 5, 1, HID_GOLD); rect(x0 - 2, y0 - 1, 1, h + 3, HID_GOLD); rect(x0 + w + 2, y0 - 1, 1, h + 3, HID_GOLD);   // glow ring
+    ctx.globalAlpha = a * (0.7 + 0.3 * pulse);
+    let i = 0;
+    const dot = (x, y) => { if (((i++ + march) % 5) < 3) { rect(x, y, 2, 2, '#000'); rect(x, y, 1, 1, '#fcf0b0'); rect(x + 1, y, 1, 1, HID_GOLD); rect(x, y + 1, 1, 1, HID_GOLD); } };
+    for (let x = x0; x < x0 + w; x++) dot(x, y0);
+    for (let y = y0; y < y0 + h; y++) dot(x0 + w, y);
+    for (let x = x0 + w; x > x0; x--) dot(x, y0 + h);
+    for (let y = y0 + h; y > y0; y--) dot(x0, y);
+  }
+  ctx.globalAlpha = 1;
+}
+
 let aimTip = null;
 function drawAim() {
   aimTip = null;
@@ -6959,6 +7031,8 @@ function drawMiniMap() {
   const bx = clamp(ball.x, 0, hole.len), bxm = Math.round(mmx + bx * sc), bs = k > 1.5 ? 4 : k < 0.7 ? 2 : 3;
   const by = Math.max(top, mmy - Math.round((6 + groundH(hole, bx) * 0.15) * k));
   if (Math.floor(st * 4) % 2 || state !== 'flight') rect(bxm - (bs >> 1), by, bs, bs, COL.white);
+  const ha = hidAlpha();   // v8.77: hidden colliders on the mini map while they're shown
+  if (ha > 0) { ctx.globalAlpha = ha; for (const o of hidList) { const x0 = Math.round(mmx + clamp(o.x0, 0, hole.len) * sc), x1 = Math.max(x0 + 1, Math.round(mmx + clamp(o.x1, 0, hole.len) * sc)); rect(x0 - 1, top, x1 - x0 + 2, 3, '#000'); rect(x0, top + 1, x1 - x0, 1, HID_GOLD); } ctx.globalAlpha = 1; }
 }
 /* compact 9-hole card in the top-right of the play area; fades when the ball flies under it */
 function drawMiniCard() {
@@ -9076,6 +9150,7 @@ function renderScene() {
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   flushAimDots();   // v8.70
+  try { drawHidden(); } catch (e) {}   // v8.77 flyover highlights
   try { drawYardage(); } catch (e) {}   // v8.70 pin distance + carry / roll
   drawHUD();
   celebLayout();   // v8.46
@@ -9420,7 +9495,7 @@ function labStart(mode) {
   if (mode === 'greens') { labNextGreen(); return; }
   paused = false; ov = null; roundTip = false; board = null;
   setCourseHoles('lab', LAB_HOLES()); weather = Object.assign({}, WEATHERS[0]);
-  holeIdx = 0; scores = []; startHole(); showMsg('LAB: NOTHING IS SAVED', '#f8d878', 2.4);
+  holeIdx = 0; scores = []; flySeen = new Set(); startHole(); showMsg('LAB: NOTHING IS SAVED', '#f8d878', 2.4);
 }
 function labNextGreen() {
   LAB.greenN++; LAB.putts = 0;
@@ -9713,7 +9788,7 @@ if (/test/.test(location.hash)) {
     get inputLock() { return Math.max(0, inputLockUntil - performance.now()); },
     nameOverlayOpen() { return !!(nameOverlayEl && nameOverlayEl.classList.contains('on')); },
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
-    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
+    get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin } : null; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
     get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
