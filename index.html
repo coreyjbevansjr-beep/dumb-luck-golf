@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.70">
+<meta name="dlg-version" content="v8.74">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.70';
+const GAME_VERSION = 'v8.74';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5376,6 +5376,7 @@ function drawHeartbeat() {
   ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(0, 0, W, PLAY_H); ctx.globalAlpha = 1;
 }
 function resolveBall(r) {
+  if (courseKind === 'lab' && !SIM && labResolve(r)) return;   // v8.74 LAB: green -> putting view (nothing saved)
   try { ghostRecResolve(r); } catch (e) {}
   try { hlRecEnd(r); } catch (e) {}
   if (r === 'cup') {
@@ -5395,7 +5396,7 @@ function resolveBall(r) {
   if (r === 'water' || r === 'ob') {
     strokes++;
     penaltyKind = r;
-    if (!SIM) { try { careerNoteLost(); } catch (e) {} }   // v8.65
+    if (!SIM && courseKind !== 'lab') { try { careerNoteLost(); } catch (e) {} }   // v8.65 (v8.74: never in the LAB)
     penaltySpot = null;
     if (r === 'water' && hole.drop != null && Math.abs(hole.cup - hole.drop) < Math.abs(hole.cup - lastSpot)) penaltySpot = hole.drop;   // v8.20: island holes use the DROP ZONE
     if (r === 'water') { SFX.splash(); showMsg(penaltySpot != null ? 'WATER +1  TO DROP ZONE' : 'WATER  +1 STROKE', COL.blue, 2.0); announce(penaltySpot != null ? 'water, plus one stroke. ball moved to the drop zone' : 'water, plus one stroke'); }
@@ -5423,6 +5424,7 @@ function resolveBall(r) {
   setState('aim'); swingAng = 75;
 }
 function finishHole() {
+  if (courseKind === 'lab') { labHoleDone(); return; }   // v8.74 LAB: no career / achievements / stats
   fx.banner = null;
   scores[holeIdx] = Math.min(strokes, 10);
   try { if (courseKind === 'lbi') lbiHoleHook(scores[holeIdx]); } catch (e) {}   // v8.63: every hole goes to the server as it's played
@@ -5446,6 +5448,7 @@ function nextHole() {
   else finishRound();
 }
 function finishRound() {
+  if (courseKind === 'lab') { setCourseHoles('front', FRONT_HOLES); quitToMenu(); return; }   // v8.74 LAB never saves a round
   if (courseKind === 'match' && matchCtx && matchCtx.watch) { matchAfterRound(); return; }   // career v2: ghost replay ends at the result panel
   const total = scores.reduce((a, b) => a + b, 0), rel = total - TOTAL_PAR;
   const mode = scoreModeForSave();
@@ -8156,6 +8159,7 @@ const ADMIN_VIEWS = {
       (S.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table>';
     h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · HOME SCREEN ' + (S.home_screen_share || 0) + '%</p>';
     h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' + '<button class="btn alt" data-a="lbiOpen">TOURNAMENT</button>' +   // v8.63
+      '<button class="btn alt" data-a="go:adminLab">LAB (TEST MODE)</button>' +   // v8.74
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
       '<p class="sub" style="margin-top:6px">ONLY ON THIS DEVICE, FOR YOUR ACCOUNT. NOT SAVED.</p>' +
       '<button class="link" data-a="go:adminGear">GEAR + CODES</button>' +
@@ -8235,6 +8239,10 @@ const ADMIN_VIEWS = {
       '<p class="sec">SPOOKY CUP (OCT 14-31)</p>' + (!admin.spookyOk ? '<p class="empty">SPOOKY CUP NOT SET UP YET.</p>' : (admin.spooky || []).length ? '<div class="list">' + admin.spooky.map(w => '<div class="item"><div class="who wr">#' + w.rank + ' ' + at(w.username) + ' <span style="color:#f8d878">' + w.strokes + ' (' + (w.to_par > 0 ? '+' : '') + (w.to_par === 0 ? 'E' : w.to_par) + ')</span>' +
         '<span class="st">' + esc(w.email || 'NO EMAIL') + (w.ig ? ' · IG @' + esc(w.ig) : '') + ' · ' + fmtTs(w.created_at) + '</span></div></div>').join('') + '</div><p class="sub">CONTACT THE WINNER AT THEIR ACCOUNT EMAIL.</p>' : '<p class="empty">NO SPOOKY CUP SCORES YET.</p>');   // v8.52
   },
+  adminLab: () => head('LAB', 'go:admin') + '<p class="sub">TEST MODE. ONLY ADMINS SEE THIS. NOTHING IN THE LAB IS SAVED OR POSTED.</p><div class="msg"></div>' +   // v8.74
+    '<button class="btn" data-a="labHybrid">PLAY 3 HOLES</button><p class="sub" style="margin-top:4px">NORMAL SIDE VIEW FOR FULL SHOTS. ONCE YOU ARE ON THE GREEN THE CAMERA SWINGS BEHIND THE BALL TO PUTT.</p>' +
+    '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
+    '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>',
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
@@ -8837,6 +8845,7 @@ if (acctEl) {
     if (a === 'maccept') { await respondMatch(id, 'accept'); const m = social.matches.find(x => x.id === id); if (m) showAcct('result', { id }); else showAcct('matches'); return; }
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
+    if (a === 'labHybrid' || a === 'labGreens') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : 'greens'); return; }   // v8.74
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'ssort') { admin.scoreSort = b.getAttribute('data-n'); showAcct('adminScores'); return; }
     if (a === 'sdel') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
@@ -9017,12 +9026,470 @@ function lastSpotForGolfer() { return ['flight'].includes(state) ? lastSpot : ba
 let shotFacing = 1;
 function facingForGolfer() { return state === 'flight' ? shotFacing : facing; }
 
+/* ================= v8.74 LAB: admin-only test mode (Admin > LAB). Hybrid: the normal side view for full shots, then a
+   behind-the-ball 3D putting view once the ball is on the green. Nothing in the lab posts or saves anything: no scores,
+   leaderboards, career stats, gear, achievements, events or analytics. Normal players never reach any of this. ================= */
+const LAB = { on: false, mode: null, cv: null, c: null, scene: null, sc: null, tcv: null, tc: null, img: null, buf: null, ybuf: null,
+  g: null, cam: null, phase: '', t: 0, aim: 0, meter: { pos: 0, dir: 1, power: 0, acc: 0 }, ball: null, drag: null, readK: 0, readOn: false,
+  snap: null, scores: [], putts: 0, greenN: 0, camKey: '', keys: {}, res: null, sweet: false, err: 0, from: null, to: null, last: 0, closing: 0, swingAng: 75, holeTxt: '' };
+const LAB_EX = 6, LAB_MU = 2.15, LAB_VMAX = 20.7, LAB_CUP_R = 0.177, LAB_STEP = 1 / 240, LAB_N = 352;
+const LAB_HOLES = () => [FRONT_HOLES[4], FRONT_HOLES[6], FRONT_HOLES[8]];   // THE ISLAND (par 3 over water), OLD OAK CREEK (par 4), MOONLIGHT FINISH (par 5)
+const LAB_HYBRID_SPECS = ['tilt', 'tier', 'ridge'];
+const LAB_SPECS = ['tilt', 'tier', 'ridge', 'bowl', 'saddle'];
+const LAB_THEMES = ['day', 'autumn', 'sunset', 'night', 'desert'];
+const LAB_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function labAllowed() { return !!(admin.is && isSignedIn()); }
+const labHex = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const labMix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const labPack = c => (255 << 24 | Math.round(c[2]) << 16 | Math.round(c[1]) << 8 | Math.round(c[0])) >>> 0;
+const labCss = c => 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
+function labRamp(lo, hi, n, tint, tk) { const a = labHex(lo), b = labHex(hi), out = []; for (let i = 0; i < n; i++) { let c = labMix(a, b, i / (n - 1)); if (tint) c = labMix(c, labHex(tint), tk); out.push(labPack(c)); } return out; }
+function labPal(theme) {
+  const T = { day: null, autumn: ['#a86c20', 0.12], sunset: ['#fc8850', 0.16], night: ['#101a50', 0.5], desert: ['#c8a050', 0.18] }[theme] || null;
+  const tn = T ? T[0] : null, tk = T ? T[1] : 0;
+  const sky = { day: ['#3c8cf0', '#cfeaff'], autumn: ['#5ca8f0', '#e0f0ff'], sunset: ['#c8586c', '#fcd890'], night: ['#040a30', '#1c2c70'], desert: ['#e88c50', '#fce4b0'] }[theme] || ['#3c8cf0', '#cfeaff'];
+  const th = THEMES[theme] || THEMES.day;
+  const tree = { day: ['#0c4c24', '#1c7038', '#34903c'], autumn: ['#7c3810', '#c8641c', '#f0a030'], sunset: ['#3c4818', '#5c6c24', '#88903c'], night: ['#041c20', '#0c3034', '#18484c'], desert: ['#4c5c20', '#6c7c2c', '#94a040'] }[theme] || ['#0c4c24', '#1c7038', '#34903c'];
+  return { green: labRamp('#0c5418', '#a4ec70', 8, tn, tk), fringe: labRamp('#08441a', '#4cae3c', 6, tn, tk), rough: labRamp('#06300e', '#3c8228', 6, theme === 'autumn' ? '#8c6c20' : tn, theme === 'autumn' ? 0.25 : tk),
+    sand: labRamp('#a06c3c', '#fce4b8', 5, tn, tk * 0.7), sky: sky.map(labHex), hill: th.hill, hillL: th.hillL, tree, theme, stars: theme === 'night', sun: theme === 'sunset' || theme === 'desert',
+    far: labCss(labMix(labHex('#1c5c20'), labHex(tn || '#1c5c20'), tk)), haze: sky[1] };
+}
+/* ---- a green: true heights in feet (physics), exaggerated x LAB_EX for the picture only ---- */
+function labMakeGreen(spec, D, theme, seed) {
+  const R = mulberry32(seed >>> 0), s1 = R() < 0.5 ? -1 : 1;
+  const cupX = (R() - 0.5) * Math.min(10, D * 0.35), cupY = D / 2, bx = 0, by = -D / 2;
+  const gcx = cupX * 0.5 + (R() - 0.5) * 4, gcy = D * 0.06 + 2;
+  const ax = Math.max(26, 0.42 * D + 14), ay = Math.max(30, 0.56 * D + 16);
+  const ph = [R() * 6.28, R() * 6.28, R() * 6.28, R() * 6.28];
+  const shapeR = (x, y) => { const u = (x - gcx) / ax, v = (y - gcy) / ay, th = Math.atan2(v, u); return Math.hypot(u, v) / (1 + 0.07 * Math.sin(3 * th + ph[0]) + 0.05 * Math.sin(5 * th + ph[1])); };
+  const tb = (R() < 0.5 ? 0.1 + R() * 0.25 : 0.65 + R() * 0.25) * Math.PI;   // greenside bunker on the far half
+  const bcx = gcx + Math.cos(tb) * (ax + 9), bcy = gcy + Math.sin(tb) * (ay + 9), bca = Math.cos(tb + Math.PI / 2), bsa = Math.sin(tb + Math.PI / 2);
+  const bunk = (x, y) => { const dx = x - bcx, dy = y - bcy, u = (dx * bca + dy * bsa) / 10, v = (-dx * bsa + dy * bca) / 4.5; return Math.hypot(u, v) * (1 + 0.12 * Math.sin(Math.atan2(v, u) * 2 + ph[2])); };
+  const yT = by + D * (D >= 10 ? 0.4 + R() * 0.25 : 0.5), ra = (s1 > 0 ? 0.6 : -0.6) + (R() - 0.5) * 0.5, rca = Math.cos(ra), rsa = Math.sin(ra), rmx = cupX * 0.5 + s1 * 2, rmy = 0;
+  const micro = (x, y) => 0.045 * Math.sin(x / 8.5 + ph[2]) * Math.sin(y / 10.5 + ph[3]) + 0.025 * Math.sin((x + y) / 5.5 + ph[1]);
+  const base = (x, y) => {
+    switch (spec) {
+      case 'tilt': return s1 * 0.022 * x - 0.010 * y + micro(x, y);
+      case 'tier': return 0.30 * Math.tanh((y - yT) / 5.5) + s1 * 0.011 * x + micro(x, y);
+      case 'ridge': { const d = (x - rmx) * rca - (y - rmy) * rsa; return 0.34 * Math.exp(-d * d / 98) - s1 * 0.006 * x - 0.005 * y + micro(x, y); }
+      case 'bowl': { const q = ((x - cupX) ** 2 + (y - cupY) ** 2) / 242; return -0.30 * Math.exp(-q) + s1 * 0.014 * x + 0.004 * y + micro(x, y); }
+      default: { const q = ((x - gcx) ** 2 - (y - gcy) ** 2) / 392; return 0.26 * Math.tanh(q) + micro(x, y); }   // saddle
+    }
+  };
+  const ss = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const geo = (x, y) => { const r = shapeR(x, y), rf = (r - 1) * Math.min(ax, ay), bk = bunk(x, y); return { r, rf, bk }; };
+  const hQ = (x, y, q) => { let h = base(x, y) + 0.7 * ss(2, 16, q.rf) + 0.25 * ss(10, 40, q.rf) * Math.sin(x / 13 + ph[0]) * Math.sin(y / 11 + ph[1]); if (q.bk < 1.25) h -= 0.55 * (1 - ss(0.7, 1.25, q.bk)); return h; };
+  const hT = (x, y) => hQ(x, y, geo(x, y)), surfQ = q => q.r <= 1 ? 'green' : q.bk < 1 ? 'sand' : q.rf < 3 ? 'fringe' : 'rough', surf = (x, y) => surfQ(geo(x, y));
+  const L = 2 * Math.max(ax, ay) + 46, N = LAB_N, cell = L / N, ox = gcx - L / 2, oy = gcy - L / 2;
+  const g = { spec, D, theme, cupX, cupY, bx, by, gcx, gcy, ax, ay, hT, surf, N, cell, ox, oy, L, pal: labPal(theme), trees: [] };
+  const H = new Float32Array(N * N), Z = new Uint8Array(N * N);
+  for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
+    const x = ox + (ix + 0.5) * cell, y = oy + (iy + 0.5) * cell, k = iy * N + ix, q = geo(x, y), s = surfQ(q);
+    H[k] = hQ(x, y, q); Z[k] = s === 'green' ? 0 : s === 'fringe' ? 1 : s === 'sand' ? 3 : 2;
+  }
+  const HE = new Float32Array(N * N), C = new Uint32Array(N * N), P = g.pal;
+  const Lx = -0.55, Ly = -0.42, Lz = 0.72, Ln = Math.hypot(Lx, Ly, Lz), K = 9, dFlat = Lz / Ln;
+  const sa = Math.cos(0.38), sb = Math.sin(0.38), CI = 0.085;
+  for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
+    const k = iy * N + ix; HE[k] = H[k] * LAB_EX;
+    const kx0 = ix > 0 ? k - 1 : k, kx1 = ix < N - 1 ? k + 1 : k, ky0 = iy > 0 ? k - N : k, ky1 = iy < N - 1 ? k + N : k;
+    const gx = (H[kx1] - H[kx0]) / ((kx1 - kx0) * cell), gy = (H[ky1] - H[ky0]) / (((ky1 - ky0) / N) * cell);
+    const nx = -gx * K, ny = -gy * K, nn = Math.hypot(nx, ny, 1), d = (nx * Lx + ny * Ly + Lz) / (nn * Ln);
+    let v = 0.6 + clamp((d - dFlat) * 2.4, -0.22, 0.3), ramp;
+    const z = Z[k], x = ox + (ix + 0.5) * cell, y = oy + (iy + 0.5) * cell, b = LAB_BAYER[(iy & 3) * 4 + (ix & 3)] / 16;
+    if (z === 0 || z === 1) {
+      const w = x * sa + y * sb + H[k] * 9;   // mowing stripes bend with the slope
+      if (z === 0) v += (Math.floor(w / 4.2) & 1) ? 0.075 : -0.06;
+      const gm = Math.hypot(gx, gy) + 1e-4, q = H[k] / CI, fr = q - Math.floor(q), dd = Math.min(fr, 1 - fr) * CI / gm;
+      if (dd < cell * 0.6) v -= 0.17;   // faint contour lines
+      ramp = z === 0 ? P.green : P.fringe;
+    } else if (z === 3) { ramp = P.sand; v += (hash(k * 7) - 0.5) * 0.15; }
+    else { ramp = P.rough; v += (hash(k * 13 + 5) - 0.5) * 0.28 - 0.04; }
+    const n = ramp.length; C[k] = ramp[clamp(Math.floor(clamp(v, 0, 1) * (n - 1) + b), 0, n - 1)];
+  }
+  g.H = H; g.HE = HE; g.C = C;
+  const TR = mulberry32((seed ^ 0x5bd1e995) >>> 0);
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2 + TR() * 0.2, rr = 1.32 + TR() * 0.32; const x = gcx + Math.cos(a) * (ax * rr + 14), y = gcy + Math.sin(a) * (ay * rr + 14); if (y < by - 4 && Math.abs(x) < ax * 0.9) continue; g.trees.push({ x, y, h: 22 + TR() * 18, k: TR() < 0.55 ? 0 : 1 }); }
+  return g;
+}
+function labGrad(x, y) { const g = LAB.g, e = 0.2; return [(g.hT(x + e, y) - g.hT(x - e, y)) / (2 * e), (g.hT(x, y + e) - g.hT(x, y - e)) / (2 * e)]; }
+function labHE(x, y) { return LAB.g.hT(x, y) * LAB_EX; }
+/* ---- cameras ---- */
+function labSceneBox() { const top = 0, bot = PLAY_H; return { top, bot, h: bot - top }; }
+function labPuttCam(bx, by, a, read) {
+  const g = LAB.g, D = Math.hypot(g.cupX - bx, g.cupY - by), sb = labSceneBox();
+  const Bk = clamp(7 + 0.12 * D, 8, 15), Bk2 = Bk * 1.3 + 9, k = read || 0;
+  const back = lerp(Bk, Bk2, k), up = lerp(Bk * 0.92 + 2, Bk2 * 1.0 + 5, k), hor = sb.top + sb.h * lerp(0.25, 0.09, k) + (SAFE.t || 0) * 0.5;
+  return { x: bx - Math.sin(a) * back, y: by - Math.cos(a) * back, z: labHE(bx, by) + up, yaw: a, hor };
+}
+function labCamLerp(A, B, t) { let dy = B.yaw - A.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t), z: lerp(A.z, B.z, t), yaw: A.yaw + dy * t, hor: lerp(A.hor, B.hor, t) }; }
+const labEase = t => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+function labAimToCup() { const b = LAB.ball, g = LAB.g; return Math.atan2(g.cupX - b.x, g.cupY - b.y); }
+function labSwingCam(e) {   // ~0.55s orbit from a side-on view (like the normal game) round to an elevated view behind the ball
+  const g = LAB.g, b = LAB.ball, a = LAB.aim, fac = LAB.from || 1, D = Math.hypot(g.cupX - b.x, g.cupY - b.y), sb = labSceneBox();
+  const end = labPuttCam(b.x, b.y, a, 1), Bk2 = Math.hypot(end.x - b.x, end.y - b.y);
+  const mx = (b.x + g.cupX) / 2, my = (b.y + g.cupY) / 2, R0 = Math.max(D * 0.95, 34), yaw0 = a - fac * Math.PI / 2;
+  const yaw = lerp(yaw0, a, e), Lx = lerp(mx, b.x, e), Ly = lerp(my, b.y, e), R = lerp(R0, Bk2, e);
+  return { x: Lx - Math.sin(yaw) * R, y: Ly - Math.cos(yaw) * R, z: lerp(labHE(mx, my) + R0 * 0.42, end.z, e), yaw, hor: lerp(sb.top + sb.h * 0.36, end.hor, e) };
+}
+/* ---- rendering (low-res buffer = the game's own logical size, scaled up with nearest-neighbour like the main canvas) ---- */
+function labEnsureCanvas() {
+  if (!LAB.cv) {
+    const c = document.createElement('canvas'); c.id = 'labCv'; c.setAttribute('aria-label', 'LAB putting view');
+    c.style.zIndex = '40'; c.style.cursor = 'default'; c.style.display = 'none'; c.style.transition = 'opacity .45s'; document.body.appendChild(c); LAB.cv = c;
+    for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) c.addEventListener(t, labPointer, { passive: false });
+    c.addEventListener('touchstart', e => e.stopPropagation(), { passive: true }); c.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  if (LAB.cv.width !== W || LAB.cv.height !== H) {
+    LAB.cv.width = W; LAB.cv.height = H; LAB.c = LAB.cv.getContext('2d'); LAB.c.imageSmoothingEnabled = false;
+    LAB.scene = mk(W, H); LAB.sc = LAB.scene.getContext('2d'); LAB.tcv = mk(W, H); LAB.tc = LAB.tcv.getContext('2d');
+    LAB.img = LAB.tc.createImageData(W, H); LAB.buf = new Uint32Array(LAB.img.data.buffer); LAB.ybuf = new Int16Array(W); LAB.camKey = '';
+  }
+}
+function labDrawScene() {
+  const cam = LAB.cam, key = [cam.x, cam.y, cam.z, cam.yaw, cam.hor].map(v => v.toFixed(3)).join(',') + W + 'x' + H;
+  if (key === LAB.camKey) return; LAB.camKey = key;
+  const g = LAB.g, P = g.pal, sb = labSceneBox(), F = LAB.F = W / 2 / Math.tan(0.5), c = LAB.sc, hor = Math.round(cam.hor);
+  // sky: banded pixel gradient (+ stars / sun), then hills + a treeline that turn with the camera
+  const bands = 7; for (let i = 0; i < bands; i++) { const y0 = Math.round(sb.top + (hor + 2 - sb.top) * i / bands), y1 = Math.round(sb.top + (hor + 2 - sb.top) * (i + 1) / bands); c.fillStyle = labCss(labMix(P.sky[0], P.sky[1], (i / (bands - 1)) ** 1.3)); c.fillRect(0, y0, W, y1 - y0 + 1); }
+  if (P.stars) { c.fillStyle = '#fcfcfc'; for (let i = 0; i < 70; i++) { const a = hash(i * 31 + 7) * Math.PI * 2, sx = W / 2 + Math.tan(((a - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * F, sy = sb.top + hash(i * 17 + 3) * (hor - sb.top - 8); if (sx >= 0 && sx < W && sy < hor - 6) c.fillRect(sx | 0, sy | 0, 1, 1); } }
+  if (P.sun) { const a = 0.9, sx = W / 2 + Math.tan(((a - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * F; if (Math.abs(sx - W / 2) < W) { c.fillStyle = '#fce4a0'; for (let dy = -9; dy <= 9; dy++) { const hw = Math.round(Math.sqrt(81 - dy * dy)); c.fillRect(Math.round(sx - hw), hor - 16 + dy, hw * 2, 1); } } }
+  if (P.theme === 'day' || P.theme === 'autumn') { c.fillStyle = '#fcfcfc'; for (let i = 0; i < 6; i++) { const a = hash(i * 9 + 1) * Math.PI * 2, sx = W / 2 + Math.tan(((a - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * F * 0.8, sy = sb.top + 14 + hash(i * 5 + 2) * Math.max(10, hor - sb.top - 50); if (sx > -40 && sx < W + 40 && sy < hor - 24) { const w = 18 + (hash(i) * 22 | 0); c.fillRect(sx | 0, sy | 0, w, 4); c.fillRect((sx | 0) + 4, (sy | 0) - 3, w - 10, 3); c.fillRect((sx | 0) + 9, (sy | 0) - 5, Math.max(4, w - 22), 2); } } }
+  c.fillStyle = P.far; c.fillRect(0, hor, W, sb.bot - hor);
+  const sF = F / 222;
+  for (let i = 0; i < W; i++) {
+    const a = cam.yaw + Math.atan((i - W / 2) / F);
+    const h1 = Math.round((11 + 7 * Math.sin(a * 3 + 1) + 4 * Math.sin(a * 7 + 2)) * sF), h2 = Math.round((5 + 3 * Math.sin(a * 13 + 0.5) + 2 * Math.sin(a * 29 + 1.7) + (Math.sin(a * 61) > 0.6 ? 2 : 0)) * sF);
+    c.fillStyle = P.hill; c.fillRect(i, hor - h1, 1, h1 + 2); c.fillStyle = P.hillL; c.fillRect(i, hor - h1, 1, 1);
+    c.fillStyle = P.tree[0]; c.fillRect(i, hor - h2 + 1, 1, h2 + 2);
+  }
+  // terrain: voxel-space column march, front to back with a y-buffer (one sample per column per depth step)
+  const buf = LAB.buf, yb = LAB.ybuf, N = g.N, HE = g.HE, C = g.C, top = Math.max(sb.top, hor - 40);
+  buf.fill(0); yb.fill(sb.bot);
+  const sf = Math.sin(cam.yaw), cf = Math.cos(cam.yaw), tanH = W / 2 / F, far = g.L * 1.25, ic = 1 / g.cell;
+  let z = 0.5;
+  while (z < far) {
+    const lx = cam.x + sf * z - cf * z * tanH, ly = cam.y + cf * z + sf * z * tanH, st = 2 * z * tanH / W;
+    let mx = (lx - g.ox) * ic, my = (ly - g.oy) * ic; const dmx = cf * st * ic, dmy = -sf * st * ic, inv = F / z;
+    for (let i = 0; i < W; i++, mx += dmx, my += dmy) {
+      if (mx < 0 || my < 0 || mx >= N || my >= N) continue;
+      const k = (my | 0) * N + (mx | 0); let y = ((cam.z - HE[k]) * inv + hor) | 0; if (y < top) y = top;
+      const yo = yb[i]; if (y < yo) { const col = C[k]; for (let yy = y; yy < yo; yy++) buf[yy * W + i] = col; yb[i] = y; }
+    }
+    z += 0.04 + z * 0.011;
+  }
+  LAB.tc.putImageData(LAB.img, 0, 0, 0, top, W, sb.bot - top);
+  c.drawImage(LAB.tcv, 0, top, W, sb.bot - top, 0, top, W, sb.bot - top);
+  // soft horizon haze
+  const hz = c.createLinearGradient(0, hor - 8, 0, hor + 34); const hc = labHex(P.haze);
+  hz.addColorStop(0, 'rgba(' + hc + ',0)'); hz.addColorStop(0.3, 'rgba(' + hc + ',' + (P.stars ? 0.18 : 0.42) + ')'); hz.addColorStop(1, 'rgba(' + hc + ',0)');
+  c.fillStyle = hz; c.fillRect(0, hor - 8, W, 42);
+}
+function labProj(x, y, hE) {
+  const c = LAB.cam, dx = x - c.x, dy = y - c.y, sf = Math.sin(c.yaw), cf = Math.cos(c.yaw), zc = dx * sf + dy * cf, xc = dx * cf - dy * sf;
+  if (zc < 0.4) return null; const s = LAB.F / zc; return { x: W / 2 + xc * s, y: c.hor + (c.z - hE) * s, s, z: zc };
+}
+function labEllipse(cx, cy, rx, ry, col) { ctx.fillStyle = col; const R = Math.max(1, Math.round(ry)); for (let dy = -R; dy <= R; dy++) { const hw = Math.max(0.5, rx * Math.sqrt(Math.max(0, 1 - (dy / (ry || 1)) ** 2))); ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy * ry / R), Math.max(1, Math.round(hw * 2)), 1); } }
+function labTree(p, tr, P) {
+  const h = Math.max(4, Math.round(tr.h * p.s)), x = Math.round(p.x), y = Math.round(p.y); if (h > H * 1.4 || x < -h || x > W + h) return;
+  const tw = Math.max(1, Math.round(h * 0.06)); ctx.fillStyle = '#4c2808'; ctx.fillRect(x - (tw >> 1), y - Math.round(h * 0.2), tw, Math.round(h * 0.2));
+  if (tr.k === 0) { for (let r = 0; r < Math.round(h * 0.85); r++) { const yy = y - Math.round(h * 0.15) - r, f = r / (h * 0.85), tier = (r % Math.max(3, Math.round(h * 0.22))) / Math.max(3, Math.round(h * 0.22)), w = Math.max(1, Math.round(h * 0.34 * (1 - f) * (0.55 + 0.45 * tier))); ctx.fillStyle = P.tree[1]; ctx.fillRect(x - w, yy, w * 2, 1); ctx.fillStyle = P.tree[2]; ctx.fillRect(x - w, yy, Math.max(1, w >> 1), 1); ctx.fillStyle = P.tree[0]; ctx.fillRect(x + w - Math.max(1, w >> 2), yy, Math.max(1, w >> 2), 1); } }
+  else { const r0 = Math.max(2, Math.round(h * 0.36)), cy = y - Math.round(h * 0.2) - r0; labEllipse(x, cy, r0, r0 * 0.9, P.tree[0]); labEllipse(x - r0 * 0.15, cy - r0 * 0.1, r0 * 0.85, r0 * 0.75, P.tree[1]); labEllipse(x - r0 * 0.4, cy - r0 * 0.35, r0 * 0.38, r0 * 0.3, P.tree[2]); }
+}
+function labRender(now) {
+  labEnsureCanvas();
+  const old = ctx; ctx = LAB.c; ctx.imageSmoothingEnabled = false;
+  try {
+    if (LAB.phase === 'summary' && (LAB.sumSnap || !LAB.g)) { ctx.drawImage(LAB.snap, 0, 0, W, H); labHud(now); return; }
+    const g = LAB.g, P = g.pal, b = LAB.ball, sb = labSceneBox();
+    labDrawScene(); ctx.drawImage(LAB.scene, 0, 0);
+    const items = [];
+    for (const tr of g.trees) { const p = labProj(tr.x, tr.y, labHE(tr.x, tr.y) - 1); if (p && p.z > 4) items.push({ z: p.z, f: () => labTree(p, tr, P) }); }
+    items.sort((a, c) => c.z - a.z); for (const it of items) it.f();
+    // cup + its shadow, flagstick shadow, waving flag
+    const cupH = labHE(g.cupX, g.cupY), pc = labProj(g.cupX, g.cupY, cupH);
+    if (pc) {
+      const sq = clamp((LAB.cam.z - cupH) / Math.max(1, pc.z) , 0.12, 1), rx = Math.max(2.5, LAB_CUP_R * 2.2 * pc.s), ry = Math.max(1, rx * sq);
+      const sh = labProj(g.cupX + 0.55 * 5, g.cupY + 0.42 * 5, cupH);
+      if (sh && !LAB.pinOut) { ctx.globalAlpha = 0.28; ctx.strokeStyle = '#002000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(pc.x) + 0.5, Math.round(pc.y) + 0.5); ctx.lineTo(Math.round(sh.x) + 0.5, Math.round(sh.y) + 0.5); ctx.stroke(); ctx.globalAlpha = 1; }
+      labEllipse(pc.x, pc.y, rx + 1, ry + 0.6, 'rgba(0,30,0,0.35)');
+      labEllipse(pc.x, pc.y, rx, ry, '#f4f4e8'); labEllipse(pc.x, pc.y + Math.max(0.5, ry * 0.25), rx * 0.86, ry * 0.8, '#0a140a');
+      if (!LAB.pinOut) {
+        const top = labProj(g.cupX, g.cupY, cupH + 7 * clamp(pc.z / 30, 1, 1.8)), ph = top ? Math.max(10, Math.round(pc.y - top.y)) : 30, px = Math.round(pc.x);
+        ctx.fillStyle = '#fcfcfc'; ctx.fillRect(px, Math.round(pc.y) - ph, 1, ph); ctx.fillStyle = '#c8c8b0'; ctx.fillRect(px + 1, Math.round(pc.y) - ph, 1, ph);
+        const fw = Math.max(6, Math.round(ph * 0.42)), fh = Math.max(4, Math.round(ph * 0.26)), t = now / 1000;
+        for (let i = 0; i < fw; i++) { const k = i / fw, off = Math.round(Math.sin(t * 5.5 - i * 0.55) * 1.6 * k), hh = Math.max(1, Math.round(fh * (1 - 0.55 * k))); ctx.fillStyle = (i + Math.floor(t * 6)) % 7 === 0 ? '#c82800' : '#f83800'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, hh); ctx.fillStyle = '#fc7840'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, 1); }
+      }
+    }
+    // grain: faint specks drifting downhill across the green (shows the fall line everywhere; never a putt line)
+    { const aB = lerp(0.55, 0.9, LAB.readK); ctx.fillStyle = '#eaffd0';
+      for (const q of LAB.parts || []) { const f = Math.sin(Math.PI * clamp(q.life / q.max, 0, 1)) * aB; if (f < 0.04) continue; const p = labProj(q.x, q.y, labHE(q.x, q.y)); if (!p || p.y < 0 || p.y > sb.bot) continue;
+        const p2 = labProj(q.x - q.dx * 0.9, q.y - q.dy * 0.9, labHE(q.x - q.dx * 0.9, q.y - q.dy * 0.9)); ctx.globalAlpha = f; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+        if (p2) { ctx.globalAlpha = f * 0.5; ctx.fillRect(Math.round((p.x + p2.x) / 2), Math.round((p.y + p2.y) / 2), 1, 1); ctx.globalAlpha = f * 0.25; ctx.fillRect(Math.round(p2.x), Math.round(p2.y), 1, 1); } }
+      ctx.globalAlpha = 1; }
+    // aim chevrons (direction only, 1-4 ft straight out; no read of the break)
+    if (['aim', 'power', 'accuracy'].includes(LAB.phase) && LAB.readK < 0.5) {
+      for (let i = 1; i <= 3; i++) { const d = 0.9 + i * 0.9, x = b.x + Math.sin(LAB.aim) * d, y = b.y + Math.cos(LAB.aim) * d, p = labProj(x, y, labHE(x, y)); if (!p) continue; ctx.globalAlpha = 0.85 - i * 0.18; labEllipse(p.x, p.y, Math.max(1, 0.09 * p.s), Math.max(0.6, 0.05 * p.s), '#fcfcfc'); ctx.globalAlpha = 1; }
+    }
+    // ball (+ shadow): sinks into the cup on a make
+    if (b && LAB.phase !== 'gone') {
+      const bh = labHE(b.x, b.y), pb = labProj(b.x, b.y, bh + (LAB.phase === 'holed' ? -Math.min(1, LAB.t * 3) * 0.6 : 0));
+      if (pb) { const r = Math.max(2.4, 0.07 * 2.2 * pb.s); if (LAB.phase !== 'holed') labEllipse(pb.x + r * 0.5, pb.y + 0.5, r * 1.1, Math.max(0.8, r * 0.45), 'rgba(0,25,0,0.45)');
+        if (!(LAB.phase === 'holed' && LAB.t > 0.35)) { labEllipse(pb.x, pb.y - r, r, r, '#fcfcfc'); labEllipse(pb.x + r * 0.25, pb.y - r * 0.7, r * 0.6, r * 0.55, '#d8d8e8'); ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(pb.x - r * 0.4), Math.round(pb.y - r * 1.5), 1, 1); } }
+    }
+    labHud(now);
+    if (LAB.phase === 'in' && LAB.snap) { const e = clamp(LAB.t / 0.22, 0, 1); if (e < 1) { const z = 1 + 0.22 * e; ctx.globalAlpha = 1 - e; ctx.drawImage(LAB.snap, W / 2 - W * z / 2, sb.bot * 0.62 - sb.bot * 0.62 * z, W * z, H * z); ctx.globalAlpha = 1; } }
+  } finally { ctx = old; }
+}
+function labBtn(r, label, on) { rect(r.x, r.y, r.w, r.h, on ? '#f8d878' : COL.white); rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#4c3c00' : '#000'); drawText(label, r.x + Math.round((r.w - textW(label)) / 2), r.y + Math.round((r.h - 7) / 2), on ? '#f8d878' : COL.white); }
+function labRects() {
+  const t = (SAFE.t || 0) + 4, cy = Math.round(PLAY_H * 0.5);
+  return { exit: { x: 4 + (SAFE.l || 0), y: t, w: 44, h: 15 }, read: { x: W - 52 - (SAFE.r || 0), y: t, w: 48, h: 15 },
+    again: { x: Math.round(W / 2 - 60), y: cy + 30, w: 120, h: 17 }, out: { x: Math.round(W / 2 - 60), y: cy + 52, w: 120, h: 17 } };
+}
+function labHud(now) {
+  const g = LAB.g, b = LAB.ball, R = labRects(), y0 = PLAY_H;
+  // top: exit, read, distance in feet
+  labBtn(R.exit, 'X EXIT'); if (!['summary', 'in'].includes(LAB.phase)) labBtn(R.read, 'READ', LAB.readOn);
+  if (b && !['holed', 'summary', 'gone'].includes(LAB.phase)) {
+    const ft = Math.hypot(g.cupX - b.x, g.cupY - b.y), s = ft < 10 ? (ft < 2 ? ft.toFixed(1) : String(Math.round(ft))) : String(Math.round(ft)), t = s + ' FT';
+    const x = Math.round(W / 2 - textW(t, 2) / 2), y = R.exit.y + 22; rect(x - 5, y - 4, textW(t, 2) + 10, 22, 'rgba(0,0,0,0.55)'); drawText(t, x, y, COL.white, 2);
+    drawTextC(LAB.holeTxt, y + 20, '#f8d878');
+  }
+  drawText('LAB', R.exit.x + R.exit.w + 6, R.exit.y + 4, '#f8d878');
+  // bottom: dirt band + HUD + the game's 3-click meter (same speeds + sweet zone as a normal putt)
+  rect(0, y0, W, 1, '#000'); rect(0, y0 + 1, W, H - y0, COL.dirt);
+  for (let i = 0; i < 70; i++) rect(Math.floor(hash(i * 3) * W), y0 + 1 + Math.floor(hash(i * 5 + 1) * Math.max(1, H - y0 - 2)), 2, 1, i % 2 ? COL.dirtD : COL.dirtL);
+  const info = LAB.mode === 'greens' ? 'GREEN ' + (LAB.greenN) + '   PUTTS ' + LAB.putts : 'HOLE ' + (holeIdx + 1) + '  PAR ' + (hole ? hole.par : '-') + '  STROKE ' + strokes;
+  drawText(info, 6, y0 + 5, COL.white); drawTextR('NOT SAVED', W - 6, y0 + 5, '#f8d878');
+  const bx = Math.round((W - 138) / 2), by = y0 + 17; box(bx, by, 138, 24);
+  const MZ2 = bx + 18, ML2 = 112, mx = p => Math.round(MZ2 + p * ML2), my = by + 12, m = LAB.meter, ph = LAB.phase;
+  const sw = Math.round(SHORT_SWEET / 128 * ML2), blink = Math.floor(now / 120) % 2;
+  rect(bx + 3, my - 1, 133, 11, '#000'); rect(bx + 4, my, 131, 9, '#2c2c2c'); rect(bx + 4, my, MZ2 - bx - 4, 9, '#5c1c00');
+  for (const q of [0.25, 0.5, 0.75]) { rect(mx(q), my, 1, 2, COL.grayD); rect(mx(q), my + 7, 1, 2, COL.grayD); }
+  const showP = ph === 'power' ? m.pos : ['accuracy', 'stroke', 'roll'].includes(ph) ? m.power : 0, n = Math.round(showP * ML2);
+  for (let i = 0; i < n; i++) { const f = i / ML2; rect(MZ2 + i, my + 1, 1, 7, f > 0.6 ? '#b8f818' : COL.lime); }
+  rect(MZ2 - sw, my, 2 * sw + 1, 9, 'rgba(0,200,0,0.55)'); rect(MZ2 - sw, my - 2, 2 * sw + 1, 1, COL.lime); rect(MZ2 - sw, my + 10, 2 * sw + 1, 1, COL.lime);
+  for (const q of [MZ2 - sw - 1, MZ2 + sw + 1]) rect(q, my - 3, 1, 15, COL.white);
+  rect(MZ2, my - 2, 1, 13, COL.white);
+  if (b && ['aim', 'power', 'accuracy'].includes(ph)) { const fp = labFlatPower(), fx0 = mx(fp); rect(fx0, my, 1, 9, COL.red); rect(fx0 - 1, my - 3, 3, 3, COL.red); rect(fx0, my - 2, 1, 1, COL.white); }
+  if (ph === 'power') labMarker(mx(m.pos), my, COL.white);
+  if (ph === 'accuracy') { rect(mx(m.power), my - 2, 1, 13, '#f8d878'); labMarker(mx(m.acc), my, COL.white); }
+  if (ph === 'stroke' || ph === 'roll') { rect(mx(m.power), my - 2, 1, 13, '#f8d878'); labMarker(mx(m.acc), my, LAB.sweet ? COL.lime : COL.orange); }
+  let label = isTouchUi() ? 'DRAG = AIM  TAP = PUTT' : 'ARROWS AIM  SPACE PUTT', lc = COL.white;
+  if (ph === 'power') label = 'STOP NEAR THE FLAG'; else if (ph === 'accuracy') { label = 'STOP IN BRACKETS!'; lc = COL.lime; }
+  else if (ph === 'stroke' || ph === 'roll') { label = LAB.sweet ? 'GOOD PUTT' : 'OFF LINE'; lc = LAB.sweet ? COL.lime : COL.orange; }
+  else if (ph === 'read' || ph === 'in') label = 'READING THE GREEN...';
+  drawText(label, bx + 4, by + 2, lc);
+  if (['power', 'accuracy', 'stroke', 'roll'].includes(ph)) drawTextR(Math.round(showP * 100) + '%', bx + 134, by + 2, COL.white);
+  if (LAB.phase === 'holed' && LAB.t > 0.45) { const nm = LAB.res || 'IN!'; const w = Math.max(150, textW(nm, 2) + 24), x = Math.round((W - w) / 2), y = Math.round(PLAY_H * 0.36); rect(x, y, w, 44, COL.white); rect(x + 1, y + 1, w - 2, 42, '#000'); drawTextC('IN THE HOLE!', y + 7, COL.white); drawTextC(nm, y + 20, '#f8d878', 2); }
+  if (LAB.phase === 'summary') {
+    const w = Math.min(W - 16, 200), x = Math.round((W - w) / 2), y = Math.round(PLAY_H * 0.5) - 62; rect(0, 0, W, PLAY_H, 'rgba(0,0,0,0.45)');
+    rect(x, y, w, 154, COL.white); rect(x + 1, y + 1, w - 2, 152, '#000'); drawTextC('LAB ROUND DONE', y + 8, '#f8d878');
+    const tot = LAB.scores.reduce((a, s) => a + (s || 0), 0), par = HOLES.reduce((a, h, i) => a + (LAB.scores[i] ? h.par : 0), 0);
+    LAB.scores.forEach((s, i) => drawTextC('HOLE ' + (i + 1) + '  ' + (HOLES[i] ? HOLES[i].name : '') + '  ' + s, y + 24 + i * 10, COL.white));
+    drawTextC('TOTAL ' + fmtRel(tot - par), y + 62, tot - par <= 0 ? COL.lime : COL.orange, 2);
+    drawTextC('NOTHING WAS SAVED', y + 80, COL.grayD);
+    labBtn(R.again, 'PLAY AGAIN'); labBtn(R.out, 'EXIT LAB');
+  }
+}
+function labMarker(x, my, col) { rect(x - 2, my - 3, 5, 14, '#000'); rect(x - 1, my - 2, 3, 12, col); }
+function labPartSpawn(q, fresh) {
+  const g = LAB.g, R = () => Math.random();
+  for (let i = 0; i < 12; i++) { const x = g.gcx + (R() * 2 - 1) * g.ax, y = g.gcy + (R() * 2 - 1) * g.ay; if (g.surf(x, y) === 'green') { q.x = x; q.y = y; break; } }
+  q.life = fresh ? R() * 2.5 : 0; q.max = 1.8 + R() * 1.6; q.dx = 0; q.dy = 0; return q;
+}
+function labParts(dt) {
+  const g = LAB.g; if (!g) return; if (!LAB.parts || LAB.parts.g !== g) { LAB.parts = []; LAB.parts.g = g; for (let i = 0; i < 170; i++) LAB.parts.push(labPartSpawn({}, true)); }
+  for (const q of LAB.parts) {
+    q.life += dt; const [gx, gy] = labGrad(q.x, q.y), m = Math.hypot(gx, gy);
+    if (m > 1e-4) { q.dx = -gx / m; q.dy = -gy / m; const sp = clamp(m * 110, 0.25, 3.2); q.x += q.dx * sp * dt; q.y += q.dy * sp * dt; }
+    if (q.life > q.max || g.surf(q.x, q.y) !== 'green') labPartSpawn(q, false);
+  }
+}
+function labFlatPower() { const b = LAB.ball, g = LAB.g, d = Math.hypot(g.cupX - b.x, g.cupY - b.y); return clamp(Math.sqrt(2 * LAB_MU * (d + 1)) / LAB_VMAX, 0.02, 1); }
+/* ---- flow ---- */
+function labOpenGreen(spec, D, theme, seed, from) {
+  LAB.g = labMakeGreen(spec, D, theme, seed);
+  LAB.ball = { x: LAB.g.bx, y: LAB.g.by, vx: 0, vy: 0, moving: false, lip: false };
+  LAB.aim = labAimToCup(); LAB.addr = { x: LAB.ball.x, y: LAB.ball.y }; LAB.from = from || 1; LAB.readK = 1; LAB.readOn = false; LAB.pinOut = false;
+  labEnsureCanvas();
+  if (!LAB.snap) LAB.snap = mk(W, H); LAB.snap.width = W; LAB.snap.height = H; const sc = LAB.snap.getContext('2d'); sc.imageSmoothingEnabled = false;
+  try { sc.drawImage(LAB.on && LAB.cv ? LAB.cv : cv, 0, 0, W, H); } catch (e) {}
+  LAB.on = true; LAB.phase = 'in'; LAB.t = 0; LAB.swingAng = 75; LAB.cam = labSwingCam(0); LAB.camKey = '';
+  LAB.cv.style.transition = 'none'; LAB.cv.style.opacity = '1'; LAB.cv.style.display = 'block'; LAB.cv.style.pointerEvents = 'auto';
+  LAB.last = performance.now();
+}
+function labStart(mode) {
+  if (!labAllowed()) return;
+  try { hideAcct(); } catch (e) {}
+  LAB.mode = mode; LAB.scores = []; LAB.putts = 0; LAB.greenN = 0;
+  if (mode === 'greens') { labNextGreen(); return; }
+  paused = false; ov = null; roundTip = false; board = null;
+  setCourseHoles('lab', LAB_HOLES()); weather = Object.assign({}, WEATHERS[0]);
+  holeIdx = 0; scores = []; startHole(); showMsg('LAB: NOTHING IS SAVED', '#f8d878', 2.4);
+}
+function labNextGreen() {
+  LAB.greenN++; LAB.putts = 0;
+  const i = LAB.greenN - 1, R = mulberry32(seedFromStr('labgreen' + LAB.greenN + ':' + Date.now()));
+  const D = Math.round(8 + R() * 38);
+  LAB.holeTxt = 'PRACTICE GREEN';
+  labOpenGreen(LAB_SPECS[i % LAB_SPECS.length], D, LAB_THEMES[i % LAB_THEMES.length], Math.floor(R() * 4e9), R() < 0.5 ? 1 : -1);
+}
+function labResolve(r) {   // called first thing in resolveBall while courseKind === 'lab'; true = the lab took this ball
+  if (r === 'water' || r === 'ob') return false;
+  if (r === 'cup') { ball.mode = 'stop'; SFX.cup(); holedDur = 1.8; showMsg('HOLED IT!  (LAB)', '#f8d878', 1.8); setState('holed'); return true; }
+  if (strokes >= 10 || surfAt(hole, ball.x) !== 'green') return false;
+  ball.mode = 'stop';
+  const D = Math.max(1.5, Math.abs(hole.cup - ball.x) * 3), th = THEMES[hole.theme] ? hole.theme : 'day';
+  LAB.holeTxt = (hole.name || '') + '  PAR ' + hole.par;
+  labOpenGreen(LAB_HYBRID_SPECS[holeIdx % LAB_HYBRID_SPECS.length], D, th, seedFromStr('labhole' + holeIdx + ':' + Date.now()), facing >= 0 ? 1 : -1);
+  return true;
+}
+function labHoleDone() {   // replaces finishHole while courseKind === 'lab' (no career / achievements / stats)
+  const s = Math.min(strokes, 10); LAB.scores[holeIdx] = s; scores[holeIdx] = s;
+  const nm = scoreName(s, hole.par);
+  if (holeIdx + 1 < HOLES.length) {
+    holeIdx++; labClose(); startHole(); showMsg(nm + '  (LAB, NOT SAVED)', '#f8d878', 2.6); return;
+  }
+  LAB.sumSnap = !LAB.on;
+  if (!LAB.on) { labEnsureCanvas(); LAB.snap = LAB.snap || mk(W, H); LAB.snap.width = W; LAB.snap.height = H; try { LAB.snap.getContext('2d').drawImage(cv, 0, 0, W, H); } catch (e) {} LAB.on = true; LAB.cv.style.transition = 'none'; LAB.cv.style.opacity = '1'; LAB.cv.style.display = 'block'; LAB.cv.style.pointerEvents = 'auto'; }
+  LAB.phase = 'summary'; LAB.t = 0;
+}
+function labClose() {
+  LAB.on = false; LAB.drag = null; LAB.keys = {}; const c = LAB.cv; if (!c) return;
+  c.style.pointerEvents = 'none'; c.style.transition = 'opacity .45s'; c.style.opacity = '0';
+  clearTimeout(LAB.closing); LAB.closing = setTimeout(() => { if (!LAB.on) c.style.display = 'none'; }, 480);
+  last = performance.now();
+}
+function labExit() { labClose(); LAB.mode = null; if (courseKind === 'lab') { setCourseHoles('front', FRONT_HOLES); scores = []; } quitToMenu(); }
+function labAction() {
+  const m = LAB.meter, ph = LAB.phase;
+  if (ph === 'in' || ph === 'read') { LAB.phase = 'glide'; LAB.t = 0; LAB.from2 = Object.assign({}, LAB.cam); LAB.to = labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim, 0); LAB.readK = 0; return; }
+  if (ph === 'aim') { m.pos = 0; m.dir = 1; LAB.phase = 'power'; LAB.t = 0; SFX.tick(); return; }
+  if (ph === 'power') { m.power = Math.max(0.02, m.pos); m.acc = m.power; LAB.phase = 'accuracy'; LAB.t = 0; SFX.tick(); return; }
+  if (ph === 'accuracy') { labCommit(m.acc); return; }
+  if (ph === 'holed' && LAB.t > 0.6) { LAB.t = 99; return; }
+}
+function labCommit(acc) {
+  const raw = acc * 128; LAB.meter.acc = acc; LAB.sweet = Math.abs(raw) <= SHORT_SWEET;
+  const e = LAB.sweet ? 0 : clamp(raw, ACC_MIN * 128, -ACC_MIN * 128); LAB.err = e ? (e - Math.sign(e) * SHORT_SWEET) * 0.005 : 0;
+  SFX.tick(); LAB.phase = 'stroke'; LAB.t = 0;
+}
+function labLaunch() {
+  const b = LAB.ball, a = LAB.aim + LAB.err, v = LAB.meter.power * LAB_VMAX;
+  b.vx = Math.sin(a) * v; b.vy = Math.cos(a) * v; b.moving = true; b.lip = false; b.x0 = b.x; b.y0 = b.y;
+  if (LAB.mode === 'greens') LAB.putts++; else strokes++;
+  SFX.putt(); hap(12); LAB.phase = 'roll'; LAB.t = 0;
+}
+function labPhys(dt) {
+  const b = LAB.ball, g = LAB.g; let n = Math.round(dt / LAB_STEP);
+  while (n-- > 0 && b.moving) {
+    const s = g.surf(b.x, b.y), mu = LAB_MU * (s === 'green' ? 1 : s === 'fringe' ? 2.2 : s === 'sand' ? 12 : 5);
+    const [gx, gy] = labGrad(b.x, b.y), axg = -5 / 7 * 32.2 * gx, ayg = -5 / 7 * 32.2 * gy, v = Math.hypot(b.vx, b.vy);
+    if (v < 0.06 && Math.hypot(axg, ayg) < mu) { b.vx = b.vy = 0; b.moving = false; break; }
+    const fx = v > 1e-6 ? -mu * b.vx / v : 0, fy = v > 1e-6 ? -mu * b.vy / v : 0;
+    b.vx += (axg + fx) * LAB_STEP; b.vy += (ayg + fy) * LAB_STEP;
+    if (v > 1e-6 && (b.vx * fx + b.vy * fy) > 0 && Math.hypot(axg, ayg) < mu) { b.vx = b.vy = 0; b.moving = false; break; }   // friction never pushes it backwards
+    b.x += b.vx * LAB_STEP; b.y += b.vy * LAB_STEP;
+    const d = Math.hypot(b.x - g.cupX, b.y - g.cupY), sp = Math.hypot(b.vx, b.vy);
+    if (d < LAB_CUP_R) {
+      const cap = 1.3 + 3.4 * (1 - d / LAB_CUP_R);
+      if (sp < cap) { b.moving = false; b.x = g.cupX; b.y = g.cupY; return 'cup'; }
+      if (!b.lip) { b.lip = true; const nx = (b.x - g.cupX) / (d || 1), ny = (b.y - g.cupY) / (d || 1), dot = b.vx * nx + b.vy * ny; b.vx = (b.vx - 0.9 * dot * nx) * 0.72; b.vy = (b.vy - 0.9 * dot * ny) * 0.72; SFX.tick(); }
+    } else if (d > LAB_CUP_R * 2) b.lip = false;
+    if (b.x < g.ox + 2 || b.y < g.oy + 2 || b.x > g.ox + g.L - 2 || b.y > g.oy + g.L - 2) { b.x = clamp(b.x, g.ox + 2, g.ox + g.L - 2); b.y = clamp(b.y, g.oy + 2, g.oy + g.L - 2); b.vx = b.vy = 0; b.moving = false; }
+  }
+  return null;
+}
+function labUpdate(dt, now) {
+  const m = LAB.meter; LAB.t += dt; labParts(dt);
+  const k = LAB.keys; if (['aim'].includes(LAB.phase) && (k.l || k.r)) { LAB.keyHold = (LAB.keyHold || 0) + dt; const sp = (LAB.keyHold > 0.5 ? 0.5 : 0.16) * dt; LAB.aim += (k.r ? sp : 0) - (k.l ? sp : 0); } else LAB.keyHold = 0;
+  if (LAB.ball && ['aim', 'power', 'accuracy'].includes(LAB.phase)) { const c = labAimToCup(); let d = LAB.aim - c; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; LAB.aim = c + clamp(d, -1.05, 1.05); }
+  const rk = LAB.readOn ? 1 : 0;
+  switch (LAB.phase) {
+    case 'in': LAB.cam = labSwingCam(labEase(clamp(LAB.t / 0.55, 0, 1))); if (LAB.t >= 0.55) { LAB.phase = 'read'; LAB.t = 0; LAB.readFrom = Object.assign({}, LAB.cam); } break;
+    case 'read': {   // slow drift that shows off the slope, then settle behind the ball
+      const A = LAB.readFrom, e = labEase(clamp((LAB.t - 0.35) / 1.5, 0, 1)), drift = Math.sin(Math.min(1, LAB.t / 1.85) * Math.PI) * 0.22 * (LAB.from || 1);
+      const P = labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim + drift * (1 - e), 1 - e); LAB.cam = labCamLerp(A, P, Math.min(1, LAB.t / 0.35 + e)); LAB.readK = 1 - e;
+      if (LAB.t >= 1.85) { LAB.phase = 'aim'; LAB.t = 0; LAB.readK = 0; } break;
+    }
+    case 'glide': { const e = labEase(clamp(LAB.t / 0.6, 0, 1)); LAB.cam = labCamLerp(LAB.from2, labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim, rk), e); LAB.readK = rk * e; if (LAB.t >= 0.6) { LAB.phase = 'aim'; LAB.t = 0; } break; }
+    case 'aim': LAB.readK = lerp(LAB.readK, rk, Math.min(1, dt * 6)); LAB.cam = labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim, LAB.readK); LAB.swingAng = lerp(LAB.swingAng, 75 + 1 * Math.sin(LAB.t * 3), Math.min(1, dt * 12)); break;
+    case 'power': m.pos += m.dir * PW_SPEED * SHORT_SLOW * dt; if (m.pos >= 1) { m.pos = 2 - m.pos; m.dir = -1; } if (m.dir < 0 && m.pos <= 0) { m.pos = 0; LAB.phase = 'aim'; LAB.t = 0; }
+      LAB.swingAng = lerp(LAB.swingAng, 75 + 75 * m.pos, Math.min(1, dt * 22)); break;
+    case 'accuracy': m.acc -= ACC_SPEED * SHORT_SLOW * dt; LAB.swingAng = lerp(LAB.swingAng, 75 + 75 * m.power, Math.min(1, dt * 22)); if (m.acc <= ACC_MIN) labCommit(ACC_MIN); break;
+    case 'stroke': { const t = clamp(LAB.t / DOWN_T, 0, 1); LAB.swingAng = lerp(75 + 75 * m.power, 75, t * t); if (LAB.t >= DOWN_T) labLaunch(); break; }
+    case 'roll': {
+      if (LAB.t < 0.5) { const t = clamp(LAB.t / FOLLOW_T, 0, 1), e = 1 - (1 - t) ** 3; LAB.swingAng = lerp(75, 75 - 40 * Math.min(1, m.power + 0.3), e); }
+      const r = labPhys(dt);
+      if (r === 'cup') { SFX.cup(); hap([20, 40, 20, 40, 60]); LAB.phase = 'holed'; LAB.t = 0; LAB.pinOut = false;
+        LAB.res = LAB.mode === 'greens' ? (LAB.putts === 1 ? 'ONE PUTT!' : LAB.putts + ' PUTTS') : scoreName(Math.min(strokes, 10), hole.par); break; }
+      if (!LAB.ball.moving) { LAB.phase = 'settle'; LAB.t = 0; }
+      break;
+    }
+    case 'settle': if (LAB.t > 0.55) {
+      if (LAB.mode !== 'greens' && strokes >= 10) { labHoleDone(); break; }
+      LAB.aim = labAimToCup(); LAB.addr = { x: LAB.ball.x, y: LAB.ball.y }; LAB.from2 = Object.assign({}, LAB.cam); LAB.phase = 'glide'; LAB.t = 0; LAB.readOn = false; LAB.swingAng = 75;
+    } break;
+    case 'holed': if (LAB.t > 2.3) { if (LAB.mode === 'greens') labNextGreen(); else labHoleDone(); } break;
+  }
+}
+function labFrame(now) {
+  const dt = clamp((now - LAB.last) / 1000, 0, 1 / 20) * TIME_SCALE; LAB.last = now;
+  if (LAB.phase !== 'summary') labUpdate(dt, now);
+  if (LAB.on) labRender(now);
+}
+function labPointer(e) {
+  e.preventDefault(); e.stopPropagation(); audioOn();
+  const r = LAB.cv.getBoundingClientRect(), p = { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }, R = labRects();
+  const inR = (q, pad = 5) => p.x >= q.x - pad && p.x <= q.x + q.w + pad && p.y >= q.y - pad && p.y <= q.y + q.h + pad;
+  if (e.type === 'pointerdown') {
+    if (inR(R.exit)) { LAB.drag = { btn: 'exit' }; return; }
+    if (LAB.phase === 'summary') { if (inR(R.again)) LAB.drag = { btn: 'again' }; else if (inR(R.out)) LAB.drag = { btn: 'exit' }; return; }
+    if (inR(R.read) && !['in'].includes(LAB.phase)) { LAB.drag = { btn: 'read' }; return; }
+    if (LAB.phase === 'power' || LAB.phase === 'accuracy') { labAction(); LAB.drag = null; return; }
+    LAB.drag = { x0: p.x, x: p.x, moved: 0, id: e.pointerId, a0: LAB.aim }; try { LAB.cv.setPointerCapture(e.pointerId); } catch (er) {}
+    return;
+  }
+  const d = LAB.drag;
+  if (e.type === 'pointermove') {
+    if (!d || d.btn) return; const dx = p.x - d.x; d.x = p.x; d.moved = Math.max(d.moved, Math.abs(p.x - d.x0));
+    if (d.moved > 4 && LAB.phase === 'aim') { const fine = Math.abs(dx) < 1.5 ? 0.5 : 1; LAB.aim += dx * 0.0032 * fine; }
+    return;
+  }
+  if (e.type === 'pointercancel') { LAB.drag = null; return; }
+  if (e.type === 'pointerup') {
+    LAB.drag = null; if (!d) return;
+    if (d.btn) { if (d.btn === 'exit' && inR(R.exit)) { SFX.click(); labExit(); } else if (d.btn === 'exit' && LAB.phase === 'summary' && inR(R.out)) { SFX.click(); labExit(); }
+      else if (d.btn === 'again' && inR(R.again)) { SFX.click(); labClose(); labStart(LAB.mode || 'hybrid'); }
+      else if (d.btn === 'read' && inR(R.read)) { SFX.click(); LAB.readOn = !LAB.readOn; } return; }
+    if (d.moved <= 4) labAction();
+  }
+}
+addEventListener('keydown', e => {
+  if (!LAB.on) return; e.stopPropagation();
+  const k = e.key; if (k === 'ArrowLeft') { LAB.keys.l = true; e.preventDefault(); } else if (k === 'ArrowRight') { LAB.keys.r = true; e.preventDefault(); }
+  else if ((k === ' ' || k === 'Enter') && !e.repeat) { e.preventDefault(); if (LAB.phase === 'summary') { labClose(); labStart(LAB.mode || 'hybrid'); } else labAction(); }
+  else if (k === 'Escape') { e.preventDefault(); labExit(); } else if ((k === 'r' || k === 'R') && !e.repeat) LAB.readOn = !LAB.readOn;
+}, true);
+addEventListener('keyup', e => { if (!LAB.on) return; if (e.key === 'ArrowLeft') LAB.keys.l = false; if (e.key === 'ArrowRight') LAB.keys.r = false; }, true);
+if (AUTH_TEST) window.__lab = { get L() { return LAB; }, start: m => labStart(m), allowed: () => labAllowed(), open: (spec, D, theme, seed, from) => { LAB.mode = 'greens'; LAB.greenN = 1; LAB.putts = 0; LAB.holeTxt = 'TEST GREEN'; labOpenGreen(spec, D, theme, seed, from); },
+  skip() { LAB.phase = 'aim'; LAB.t = 0; LAB.readK = 0; LAB.cam = labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim, 0); }, putt(power, acc, aimOff) { LAB.aim = labAimToCup() + (aimOff || 0); LAB.meter.power = power; labCommit(acc == null ? 0 : acc); },
+  frame(ms) { const n = Math.round(ms / 16.67); for (let i = 0; i < n; i++) { LAB.last = performance.now() - 16.67; labFrame(performance.now()); } }, close: () => labExit(), action: () => labAction(),
+  get cup() { return hole ? hole.cup : null; }, zeroStrokes() { strokes = 0; },
+  sim(power, aimOff) { const real = LAB.ball, a = labAimToCup() + (aimOff || 0), v = power * LAB_VMAX; LAB.ball = { x: real.x, y: real.y, vx: Math.sin(a) * v, vy: Math.cos(a) * v, moving: true, lip: false }; let r = null, k = 0;
+    try { while (LAB.ball.moving && k++ < 4000) { r = labPhys(1 / 60); if (r) break; } return { r, x: LAB.ball.x, y: LAB.ball.y }; } finally { LAB.ball = real; } },
+  perf() { const L = LAB; let t0 = performance.now(); for (let i = 0; i < 20; i++) { L.cam = Object.assign({}, L.cam, { yaw: L.cam.yaw + 0.01 }); labRender(performance.now()); } const full = (performance.now() - t0) / 20;
+    t0 = performance.now(); for (let i = 0; i < 20; i++) labRender(performance.now()); const spr = (performance.now() - t0) / 20; t0 = performance.now(); labMakeGreen('ridge', 60, 'day', 7); return { fullMs: +full.toFixed(2), spriteMs: +spr.toFixed(2), makeMs: +(performance.now() - t0).toFixed(1) }; } };
+
 /* ---------------- main loop ---------------- */
 const TIME_SCALE = (location.hash.match(/speed=(\d+)/) || [0, 1])[1] * 1;
 let last = performance.now(), lastRenderAt = 0, lastInputAt = 0;
 for (const t of ['pointerdown', 'pointermove', 'pointerup', 'keydown', 'touchstart', 'wheel', 'resize']) addEventListener(t, () => { lastInputAt = performance.now(); }, { passive: true, capture: true });
 function frame(now) {
   const dt = clamp((now - last) / 1000, 0, 1 / 20) * TIME_SCALE; last = now;   // rAF time can be a hair before 'last' on the first frame
+  if (LAB.on) { labFrame(now); requestAnimationFrame(frame); return; }   // v8.74: admin LAB putting view owns the screen
   const pre = state;
   if (!paused) { update(dt); updateCart(dt); }   // paused = completely frozen
   if (pre === 'swing' && state === 'flight') shotFacing = facing;
