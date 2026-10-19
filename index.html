@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.79">
+<meta name="dlg-version" content="v8.80">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.79';
+const GAME_VERSION = 'v8.80';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1128,7 +1128,8 @@ const HD_SLOTS = {
   hands: { x: 9,  y: -22, w: 3,  h: 3,  what: 'glove (lead hand)' },
   feet:  { x: -9, y: -4,  w: 19, h: 4,  what: 'shoes' },
   held:  { x: 12, y: -27, w: 5,  h: 27, what: 'club / bag' },
-  ball:  { x: 0,  y: 0,   w: 0,  h: 0,  what: 'ball skin (in play)' }
+  ball:  { x: 0,  y: 0,   w: 0,  h: 0,  what: 'ball skin (in play)' },
+  trail: { x: 0,  y: 0,   w: 0,  h: 0,  what: 'ball trail (in play)' }   // v8.80: never drawn on the golfer
 };
 const GEAR_ART = {};   // itemId -> (R, D, look, slot) => void   (R = outlined part, D = flat detail; sprite units)
 function hdLookFull(app) {   // a complete look from saved appearance; missing keys use the default golfer (never the viewer's own look)
@@ -1327,7 +1328,10 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 60 },
   { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
   { id: 'camo_hat', name: 'DLG CAMO HAT', slot: 'head', tier: 'rare', req: 'TOP 6 IN A DLG TOURNAMENT OR MERCH CODE', rule: { grant: true, code: true }, sort: 80 },
-  { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 }
+  { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 },
+  { id: 'trail_ember', name: 'EMBER TRAIL', slot: 'trail', tier: 'common', req: '10 CAREER BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 100 },   // v8.80 ball trails
+  { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
+  { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
 ];
 const GEAR_HIDES_HAIR = { pumpkin_head: 1 };
 // ---- art (sprite units, same grid as drawGolferHD; R = outlined part, D = flat detail)
@@ -1382,6 +1386,9 @@ GEAR_ART.lucky_marker = (R, D, look, sl, o) => {   // shown in the locker; in pl
   D(-2, -4, 1, 3, G_GOLD_D); D(0, -4, 1, 1, '#00a800'); D(-1, -3, 3, 1, '#00a800'); D(0, -2, 1, 1, '#00a800');
   F(-1, -5, 1, 0.5, G_GOLD_L); F(2, -3.5, 0.5, 1.5, G_GOLD_D); F(0, -3, 1, 0.5, '#00e800');
 };
+// v8.80 trails: locker icon = a little arc of the trail's colours (in play they colour the ball's flight trail)
+const TRAIL_GEAR = { trail_ember: ['#f83800', '#fc7c18', '#fcb838', '#fce4a0'], trail_comet: ['#fcfcfc', '#bcf0fc', '#3cbcfc', '#2c5cd8'], trail_aurora: ['#58f898', '#3cbcfc', '#9878f8', '#f878f8'] };
+for (const id in TRAIL_GEAR) GEAR_ART[id] = (R, D) => { const c = TRAIL_GEAR[id]; for (let i = 0; i < 9; i++) { const x = -6 + i * 1.5, y = -2 - Math.round(Math.sin(i / 8 * Math.PI) * 6); R(Math.round(x), y, i > 6 ? 2 : 1, i > 6 ? 2 : 1, c[Math.min(3, Math.floor(i / 2.3))]); } D(7, -3, 1, 1, '#fcfcfc'); };
 GEAR_ART.birdie_glove = (R, D, look, sl, o) => {   // v8.65: lead-hand glove with a little blue bird
   const F = gF(o);
   R(9, -22, 3, 3, '#fcfcfc');
@@ -1541,9 +1548,9 @@ const LOOK_ROWS = [
   ['SHOES', 'shoes', i => [SHOE_COLS[i][0], SHOE_COLS[i][2]]],
   ['GLOVE', 'glove', i => [GLOVE_COLS[i][0], GLOVE_COLS[i][1]]]
 ];
-const GEAR_ROWS = [['HEAD GEAR', 'head'], ['FACE', 'face'], ['NECK', 'neck'], ['HANDS', 'hands'], ['TORSO', 'torso'], ['CLUB', 'held'], ['BALL', 'ball']];   // v8.66
+const GEAR_ROWS = [['HEAD GEAR', 'head'], ['FACE', 'face'], ['NECK', 'neck'], ['HANDS', 'hands'], ['TORSO', 'torso'], ['CLUB', 'held'], ['BALL', 'ball'], ['TRAIL', 'trail']];   // v8.66 (v8.80: + TRAIL)
 const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
-const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER' };
+const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
 function gearCanWear(id) { return !id || (isSignedIn() && gearOwned(id)); }
@@ -2506,7 +2513,11 @@ Object.assign(THEMES, {
       R(0, hz + 8, w, h - hz - 8, '#008888');
     } }
 });
+THEMES.links = { sky: '#a8d8f8', hill: '#7c9c5c', hillL: '#9cb874', clouds: true, tree: BUSH_DRY, bush: BUSH_DRY,   // v8.80 seaside links: no trees, fescue + pot bunkers
+  C: Object.assign({}, COL, { grass: '#7cb048', fair2: '#8cc058', grassD: '#a8a050', sand: '#ecdcac', sandD: '#c8b47c', green: '#58c048', green2: '#68cc58' }) };
 const themeOf = hl => THEMES[(hl && hl.theme) || 'day'] || THEMES.day;
+const QUICK3_THEMES = ['links', 'snow', 'desert', 'night'];   // v8.80: QUICK 3 plays one look per day (only plain day holes are re-skinned; physics unchanged)
+function quick3Theme() { const [y, m, d] = nyDateStr().split('-').map(Number); return QUICK3_THEMES[Math.floor(Date.UTC(y, m - 1, d) / 864e5) % QUICK3_THEMES.length]; }
 
 /* ---------------- course data ----------------
    pts: [x, surface, height]  surface runs from x to the next point; height is the ground
@@ -3134,7 +3145,7 @@ const COURSE_KINDS = ['front', 'back', 'full', 'quick3', 'coral'];
 const COURSE_BEST_KEY = { spooky: 'dlg_golf_best_spooky', front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9' };
 function courseHoleList(i) { return i === 0 ? FRONT_HOLES : i === 1 ? BACK_HOLES : i === CS_CAREER_I ? CORAL_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
 let QUICK3_NUMS = [];   // v8.57: real hole numbers (1-18) of the current QUICK 3 set
-function quick3Pick() { const all = FRONT_HOLES.concat(BACK_HOLES), idx = []; while (idx.length < 3 && idx.length < all.length) { const k = Math.floor(Math.random() * all.length); if (!idx.includes(k)) idx.push(k); } idx.sort((a, b) => a - b); QUICK3_NUMS = idx.map(k => k + 1); return idx.map(k => all[k]); }
+function quick3Pick() { const all = FRONT_HOLES.concat(BACK_HOLES), idx = []; while (idx.length < 3 && idx.length < all.length) { const k = Math.floor(Math.random() * all.length); if (!idx.includes(k)) idx.push(k); } idx.sort((a, b) => a - b); QUICK3_NUMS = idx.map(k => k + 1); const th = quick3Theme(); return idx.map(k => all[k].theme === 'day' ? Object.assign({}, all[k], { theme: th }) : all[k]); }
 function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
 
 function compileHole(def) {
@@ -5083,7 +5094,7 @@ function startHole() {
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
   const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : mulberry32(seedFromStr('DLG-PIN-' + nyDateStr() + '-' + (src.name || holeIdx)))()) * src.pins.length)] }) : src;   // v8.79: today's pin (same for everyone on a given day)
   hole = compileHole(def);
-  strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null;
+  strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null; crowdT = 0;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
@@ -5292,6 +5303,7 @@ function celebratePerfect() {
   fxBurst(wx, wh, 10, GOLDS, 40, { up: true, stars: 1, life: 1.3 });
   fx.glow = true; fx.glowT = 0;
   fxBanner('PERFECT!', ['#f8d878', '#fcfcfc', '#fc9838', '#fcfc9c'], 1.5, 56);   // sits below the message box
+  crowdCheer(0.8);   // v8.80
   const gsx = Math.round(ball.x - camX) - facing * 7;                    // the dog pops up beside the golfer to cheer
   const behind = facing > 0 ? gsx - 62 : gsx + 14, front = facing > 0 ? gsx + 18 : gsx - 66;
   dogPop = { x: clamp(behind >= 4 && behind <= W - 52 ? behind : front, 4, W - 52), kind: 'cheer', t: 0, hold: 1.0 };
@@ -5338,7 +5350,7 @@ function celebrateLuck() {
   announce('dumb luck! a lucky bounce toward the pin');
   fx.flash = 0.16; fx.flashCol = '#b8f818'; fx.shake = 0.25; fx.shakeAmp = 2;
   fxBurst(ball.x, ball.h + 2, 22, ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 65, { stars: 0.7 });
-  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true;
+  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true; crowdCheer(1);
   msg = null;
   dogPop = { x: clamp(Math.round(ball.x - camX) - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.2 };
   setTimeout(() => { if (dogPop && dogPop.kind === 'laugh') SFX.laugh(); }, 400);
@@ -5350,7 +5362,7 @@ function celebrateHoleOut() {   // chip-in from off the green
   fxBurst(hole.cup, gh, 40, CONFETTI, 75, { up: true, conf: true, g: 50, life: 1.7, stars: 0 });
   fxBurst(hole.cup, gh, 16, GOLDS, 55, { stars: 1 });
   fx.flash = 0.2; fx.flashCol = '#fcfcfc'; fx.shake = 0.35; fx.shakeAmp = 2;
-  fxBanner('CHIP IN!', ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8'], 2.0, 56);
+  fxBanner('CHIP IN!', ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8'], 2.0, 56); crowdCheer(1.4);
   msg = null; SFX.perfect();
   holedDur = 2.1;
 }
@@ -5376,7 +5388,7 @@ function celebrateAce() {
   fxBurst(hole.cup, gh, 70, CONFETTI, 95, { up: true, conf: true, g: 55, life: 2.2, stars: 0 });
   fxBurst(hole.cup, gh, 28, GOLDS, 70, { stars: 1 });
   fx.flash = 0.45; fx.flashCol = '#f8d878'; fx.shake = 0.55; fx.shakeAmp = 4;
-  fxBanner('ACE!', ['#f8d878', '#fcfcfc', '#f83800', '#58d854'], 2.4, 44);
+  fxBanner('ACE!', ['#f8d878', '#fcfcfc', '#f83800', '#58d854'], 2.4, 44); crowdCheer(2);
   setTimeout(() => { if (state === 'holed') fxBanner('HOLE IN ONE!', ['#f83800', '#f8d878', '#3cbcfc', '#f878f8'], 2.0, 62); }, 700);
   msg = null; SFX.perfect(); SFX.fanfare && SFX.fanfare();
   hap([30, 50, 30, 50, 30, 80, 120]);
@@ -5591,6 +5603,7 @@ function finishHole() {
   holeSave = false;
   if (holeIdx === bountyIdx && d <= -1 && !SIM) { if (!doneInfo.save) showMsg('BOUNTY!  2X XP', '#f8d878', 2.2); doneInfo.bounty = true; }   // v8.79
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
+  if (d <= -1 && strokes > 1) crowdCheer(d <= -2 ? 1.4 : 1);   // v8.80
   if (d <= -2) grantAch('eagle', 'GOLD CROWN HAT!');
   else if (d === -1) grantAch('birdie', 'GOLD TRAIL!');
   if (courseKind === 'daily') noteDailyPlayed();
@@ -6063,6 +6076,7 @@ function update(dt) {
   if (dogPop) dogPop.t += dt;
   if (angFlash > 0) angFlash -= dt;
   if (flagRattle > 0) flagRattle -= dt;   // v8.76
+  if (crowdT > 0) crowdT -= dt;   // v8.80
   updateWildlife(dt);
   if (courseKind === 'match') { try { ghostTick(dt); } catch (e) {} }
   if (wildBark) { wildBark.t += dt; if (wildBark.t > wildBark.hold + 0.25) wildBark = null; }
@@ -6595,6 +6609,36 @@ function todTint(hl) {
   if (halloweenOn()) { if (p > 0.2) { ctx.fillStyle = 'rgba(16,0,40,' + (0.26 * (p - 0.2) / 0.8).toFixed(3) + ')'; ctx.fillRect(0, 0, W, PLAY_H); } return; }
   if (p > 0.6) { ctx.fillStyle = 'rgba(248,104,40,' + (0.16 * (p - 0.6) / 0.4).toFixed(3) + ')'; ctx.fillRect(0, 0, W, PLAY_H); }
 }
+/* v8.80 GALLERY (decoration only): Spooky Cup + tournament rounds get a few pixel spectators by the tee and beyond the green.
+   They clap on big shots (PERFECT, chip-ins, aces, DUMB LUCK, birdies, GREAT SAVES). One small loop of rects per frame. */
+let crowdT = 0;
+const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
+function crowdOn() { return courseKind === 'spooky' || courseKind === 'lbi'; }
+function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); noise(0.9, 0.035); noise(0.5, 0.025, 0.35); }
+function crowdSpots(hl) {
+  if (hl._crowd) return hl._crowd;
+  const out = [], ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green'; };
+  for (let i = 0; i < 3; i++) { const x = TEE_X + 20 + i * 7; if (ok(x)) out.push(x); }   // tee box gallery (just past the tee, visible in portrait too)
+  let g0 = hl.cup, g1 = hl.cup; while (g0 > 0 && surfAt(hl, g0 - 1) === 'green') g0--; while (g1 < hl.len && surfAt(hl, g1 + 1) === 'green') g1++;
+  const far = []; for (let x = g1 + 10; x <= Math.min(hl.len - 6, g1 + 52); x += 7) if (ok(x)) far.push(x);
+  if (far.length >= 3) out.push(...far.slice(0, 6));
+  else for (let x = g0 - 12; x >= Math.max(30, g0 - 54); x -= 7) if (ok(x)) out.push(x);
+  return (hl._crowd = out.slice(0, 10));
+}
+function drawCrowd(hl, cam, C) {
+  if (!crowdOn()) return;
+  const t = performance.now() / 1000, cheer = crowdT > 0 && !REDUCED_MOTION;
+  crowdSpots(hl).forEach((x, i) => {
+    const sx = Math.round(x - cam); if (sx < -4 || sx > W + 4) return;
+    const gy = Math.round(BASE - groundH(hl, x)), r = hash(i * 17 + (hl.len | 0)), hop = cheer ? Math.round(Math.abs(Math.sin(t * 13 + i * 1.7)) * 2) : 0;
+    const y = gy - 9 - hop, shirt = CROWD_SHIRTS[Math.floor(r * CROWD_SHIRTS.length)], skin = SKINS[Math.floor(hash(i * 5 + 3) * SKINS.length)];
+    rect(sx - 2, y - 1, 5, 11 + hop, '#000');                 // outline
+    rect(sx - 1, y, 3, 2, skin);                             // head
+    rect(sx - 1, y + 2, 3, 4, shirt);                        // shirt
+    rect(sx - 1, y + 6, 1, 3, '#2c2c3c'); rect(sx + 1, y + 6, 1, 3, '#2c2c3c');   // legs
+    if (cheer && Math.floor(t * 8 + i) % 2) { rect(sx - 2, y - 2, 1, 3, skin); rect(sx + 2, y - 2, 1, 3, skin); }   // arms up
+  });
+}
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
   rect(0, 0, W, PLAY_H, th.sky);
@@ -6700,6 +6744,7 @@ function drawCourse(hl, cam) {
     }
   }
   if (halloweenOn()) hwDrawCourseDeco(hl, cam);   // v8.41: pumpkins, gravestones, bare trees (decoration only)
+  if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery
   // ground columns
   for (let sx = 0; sx < W; sx++) {
     const wx = Math.floor(cam) + sx;
@@ -6813,7 +6858,9 @@ function drawGolferV1(sx, gy, dir, ang, look = lookOf(player), pose = {}) {
   line(shx, shy, hx, hy, look.skin);
   line(shx, shy + 1, hx, hy + 1, look.skin);
 }
+function gearTrail() { try { const t = isSignedIn() ? gearEquipped().trail : null; return t && TRAIL_GEAR[t] ? TRAIL_GEAR[t] : null; } catch (e) { return null; } }   // v8.80
 function trailColor(i) {
+  const gt = gearTrail(); if (gt && !shotPerfect) return gt[i % gt.length];
   const id = (unlocks && unlocks.trail) || 'white';
   if (shotPerfect || id === 'gold') return i % 2 ? '#fc9838' : '#f8d878';
   if (id === 'fire') return i % 3 === 0 ? '#f83800' : i % 3 === 1 ? '#fc9838' : '#f8d878';
@@ -6822,7 +6869,7 @@ function trailColor(i) {
   return i % 2 ? COL.white : '#bcf0fc';
 }
 function drawTrail() {
-  const fancy = shotPerfect || ((unlocks && unlocks.trail) && unlocks.trail !== 'white');
+  const fancy = shotPerfect || !!gearTrail() || ((unlocks && unlocks.trail) && unlocks.trail !== 'white');
   const nT = trail.length;
   trail.forEach(([x, h], i) => {
     const sx = Math.round(x - camX), sy = Math.round(BASE - h) - 2; if (sy <= 1) return;
