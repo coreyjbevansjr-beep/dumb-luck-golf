@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.84">
+<meta name="dlg-version" content="v8.85">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.84';
+const GAME_VERSION = 'v8.85';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -9388,7 +9388,7 @@ function facingForGolfer() { return state === 'flight' ? shotFacing : facing; }
 const LAB = { on: false, mode: null, cv: null, c: null, scene: null, sc: null, tcv: null, tc: null, img: null, buf: null, ybuf: null,
   g: null, cam: null, phase: '', t: 0, aim: 0, meter: { pos: 0, dir: 1, power: 0, acc: 0 }, ball: null, drag: null, readK: 0, readOn: false,
   snap: null, scores: [], putts: 0, greenN: 0, camKey: '', keys: {}, res: null, sweet: false, err: 0, from: null, to: null, last: 0, closing: 0, swingAng: 75, holeTxt: '' };
-const LAB_EX = 6, LAB_MU = 2.15, LAB_VMAX = 20.7, LAB_CUP_R = 0.177, LAB_STEP = 1 / 240, LAB_N = 352;
+const LAB_EX = 4, LAB_MU = 2.15, LAB_VMAX = 20.7, LAB_CUP_R = 0.177, LAB_STEP = 1 / 240, LAB_N = 352;
 const LAB_HOLES = () => [FRONT_HOLES[4], FRONT_HOLES[6], FRONT_HOLES[8]];   // THE ISLAND (par 3 over water), OLD OAK CREEK (par 4), MOONLIGHT FINISH (par 5)
 const LAB_HYBRID_SPECS = ['tilt', 'tier', 'ridge'];
 const LAB_SPECS = ['tilt', 'tier', 'ridge', 'bowl', 'saddle'];
@@ -9422,14 +9422,14 @@ function labMakeGreen(spec, D, theme, seed) {
   const bcx = gcx + Math.cos(tb) * (ax + 9), bcy = gcy + Math.sin(tb) * (ay + 9), bca = Math.cos(tb + Math.PI / 2), bsa = Math.sin(tb + Math.PI / 2);
   const bunk = (x, y) => { const dx = x - bcx, dy = y - bcy, u = (dx * bca + dy * bsa) / 10, v = (-dx * bsa + dy * bca) / 4.5; return Math.hypot(u, v) * (1 + 0.12 * Math.sin(Math.atan2(v, u) * 2 + ph[2])); };
   const yT = by + D * (D >= 10 ? 0.4 + R() * 0.25 : 0.5), ra = (s1 > 0 ? 0.6 : -0.6) + (R() - 0.5) * 0.5, rca = Math.cos(ra), rsa = Math.sin(ra), rmx = cupX * 0.5 + s1 * 2, rmy = 0;
-  const micro = (x, y) => 0.045 * Math.sin(x / 8.5 + ph[2]) * Math.sin(y / 10.5 + ph[3]) + 0.025 * Math.sin((x + y) / 5.5 + ph[1]);
+  const micro = (x, y) => 0.04 * Math.sin(x / 11 + ph[2]) * Math.sin(y / 13 + ph[3]) + 0.016 * Math.sin((x + y) / 8 + ph[1]);   // v8.85: gentler, smoother undulations
   const base = (x, y) => {
     switch (spec) {
-      case 'tilt': return s1 * 0.022 * x - 0.010 * y + micro(x, y);
-      case 'tier': return 0.30 * Math.tanh((y - yT) / 5.5) + s1 * 0.011 * x + micro(x, y);
-      case 'ridge': { const d = (x - rmx) * rca - (y - rmy) * rsa; return 0.34 * Math.exp(-d * d / 98) - s1 * 0.006 * x - 0.005 * y + micro(x, y); }
+      case 'tilt': return s1 * 0.019 * x - 0.009 * y + micro(x, y);
+      case 'tier': return 0.26 * Math.tanh((y - yT) / 6.5) + s1 * 0.012 * x - 0.004 * y + micro(x, y);
+      case 'ridge': { const d = (x - rmx) * rca - (y - rmy) * rsa; return 0.30 * Math.exp(-d * d / 110) - s1 * 0.010 * x - 0.006 * y + micro(x, y); }
       case 'bowl': { const q = ((x - cupX) ** 2 + (y - cupY) ** 2) / 242; return -0.30 * Math.exp(-q) + s1 * 0.014 * x + 0.004 * y + micro(x, y); }
-      default: { const q = ((x - gcx) ** 2 - (y - gcy) ** 2) / 392; return 0.26 * Math.tanh(q) + micro(x, y); }   // saddle
+      default: { const q = ((x - gcx) ** 2 - (y - gcy) ** 2) / 392; return 0.22 * Math.tanh(q) + s1 * 0.009 * x + micro(x, y); }   // saddle
     }
   };
   const ss = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -9545,6 +9545,16 @@ function labProj(x, y, hE) {
   const c = LAB.cam, dx = x - c.x, dy = y - c.y, sf = Math.sin(c.yaw), cf = Math.cos(c.yaw), zc = dx * sf + dy * cf, xc = dx * cf - dy * sf;
   if (zc < 0.4) return null; const s = LAB.F / zc; return { x: W / 2 + xc * s, y: c.hor + (c.z - hE) * s, s, z: zc };
 }
+const LAB_GOLF_H = 27, LAB_GOLF_HEAD = 6;   // v8.85: drawGolfer sprite px tall; putter head x offset (sprite px) at address
+function labGolfer(at) {   // stands to the left of the ball (right-handed), putter head on the ball; sized to the scene so it never walls off the line
+  const p = labProj(at.x, at.y, labHE(at.x, at.y)); if (!p) return; const sb = labSceneBox();
+  const k = Math.max(1, Math.min(Math.round(sb.h * 0.21 / LAB_GOLF_H), Math.round(5.9 * p.s / LAB_GOLF_H))), ci = clubIdx;
+  const fx = Math.round(p.x - LAB_GOLF_HEAD * k - k), fy = Math.round(p.y);
+  ctx.globalAlpha = 0.28; labEllipse(fx + 3 * k, fy, 8 * k, Math.max(1, 1.6 * k), '#0a2a08'); ctx.globalAlpha = 1;
+  const fa = LAB.phase === 'roll' || LAB.phase === 'follow' ? clamp(1 - LAB.t * 1.6, 0.3, 1) : 1; ctx.globalAlpha = fa;   // steps back visually once the ball is rolling, so the line stays clear
+  ctx.save(); ctx.translate(fx, fy); ctx.scale(k, k); clubIdx = PUTT_I;
+  try { drawGolfer(0, 0, 1, LAB.swingAng == null ? 75 : LAB.swingAng, lookPlay(lookOf(player)), {}); } finally { clubIdx = ci; ctx.restore(); ctx.globalAlpha = 1; }
+}
 function labEllipse(cx, cy, rx, ry, col) { ctx.fillStyle = col; const R = Math.max(1, Math.round(ry)); for (let dy = -R; dy <= R; dy++) { const hw = Math.max(0.5, rx * Math.sqrt(Math.max(0, 1 - (dy / (ry || 1)) ** 2))); ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy * ry / R), Math.max(1, Math.round(hw * 2)), 1); } }
 function labTree(p, tr, P) {
   const h = Math.max(4, Math.round(tr.h * p.s)), x = Math.round(p.x), y = Math.round(p.y); if (h > H * 1.4 || x < -h || x > W + h) return;
@@ -9577,17 +9587,17 @@ function labRender(now) {
         for (let i = 0; i < fw; i++) { const k = i / fw, off = Math.round(Math.sin(t * 5.5 - i * 0.55) * 1.6 * k), hh = Math.max(1, Math.round(fh * (1 - 0.55 * k))); ctx.fillStyle = (i + Math.floor(t * 6)) % 7 === 0 ? '#c82800' : '#f83800'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, hh); ctx.fillStyle = '#fc7840'; ctx.fillRect(px + 2 + i, Math.round(pc.y) - ph + 1 + off + Math.round((fh - hh) / 2), 1, 1); }
       }
     }
-    // v8.84 slope balls: a few small golf balls rolling downhill along the fall lines (picture only; faster where steeper)
-    { const fl = labFlow(), T = (now || performance.now()) / 1000, dt = clamp(T - (LAB.sbT || T), 0, 0.1); LAB.sbT = T;
-      if (!LAB.sballs || LAB.sballs.g !== g) { LAB.sballs = []; LAB.sballs.g = g; }
-      const SB = LAB.sballs; while (fl.length && SB.length < 6) SB.push({ ln: null, d: 0, life: -Math.random() * 2.5, max: 0 });
-      for (const q of SB) {
-        if (!q.ln || q.life >= q.max || q.d >= q.ln.s[q.ln.s.length - 1] - 0.2) { q.ln = fl[Math.floor(Math.random() * fl.length)]; q.d = Math.random() * 0.5 * q.ln.s[q.ln.s.length - 1]; q.life = Math.min(q.life, 0) - Math.random() * 0.6; q.max = 2.6 + Math.random() * 2; q.spin = 0; }
-        q.life += dt; if (q.life < 0) continue; const ln = q.ln, n = ln.p.length, step = ln.v * 0.75 * dt; q.d += step; q.spin += step / 0.14;
-        let j = Math.min(n - 2, Math.floor(q.d / 0.35)); const u = clamp((q.d - ln.s[j]) / 0.35, 0, 1), x = lerp(ln.p[j][0], ln.p[j + 1][0], u), y = lerp(ln.p[j][1], ln.p[j + 1][1], u);
-        if (Math.hypot(x - g.cupX, y - g.cupY) < 1.6) continue;
-        const pp = labProj(x, y, labHE(x, y)); if (!pp || pp.y < 0 || pp.y > sb.bot) continue;
-        const e = clamp(Math.min(q.life / 0.5, (q.max - q.life) / 0.6), 0, 1); if (e <= 0) continue; const r = clamp(LAB_CUP_R * 0.75 * pp.s, 1.5, 6);
+    // v8.85 slope balls: a few small golf balls rolled across the green with the SAME roll model as the putt (labAcc), so they break the way a putt would
+    { const T = (now || performance.now()) / 1000, dt = clamp(T - (LAB.sbT || T), 0, 0.1); LAB.sbT = T;
+      if (!LAB.sballs || LAB.sballs.g !== g) { LAB.sballs = []; LAB.sballs.g = g; for (let i = 0; i < 5; i++) LAB.sballs.push({ life: -i * 0.9, fade: 0, on: false }); }
+      for (const q of LAB.sballs) {
+        if (!q.on) { q.life += dt; if (q.life >= 0) labGuideSpawn(q); continue; }
+        if (q.vx || q.vy) { let n = Math.round(dt / LAB_STEP); while (n-- > 0) { const r = labAcc(q.x, q.y, q.vx, q.vy, g.surf(q.x, q.y) === 'green' ? LAB_MU : LAB_MU * 2.2);
+          if (r.stop) { q.vx = q.vy = 0; break; } q.vx += r.ax * LAB_STEP; q.vy += r.ay * LAB_STEP; q.x += q.vx * LAB_STEP; q.y += q.vy * LAB_STEP; q.spin += Math.hypot(q.vx, q.vy) * LAB_STEP / 0.14; } }
+        q.age += dt; if (!(q.vx || q.vy) || g.surf(q.x, q.y) === 'rough' || q.age > 9) q.fade += dt;
+        const e = clamp(Math.min(q.age / 0.4, 1 - q.fade / 0.7), 0, 1); if (q.fade > 0.7) { q.on = false; q.life = -0.3 - Math.random() * 0.8; continue; }
+        if (Math.hypot(q.x - g.cupX, q.y - g.cupY) < 1.2) continue;
+        const pp = labProj(q.x, q.y, labHE(q.x, q.y)); if (!pp || pp.y < 0 || pp.y > sb.bot) continue; const r = clamp(LAB_CUP_R * 0.75 * pp.s, 1.5, 6);
         ctx.globalAlpha = 0.3 * e; labEllipse(pp.x + r * 0.35, pp.y + r * 0.15, r * 1.05, Math.max(0.6, r * 0.4), '#0a2a08');
         ctx.globalAlpha = e; labEllipse(pp.x, pp.y - r * 0.8, r, r, '#f4f4f0');
         if (r >= 2) { labEllipse(pp.x + r * 0.25, pp.y - r * 0.55, r * 0.7, r * 0.6, '#d4d6cf'); const sa = Math.sin(q.spin), ca = Math.cos(q.spin);
@@ -9597,6 +9607,8 @@ function labRender(now) {
     if (['aim', 'power', 'accuracy'].includes(LAB.phase) && LAB.readK < 0.5) {
       for (let i = 1; i <= 3; i++) { const d = 0.9 + i * 0.9, x = b.x + Math.sin(LAB.aim) * d, y = b.y + Math.cos(LAB.aim) * d, p = labProj(x, y, labHE(x, y)); if (!p) continue; ctx.globalAlpha = 0.85 - i * 0.18; labEllipse(p.x, p.y, Math.max(1, 0.09 * p.s), Math.max(0.6, 0.05 * p.s), '#fcfcfc'); ctx.globalAlpha = 1; }
     }
+    // v8.85 golfer: the player's own look + equipped gear, addressing the ball from the left (right-handed, chest to the ball), putter grounded behind it
+    if (b && !['holed', 'summary', 'gone'].includes(LAB.phase) && LAB.addr) labGolfer(LAB.addr);
     // ball (+ shadow): sinks into the cup on a make
     if (b && LAB.phase !== 'gone') {
       const bh = labHE(b.x, b.y), pb = labProj(b.x, b.y, bh + (LAB.phase === 'holed' ? -Math.min(1, LAB.t * 3) * 0.6 : 0));
@@ -9763,15 +9775,26 @@ function labLaunch() {
   if (LAB.mode === 'greens') LAB.putts++; else strokes++;
   SFX.putt(); hap(12); LAB.phase = 'roll'; LAB.t = 0;
 }
+function labAcc(x, y, vx, vy, mu) {   // v8.85: the one roll model (putt + guide balls): gravity along the surface gradient (rolling sphere, 5/7 g) + rolling friction
+  const [gx, gy] = labGrad(x, y), axg = -5 / 7 * 32.2 * gx, ayg = -5 / 7 * 32.2 * gy, v = Math.hypot(vx, vy), gm = Math.hypot(axg, ayg);
+  if (v < 0.06 && gm < mu) return { stop: true };
+  const fx = v > 1e-6 ? -mu * vx / v : 0, fy = v > 1e-6 ? -mu * vy / v : 0, ax = axg + fx, ay = ayg + fy;
+  if (v > 1e-6 && ((vx + ax * LAB_STEP) * fx + (vy + ay * LAB_STEP) * fy) > 0 && gm < mu) return { stop: true };   // friction never pushes it backwards
+  return { ax, ay };
+}
+function labGuideSpawn(q) {   // v8.85: start a guide ball somewhere on the green, rolled across the fall line so its curve shows the break
+  const g = LAB.g, b = LAB.ball, R = Math.random;
+  for (let i = 0; i < 20; i++) { const x = g.gcx + (R() * 2 - 1) * g.ax * 0.9, y = g.gcy + (R() * 2 - 1) * g.ay * 0.9; if (g.surf(x, y) !== 'green' || Math.hypot(x - g.cupX, y - g.cupY) < 3 || (b && Math.hypot(x - b.x, y - b.y) < 3)) continue;
+    const [gx, gy] = labGrad(x, y), fa = Math.atan2(-gx, -gy), a = fa + (R() < 0.5 ? 1 : -1) * (1.15 + R() * 0.5), v = 2.6 + R() * 2.2;
+    Object.assign(q, { x, y, vx: Math.sin(a) * v, vy: Math.cos(a) * v, on: true, age: 0, fade: 0, spin: R() * 6 }); return; }
+  q.life = -0.5;
+}
 function labPhys(dt) {
   const b = LAB.ball, g = LAB.g; let n = Math.round(dt / LAB_STEP);
   while (n-- > 0 && b.moving) {
     const s = g.surf(b.x, b.y), mu = LAB_MU * (s === 'green' ? 1 : s === 'fringe' ? 2.2 : s === 'sand' ? 12 : 5);
-    const [gx, gy] = labGrad(b.x, b.y), axg = -5 / 7 * 32.2 * gx, ayg = -5 / 7 * 32.2 * gy, v = Math.hypot(b.vx, b.vy);
-    if (v < 0.06 && Math.hypot(axg, ayg) < mu) { b.vx = b.vy = 0; b.moving = false; break; }
-    const fx = v > 1e-6 ? -mu * b.vx / v : 0, fy = v > 1e-6 ? -mu * b.vy / v : 0;
-    b.vx += (axg + fx) * LAB_STEP; b.vy += (ayg + fy) * LAB_STEP;
-    if (v > 1e-6 && (b.vx * fx + b.vy * fy) > 0 && Math.hypot(axg, ayg) < mu) { b.vx = b.vy = 0; b.moving = false; break; }   // friction never pushes it backwards
+    const A = labAcc(b.x, b.y, b.vx, b.vy, mu); if (A.stop) { b.vx = b.vy = 0; b.moving = false; break; }
+    b.vx += A.ax * LAB_STEP; b.vy += A.ay * LAB_STEP;
     b.x += b.vx * LAB_STEP; b.y += b.vy * LAB_STEP;
     const d = Math.hypot(b.x - g.cupX, b.y - g.cupY), sp = Math.hypot(b.vx, b.vy);
     if (d < LAB_CUP_R) {
