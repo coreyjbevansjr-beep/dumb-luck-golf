@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.85">
+<meta name="dlg-version" content="v8.86">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.85';
+const GAME_VERSION = 'v8.86';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -9476,9 +9476,16 @@ function labPuttCam(bx, by, a, read) {
   const g = LAB.g, D = Math.hypot(g.cupX - bx, g.cupY - by), sb = labSceneBox();
   const Bk = clamp(7 + 0.12 * D, 8, 15), Bk2 = Bk * 1.3 + 9, k = read || 0;
   const back = lerp(Bk, Bk2, k), up = lerp(Bk * 0.92 + 2, Bk2 * 1.0 + 5, k), hor = sb.top + sb.h * lerp(0.25, 0.09, k) + (SAFE.t || 0) * 0.5;
-  return { x: bx - Math.sin(a) * back, y: by - Math.cos(a) * back, z: labHE(bx, by) + up, yaw: a, hor };
+  const cam = { x: bx - Math.sin(a) * back, y: by - Math.cos(a) * back, z: labHE(bx, by) + up, yaw: a, hor, F: labFd() };
+  // v8.86: frame the shot explicitly - ball low in the scene, cup in the upper middle, at any aspect ratio (all inside the area above the HUD)
+  const sa = Math.sin(a), ca = Math.cos(a), dep = (x, y) => (x - cam.x) * sa + (y - cam.y) * ca;
+  const zB = dep(bx, by), zC = dep(g.cupX, g.cupY), uB = (cam.z - labHE(bx, by)) / zB, uC = (cam.z - labHE(g.cupX, g.cupY)) / zC;
+  const yB = sb.top + sb.h * 0.82, yC = sb.top + sb.h * lerp(0.44, 0.38, k);
+  if (zC > 0.5 && uB - uC > 1e-3) { const F = clamp((yB - yC) / (uB - uC), labFd() * 0.5, W / Math.tan(0.5)); cam.F = F; cam.hor = yB - uB * F; }
+  return cam;
 }
-function labCamLerp(A, B, t) { let dy = B.yaw - A.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t), z: lerp(A.z, B.z, t), yaw: A.yaw + dy * t, hor: lerp(A.hor, B.hor, t) }; }
+function labFd() { const sb = labSceneBox(); return Math.min(W / 2, sb.h * 0.3) / Math.tan(0.5); }
+function labCamLerp(A, B, t) { let dy = B.yaw - A.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t), z: lerp(A.z, B.z, t), yaw: A.yaw + dy * t, hor: lerp(A.hor, B.hor, t) , F: lerp(A.F || labFd(), B.F || labFd(), t) }; }
 const labEase = t => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 function labAimToCup() { const b = LAB.ball, g = LAB.g; return Math.atan2(g.cupX - b.x, g.cupY - b.y); }
 function labSwingCam(e) {   // ~0.55s orbit from a side-on view (like the normal game) round to an elevated view behind the ball
@@ -9486,7 +9493,7 @@ function labSwingCam(e) {   // ~0.55s orbit from a side-on view (like the normal
   const end = labPuttCam(b.x, b.y, a, 1), Bk2 = Math.hypot(end.x - b.x, end.y - b.y);
   const mx = (b.x + g.cupX) / 2, my = (b.y + g.cupY) / 2, R0 = Math.max(D * 0.95, 34), yaw0 = a - fac * Math.PI / 2;
   const yaw = lerp(yaw0, a, e), Lx = lerp(mx, b.x, e), Ly = lerp(my, b.y, e), R = lerp(R0, Bk2, e);
-  return { x: Lx - Math.sin(yaw) * R, y: Ly - Math.cos(yaw) * R, z: lerp(labHE(mx, my) + R0 * 0.42, end.z, e), yaw, hor: lerp(sb.top + sb.h * 0.36, end.hor, e) };
+  return { x: Lx - Math.sin(yaw) * R, y: Ly - Math.cos(yaw) * R, z: lerp(labHE(mx, my) + R0 * 0.42, end.z, e), yaw, hor: lerp(sb.top + sb.h * 0.36, end.hor, e), F: lerp(labFd(), end.F, e) };
 }
 /* ---- rendering (low-res buffer = the game's own logical size, scaled up with nearest-neighbour like the main canvas) ---- */
 function labEnsureCanvas() {
@@ -9503,9 +9510,9 @@ function labEnsureCanvas() {
   }
 }
 function labDrawScene() {
-  const cam = LAB.cam, key = [cam.x, cam.y, cam.z, cam.yaw, cam.hor].map(v => v.toFixed(3)).join(',') + W + 'x' + H;
+  const cam = LAB.cam, key = [cam.x, cam.y, cam.z, cam.yaw, cam.hor, cam.F || 0].map(v => v.toFixed(3)).join(',') + W + 'x' + H;
   if (key === LAB.camKey) return; LAB.camKey = key;
-  const g = LAB.g, P = g.pal, sb = labSceneBox(), F = LAB.F = Math.min(W / 2, sb.h * 0.3) / Math.tan(0.5), c = LAB.sc, hor = Math.round(cam.hor);
+  const g = LAB.g, P = g.pal, sb = labSceneBox(), F = LAB.F = cam.F || labFd(), c = LAB.sc, hor = Math.round(cam.hor);
   // sky: banded pixel gradient (+ stars / sun), then hills + a treeline that turn with the camera
   const bands = 7; for (let i = 0; i < bands; i++) { const y0 = Math.round(sb.top + (hor + 2 - sb.top) * i / bands), y1 = Math.round(sb.top + (hor + 2 - sb.top) * (i + 1) / bands); c.fillStyle = labCss(labMix(P.sky[0], P.sky[1], (i / (bands - 1)) ** 1.3)); c.fillRect(0, y0, W, y1 - y0 + 1); }
   if (P.stars) { c.fillStyle = '#fcfcfc'; for (let i = 0; i < 70; i++) { const a = hash(i * 31 + 7) * Math.PI * 2, sx = W / 2 + Math.tan(((a - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * F, sy = sb.top + hash(i * 17 + 3) * (hor - sb.top - 8); if (sx >= 0 && sx < W && sy < hor - 6) c.fillRect(sx | 0, sy | 0, 1, 1); } }
