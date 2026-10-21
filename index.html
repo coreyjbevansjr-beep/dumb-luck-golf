@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.90">
+<meta name="dlg-version" content="v8.91">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" href="/favicon.ico?v=88" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png?v=88">
@@ -231,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.90';
+const GAME_VERSION = 'v8.91';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5097,7 +5097,7 @@ function startHole() {
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
   const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : mulberry32(seedFromStr('DLG-PIN-' + nyDateStr() + '-' + (src.name || holeIdx)))()) * src.pins.length)] }) : src;   // v8.79: today's pin (same for everyone on a given day)
   hole = compileHole(def);
-  strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null; crowdT = 0;
+  strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null; crowdT = 0; crowdReact = null;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
@@ -5570,6 +5570,7 @@ function resolveBall(r) {
     if (!SIM && courseKind !== 'lab') { try { careerNoteLost(); } catch (e) {} }   // v8.65 (v8.74: never in the LAB)
     penaltySpot = null;
     if (r === 'water' && hole.drop != null && Math.abs(hole.cup - hole.drop) < Math.abs(hole.cup - lastSpot)) penaltySpot = hole.drop;   // v8.20: island holes use the DROP ZONE
+    try { crowdReactTo('groan'); } catch (e) {}   // v8.91
     if (r === 'water') { SFX.splash(); splashFx(clamp(ball.x, 0, hole.len)); showMsg(penaltySpot != null ? 'WATER +1  TO DROP ZONE' : 'WATER  +1 STROKE', COL.blue, 2.0); announce(penaltySpot != null ? 'water, plus one stroke. ball moved to the drop zone' : 'water, plus one stroke'); }
     else { SFX.sad(); showMsg('OUT OF BOUNDS  +1', COL.orange, 2.0); announce('out of bounds, plus one stroke'); }
     dogPop = { x: clamp(ball.x - camX - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.4 };
@@ -5577,6 +5578,8 @@ function resolveBall(r) {
     setState('penalty'); return;
   }
   ball.mode = 'stop';
+  try { const dc = Math.abs(hole.cup - ball.x), on = surfAt(hole, ball.x) === 'green';   // v8.91 gallery reactions (decoration only)
+    if (clubIdx === PUTT_I ? dc <= 2 : (on && dc <= 2.5)) crowdReactTo('ooh'); else if (clubIdx !== PUTT_I && on && dc <= 10) crowdReactTo('clap'); } catch (e) {}
   ball.divot = !SIM && clubIdx !== PUTT_I && surfAt(hole, ball.x) === 'fair' && Math.abs(ball.x - (ball.shotFrom != null ? ball.shotFrom : lastSpot)) > 60 && Math.random() < GPV.DIVOT_P;   // v8.78
   {
     const carry = Math.abs((ball.carryX != null ? ball.carryX : ball.x) - (ball.shotFrom || lastSpot));
@@ -6085,6 +6088,7 @@ function update(dt) {
   if (angFlash > 0) angFlash -= dt;
   if (flagRattle > 0) flagRattle -= dt;   // v8.76
   if (crowdT > 0) crowdT -= dt;   // v8.80
+  if (crowdReact && (crowdReact.t -= dt) <= 0) crowdReact = null;   // v8.91
   galTick(dt);   // v8.87
   updateWildlife(dt);
   if (courseKind === 'match') { try { ghostTick(dt); } catch (e) {} }
@@ -6638,20 +6642,43 @@ function crowdSpots(hl) {
   out.sort((p, q) => q.row - p.row);   // back row first
   return (hl._crowd = out.slice(0, 16));
 }
-function drawFan(sx, gy, p, t, cheer, i) {   // front row ~20 px tall (golfer ~26), back row ~16 px and a touch darker
-  const back = p.row === 1, k = back ? 0.82 : 1, dim = back ? 0.78 : 1, night = themeOf(hole).stars ? 0.85 : 1, sh = c => shadeHex(c, dim * night);
-  const skin = sh(SKINS[Math.floor(p.r * SKINS.length)]), shirt = sh(CROWD_SHIRTS[Math.floor(p.r2 * CROWD_SHIRTS.length)]), pants = sh(CROWD_PANTS[Math.floor(p.r3 * CROWD_PANTS.length)]);
-  const hair = sh(HAIR_COLS[Math.floor(hash(i * 11 + 7) * HAIR_COLS.length)][0]), hat = hash(i * 3 + 1) < 0.4 ? sh(CROWD_HATS[Math.floor(hash(i * 9 + 2) * CROWD_HATS.length)]) : null;
-  const hop = cheer ? Math.round(Math.max(0, Math.sin(t * 11 + p.ph)) * (back ? 3 : 4)) : 0, up = cheer && Math.sin(t * 11 + p.ph + 0.6) > -0.6;
-  const hw = back ? 2 : 3, legH = Math.round(7 * k), torH = Math.round(7 * k), headH = back ? 4 : 5, y0 = gy - hop, K = '#000';
-  const legY = y0 - legH, torY = legY - torH, headY = torY - headH;
-  rect(sx - hw - 1, headY - 1, hw * 2 + 3, gy - headY + 1 - hop, K);   // one outline block (cheap)
-  rect(sx - hw, legY, hw, legH - 1, pants); rect(sx + 1, legY, hw, legH - 1, pants); rect(sx - hw, y0 - 1, hw, 1, sh('#3c2c1c')); rect(sx + 1, y0 - 1, hw, 1, sh('#3c2c1c'));
-  rect(sx - hw, torY, hw * 2 + 1, torH, shirt); rect(sx + hw, torY, 1, torH, shadeHex(shirt, 0.8));
-  rect(sx - hw + 1, headY, hw * 2 - 1, headH, skin); rect(sx - hw + 1, headY, hw * 2 - 1, 1, hat || hair); if (hat) rect(sx - hw, headY + 1, hw * 2 + 1, 1, hat); else rect(sx - hw + 1, headY + 1, 1, 1, hair);
-  if (!back) { rect(sx - 1, headY + 2, 1, 1, '#1c1c1c'); rect(sx + 1, headY + 2, 1, 1, '#1c1c1c'); }
-  if (up) { rect(sx - hw - 2, headY - 3, 2, torH, K); rect(sx + hw + 1, headY - 3, 2, torH, K); rect(sx - hw - 1, headY - 2, 1, torH - 2, skin); rect(sx + hw + 1, headY - 2, 1, torH - 2, skin); }
-  else { rect(sx - hw - 1, torY + 1, 1, torH - 1, shadeHex(shirt, 0.85)); rect(sx + hw + 1, torY + 1, 1, torH - 1, shadeHex(shirt, 0.85)); }
+// v8.91: fans with faces, hair, props (cap / shades / phone / rare DLG flag), idle weight shifts, eyes on the ball, foot shadows and shot reactions
+let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
+function crowdReactTo(kind) { if (!crowdOn() || SIM || REDUCED_MOTION) return; crowdReact = { kind, t: kind === 'clap' ? 1.6 : 1.4 }; if (kind === 'clap') noise(0.6, 0.02); else if (kind === 'ooh') noise(0.4, 0.015); }
+function drawFan(sx, gy, p, t, cheer, i) {
+  const back = p.row === 1, dim = back ? 0.8 : 1, night = themeOf(hole).stars ? 0.82 : 1, sh = c => shadeHex(c, dim * night), K = '#000';
+  const hs = (n) => hash(i * 31 + n * 7 + 3);
+  const skin = sh(SKINS[Math.floor(p.r * SKINS.length)]), skD = shadeHex(skin, 0.82), shirt = sh(CROWD_SHIRTS[Math.floor(p.r2 * CROWD_SHIRTS.length)]), shD = shadeHex(shirt, 0.78);
+  const pants = sh(CROWD_PANTS[Math.floor(p.r3 * CROWD_PANTS.length)]), hair = sh(HAIR_COLS[Math.floor(hs(1) * HAIR_COLS.length)][0]);
+  const cap = hs(2) < 0.32 ? sh(CROWD_HATS[Math.floor(hs(3) * CROWD_HATS.length)]) : null, shades = !back && hs(4) < 0.16, phone = !back && hs(5) < 0.1, flag = !phone && hs(6) < 0.06, longHair = !cap && hs(7) < 0.3;
+  const rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, beat = t * 9 + p.ph;
+  let pose = 'idle'; if (cheer) pose = 'up'; else if (rk === 'groan') pose = hs(8) < 0.55 ? 'head' : 'idle'; else if (rk === 'clap') pose = 'clap'; else if (rk === 'ooh') pose = 'ooh'; else if (Math.floor(t / 2.3 + p.ph) % 11 === 0 && hs(9) < 0.5) pose = 'clap';
+  if (phone && (cheer || (state === 'flight' && ball && ball.mode === 'air'))) pose = pose === 'up' ? 'up' : 'phone';
+  const hop = pose === 'up' ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (back ? 3 : 4)) : 0;
+  const shift = pose === 'idle' && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0 ? (hs(10) < 0.5 ? -1 : 1) : 0;
+  const lean = pose === 'ooh' ? (ball && ball.x > p.x ? 1 : -1) : 0;
+  const look = ball && ['flight', 'holed', 'penalty'].includes(state) ? Math.sign(Math.round(ball.x - p.x)) : (Math.floor(t / 4 + p.ph) % 2 ? 1 : 0);
+  const hw = back ? 2 : 3, legH = back ? 5 : 7, torH = back ? 5 : 7, headH = back ? 4 : 5;
+  const y0 = gy - hop, x = sx + shift, legY = y0 - legH, torY = legY - torH, ux = x + lean, headY = torY - headH;
+  ctx.globalAlpha = 0.28; rect(sx - hw - 2, gy - 1, hw * 2 + 5, 2, K); ctx.globalAlpha = 1;   // foot shadow (stays on the ground while they hop)
+  rect(x - hw - 1, legY - 1, hw * 2 + 3, legH + 1, K); rect(x - hw, legY, hw, legH - 1, pants); rect(x + 1, legY, hw, legH - 1, shadeHex(pants, 0.85)); rect(x - hw, y0 - 1, hw, 1, '#2c2018'); rect(x + 1, y0 - 1, hw, 1, '#2c2018');
+  rect(ux - hw - 1, torY - 1, hw * 2 + 3, torH + 2, K); rect(ux - hw, torY, hw * 2 + 1, torH, shirt); rect(ux + hw - 1, torY, 2, torH, shD); if (!back) rect(ux - 1, torY, 3, 1, shadeHex(shirt, 1.18));
+  const hx = ux + (look < 0 ? -1 : 0);
+  rect(hx - hw, headY - 1, hw * 2 + 1, headH + 2, K); rect(hx - hw + 1, headY, hw * 2 - 1, headH, skin); rect(hx + hw - 1, headY + 1, 1, headH - 1, skD);
+  if (cap) { rect(hx - hw, headY - 1, hw * 2 + 1, 2, cap); rect(hx + (look >= 0 ? hw : -hw - 1), headY, 2, 1, cap); }
+  else { rect(hx - hw + 1, headY, hw * 2 - 1, 1, hair); rect(hx - hw, headY, 1, longHair ? headH : 2, hair); rect(hx + hw, headY, 1, longHair ? headH : 2, hair); }
+  if (!back) {
+    const ex = hx + (look > 0 ? 1 : look < 0 ? -1 : 0);
+    if (shades) rect(ex - 2, headY + 2, 5, 1, '#101010'); else { rect(ex - 1, headY + 2, 1, 1, '#1c1c1c'); rect(ex + 1, headY + 2, 1, 1, '#1c1c1c'); }
+    if (pose === 'up' || pose === 'ooh') rect(ex, headY + 3, 1, 1, '#6c1c1c'); else if (pose === 'head') rect(ex - 1, headY + 4, 3, 1, '#6c1c1c');
+  }
+  const A = (ax, ay, w, h) => { rect(ax - 1, ay - 1, w + 2, h + 2, K); rect(ax, ay, w, h, skin); };
+  if (pose === 'up') { const wv = Math.sin(beat * 1.6 + 1) > 0 ? 1 : 0; A(ux - hw - 2, headY - 3 - wv, 1, torH); A(ux + hw + 1, headY - 3 - (1 - wv), 1, torH); }
+  else if (pose === 'head') { A(ux - hw - 2, headY - 1, 1, torH - 1); A(ux + hw + 1, headY - 1, 1, torH - 1); rect(hx - hw + 1, headY - 1, hw * 2 - 1, 1, skin); }
+  else if (pose === 'clap') { const c = Math.sin(beat * 2.2) > 0; rect(ux - hw - 1, torY + 1, 1, 3, shD); rect(ux + hw + 1, torY + 1, 1, 3, shD); rect(ux - (c ? 1 : 2), torY + 2, 1, 2, skin); rect(ux + (c ? 1 : 2), torY + 2, 1, 2, skin); }
+  else if (pose === 'phone') { rect(ux - hw - 1, torY + 1, 1, torH - 2, shD); A(ux + hw + 1, headY - 2, 1, torH - 1); rect(ux + hw, headY - 6, 3, 4, K); rect(ux + hw + 1, headY - 5, 1, 2, '#bcf0fc'); }
+  else { rect(ux - hw - 1, torY + 1, 1, torH - 1, shD); rect(ux + hw + 1, torY + 1, 1, torH - 1, shD); rect(ux - hw - 1, torY + torH, 1, 1, skin); rect(ux + hw + 1, torY + torH, 1, 1, skin);
+    if (flag) { const fx = ux + hw + 1, wv = Math.floor(t * 4 + p.ph) % 2; rect(fx, torY - 7, 1, torH + 6, '#e0e0e0'); rect(fx + 1, torY - 7, 5, 4 - wv, '#f83800'); rect(fx + 2, torY - 6, 3, 1, '#fcfcfc'); } }
 }
 function drawCrowd(hl, cam, C) {
   if (!crowdOn()) return;
@@ -10039,7 +10066,8 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  trailT(id) { trailTestId = id || null; return gearTrailId(); }, flightT() { return JSON.stringify({ st: state, mode: ball && ball.mode, n: TP.list.length, t: trail.length, h: ball ? Math.round(ball.h) : 0, x: ball ? Math.round(ball.x - camX) : 0, y: ball ? Math.round(BASE - ball.h) : 0, W }); },   // v8.89 test hooks
+  window.__golf = {  reactT(k) { crowdReactTo(k); return !!crowdReact; },   // v8.91 test hook
+    trailT(id) { trailTestId = id || null; return gearTrailId(); }, flightT() { return JSON.stringify({ st: state, mode: ball && ball.mode, n: TP.list.length, t: trail.length, h: ball ? Math.round(ball.h) : 0, x: ball ? Math.round(ball.x - camX) : 0, y: ball ? Math.round(BASE - ball.h) : 0, W }); },   // v8.89 test hooks
     galT(yd, ace) { if (state === 'intro') { try { introEnd(true); } catch (e) {} } roundTip = false; camX = clamp(hole.cup - W / 2, CAM_MIN, camMax()); if (yd == null) return JSON.stringify({ st: state, kind: courseKind, cup: hole.cup, n: crowdSpots(hole).length });
       strokes = ace ? 1 : 2; clubIdx = WEDGE_I; if (!ball) return 'noball'; ball.shotFrom = hole.cup - yd; ball.x = hole.cup; resolveBall('cup'); return JSON.stringify(galZ); }, galState() { return JSON.stringify({ st: state, g: galZ, ct: crowdT, rm: REDUCED_MOTION }); },   // v8.87 test hook
     cupBoardT(rows, myIg, signed) { if (signed) { account.user = Object.assign({ id: 'test-user', expires_at: 9e9 }, account.user || {}); account.profile = Object.assign({}, account.profile || {}, { username: 'scorey' }); } cupMyIg = myIg || ''; if (!board || board.modeId !== 'spooky') openBoard(null, 'spooky'); board.rows = rows; board.hi = -1; board.src = 'online'; st = 1; return board.modeId; }, snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, aimShotT(dx, c, a) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; },
