@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.89">
+<meta name="dlg-version" content="v8.90">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" href="/favicon.ico?v=88" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png?v=88">
@@ -231,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.89';
+const GAME_VERSION = 'v8.90';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4766,7 +4766,7 @@ function loadBoardTab() {
   (pendingSave || Promise.resolve()).catch(() => {}).then(() => loadBoard(b.modeId, b.modeId === 'spooky' ? 'all' : boardPeriod, boardScope)).catch(() => ({ rows: [], src: 'error' })).then(res => {
     if (board !== b || b.gen !== gen) return;
     const rows = (res && res.rows) || [];
-    b.rows = rows; b.me = res.me || null; b.src = res.src || ''; b.needSignIn = !!res.needSignIn; b.pendingMode = !!res.pendingMode;
+    b.rows = rows; b.t0 = performance.now(); b.me = res.me || null; b.src = res.src || ''; b.needSignIn = !!res.needSignIn; b.pendingMode = !!res.pendingMode;
     const entry = b.entry;
     if (entry && lbModeId(entry.mode) === b.modeId) {
       const nm = isSignedIn() && hasUsername() ? null : entry.name;
@@ -5981,6 +5981,9 @@ cv.addEventListener('pointerdown', e => {
     const bo = boardOrigin(), ir = board && board.igRects && board.igRects.find(q => hit(p, { x: q.x + bo.x, y: q.y + bo.y, w: q.w, h: q.h }));
     if (ir) armUiTap('big', () => { SFX.click(); if (ir.ig) { try { window.open('https://www.instagram.com/' + encodeURIComponent(ir.ig) + '/', '_blank', 'noopener'); } catch (er) {} } else showAcct('spookyIg', { ig: '' }); }, () => true, e);   // v8.61
     else if (tb) armUiTap('btab', () => boardSetTab(tb.kind, tb.v), () => true, e);
+    else if (board && board.rowRects && (() => { const rr = board.rowRects.find(q => hit(p, { x: q.x + bo.x, y: q.y + bo.y, w: q.w, h: q.h })); if (!rr) return false;
+      const f = (social.friends || []).find(f => f.status === 'accepted' && String(f.friend_username || '').toUpperCase() === rr.name.toUpperCase()); if (!f) return false;
+      armUiTap('brow', () => { SFX.click(); showAcct('friendProfile', { user: f.friend_username, loading: true }); }, () => true, e); return true; })()) {}   // v8.90: tap a friend's row = their profile
     else if (st > 0.3) armUiTap('board', () => closeBoard(), () => true, e);
     touchDown = null; return;
   }
@@ -7990,6 +7993,7 @@ function renderBoardPanel() {
     if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828'); drawText(t.label, t.x + 4, t.y + 2, on ? '#000' : COL.gray); continue; }   // v8.61 IG chip (pink)
     rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
     drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
+    if (on) { rect(t.x, t.y + t.h - 1, t.w, 1, '#c89838'); rect(t.x + 1, t.y, t.w - 2, 1, '#fcf0b8'); }   // v8.90: lit top edge + shaded base
   }
   const hy = 60;
   const sx = cup ? 214 : 162, px = cup ? 240 : 189;   // v8.61: SPOOKY CUP has no date column - IG gets its own line
@@ -8006,12 +8010,20 @@ function renderBoardPanel() {
     drawTextC(boardScope === 'friends' ? 'ADD FRIENDS ON THE CAREER SCREEN' : boardPeriod === 'weekly' ? 'NEW WEEK EVERY MONDAY' : 'FINISH A ROUND TO', 118, COL.gray);
     if (boardScope !== 'friends') drawTextC('GET ON THE BOARD', 128, COL.gray);
   }
-  else { board.igRects = []; let yy = 73; rows.forEach((r, i) => {
+  else { board.igRects = []; board.rowRects = []; let yy = 73; const nowMs = performance.now(), tIn = (nowMs - (board.t0 || 0)) / 1000; rows.forEach((r, i) => {
     const me = i === board.hi || r.me, own = r.verified && isSignedIn() && hasUsername() && String(r.name).toUpperCase() === myName();
     const ig = cup ? (r.ig || (own ? '' : null)) : null, two = cup && ig != null, rh = two ? 21 : 12;
     if (yy + rh - 3 > 194) return;   // keep inside the board
     const y = yy; yy += rh;
+    // v8.90: rows ease in one after another (alpha + a short slide), once per load
+    const ain = REDUCED_MOTION ? 1 : clamp((tIn - i * 0.045) / 0.22, 0, 1); if (ain <= 0) return;
+    ctx.save(); if (ain < 1) { ctx.globalAlpha = ain; ctx.translate(Math.round(10 * (1 - ain) * (1 - ain)), 0); }
     if (me) rect(12, y - 2, 232, rh - 1, COL.blueD);
+    else if (i < 3) {   // v8.90: gold / silver / bronze band + a slow shine sweep
+      const mc = MEDALS[i][0], ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.16; rect(12, y - 2, 232, rh - 1, mc); ctx.globalAlpha = ga * 0.5; rect(12, y - 2, 1, rh - 1, mc);
+      if (!REDUCED_MOTION) { const ph = ((nowMs / 1000 + i * 0.35) % 4) / 1.1; if (ph < 1) { const sx0 = Math.round(12 + ph * 232); ctx.globalAlpha = ga * 0.22; rect(sx0, y - 2, 3, rh - 1, '#fcfcfc'); rect(sx0 + 4, y - 2, 1, rh - 1, '#fcfcfc'); } }
+      ctx.globalAlpha = ga; }
+    if (r.verified) board.rowRects.push({ x: 12, y: y - 2, w: 232, h: rh - 1, name: String(r.name) });
     const c = me ? '#f8d878' : COL.white;
     if (i < 3) drawMedal(15, y - 1, i); else drawTextR(String(i + 1), 24, y, c);
     let nx = 40;
@@ -8019,7 +8031,7 @@ function renderBoardPanel() {
     const nm = r.name.length > 14 ? r.name.slice(0, 14) : r.name;
     drawText(nm, nx, y, c); if (r.verified) drawCheck(nx + textW(nm) + 2, y - 1);
     drawTextR(String(r.strokes), sx, y, c);
-    drawTextR(fmtRel(r.to_par), px, y, me ? c : (r.to_par <= 0 ? COL.lime : COL.orange));
+    drawTextR(fmtRel(r.to_par), px, y, me ? c : (r.to_par < 0 ? COL.lime : r.to_par > 0 ? COL.orange : COL.white));   // v8.90: even par reads white
     if (!cup) drawText(fmtDate(r.created_at), 195, y, me ? c : COL.gray);
     else if (two) {   // v8.61: full @handle on its own line, tap = open Instagram (own row without one: + ADD IG)
       const lab = ig ? '@' + ig.toUpperCase() : '+ ADD IG', w = textW(lab);
@@ -8027,12 +8039,21 @@ function renderBoardPanel() {
       if (ig) rect(40, y + 18, w, 1, '#7c3c6c');
       board.igRects.push({ x: 38, y: y + 7, w: w + 4, h: 13, ig: ig || '' });
     }
+    ctx.restore();
   }); }
   rect(14, 195, 228, 1, '#3c3c3c');
   if (rows && !board.needSignIn) {
     const m = board.me, e = board.entry;
     if (board.hi >= 0 && e) drawTextC('NICE ROUND, ' + e.name + '!', 200, COL.lime);
-    else if (m && m.rank > 0) drawTextC('YOUR RANK ' + m.rank + ' OF ' + m.total + '  BEST ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, '#f8d878');
+    else if (m && m.rank > 0) {   // v8.90: pinned YOU row - your rank, bust, name and best, always on screen
+      const y = 200, sx = cup ? 214 : 162, px = cup ? 240 : 189, c = '#f8d878';
+      rect(12, y - 3, 232, 13, COL.blueD); rect(12, y - 3, 232, 1, '#3cbcfc');
+      drawTextR(String(m.rank), 24, y, c);
+      try { if (isSignedIn()) { const g = playerBust(lookToJson(player), gearEquipped(), 'sm'); if (g) ctx.drawImage(g, 27, y - 2); } } catch (e) {}
+      const nm = (isSignedIn() && hasUsername() ? myName() : 'YOU').slice(0, 14); drawText(nm, 40, y, c);
+      drawTextR(String(m.strokes), sx, y, c); drawTextR(fmtRel(m.to_par), px, y, c);
+      if (!cup) drawText('OF ' + m.total, 195, y, COL.gray);
+    }
     else if (m) drawTextC('YOUR BEST: ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, '#f8d878');
     else if (e && lbModeId(e.mode) === board.modeId) drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 200, COL.orange);
     else drawTextC(cup ? 'BEST SINGLE ROUND COUNTS' : boardPeriod === 'weekly' ? 'WEEK STARTS MONDAY 12AM ET' : 'ALL-TIME BEST SCORES', 200, COL.gray);
