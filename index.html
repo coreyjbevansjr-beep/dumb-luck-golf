@@ -12,7 +12,7 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.86">
+<meta name="dlg-version" content="v8.87">
 <link rel="canonical" href="https://dumbluckgolf.com/">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
@@ -229,7 +229,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.86';
+const GAME_VERSION = 'v8.87';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5413,6 +5413,7 @@ function action() {
   if (state === 'aim') { meter.pos = 0; meter.dir = 1; meter.short = shortGameNow(); for (const k in held) delete held[k]; setState('power'); SFX.tick(); return; }
   if (state === 'power') { meter.power = Math.max(0.02, meterLive()); meter.acc = meter.power; setState('accuracy'); SFX.tick(); return; }   // v8.22: return sweep starts at the power point again (v8.21's fixed 0.6 start made the marker jump)
   if (state === 'accuracy') { commitAccuracy(meterLive()); return; }
+  if (galZ && galZ.on && galZ.t >= 0 && state === 'holed') { galZ.skip = true; return; }   // v8.87: tap skips the gallery beat
   if (state === 'holed' && replay && replay.t >= 0) { replay = null; st = holedDur + 1; return; }   // v8.76: tap skips the replay
   if (state === 'done' && st > 0.8) { nextHole(); return; }
   if (state === 'card' && st > 1.2) { if (courseKind === 'lbi') { lbiAfterCard(); return; } if (courseKind === 'match' && matchAfterRound()) return; if (courseKind === 'quick3') { openBoard(null, 'front9'); return; } openBoard(lastEntry, lastEntry && lastEntry.mode); return; }
@@ -5557,7 +5558,8 @@ function resolveBall(r) {
     holedDur = strokes === 1 ? 2.4 : 0.9;
     if (strokes === 1) celebrateAce();
     else if (clubIdx !== PUTT_I) celebrateHoleOut();
-    if (clubIdx !== PUTT_I && !SIM) replayArm(strokes === 1 ? 2.3 : 1.5);   // v8.76 instant replay
+    galZ = null; if (clubIdx !== PUTT_I && !SIM) { try { galArm(Math.abs(ball.x - (ball.shotFrom || lastSpot))); } catch (e) {} }   // v8.87
+    if (clubIdx !== PUTT_I && !SIM) replayArm(galZ ? Math.max(strokes === 1 ? 2.3 : 1.5, galZ.at + galZ.dur + 0.1) : (strokes === 1 ? 2.3 : 1.5));   // v8.76 instant replay
     setState('holed'); return;
   }
   if (r === 'water' || r === 'ob') {
@@ -6078,6 +6080,7 @@ function update(dt) {
   if (angFlash > 0) angFlash -= dt;
   if (flagRattle > 0) flagRattle -= dt;   // v8.76
   if (crowdT > 0) crowdT -= dt;   // v8.80
+  galTick(dt);   // v8.87
   updateWildlife(dt);
   if (courseKind === 'match') { try { ghostTick(dt); } catch (e) {} }
   if (wildBark) { wildBark.t += dt; if (wildBark.t > wildBark.hold + 0.25) wildBark = null; }
@@ -6616,29 +6619,66 @@ let crowdT = 0;
 const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
 function crowdOn() { return courseKind === 'spooky' || courseKind === 'lbi'; }
 function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); noise(0.9, 0.035); noise(0.5, 0.025, 0.35); }
+// v8.87: a real gallery - golfer-scale spectators in two depth rows along a rope line beside and behind the green (never on it), varied looks
+const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24402c'];
+const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d878'];
 function crowdSpots(hl) {
   if (hl._crowd) return hl._crowd;
-  const out = [], ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green'; };
-  for (let i = 0; i < 3; i++) { const x = TEE_X + 20 + i * 7; if (ok(x)) out.push(x); }   // tee box gallery (just past the tee, visible in portrait too)
+  const out = [], ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green' && s !== 'sand'; };
   let g0 = hl.cup, g1 = hl.cup; while (g0 > 0 && surfAt(hl, g0 - 1) === 'green') g0--; while (g1 < hl.len && surfAt(hl, g1 + 1) === 'green') g1++;
-  const far = []; for (let x = g1 + 10; x <= Math.min(hl.len - 6, g1 + 52); x += 7) if (ok(x)) far.push(x);
-  if (far.length >= 3) out.push(...far.slice(0, 6));
-  else for (let x = g0 - 12; x >= Math.max(30, g0 - 54); x -= 7) if (ok(x)) out.push(x);
-  return (hl._crowd = out.slice(0, 10));
+  const R = mulberry32(((hl.len | 0) * 2654435761 + (hl.cup | 0)) >>> 0), add = (x, row) => { if (ok(x) && x > TEE_X + 40) out.push({ x, row, r: R(), r2: R(), r3: R(), ph: R() * 6.28 }); };
+  // behind the green: a fuller section; beside the front edge: a short run. Back row sits between front-row people.
+  for (let x = g1 + 7, n = 0; x <= Math.min(hl.len - 5, g1 + 58) && n < 9; x += 6 + Math.floor(R() * 3), n++) { add(x, 0); if (n % 2 === 0) add(x + 3, 1); }
+  if (out.length < 5) for (let x = g0 - 14, n = 0; x >= Math.max(TEE_X + 40, g0 - 44) && n < 4; x -= 7 + Math.floor(R() * 3), n++) { add(x, 0); if (n % 2) add(x - 3, 1); }   // short room behind: fill in short of the green
+  out.sort((p, q) => q.row - p.row);   // back row first
+  return (hl._crowd = out.slice(0, 16));
+}
+function drawFan(sx, gy, p, t, cheer, i) {   // front row ~20 px tall (golfer ~26), back row ~16 px and a touch darker
+  const back = p.row === 1, k = back ? 0.82 : 1, dim = back ? 0.78 : 1, night = themeOf(hole).stars ? 0.85 : 1, sh = c => shadeHex(c, dim * night);
+  const skin = sh(SKINS[Math.floor(p.r * SKINS.length)]), shirt = sh(CROWD_SHIRTS[Math.floor(p.r2 * CROWD_SHIRTS.length)]), pants = sh(CROWD_PANTS[Math.floor(p.r3 * CROWD_PANTS.length)]);
+  const hair = sh(HAIR_COLS[Math.floor(hash(i * 11 + 7) * HAIR_COLS.length)][0]), hat = hash(i * 3 + 1) < 0.4 ? sh(CROWD_HATS[Math.floor(hash(i * 9 + 2) * CROWD_HATS.length)]) : null;
+  const hop = cheer ? Math.round(Math.max(0, Math.sin(t * 11 + p.ph)) * (back ? 3 : 4)) : 0, up = cheer && Math.sin(t * 11 + p.ph + 0.6) > -0.6;
+  const hw = back ? 2 : 3, legH = Math.round(7 * k), torH = Math.round(7 * k), headH = back ? 4 : 5, y0 = gy - hop, K = '#000';
+  const legY = y0 - legH, torY = legY - torH, headY = torY - headH;
+  rect(sx - hw - 1, headY - 1, hw * 2 + 3, gy - headY + 1 - hop, K);   // one outline block (cheap)
+  rect(sx - hw, legY, hw, legH - 1, pants); rect(sx + 1, legY, hw, legH - 1, pants); rect(sx - hw, y0 - 1, hw, 1, sh('#3c2c1c')); rect(sx + 1, y0 - 1, hw, 1, sh('#3c2c1c'));
+  rect(sx - hw, torY, hw * 2 + 1, torH, shirt); rect(sx + hw, torY, 1, torH, shadeHex(shirt, 0.8));
+  rect(sx - hw + 1, headY, hw * 2 - 1, headH, skin); rect(sx - hw + 1, headY, hw * 2 - 1, 1, hat || hair); if (hat) rect(sx - hw, headY + 1, hw * 2 + 1, 1, hat); else rect(sx - hw + 1, headY + 1, 1, 1, hair);
+  if (!back) { rect(sx - 1, headY + 2, 1, 1, '#1c1c1c'); rect(sx + 1, headY + 2, 1, 1, '#1c1c1c'); }
+  if (up) { rect(sx - hw - 2, headY - 3, 2, torH, K); rect(sx + hw + 1, headY - 3, 2, torH, K); rect(sx - hw - 1, headY - 2, 1, torH - 2, skin); rect(sx + hw + 1, headY - 2, 1, torH - 2, skin); }
+  else { rect(sx - hw - 1, torY + 1, 1, torH - 1, shadeHex(shirt, 0.85)); rect(sx + hw + 1, torY + 1, 1, torH - 1, shadeHex(shirt, 0.85)); }
 }
 function drawCrowd(hl, cam, C) {
   if (!crowdOn()) return;
-  const t = performance.now() / 1000, cheer = crowdT > 0 && !REDUCED_MOTION;
-  crowdSpots(hl).forEach((x, i) => {
-    const sx = Math.round(x - cam); if (sx < -4 || sx > W + 4) return;
-    const gy = Math.round(BASE - groundH(hl, x)), r = hash(i * 17 + (hl.len | 0)), hop = cheer ? Math.round(Math.abs(Math.sin(t * 13 + i * 1.7)) * 2) : 0;
-    const y = gy - 9 - hop, shirt = CROWD_SHIRTS[Math.floor(r * CROWD_SHIRTS.length)], skin = SKINS[Math.floor(hash(i * 5 + 3) * SKINS.length)];
-    rect(sx - 2, y - 1, 5, 11 + hop, '#000');                 // outline
-    rect(sx - 1, y, 3, 2, skin);                             // head
-    rect(sx - 1, y + 2, 3, 4, shirt);                        // shirt
-    rect(sx - 1, y + 6, 1, 3, '#2c2c3c'); rect(sx + 1, y + 6, 1, 3, '#2c2c3c');   // legs
-    if (cheer && Math.floor(t * 8 + i) % 2) { rect(sx - 2, y - 2, 1, 3, skin); rect(sx + 2, y - 2, 1, 3, skin); }   // arms up
+  const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl);
+  let rx0 = 1e9, rx1 = -1e9;
+  sp.forEach((p, i) => {
+    const sx = Math.round(p.x - cam); if (sx < -8 || sx > W + 8) return;
+    const gy = Math.round(BASE - groundH(hl, p.x)) - (p.row ? 2 : 0); drawFan(sx, gy, p, t, cheer, i);
+    if (!p.row) { rx0 = Math.min(rx0, sx - 5); rx1 = Math.max(rx1, sx + 5); }
   });
+  // rope line in front of the front row: posts + a sagging rope at knee height
+  if (rx1 > rx0) for (let sx = Math.max(0, rx0); sx <= Math.min(W - 1, rx1); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)) + 1, ph = ((sx - rx0) % 12 + 12) % 12;
+    if (surfAt(hl, x) === 'green') continue; if (ph === 0) rect(sx, gy - 6, 1, 6, '#fcfcfc'); else rect(sx, gy - 5 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, '#f83800'); }
+}
+/* v8.87 gallery zoom: on a long hole-out (ace, or a non-putt holed from 20+ yd) at a gallery event, a short push-in on the cheering crowd, then back. Tap skips. Screen-space post zoom (one drawImage). */
+let galZ = null, galCv = null;
+function galArm(fromYd) {
+  if (!crowdOn() || SIM || REDUCED_MOTION) return; const ace = strokes === 1; if (!ace && fromYd < 20) return;
+  const sp = crowdSpots(hole).filter(p => !p.row); if (!sp.length) return;
+  const pref = sp.filter(p => p.x > hole.cup); let best = (pref.length ? pref : sp)[0]; for (const p of (pref.length ? pref : sp)) if (Math.abs(p.x - hole.cup) < Math.abs(best.x - hole.cup)) best = p;
+  const grp = sp.filter(p => Math.abs(p.x - best.x) < 26), fx = grp.reduce((a, p) => a + p.x, 0) / grp.length;
+  galZ = { on: true, at: 0.35, dur: ace ? 1.5 : 1.2, x: fx, t: -1 };
+}
+function galEnv() { if (!galZ || !galZ.on || galZ.t < 0) return 0; const u = galZ.t / galZ.dur; if (u >= 1) return 0; const e = x => x * x * (3 - 2 * x); return u < 0.25 ? e(u / 0.25) : u > 0.75 ? e((1 - u) / 0.25) : 1; }
+function galTick(dt) { if (!galZ || !galZ.on) return; if (state !== 'holed' || galZ.skip) { galZ.on = false; return; } if (galZ.t < 0) { if (st >= galZ.at) galZ.t = 0; } else { galZ.t += dt; if (galZ.t >= galZ.dur) galZ.on = false; } if (galZ.on && galZ.t >= 0) { const want = clamp(galZ.x - W / 2, CAM_MIN, camMax()); camX = lerp(camX, want, Math.min(1, dt * 7)); } }   // pan so the whole group is in frame (narrow screens)
+function galDraw() {
+  const e = galEnv(); if (e <= 0.001) return; const cv0 = ctx.canvas, Z = 1 + 1.5 * e;
+  if (!galCv) galCv = document.createElement('canvas'); if (galCv.width !== cv0.width || galCv.height !== cv0.height) { galCv.width = cv0.width; galCv.height = cv0.height; }
+  const g2 = galCv.getContext('2d'); g2.imageSmoothingEnabled = false; g2.drawImage(cv0, 0, 0);
+  const sc = cv0.width / W, fxs = clamp(galZ.x - camX, 0, W), fys = clamp(BASE - groundH(hole, galZ.x) - 12, 0, PLAY_H);
+  const vw = W / Z, vh = PLAY_H / Z, x0 = clamp(fxs - vw / 2, 0, W - vw), y0 = clamp(fys - vh * 0.6, 0, PLAY_H - vh);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(galCv, x0 * sc, y0 * sc, vw * sc, vh * sc, 0, 0, W * sc, PLAY_H * sc); ctx.restore();
 }
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
@@ -9336,6 +9376,7 @@ function renderScene() {
   if (fx.flash > 0) { ctx.globalAlpha = clamp(fx.flash / 0.18, 0, 1) * (REDUCED_MOTION ? 0.12 : 0.7); rect(0, 0, W, PLAY_H, fx.flashCol); ctx.globalAlpha = 1; }
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
+  try { galDraw(); } catch (e) {}   // v8.87 gallery zoom (world only, under the HUD)
   flushAimDots();   // v8.70
   try { drawHidden(); } catch (e) {}   // v8.77 flyover highlights
   try { drawYardage(); } catch (e) {}   // v8.70 pin distance + carry / roll
@@ -9925,7 +9966,9 @@ consumeAuthRedirect().then(() => {   // career v2
 }).catch(() => {});
 /* ---------------- test + preview hooks (only active with #test / #preview in the URL) ---------------- */
 if (/test/.test(location.hash)) {
-  window.__golf = {  cupBoardT(rows, myIg, signed) { if (signed) { account.user = Object.assign({ id: 'test-user', expires_at: 9e9 }, account.user || {}); account.profile = Object.assign({}, account.profile || {}, { username: 'scorey' }); } cupMyIg = myIg || ''; if (!board || board.modeId !== 'spooky') openBoard(null, 'spooky'); board.rows = rows; board.hi = -1; board.src = 'online'; st = 1; return board.modeId; }, snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, aimShotT(dx, c, a) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; },
+  window.__golf = {  galT(yd, ace) { if (state === 'intro') { try { introEnd(true); } catch (e) {} } roundTip = false; camX = clamp(hole.cup - W / 2, CAM_MIN, camMax()); if (yd == null) return JSON.stringify({ st: state, kind: courseKind, cup: hole.cup, n: crowdSpots(hole).length });
+      strokes = ace ? 1 : 2; clubIdx = WEDGE_I; if (!ball) return 'noball'; ball.shotFrom = hole.cup - yd; ball.x = hole.cup; resolveBall('cup'); return JSON.stringify(galZ); }, galState() { return JSON.stringify({ st: state, g: galZ, ct: crowdT, rm: REDUCED_MOTION }); },   // v8.87 test hook
+    cupBoardT(rows, myIg, signed) { if (signed) { account.user = Object.assign({ id: 'test-user', expires_at: 9e9 }, account.user || {}); account.profile = Object.assign({}, account.profile || {}, { username: 'scorey' }); } cupMyIg = myIg || ''; if (!board || board.modeId !== 'spooky') openBoard(null, 'spooky'); board.rows = rows; board.hi = -1; board.src = 'online'; st = 1; return board.modeId; }, snapT() { const p0 = paused, o0 = ov; paused = false; ov = null; render(); const u = cv.toDataURL('image/png'); paused = p0; ov = o0; return u; }, get hbT() { return hb ? hb.t : -1; }, updateT(dt, n) { for (let i = 0; i < n && state === 'flight'; i++) update(typeof dt === 'function' ? dt() : dt); return state; }, get shotPred() { return shotPred; }, get hbOn() { return !!hb; }, get stateT() { return state; }, aimShotT(dx, c, a) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; },
     swingShotT(dx, c, a, p, seed) { placeBall(clamp(hole.cup - dx, 2, hole.len - 2)); setState('aim'); camX = camTarget(); clubIdx = c; angle = a; facing = shotFacing = 1; meter.power = p; errPx = 0; shotSweet = true; shotPerfect = false; setState('power'); meter.pos = 0; meter.dir = 1; this._sw = { p, seed: seed >>> 0 }; },
     swingGoT() { const s = this._sw; meter.power = s.p; errPx = 0; shotSweet = true; shotPerfect = false; testSeed = s.seed; setState('swing'); },
     seedShotT(dx, c, a, p, seed) { testSeed = seed >>> 0; return this.liveShotT(dx, c, a, p); },
