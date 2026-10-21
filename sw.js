@@ -1,19 +1,19 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v167';
+const CACHE = 'dlg-golf-v168';
 // v8.20+: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
 const PRECACHE = [
   './',
   './manifest.webmanifest',
   './manifest.webmanifest?v=81',
-  './favicon-32.png',
-  './favicon-32.png?v=81',
-  './icon-192.png',
-  './icon-192.png?v=81',
-  './icon-512.png',
-  './icon-192-maskable.png',
-  './icon-512-maskable.png',
-  './apple-touch-icon.png',
-  './apple-touch-icon.png?v=81',
+  './manifest.webmanifest?v=88',
+  './favicon.ico?v=88',
+  './favicon-48.png?v=88',
+  './favicon-96.png?v=88',
+  './icon-192.png?v=88',
+  './icon-512.png?v=88',
+  './icon-192-maskable.png?v=88',
+  './icon-512-maskable.png?v=88',
+  './apple-touch-icon.png?v=88',
   './og-image.png',
   './shop/lucky-marker-front.webp?v=848',
   './shop/lucky-marker-back.webp?v=848',

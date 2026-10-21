@@ -12,13 +12,15 @@
 <title>Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards</title>
 <meta name="description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta name="author" content="Dumb Luck Golf">
-<meta name="dlg-version" content="v8.87">
+<meta name="dlg-version" content="v8.88">
 <link rel="canonical" href="https://dumbluckgolf.com/">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=81">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=81">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=81">
-<link rel="manifest" href="manifest.webmanifest?v=81">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" href="/favicon.ico?v=88" sizes="16x16 32x32 48x48">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png?v=88">
+<link rel="icon" type="image/png" sizes="96x96" href="favicon-96.png?v=88">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=88">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png?v=88">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=88">
+<link rel="manifest" href="manifest.webmanifest?v=88">
 <meta property="og:title" content="Dumb Luck Golf – Free Retro Pixel Golf Game | Daily Hole &amp; Leaderboards">
 <meta property="og:description" content="Play Dumb Luck Golf, a free retro pixel golf game: Front 9, Back 9, Full 18 and a new Daily hole every day. Post your score on the leaderboard.">
 <meta property="og:type" content="website">
@@ -177,7 +179,7 @@
   #acct .lbipz img{margin:4px auto 0;image-rendering:auto}
   #acct .lbidim{color:#7c8cac;text-decoration:none;text-align:center;line-height:44px}
 </style>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
 <body>
 <div id="groundFill" aria-hidden="true"></div>
@@ -229,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.87';
+const GAME_VERSION = 'v8.88';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
