@@ -231,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.92';
+const GAME_VERSION = 'v8.93';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1095,6 +1095,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   line(ex, ey, hx, hy, look.skin); line(ex, ey + 1, hx, hy + 1, look.skin);
   rect(hx - 1, hy - 1, 3, 4, K); rect(hx, hy, 2, 2, look.glove || look.skin);     // hands / glove
   if (GA && GA.hands === 'birdie_glove') rect(dir > 0 ? hx + 1 : hx, hy, 1, 1, '#3cbcfc');
+  try { v93GearFx(sx, gy, dir, look, GA, hst, pk, pose); } catch (e) {}   // v8.93 gear shine + tee cap-tip
 }
 // v8.66: equipped gear on the in-game golfer. look.gear = { slot: itemId }; art ids resolve through the catalog (admin items reuse art)
 const PLAY_GEAR_SLOTS = ['head', 'face', 'neck', 'hands', 'torso', 'held'];
@@ -6536,11 +6537,11 @@ function drawCart(layer, viewX) {
 /* ---------------- wildlife: cosmetic only (never touches the ball, scoring, or physics) ----------------
    Small cute critters (~1/3.5 chance per hole ≈ every 3–4 holes, at most once). Pause freezes them (updateWildlife runs inside update).
    Pending delay ticks during aim/power/accuracy so they still show up around the backswing. */
-const WILD_CHANCE = 1 / 3.5;
+const WILD_CHANCE = 1 / 4.5;   // v8.93: fewer, more natural
 const wildSpr = (rows, map) => { const c = mk(rows[0].length, rows.length), g = c.getContext('2d');
   rows.forEach((r, y) => [...r].forEach((ch, x) => { if (map[ch]) { g.fillStyle = map[ch]; g.fillRect(x, y, 1, 1); } })); return c; };
 const flipSpr = img => { const c = mk(img.width, img.height), g = c.getContext('2d'); g.translate(img.width, 0); g.scale(-1, 1); g.drawImage(img, 0, 0); return c; };
-const WMAP = { k: '#000', b: '#b86c28', d: '#6c3410', t: '#fcd8a8', w: '#fcfcfc', o: '#fc9838', g: '#58d854', G: '#00a800', a: '#80d010', y: '#f8d878', n: '#3c3c3c' };
+const WMAP = { k: '#2c2018', b: '#94704c', d: '#5c3c1c', t: '#d8b494', w: '#ece4d8', o: '#c88838', g: '#6c9c4c', G: '#3c6c2c', a: '#8cac5c', y: '#8c6c4c', n: '#3c3c3c' };   // v8.93 natural tones
 const WILD_FR = {};
 (function buildWild() {
   const mkF = (rows) => { const a = wildSpr(rows, WMAP); return { R: a, L: flipSpr(a) }; };
@@ -6629,7 +6630,7 @@ const WILD_FR = {};
       '.kyyyyk...',
       '..kok.....'])];
 })();
-const WILD_LABEL = { squirrel: 'A SQUIRREL!', turtle: 'A TURTLE!', rabbit: 'A RABBIT HOPS BY!', bird: 'A LITTLE BIRD!', birds: 'BIRDS OVERHEAD!' };
+const WILD_LABEL = { squirrel: 'A SQUIRREL!', turtle: 'A TURTLE!', rabbit: 'A RABBIT HOPS BY!', bird: 'A LITTLE BIRD!', birds: 'BIRDS OVERHEAD!', ducks: 'DUCKS!' };
 const WILD_SPEED = { squirrel: 34, turtle: 8, rabbit: 28, bird: 18, birds: 48 };
 const WILD_SCALE = { squirrel: 2, turtle: 2, rabbit: 2, bird: 2, birds: 2 };   // tiny x2 — still smaller than the dog (~32px)
 let wildlife = null;
@@ -6644,7 +6645,7 @@ function waterSpan(hl) {
 function pickWildlifeKind(hl) {
   const pool = ['rabbit', 'rabbit', 'bird', 'bird', 'birds', 'squirrel'];
   if (holeTreeXs(hl).length) pool.push('squirrel', 'squirrel');
-  if (holeHasWater(hl)) pool.push('turtle', 'turtle', 'turtle');
+  if (holeHasWater(hl)) pool.push('ducks', 'ducks', 'ducks', 'turtle');
   if (hl.theme === 'desert') return (['rabbit', 'bird', 'birds', 'squirrel'])[Math.floor(Math.random() * 4)];
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -6659,14 +6660,15 @@ function scheduleWildlife(forceKind) {
 }
 function beginWildlife(kind) {
   const key = kind === 'birds' ? 'birdfly' : kind;
-  if (!hole || !WILD_FR[key]) return;
+  if (!hole || (!WILD_FR[key] && kind !== 'ducks')) return;
   let dir = Math.random() < 0.5 ? 1 : -1;
   const cam = camX, left = cam - 30, right = cam + W + 30;
   let wx, wy = 0, flock = null, hop = 0, climb = 0, linger = 0;
+  if (kind === 'ducks') { if (v93Ducks(cam)) return; return beginWildlife('rabbit'); }
   if (kind === 'birds') {
     wx = dir > 0 ? left - 10 : right + 10;
     wy = 22 + Math.floor(Math.random() * 40);
-    flock = [0, 11, 22, 33].map((dx, i) => ({ dx: dir > 0 ? -dx : dx, dy: (i % 2) * 4 - 1 }));
+    flock = v93Flock(dir, cam);   // v8.93: loose V, own wingbeats, may land and peck
   } else if (kind === 'turtle') {
     const sp = waterSpan(hole); if (!sp) return beginWildlife('rabbit');
     wx = rnd(sp.a - 6, sp.a + 4);
@@ -6685,7 +6687,8 @@ function beginWildlife(kind) {
   } else {
     wx = dir > 0 ? left : right;
   }
-  wildlife = { pending: false, kind, dir, wx, wy, t: 0, speed: WILD_SPEED[kind] || 20, reacted: false, captionT: 1.4, flock, hop, linger, climb };
+  wildlife = { pending: false, kind, dir, wx, wy, t: 0, speed: WILD_SPEED[kind] || 20, reacted: false, captionT: 0, flock, hop, linger, climb };
+  if (kind === 'birds') { wildlife.speed = 30 + Math.random() * 10; if (Math.random() < 0.4) { const lx = fairwayWX(cam, ball ? ball.x : TEE_X); if (lx) wildlife.land = lx; } }
 }
 function updateWildlife(dt) {
   if (!wildlife || !hole) return;
@@ -6698,8 +6701,9 @@ function updateWildlife(dt) {
   wildlife.t += dt;
   if (wildlife.captionT > 0) wildlife.captionT -= dt;
   const k = wildlife.kind, dir = wildlife.dir;
+  if (k === 'ducks') { v93UpdateDucks(wildlife, dt); return; }
   if (k === 'birds') {
-    wildlife.wx += dir * wildlife.speed * dt;
+    if (!v93UpdateBirds(wildlife, dt)) wildlife.wx += dir * wildlife.speed * dt;
   } else if (k === 'turtle') {
     wildlife.wx += dir * wildlife.speed * (wildlife.t < wildlife.linger ? 0.4 : 1) * dt;
   } else if (k === 'squirrel') {
@@ -6713,9 +6717,10 @@ function updateWildlife(dt) {
       wildlife.hop = 0;
       wildlife.wx += dir * wildlife.speed * dt;
     }
-  } else if (k === 'rabbit') {
-    wildlife.wx += dir * wildlife.speed * dt;
-    wildlife.hop = Math.max(0, Math.sin(wildlife.t * 11)) * 6;
+  } else if (k === 'rabbit') {   // v8.93: three hops, a pause to sniff, repeat
+    const cyc = wildlife.t % 1.9, moving = cyc < 1.1;
+    if (moving) wildlife.wx += dir * wildlife.speed * 1.35 * dt;
+    wildlife.hop = moving ? Math.max(0, Math.sin(cyc / 1.1 * Math.PI * 3)) * 4 : 0;
   } else if (k === 'bird') {
     wildlife.wx += dir * wildlife.speed * dt;
     wildlife.hop = Math.abs(Math.sin(wildlife.t * 14)) * 2;
@@ -6730,10 +6735,11 @@ function updateWildlife(dt) {
     const golferSx = (ball ? ball.x : TEE_X) - camX;
     wildBark = { t: 0, hold: 1.15, side: golferSx < W * 0.55 ? 1 : -1 };
   }
-  const gone = k === 'birds' ? (sx < -80 || sx > W + 80) : (sx < -50 || sx > W + 50);
+  const gone = k === 'birds' ? (wildlife.mode !== 'down' && wildlife.mode !== 'peck' && (sx < -80 || sx > W + 80)) : (sx < -50 || sx > W + 50);
   if (gone && wildlife.t > 1) clearWildlife();
 }
 function wildFrame(kind, t) {
+  if (kind === 'ducks') return null;
   const key = kind === 'birds' ? 'birdfly' : kind;
   const fr = WILD_FR[key]; if (!fr) return null;
   const fps = kind === 'turtle' ? 2 : kind === 'birds' ? 8 : kind === 'rabbit' ? 7 : kind === 'bird' ? 6 : kind === 'squirrel' ? 6 : 5;
@@ -6768,11 +6774,13 @@ function drawWildImg(img, sx, sy, sc) {
     for (let i = 0; i < d.data.length; i += 4) if (d.data[i + 3] > 20) { d.data[i] = 0; d.data[i + 1] = 0; d.data[i + 2] = 0; d.data[i + 3] = 255; }
     g.putImageData(d, 0, 0); img._sil = c;
   }
-  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1]]) ctx.drawImage(img._sil, sx + ox, sy + oy, w, h);
+  ctx.globalAlpha = 0.22; ctx.drawImage(img._sil, sx + 1, sy + 2, w, h); ctx.globalAlpha = 1;   // v8.93: soft drop shadow, no heavy outline ring
   ctx.drawImage(img, sx, sy, w, h);
 }
 function drawWildlife() {
   if (!wildlife || wildlife.pending || !hole) return;
+  if (wildlife.kind === 'ducks') { v93DrawDucks(wildlife); return; }
+  if (wildlife.kind === 'birds' && wildlife.flock && wildlife.flock[0] && wildlife.flock[0].ph != null) { v93DrawBirds(wildlife); return; }
   const k = wildlife.kind, fr = wildFrame(k, wildlife.t); if (!fr) return;
   const img = wildlife.dir > 0 ? fr.R : fr.L, sc = WILD_SCALE[k] || 2;
   if (k === 'birds') {
@@ -6803,6 +6811,7 @@ function drawWildBark() {
   rect(wildBark.side > 0 ? bx + lw : bx - 2, by + 4, 2, 2, '#000');
 }
 function drawWildCaption() {
+  return;   // v8.93: no caption box - the animals speak for themselves
   if (!wildlife || wildlife.pending || wildlife.captionT <= 0) return;
   const text = WILD_LABEL[wildlife.kind]; if (!text) return;
   const w = textW(text) + 10, x = Math.max(4, Math.min(W - w - 4, 8)), y = 48;
@@ -6817,7 +6826,8 @@ function forceWildlife(kind) {
   if (!hole) { holeIdx = 0; hole = compileHole(HOLES[0]); }
   beginWildlife(k);
   if (!wildlife || wildlife.pending) return wildlife ? wildlife.kind : null;
-  if (wildlife.kind === 'birds') { wildlife.wx = camX + 70; wildlife.wy = 36; wildlife.dir = 1; }
+  if (wildlife.kind === 'birds') { wildlife.wx = camX + 70; wildlife.wy = 36; wildlife.dir = 1; wildlife.land = wildlife.wx + 110; }
+  else if (wildlife.kind === 'ducks') { /* pond placement already set */ }
   else if (wildlife.kind === 'turtle') { /* bank placement already set */ }
   else { wildlife.wx = fairwayWX(camX, ball ? ball.x : TEE_X); wildlife.dir = 1; wildlife.hop = 0; }
   wildlife.t = 0.35; wildlife.captionT = 1.5;
@@ -6894,13 +6904,13 @@ function drawFan(sx, gy, p, t, cheer, i) {
   const hs = (n) => hash(i * 31 + n * 7 + 3);
   const skin = sh(SKINS[Math.floor(p.r * SKINS.length)]), skD = shadeHex(skin, 0.82), shirt = sh(CROWD_SHIRTS[Math.floor(p.r2 * CROWD_SHIRTS.length)]), shD = shadeHex(shirt, 0.78);
   const pants = sh(CROWD_PANTS[Math.floor(p.r3 * CROWD_PANTS.length)]), hair = sh(HAIR_COLS[Math.floor(hs(1) * HAIR_COLS.length)][0]);
-  const cap = hs(2) < 0.32 ? sh(CROWD_HATS[Math.floor(hs(3) * CROWD_HATS.length)]) : null, shades = !back && hs(4) < 0.16, phone = !back && hs(5) < 0.1, flag = !phone && hs(6) < 0.06, longHair = !cap && hs(7) < 0.3;
-  const rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, beat = t * 9 + p.ph;
-  let pose = 'idle'; if (cheer) pose = 'up'; else if (rk === 'groan') pose = hs(8) < 0.55 ? 'head' : 'idle'; else if (rk === 'clap') pose = 'clap'; else if (rk === 'ooh') pose = 'ooh'; else if (Math.floor(t / 2.3 + p.ph) % 11 === 0 && hs(9) < 0.5) pose = 'clap';
+  const dlgCap = hs(11) < 0.3, cap = dlgCap ? sh('#101010') : hs(2) < 0.32 ? sh(CROWD_HATS[Math.floor(hs(3) * CROWD_HATS.length)]) : null, shades = !back && hs(4) < 0.16, phone = !back && hs(5) < 0.1, flag = !phone && hs(6) < 0.06, longHair = !cap && hs(7) < 0.3;
+  const rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, beat = t * 9 + p.ph, hush = v93Hush(), pl = v93PuttLean();   // v8.93: quiet over the ball, lean in on putts
+  let pose = 'idle'; if (cheer) pose = 'up'; else if (rk === 'groan') pose = hs(8) < 0.55 ? 'head' : 'idle'; else if (rk === 'clap') pose = 'clap'; else if (rk === 'ooh') pose = 'ooh'; else if (!hush && Math.floor(t / 2.3 + p.ph) % 11 === 0 && hs(9) < 0.5) pose = 'clap';
   if (phone && (cheer || (state === 'flight' && ball && ball.mode === 'air'))) pose = pose === 'up' ? 'up' : 'phone';
   const hop = pose === 'up' ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (back ? 3 : 4)) : 0;
-  const shift = pose === 'idle' && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0 ? (hs(10) < 0.5 ? -1 : 1) : 0;
-  const lean = pose === 'ooh' ? (ball && ball.x > p.x ? 1 : -1) : 0;
+  const shift = pose === 'idle' && !hush && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0 ? (hs(10) < 0.5 ? -1 : 1) : 0;
+  const lean = pose === 'ooh' || (pl && pose === 'idle' && !back) ? (ball && ball.x > p.x ? 1 : -1) : 0;
   const look = ball && ['flight', 'holed', 'penalty'].includes(state) ? Math.sign(Math.round(ball.x - p.x)) : (Math.floor(t / 4 + p.ph) % 2 ? 1 : 0);
   const hw = back ? 2 : 3, legH = back ? 5 : 7, torH = back ? 5 : 7, headH = back ? 4 : 5;
   const y0 = gy - hop, x = sx + shift, legY = y0 - legH, torY = legY - torH, ux = x + lean, headY = torY - headH;
@@ -6909,7 +6919,7 @@ function drawFan(sx, gy, p, t, cheer, i) {
   rect(ux - hw - 1, torY - 1, hw * 2 + 3, torH + 2, K); rect(ux - hw, torY, hw * 2 + 1, torH, shirt); rect(ux + hw - 1, torY, 2, torH, shD); if (!back) rect(ux - 1, torY, 3, 1, shadeHex(shirt, 1.18));
   const hx = ux + (look < 0 ? -1 : 0);
   rect(hx - hw, headY - 1, hw * 2 + 1, headH + 2, K); rect(hx - hw + 1, headY, hw * 2 - 1, headH, skin); rect(hx + hw - 1, headY + 1, 1, headH - 1, skD);
-  if (cap) { rect(hx - hw, headY - 1, hw * 2 + 1, 2, cap); rect(hx + (look >= 0 ? hw : -hw - 1), headY, 2, 1, cap); }
+  if (cap) { rect(hx - hw, headY - 1, hw * 2 + 1, 2, cap); rect(hx + (look >= 0 ? hw : -hw - 1), headY, 2, 1, cap); if (dlgCap) rect(hx, headY - 1, 1, 1, '#d4af37'); }   // v8.93 Dumb Luck caps
   else { rect(hx - hw + 1, headY, hw * 2 - 1, 1, hair); rect(hx - hw, headY, 1, longHair ? headH : 2, hair); rect(hx + hw, headY, 1, longHair ? headH : 2, hair); }
   if (!back) {
     const ex = hx + (look > 0 ? 1 : look < 0 ? -1 : 0);
@@ -6927,6 +6937,7 @@ function drawFan(sx, gy, p, t, cheer, i) {
 function drawCrowd(hl, cam, C) {
   if (!crowdOn()) return;
   const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl);
+  try { v93Stand(hl, cam, sp, t, cheer); } catch (e) {}   // v8.93 grandstand behind the green
   let rx0 = 1e9, rx1 = -1e9;
   sp.forEach((p, i) => {
     const sx = Math.round(p.x - cam); if (sx < -8 || sx > W + 8) return;
@@ -6956,6 +6967,191 @@ function galDraw() {
   const vw = W / Z, vh = PLAY_H / Z, x0 = clamp(fxs - vw / 2, 0, W - vw), y0 = clamp(fys - vh * 0.6, 0, PLAY_H - vh);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(galCv, x0 * sc, y0 * sc, vw * sc, vh * sc, 0, 0, W * sc, PLAY_H * sc); ctx.restore();
 }
+/* ================= v8.93 VISUAL PASS (decoration only: nothing here touches physics, wind, power, layouts or collision) =================
+   painted depth layers + wind-driven clouds + swaying trees, natural wildlife (flocks that land, ducks, softer critters),
+   grandstand + hushed / leaning gallery, gear shine + a short cap-tip on the tee. Layers are painted once into cached canvases. */
+const V93 = { lay: new Map(), cloudX: 0, cloudT: 0, main: false, poseHole: null, poseT0: 0 };
+const V93_NODEPTH = { moon: 1, mars: 1, deep: 1, lava: 1, stadium: 1, mansion: 1 };
+function v93Band() { return isPortraitPlay() ? Math.max(28, Math.round(BASE - 42)) : 132; }
+function v93Bucket(hl) { const p = todP(hl); return p < 0 ? 0 : p > 0.82 ? 3 : p > 0.55 ? 2 : p < 0.2 ? 1 : 0; }
+function v93Paint(th, key, hl, cityish, layer, bucket) {
+  const w = 512, h = PLAY_H, c = mk(w, h), g = c.getContext('2d'), R = (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(ww), Math.round(hh)); };
+  const hw = halloweenOn() && !th.bg && !th.stars && !/^(hr|nyc)/.test(hl.theme || '');
+  const night = !!th.stars || hw, sky = hw ? '#3c2458' : th.sky, band = v93Band(), TAU = Math.PI * 2;
+  const warm = bucket === 3 ? 0.32 : bucket === 2 ? 0.18 : 0, mist = bucket === 1 ? 0.12 : 0;
+  const tone = col => { let o = col; if (warm) o = hdMix(o, '#fc8858', warm); if (mist) o = hdMix(o, '#fce8d8', mist); return o; };
+  const base = th.hill || (th.C && th.C.grassD) || '#3c6c5c';
+  if (layer === 0) {   // far: hazy ridge (or a distant skyline after dark)
+    const col = tone(night ? hdMix(sky, '#6c7cc8', 0.22) : hdMix(sky, base, 0.3)), lit = night ? hdMix(sky, '#fce4a0', 0.45) : null;
+    if (cityish) {
+      for (let x = 0, i = 0; x < w; i++) { const bw = 10 + Math.floor(hash(i * 13 + 5) * 16), top = band - 26 - Math.floor(hash(i * 7 + 11) * 46); R(x, top, bw, h - top, col);
+        if (lit) for (let y = top + 4; y < band; y += 5) for (let k = x + 2; k < x + bw - 2; k += 4) if (hash(k * 31 + y * 7) < 0.12) R(k, y, 1, 2, lit);
+        x += bw + (hash(i + 99) < 0.3 ? 2 : 0); }
+    } else {
+      for (let x = 0; x < w; x++) { const u = x / w * TAU, top = band - 30 - Math.round(12 * Math.sin(u * 2 + 1) + 7 * Math.sin(u * 5 + 2) + 3 * Math.sin(u * 11)); R(x, top, 1, h - top, col); }
+      const hz = hdMix(col, sky, 0.5); for (let x = 0; x < w; x += 1) { const u = x / w * TAU, top = band - 30 - Math.round(12 * Math.sin(u * 2 + 1) + 7 * Math.sin(u * 5 + 2) + 3 * Math.sin(u * 11)); R(x, top, 1, 1, hz); }
+    }
+  } else {   // mid: soft tree line (rounded crowns, two tones, light from above)
+    const col = tone(night ? hdMix(sky, '#000010', 0.3) : hdMix(sky, shadeHex(base, 0.8), 0.58)), top0 = band - 20, hi = tone(hdMix(col, night ? '#5c6cb8' : '#ffffff', 0.12));
+    const pine = /snow|swamp|spooky|patch/.test(hl.theme || '');
+    for (let i = 0, x = 0; x < w + 20; i++) {
+      const r = 5 + Math.floor(hash(i * 17 + 3) * 6), cy = top0 - Math.floor(hash(i * 5 + 9) * 7) + r;
+      if (pine) { for (let y = 0; y < r * 2 + 4; y++) { const hw2 = Math.round(y * 0.45); R(x - hw2, cy - r - 2 + y, hw2 * 2 + 1, 1, col); } }
+      else for (let y = -r; y <= r; y++) { const hw2 = Math.round(Math.sqrt(r * r - y * y)); R(x - hw2, cy + y, hw2 * 2 + 1, 1, y < -r + 2 ? hi : col); }
+      x += r + 2 + Math.floor(hash(i * 3 + 1) * 5);
+    }
+    R(0, top0 + 8, w, h - top0 - 8, col);
+  }
+  return c;
+}
+function v93Layers(th, hl, cam) {
+  const tk = (hl && hl.theme) || 'day'; if (V93_NODEPTH[tk] || th.noDepth) return;
+  const cityish = /^(nyc|city|neon)/.test(tk), b = v93Bucket(hl), hwk = halloweenOn() ? 1 : 0;
+  const layers = th.bg ? [0] : [0, 1];
+  for (const L of layers) {
+    const key = tk + '|' + L + '|' + W + '|' + PLAY_H + '|' + BASE + '|' + b + '|' + hwk + '|' + (isPortraitPlay() ? 1 : 0);
+    let img = V93.lay.get(key); if (!img) { if (V93.lay.size > 24) V93.lay.clear(); img = v93Paint(th, key, hl, cityish, L, b); V93.lay.set(key, img); }
+    const f = L === 0 ? 0.12 : 0.24; let x = -Math.round(cam * f) % 512; if (x > 0) x -= 512;
+    for (; x < W; x += 512) ctx.drawImage(img, x, 0);
+  }
+}
+function v93CloudDrift() {   // clouds drift with today's wind (accumulated, so a gust never makes them jump)
+  const now = performance.now() / 1000, dt = V93.cloudT ? Math.min(0.1, now - V93.cloudT) : 0; V93.cloudT = now;
+  if (!REDUCED_MOTION) V93.cloudX += dt * (2 + (wind || 0) * 0.9);
+  return -V93.cloudX;
+}
+let V93_SWAY = null;
+function v93Sways(img) {
+  if (!V93_SWAY) { V93_SWAY = new Set([TREE, OAK, typeof TREE_AUTUMN !== 'undefined' && TREE_AUTUMN, typeof OAK_AUTUMN !== 'undefined' && OAK_AUTUMN, SPR839.palm, SPR839.banyan, SPR839.snowpine, SPR839.palmNeon, SPR839.dead].filter(Boolean)); }
+  return V93_SWAY.has(img);
+}
+function v93DrawSway(img, dx, dy, dw, dh, seed) {   // crisp row-band sway: the canopy moves, the trunk base stays put
+  if (REDUCED_MOTION) { ctx.drawImage(img, dx, dy, dw, dh); return; }
+  const t = performance.now() / 1000, wv = clamp(Math.abs(wind || 0), 0, 12), amp = 0.7 + wv * 0.14, bias = Math.sign(wind || 0) * Math.min(1, wv / 8);
+  const s = Math.sin(t * (1.1 + wv * 0.05) + seed) * amp + bias, n = 4, sh = img.height / n, ky = dh / img.height;
+  for (let i = 0; i < n; i++) { const off = Math.round(s * (1 - i / n) * (1 - i / n)), sy = Math.floor(i * sh), sh2 = Math.floor((i + 1) * sh) - sy;
+    ctx.drawImage(img, 0, sy, img.width, sh2, dx + off, Math.round(dy + sy * ky), dw, Math.ceil(sh2 * ky)); }
+}
+/* ---- wildlife: natural flocks (flap + glide, sometimes land and peck), ducks on ponds ---- */
+function v93BirdCol() { const th = themeOf(hole); return th.stars ? '#b8bcd8' : halloweenOn() ? '#1c1424' : '#2c2c38'; }
+function v93DrawFlyBird(x, y, ph, glide, col) {   // little gull shape: body dot + two wing strokes
+  const f = glide ? 1 : Math.round((Math.sin(ph) + 1) * 1.5);   // 0 up .. 3 down
+  const wy = [-2, -1, 0, 1][f];
+  rect(x, y, 2, 1, col);
+  rect(x - 1, y + Math.min(0, wy), 1, 1, col); rect(x - 2, y + wy, 1, 1, col); rect(x - 3, y + wy + (wy < 0 ? 0 : 0), 1, 1, col);
+  rect(x + 2, y + Math.min(0, wy), 1, 1, col); rect(x + 3, y + wy, 1, 1, col); rect(x + 4, y + wy, 1, 1, col);
+}
+function v93DrawPerchBird(sx, gy, dir, peck, col) {
+  const c2 = hdMix(col, '#a08c70', 0.5);
+  rect(sx - 2, gy - 3, 4, 2, c2); rect(sx - 2, gy - 3, 4, 1, col); rect(sx + (dir > 0 ? 2 : -3), gy - (peck ? 2 : 4), 1, 2, col); rect(sx + (dir > 0 ? 3 : -4), gy - (peck ? 1 : 3), 1, 1, '#c88830');
+  rect(sx + (dir > 0 ? -3 : 2), gy - 3, 1, 1, col); rect(sx - 1, gy - 1, 1, 1, '#5c4c3c'); rect(sx + 1, gy - 1, 1, 1, '#5c4c3c');
+}
+function v93Flock(dir, cam) {
+  const n = 4 + Math.floor(Math.random() * 4), out = [];
+  for (let i = 0; i < n; i++) { const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1; out.push({ dx: -dir * row * (7 + Math.random() * 3), dy: side * row * 3 + Math.random() * 2, ph: Math.random() * 6.3, gx: 0, peckPh: Math.random() * 3 }); }
+  return out;
+}
+function v93UpdateBirds(w, dt) {   // returns true when it handled the move
+  if (!w.flock || !w.flock[0] || w.flock[0].ph == null) return false;
+  w.mode = w.mode || 'fly';
+  if (w.mode === 'fly') {
+    w.wx += w.dir * w.speed * dt;
+    if (w.land != null && (w.dir > 0 ? w.wx >= w.land - 30 : w.wx <= w.land + 30)) { w.mode = 'down'; w.mt = 0; w.flock.forEach((b, i) => { b.gx = w.land + (i - w.flock.length / 2) * 6 + Math.random() * 3; b.sx0 = w.wx + b.dx; b.sy0 = w.wy + b.dy; }); }
+  } else if (w.mode === 'down') { w.mt += dt; if (w.mt > 1.4) { w.mode = 'peck'; w.mt = 0; w.stay = 2.5 + Math.random() * 3; } }
+  else if (w.mode === 'peck') { w.mt += dt; const near = ball && Math.abs(ball.x - w.land) < 40 && state === 'flight'; if (w.mt > w.stay || near) { w.mode = 'up'; w.mt = 0; w.wy = 24 + Math.random() * 20; w.wx = w.land; } }
+  else if (w.mode === 'up') { w.mt += dt; w.wx += w.dir * w.speed * 1.1 * dt; }
+  w.t2 = (w.t2 || 0) + dt; w.flock.forEach(b => { b.ph += dt * (w.mode === 'peck' ? 0 : 13); });
+  return true;
+}
+function v93DrawBirds(w) {
+  const col = v93BirdCol(), glide = Math.floor((w.t2 || 0) / 1.1) % 3 === 2;
+  w.flock.forEach((b, i) => {
+    let x, y;
+    if (w.mode === 'fly' || w.mode === 'up') {
+      const lift = w.mode === 'up' ? Math.min(1, w.mt / 1.2) : 1;
+      if (w.mode === 'up') { const gy = BASE - groundH(hole, b.gx) - 3; x = b.gx + (w.wx - w.land) + b.dx * lift; y = gy + (w.wy + b.dy - gy) * lift; }
+      else { x = w.wx + b.dx; y = w.wy + b.dy + Math.sin(w.t2 * 1.3 + i) * 1.5; }
+      v93DrawFlyBird(Math.round(x - camX), Math.round(y), b.ph, glide && w.mode === 'fly', col);
+    } else if (w.mode === 'down') {
+      const k = clamp(w.mt / 1.4, 0, 1), e = k * k * (3 - 2 * k), gy = BASE - groundH(hole, b.gx);
+      x = b.sx0 + (b.gx - b.sx0) * e; y = b.sy0 + (gy - 3 - b.sy0) * e;
+      if (k < 0.9) v93DrawFlyBird(Math.round(x - camX), Math.round(y), b.ph, k > 0.6, col); else v93DrawPerchBird(Math.round(x - camX), Math.round(gy), w.dir, false, col);
+    } else {
+      const gy = Math.round(BASE - groundH(hole, b.gx)), peck = Math.sin(w.mt * 4 + b.peckPh) > 0.55;
+      v93DrawPerchBird(Math.round(b.gx - camX), gy, (Math.floor(w.mt * 0.7 + b.peckPh) % 2) ? 1 : -1, peck, col);
+    }
+  });
+}
+function v93DrawDucks(w) {
+  const t = w.t, sp = w.span; if (!sp) return;
+  for (let i = 0; i < w.n; i++) {
+    const wx = w.wx - w.dir * i * (i ? 7 : 0) - (i ? w.dir * 3 : 0), big = i === 0, sx = Math.round(wx - camX);
+    if (sx < -12 || sx > W + 12) continue;
+    const gy = Math.round(BASE - groundH(hole, wx)), bob = Math.round(Math.sin(t * 3 + i * 1.7) * 0.6), d = w.dir, y = gy - 1 + bob;
+    const body = big ? '#8c6c4c' : '#c8a868', head = big ? '#1c6c3c' : '#a88848', bw = big ? 7 : 4;
+    ctx.globalAlpha = 0.5; const wl = 3 + Math.round((Math.sin(t * 2 + i) + 1) * 1.5); rect(sx - d * (bw / 2 + wl) - (d < 0 ? 0 : 0), gy, wl, 1, '#fcfcfc'); rect(sx - d * (bw / 2 + wl + 3), gy + 1, wl, 1, '#fcfcfc'); ctx.globalAlpha = 1;
+    rect(sx - (bw >> 1), y - 3, bw, 3, body); rect(sx - (bw >> 1), y - 1, bw, 1, shadeHex(body, 0.75)); rect(sx - d * (bw >> 1) - (d > 0 ? 1 : -bw + 0), y - 4, 2, 1, body);
+    const hx = sx + d * ((bw >> 1) - 1); rect(hx - (d < 0 ? 1 : 0), y - (big ? 6 : 5), 2, big ? 3 : 2, head); rect(hx + (d > 0 ? 2 : -2), y - (big ? 5 : 4), 1, 1, '#f8a838');
+    if (big) rect(sx - 1, y - 3, 2, 1, '#fcfcfc');
+  }
+}
+function v93UpdateDucks(w, dt) {
+  const sp = w.span; if (!sp) { clearWildlife(); return; }
+  w.wx += w.dir * w.speed * dt * (0.75 + 0.25 * Math.sin(w.t * 1.3));
+  if (w.wx > sp.b - 6 && w.dir > 0) { w.dir = -1; w.turns++; } else if (w.wx < sp.a + 6 && w.dir < 0) { w.dir = 1; w.turns++; }
+  if (w.turns > 2 || w.t > 40) clearWildlife();
+}
+function v93Ducks(cam) {
+  const sp = waterSpan(hole); if (!sp || sp.b - sp.a < 30) return false;
+  const lo = Math.max(sp.a + 8, cam + 20), hi = Math.min(sp.b - 8, cam + W - 20), wx = hi > lo ? rnd(lo, hi) : rnd(sp.a + 8, sp.b - 8);
+  wildlife = { pending: false, kind: 'ducks', dir: Math.random() < 0.5 ? 1 : -1, wx, wy: 0, t: 0, speed: 5, reacted: true, captionT: 0, span: sp, n: 1 + Math.floor(Math.random() * 3), turns: 0 };
+  return true;
+}
+/* ---- gallery: grandstand behind the green + seated fans ---- */
+function v93Stand(hl, cam, sp, t, cheer) {
+  const back = sp.filter(p => p.x > hl.cup); if (back.length < 5) return;
+  let x0 = 1e9, x1 = -1e9; back.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }); x0 -= 4; x1 += 4; if (x1 - x0 < 28) return;
+  const s0 = Math.round(x0 - cam), s1 = Math.round(x1 - cam); if (s1 < 0 || s0 > W) return;
+  let top = 1e9; for (let x = x0; x <= x1; x += 2) top = Math.min(top, Math.round(BASE - groundH(hl, x)));
+  const night = themeOf(hole).stars ? 0.72 : 1, S = c => shadeHex(c, night), K = '#000', tiers = 3, th = 6, rise = 10;
+  for (let x = s0; x <= s1; x += 9) { const gy = Math.round(BASE - groundH(hl, x + cam)); rect(x, top - rise - tiers * th, 1, gy - (top - rise - tiers * th), S('#5c5c64')); }
+  for (let k = tiers - 1; k >= 0; k--) {   // back (top) tier first so each row of seated fans sits in front of the one above
+    const y = top - rise - (k + 1) * th + 0, inset = k * 3;
+    rect(s0 + inset - 1, y - 1, s1 - s0 - inset * 2 + 3, th + 1, K); rect(s0 + inset, y, s1 - s0 - inset * 2 + 1, 2, S('#e8e8ec')); rect(s0 + inset, y + 2, s1 - s0 - inset * 2 + 1, th - 2, S('#9c9ca8'));
+    for (let x = s0 + inset + 2, i = 0; x < s1 - inset - 2; x += 5, i++) {
+      const hs = n => hash((k * 97 + i) * 31 + n * 7 + 11); if (hs(1) < 0.18) continue;
+      const shirt = S(CROWD_SHIRTS[Math.floor(hs(2) * CROWD_SHIRTS.length)]), skin = S(SKINS[Math.floor(hs(3) * SKINS.length)]), dlg = hs(4) < 0.28, cap = dlg || hs(5) < 0.25;
+      const up = cheer && Math.sin(t * 9 + i + k) > -0.2 ? 1 : 0, by = y - 1 - up;
+      rect(x - 1, by - 4, 4, 4, shirt); rect(x - 1, by - 7, 3, 3, skin);
+      if (cap) { rect(x - 1, by - 8, 3, 1, dlg ? S('#101010') : S(CROWD_HATS[Math.floor(hs(6) * CROWD_HATS.length)])); if (dlg) rect(x, by - 8, 1, 1, '#d4af37'); }
+      if (up) { rect(x - 2, by - 9, 1, 3, skin); rect(x + 3, by - 9, 1, 3, skin); }
+    }
+  }
+}
+function v93Hush() { return ['power', 'accuracy', 'swing'].includes(state) || (state === 'aim' && clubIdx === PUTT_I); }
+function v93PuttLean() { return clubIdx === PUTT_I && ['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state) && ball && hole && surfAt(hole, ball.x) === 'green'; }
+/* ---- gear: shine + movement on the in-game golfer, and a quick cap-tip on the first tee shot of each hole ---- */
+function v93GearFx(sx, gy, dir, look, GA, hst, pk, pose) {
+  if (REDUCED_MOTION) return;
+  const t = performance.now() / 1000, X = dx => sx + dir * dx, px = (dx, dy, c) => rect(X(dx), gy + dy, 1, 1, c);
+  const swing = pose.smear != null || (pose.finish || 0) > 0;
+  if (!pk && hst === 0) { const u = (t % 3.4) / 3.4; if (u < 0.16) { const k = Math.floor(u / 0.16 * 7) - 1; if (k >= -1 && k <= 4) { px(k, -32, '#fcfcfc'); if (k > -1) px(k - 1, -32, hdMix(look.hat || '#fcfcfc', '#fcfcfc', 0.5)); } } }
+  if (!pk && hst === 1) { const u = (t % 3.4) / 3.4; if (u < 0.12) px(5 + Math.floor(u / 0.12 * 4), -29, '#fcfcfc'); }
+  if (GA && GA.neck === 'ace_chain') { const sw = swing ? Math.round(Math.sin(t * 18)) : 0; if (sw) { px(2 + sw, -20, '#f8d878'); } if (Math.floor(t * 2.5) % 5 === 0) px(1, -22, '#fcfcfc'); }
+  if (GA && GA.face === 'streak_shades' && !pk && (t % 2.8) < 0.18) px(1, -27, '#fcfcfc');
+  if (GA && GA.held === 'lucky_club' && (t % 3) < 0.2) rect(sx + dir * 4, gy - 15, 1, 1, '#fcfcfc');
+  if ((t + 1.3) % 4.2 < 0.16) px(6, -2, hdMix(look.shoe || '#fcfcfc', '#fcfcfc', 0.7));
+  if (!V93.main || pk) return;
+  if (state === 'aim' && strokes === 0) {
+    if (V93.poseHole !== hole) { V93.poseHole = hole; V93.poseT0 = t; }
+    const e = t - V93.poseT0; if (e > 0.25 && e < 1.45) {   // lead hand comes up and tips the cap, then back to address
+      const k = e < 0.5 ? (e - 0.25) / 0.25 : e > 1.2 ? (1.45 - e) / 0.25 : 1, hy = Math.round(-19 + (-11) * k), hx = 2 + Math.round(4 * k);
+      const shx = X(2), shy = gy - 19, hX = X(hx), hY = gy + hy;
+      line(shx, shy, hX, hY, look.shirt); rect(hX - 1, hY - 1, 3, 3, '#000'); rect(hX, hY, 1, 1, look.glove || look.skin); rect(hX + (dir > 0 ? 1 : -1), hY, 1, 1, look.skin);
+      if (k >= 1 && e > 0.75 && e < 1.0) drawSpark(X(1), gy - 34, 2, '#fcfcfc');
+    }
+  }
+}
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
   rect(0, 0, W, PLAY_H, th.sky);
@@ -6973,9 +7169,10 @@ function drawCourse(hl, cam) {
     if (!th.noMoon) { rect(202, 26, 3, 2, '#d8d8a8'); rect(209, 33, 2, 2, '#d8d8a8'); rect(205, 35, 2, 1, '#d8d8a8'); }
   }
   // clouds (slow parallax)
-  const drift = REDUCED_MOTION ? 0 : (performance.now() / 1000) * 2.5;   // v8.60: slow cloud drift
+  const drift = -v93CloudDrift();   // v8.93: clouds drift with the wind
   if (th.clouds) for (const [cx, cy] of CLOUDS) { let x = Math.round(cx - cam * 0.15 - drift) % 512; if (x < -40) x += 512; if (x < W) drawCloud(x, cy); }
   // far hills (parallax); v8.39 themes with a painted backdrop draw one cached image instead
+  try { v93Layers(th, hl, cam); } catch (e) {}   // v8.93 painted depth
   if (th.bg) drawBackdrop(th, cam); else for (let sx = 0; sx < W; sx++) {
     const wx = cam * 0.4 + sx;
     const hh = courseRidge(wx);
@@ -6990,8 +7187,9 @@ function drawCourse(hl, cam) {
     const gy = BASE - groundH(hl, dx + img.width / 2);
     if (kind === 'oak') {   // draw a bit shorter than full sprite; collision is shorter still
       const ow = Math.round(img.width * 0.95), oh = Math.round(img.height * 0.82);
-      ctx.drawImage(img, sx + Math.round((img.width - ow) / 2), Math.round(gy - oh + 3), ow, oh);
-    } else ctx.drawImage(img, sx, Math.round(gy - img.height + 4));
+      v93DrawSway(img, sx + Math.round((img.width - ow) / 2), Math.round(gy - oh + 3), ow, oh, dx * 0.07);
+    } else if (v93Sways(img)) v93DrawSway(img, sx, Math.round(gy - img.height + 4), img.width, img.height, dx * 0.07);
+    else ctx.drawImage(img, sx, Math.round(gy - img.height + 4));
   }
   // Daily specials: bounce pads (on ground), rock walls, moving barriers
   const t = performance.now() / 1000;
@@ -9734,7 +9932,7 @@ function renderScene() {
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   try { drawGhostGolfer(); } catch (e) {}
-  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose());
+  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try { drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose()); } finally { V93.main = false; } }
   if (state === 'flight' || state === 'holed') drawTrail();
   aimPts = [];
   if (['aim', 'power', 'accuracy'].includes(state)) drawAim();
