@@ -231,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.93';
+const GAME_VERSION = 'v8.94';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7152,9 +7152,58 @@ function v93GearFx(sx, gy, dir, look, GA, hst, pk, pose) {
     }
   }
 }
+/* v8.94 BACKGROUNDS: soft gradient sky + sun glow, two crisp distant ridges (lighter + less saturated with distance, rim-lit tops)
+   and the near hills recoloured to sit with the fairway. Everything but the near hills is pre-rendered once per theme / size / light. */
+const V94 = new Map();
+function v94Ctx(th, hl) {
+  const hw = halloweenOn() && !th.bg && !th.stars && !/^(hr|nyc)/.test(hl.theme || ''), night = !!th.stars;
+  const b = v93Bucket(hl), C = th.C || COL;
+  let top, hor;
+  if (hw) { top = '#2c1050'; hor = '#e8704c'; }
+  else if (night) { top = shadeHex(th.sky, 0.7); hor = hdMix(th.sky, '#3c4c9c', 0.55); }
+  else { top = hdMix(shadeHex(th.sky, 0.82), '#2c5cd8', 0.15); hor = hdMix(th.sky, '#fcf4e4', 0.55); if (b >= 2) hor = hdMix(hor, '#fcb07c', b === 3 ? 0.55 : 0.3); if (b === 1) hor = hdMix(hor, '#fce0d0', 0.3); }
+  const land = hw ? hdMix(C.grassD || COL.grassD, '#3c1460', 0.6) : night ? hdMix(C.grassD || COL.grassD, th.sky, 0.72) : hdMix(C.grassD || COL.grassD, th.sky, th.hill ? 0.42 : 0.45);
+  return { hw, night, b, top, hor, land, sun: !hw && !night && !th.sun };
+}
+function v94Sky(th, hl) {
+  const k = v94Ctx(th, hl), band = v93Band(), key = 'sky|' + th.sky + '|' + W + '|' + PLAY_H + '|' + band + '|' + k.b + '|' + (k.hw ? 1 : 0);
+  let c = V94.get(key);
+  if (!c) {
+    if (V94.size > 40) V94.clear();
+    c = mk(W, PLAY_H); const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, band + 10);
+    gr.addColorStop(0, k.top); gr.addColorStop(1, k.hor); g.fillStyle = gr; g.fillRect(0, 0, W, PLAY_H);
+    if (k.sun) { const sx = W * 0.72, sy = band - 18, r = Math.max(W, 400) * 0.45, rg = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+      rg.addColorStop(0, 'rgba(255,248,224,0.55)'); rg.addColorStop(0.25, 'rgba(255,236,200,0.22)'); rg.addColorStop(1, 'rgba(255,236,200,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, PLAY_H); }
+    V94.set(key, c);
+  }
+  ctx.drawImage(c, 0, 0);
+}
+function v94Ridge(th, hl, L) {
+  const k = v94Ctx(th, hl), band = v93Band(), key = 'r' + L + '|' + (hl.theme || 'day') + '|' + PLAY_H + '|' + band + '|' + k.b + '|' + (k.hw ? 1 : 0);
+  let c = V94.get(key); if (c) return c;
+  if (V94.size > 40) V94.clear();
+  const w = 512, h = PLAY_H, TAU = Math.PI * 2; c = mk(w, h); const g = c.getContext('2d');
+  const col = L === 0 ? hdMix(k.hor, k.land, k.night ? 0.3 : 0.28) : hdMix(k.hor, k.land, k.night ? 0.55 : 0.58);
+  const rim = hdMix(col, k.night ? '#8c9cd8' : k.hw ? '#fca070' : '#fffaf0', L === 0 ? 0.35 : 0.25);
+  const ridge = L === 0
+    ? x => band - 34 - Math.round(13 * Math.sin(x / w * TAU * 2 + 0.6) + 6 * Math.sin(x / w * TAU * 5 + 2.1))
+    : x => band - 19 - Math.round(6 * Math.sin(x / w * TAU * 3 + 1.4) + 3 * Math.sin(x / w * TAU * 7 + 0.3));
+  for (let x = 0; x < w; x++) { const y = ridge(x); g.fillStyle = col; g.fillRect(x, y, 1, h - y); g.fillStyle = rim; g.fillRect(x, y, 1, 1); }
+  V94.set(key, c); return c;
+}
+function v94Back(th, hl, cam) {   // returns true when it drew the near hills itself
+  const tk = (hl && hl.theme) || 'day'; if (th.bg || V93_NODEPTH[tk]) return false;
+  for (const L of [0, 1]) { const img = v94Ridge(th, hl, L), f = L === 0 ? 0.1 : 0.22; let x = -Math.round(cam * f) % 512; if (x > 0) x -= 512; for (; x < W; x += 512) ctx.drawImage(img, x, 0); }
+  const k = v94Ctx(th, hl), rim = hdMix(k.land, k.night ? '#8c9cd8' : k.hw ? '#fca070' : '#fffaf0', 0.22);
+  ctx.fillStyle = k.land;
+  for (let sx = 0; sx < W; sx++) { const hh = courseRidge(cam * 0.4 + sx); ctx.fillRect(sx, hh, 1, PLAY_H - hh); }
+  ctx.fillStyle = rim;
+  for (let sx = 0; sx < W; sx++) ctx.fillRect(sx, courseRidge(cam * 0.4 + sx), 1, 1);
+  return true;
+}
 function drawCourse(hl, cam) {
   const th = themeOf(hl), now = performance.now() / 1000, C = th.C || COL;   // v8.39: per-theme ground palette
-  rect(0, 0, W, PLAY_H, th.sky);
+  v94Sky(th, hl);   // v8.94 gradient sky + glow
   if (halloweenOn() && !th.bg && !th.stars) hwSky(BASE - 20);   // v8.41: dusk sky, moon + bats on regular holes
   if (weather && weather.id === 'rain') { ctx.globalAlpha = 0.12; rect(0, 0, W, PLAY_H, '#003868'); ctx.globalAlpha = 1; }
   todSky(hl, th);   // v8.76
@@ -7172,8 +7221,8 @@ function drawCourse(hl, cam) {
   const drift = -v93CloudDrift();   // v8.93: clouds drift with the wind
   if (th.clouds) for (const [cx, cy] of CLOUDS) { let x = Math.round(cx - cam * 0.15 - drift) % 512; if (x < -40) x += 512; if (x < W) drawCloud(x, cy); }
   // far hills (parallax); v8.39 themes with a painted backdrop draw one cached image instead
-  try { v93Layers(th, hl, cam); } catch (e) {}   // v8.93 painted depth
-  if (th.bg) drawBackdrop(th, cam); else for (let sx = 0; sx < W; sx++) {
+  let v94 = false; try { v94 = v94Back(th, hl, cam); } catch (e) {}   // v8.94 distant ridges + harmonised near hills
+  if (th.bg) drawBackdrop(th, cam); else if (!v94) for (let sx = 0; sx < W; sx++) {
     const wx = cam * 0.4 + sx;
     const hh = courseRidge(wx);
     rect(sx, hh, 1, PLAY_H - hh, th.hill); rect(sx, hh, 1, 1, '#000');
