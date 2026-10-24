@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.3';
+const GAME_VERSION = 'v8.99.4';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7928,6 +7928,7 @@ function drawCourse(hl, cam) {
     } else if (v93Sways(img)) v93DrawSway(img, sx, Math.round(gy - img.height + 4), img.width, img.height, dx * 0.07);
     else ctx.drawImage(img, sx, Math.round(gy - img.height + 4));
   }
+  if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery; v8.99.4: drawn BEFORE the pads / walls / ramps / movers so obstacles (e.g. the HAUNTED GRAVEYARD ghost) are never hidden behind fans
   // Daily specials: bounce pads (on ground), rock walls, moving barriers
   const t = performance.now() / 1000;
   if (hl.pads) for (const p of hl.pads) {
@@ -8009,7 +8010,6 @@ function drawCourse(hl, cam) {
   }
   const hwHole = halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '');   // v8.69/v8.75: HIGH ROLLER + BIG APPLE stay clean (no seasonal props/tint)
   if (hwHole) hwDrawCourseDeco(hl, cam);   // v8.41: pumpkins, gravestones, bare trees (decoration only)
-  if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery
   // ground columns
   for (let sx = 0; sx < W; sx++) {
     const wx = Math.floor(cam) + sx;
