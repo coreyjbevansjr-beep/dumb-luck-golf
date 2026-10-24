@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.1';
+const GAME_VERSION = 'v8.99.2';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2338,7 +2338,7 @@ function trackEvent(event, extra) {
 const RATE_STORE = 'dlg_ratings_v1', RATE_UP = { x: 0, y: -99, w: 13, h: 13, on: false }, RATE_DN = { x: 0, y: -99, w: 13, h: 13, on: false };
 const CRATE_UP = { x: 0, y: -99, w: 13, h: 13, on: false }, CRATE_DN = { x: 0, y: -99, w: 13, h: 13, on: false };
 const THUMB_PX = ['...##....', '...##....', '..###....', '##.#####.', '##.######', '##.######', '##.######', '##.#####.', '##..####.'];
-function rateAllowed() { return !!(HOLES && HOLES.length) && courseKind !== 'match' && !(typeof LAB !== 'undefined' && LAB.on); }
+function rateAllowed() { return !!(HOLES && HOLES.length) && courseKind !== 'match' && courseKind !== 'lab' && !(typeof LAB !== 'undefined' && LAB.on); }
 function rateCourseKey() { return courseKind === 'daily' ? (dailyMeta && dailyMeta.date ? 'daily-' + dailyMeta.date : 'daily') : String(courseKind || 'front'); }
 function rateHoleKey(i) {
   const n = displayHoleNum(i) | 0, k = courseKind;
@@ -2411,6 +2411,7 @@ const FONT = { '\u00b7':['.....','.....','.....','..#..','.....','.....','.....'
 ',':["     ","     ","     ","     ","  ## ","   # ","  #  "],' ':["     ","     ","     ","     ","     ","     ","     "]
 };
 // 3x5 mini font: small signage (flags, cart, tee sign, billboard). Only what the signs need.
+if (!FONT['\u00b0']) FONT['\u00b0'] = ['.##..', '#..#.', '.##..', '.....', '.....', '.....', '.....'];   // v8.99.2 loft degrees
 if (!FONT['@']) FONT['@'] = [' ### ', '#   #', '# ###', '# # #', '# ###', '#    ', ' ####'];   // career v2: @username
 if (!FONT['_']) FONT['_'] = ['     ', '     ', '     ', '     ', '     ', '     ', '#####'];
 const FONT3 = { D:['##.','#.#','#.#','#.#','##.'], L:['#..','#..','#..','#..','###'], G:['.##','#..','#.#','#.#','.##'], U:['#.#','#.#','#.#','#.#','###'],
@@ -3599,8 +3600,24 @@ const CLUBS = [
   { name:'WEDGE',  v:73,  def:58, min:40, max:75 },
   { name:'PUTTER', v:66,  def:0,  min:0,  max:0  }
 ];
-const PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;
+let PUTT_I = CLUBS.length - 1, WEDGE_I = CLUBS.length - 2;
 [[.02, 1], [.10, 1], [.20, 1], [.32, .85], [.50, .65], [0, 1]].forEach(([sp, wk], i) => { CLUBS[i].spin = sp; CLUBS[i].wk = wk; });   // v8.21   // v8.20: club indexes (HYBRID shifted IRON/WEDGE/PUTTER up by one)
+CLUBS.forEach((c, i) => { c.lg = i; c.sn = ['DR', 'HY', 'IR', '9I', 'WG', 'PT'][i]; c.splash = i === WEDGE_I; });   // v8.99.2: lg = the legacy club class (shot heights / chips / lies key off it)
+const CLUBS_STD = CLUBS.map(c => Object.assign({}, c));
+/* v8.99.2 PRO CLUB SET (admin LAB only; never used in a saved round). Real-golf gapping mapped to game yards (driver total = the standard
+   driver, so reach is unchanged): low lofts launch lower and roll out, wedges launch high, spin more and stop. Wind grows with loft
+   (longer hang). v / rk tuned by simulation: full power, stock angle, flat fairway, no wind.
+   name, short, loft, v, def (launch), min, max, spin, wk, rk (roll), lg */
+const CLUBS_PRO = [
+  ['DRIVER',  'DR', 10.5, 114.2, 32, 14, 47, .02, .92, 1.025, 0], ['3 WOOD', '3W', 15, 108.3, 34, 16, 49, .06, .94, 1.003, 0],
+  ['HYBRID',  'HY', 20, 103.8, 36, 18, 52, .10, .96, .97, 1],     ['4 IRON', '4I', 22, 99.8, 38, 20, 54, .13, .97, .962, 1],
+  ['5 IRON',  '5I', 25, 96.8, 40, 21, 56, .16, .98, .964, 2],     ['6 IRON', '6I', 28, 94.5, 42, 22, 58, .19, .98, .945, 2],
+  ['7 IRON',  '7I', 32, 91.8, 44, 24, 60, .22, .97, .965, 2],     ['8 IRON', '8I', 36, 88.9, 47, 26, 63, .26, .94, .956, 3],
+  ['9 IRON',  '9I', 40, 86.5, 50, 28, 66, .30, .90, .935, 3],     ['P WEDGE', 'PW', 45, 83.7, 53, 34, 70, .35, .85, .971, 4],
+  ['G WEDGE', 'GW', 50, 81.3, 56, 38, 72, .42, .80, .946, 4],     ['S WEDGE', 'SW', 56, 78.3, 59, 40, 75, .50, .75, .827, 4],
+  ['L WEDGE', 'LW', 60, 74.1, 63, 44, 80, .56, .72, 1, 4],         ['PUTTER', 'PT', 0, 66, 0, 0, 0, 0, 1, 1, 5]
+].map(([name, sn, loft, v, def, min, max, spin, wk, rk, lg]) => ({ name, sn, loft, v, def, min, max, spin, wk, rk, lg, splash: sn === 'SW' || sn === 'LW' }));
+let CLUB_SET = 'std';
 const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
 const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;
 // v8.27: the cup scales with putt distance: full 'near' forgiveness inside 8Y, easing to the v8.24 strictness by 10.1Y
@@ -3615,6 +3632,18 @@ const SURF = {
 };
 const LIE_K = { tee:[1,1,1,1,1], fair:[1,1,1,1,1], green:[1,1,1,1,1], rough:[.8,.86,.88,.9,.9,.6], sand:[.4,.5,.6,.7,.85,.35] };   // v8.21: rough eased for long clubs; 9 iron added
 for (const k of ['tee', 'fair', 'green']) LIE_K[k] = [1, 1, 1, 1, 1, 1];
+const LIE_K_STD = { rough: LIE_K.rough.slice(), sand: LIE_K.sand.slice() };
+const LIE_K_PRO = { rough: [.8, .83, .86, .87, .87, .88, .88, .9, .9, .9, .9, .9, .9, .6], sand: [.4, .45, .5, .55, .58, .6, .64, .67, .7, .76, .8, .85, .85, .35] };
+function applyClubSet(k) {   // v8.99.2: swap the bag in place (LAB only). Indexes, lies and caches follow the set.
+  k = k === 'pro' ? 'pro' : 'std'; if (k === CLUB_SET) return;
+  const src = k === 'pro' ? CLUBS_PRO : CLUBS_STD, L = k === 'pro' ? LIE_K_PRO : LIE_K_STD;
+  const wasPutt = typeof clubIdx !== 'undefined' && clubIdx === PUTT_I;
+  CLUBS.length = 0; src.forEach(c => CLUBS.push(Object.assign({}, c)));
+  PUTT_I = CLUBS.length - 1; WEDGE_I = CLUBS.findIndex(c => c.splash);
+  LIE_K.rough = L.rough.slice(); LIE_K.sand = L.sand.slice(); for (const s of ['tee', 'fair', 'green']) LIE_K[s] = CLUBS.map(() => 1);
+  CLUB_SET = k; clubYdCache = null;
+  if (typeof clubIdx !== 'undefined') { clubIdx = wasPutt ? PUTT_I : Math.min(clubIdx, PUTT_I - 1); angle = CLUBS[clubIdx].def; }
+}
 
 // Short game: putts, and wedge chips from CHIP_DIST yards or closer. Power maps (roughly) linearly to distance,
 // with 100% going about 1.5x the distance to the hole, so mid-meter is a sensible stroke instead of a blast.
@@ -3622,10 +3651,10 @@ for (const k of ['tee', 'fair', 'green']) LIE_K[k] = [1, 1, 1, 1, 1, 1];
 // fades into the full range between 50 and 90y, so there is no jump at the chip line. The putter uses a few FIXED
 // ranges (R= in the HUD) instead of scaling to the hole, so stroke length has to match the putt.
 const CHIP_DIST = 60, CHIP_RANGE = 0.65, SPLASH_DIST = 40, SPLASH_LIFT = 8, CHIP_CAPV = 12, AIR_CAPV = 8;   // v8.21: cup capture for chips 16 -> 12, full shots 10 -> 8 (spin stops balls near the pin)
-const isChip = (c, dist) => c === WEDGE_I && dist <= CHIP_DIST;
-const isSplash = (c, lie, dist) => c === WEDGE_I && lie === 'sand' && dist <= SPLASH_DIST;
+const isChip = (c, dist) => !!CLUBS[c] && CLUBS[c].lg === 4 && dist <= CHIP_DIST;   // v8.99.2: any wedge (standard bag: the one WEDGE)
+const isSplash = (c, lie, dist) => !!CLUBS[c] && CLUBS[c].splash && lie === 'sand' && dist <= SPLASH_DIST;
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
-const chipK = (c, dist) => c !== WEDGE_I ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
+const chipK = (c, dist) => !(CLUBS[c] && CLUBS[c].lg === 4) ? 1 : CHIP_RANGE + (1 - CHIP_RANGE) * smooth01((dist - 50) / 40);
 const PUTT_STEPS = [[7, 10], [12, 18], [1e9, 30]];   // v8.27: 10Y range out to 7Y (was 5Y) so 6-7Y putts aren't on the coarse 18Y scale   // v8.24: 10Y within 5Y, 18Y within 12Y, 30Y beyond (v8.23: 20 / 30)   // v8.23: putter tops out at 30Y: 20Y range within 8Y of the hole, 30Y beyond (was 16 / 36 / 72 / 120)
 const puttRange = dist => { for (const [d, r] of PUTT_STEPS) if (dist <= d) return r; return 30; };   // flat-ground roll at 100% putter power
 const DUNK_R = 1.0, WIND_HEAD = 1.15, WIND_TAIL = 0.88, PERFECT_V = 1.02, FLYER = 0.05;   // v8.21: headwinds bite ~1.3x harder than tailwinds help; PERFECT = +2% speed (~+4% carry); rough flyers +/-5% speed
@@ -3650,7 +3679,7 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   // v8.21 spin: by club, loft and swing length; a slice (early stop, errPx > 0) adds spin and stops, a hook takes it off and runs
   let spin = c.spin * (0.4 + 0.6 * pw) + 0.008 * rel + 0.012 * errPx;
   if (lie === 'rough') spin *= 0.3; else if (lie === 'sand' && !splash) spin *= 0.6;
-  let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3);
+  let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3) * (c.rk || 1);   // v8.99.2 rk: per-club rollout (pro set only)
   if (splash) { rollK *= 0.45; spin = Math.max(spin, 0.5); }
   let windK = clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1);
   if (kind === 'punch') { windK *= 0.7; rollK = Math.min(1.45, rollK * 1.2); spin *= 0.5; }   // under the wind, runs out
@@ -3762,9 +3791,9 @@ const STEP = 1 / 240;
 function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir, kind, ex) {
   const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir), kind, divot: ex && ex.divot });
   const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
-  let r = null, n = 0;
-  while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; }
-  return { res: r || 'stop', x: b.x };
+  let r = null, n = 0, carry = null;
+  while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; if (carry == null && b.mode !== 'air') carry = b.x; }
+  return { res: r || 'stop', x: b.x, carry: carry == null ? b.x : carry };
 }
 
 /* ================= v8.78 SHOT HEIGHTS + LIES (2D: no draw / fade, only height). Skill, not assistance:
@@ -3778,7 +3807,7 @@ const SHOT_LABEL = { n: 'NORMAL', punch: 'PUNCH', flop: 'FLOP', bump: 'BUMP & RU
 const SHOT_SWEET = { n: 1, punch: 0.85, flop: 0.55, bump: 1 };
 const GPV = {
   DIVOT_P: 0.08,
-  kinds(c, lie, d) { if (c === PUTT_I) return ['n']; const k = ['n', 'punch']; if (c >= 3) k.push('flop'); if (c >= 2 && d <= 70 && lie !== 'sand') k.push('bump'); return k; },
+  kinds(c, lie, d) { if (c === PUTT_I) return ['n']; const g = CLUBS[c] ? CLUBS[c].lg : c, k = ['n', 'punch']; if (g >= 3) k.push('flop'); if (g >= 2 && d <= 70 && lie !== 'sand') k.push('bump'); return k; },
   cleanP(k) { return SHOT_SWEET[k] || 1; },   // balance-bot model of the strike window
   errK(k) { return k === 'flop' ? 1.5 : 1; },
   spread(lie, k, dv) { if (lie === 'sand') return (k === 'punch' || k === 'flop') ? 0.9 : 2.4; if (lie === 'rough') return k === 'punch' ? 0.7 : 1.5; return dv ? 1.1 : 0; }
@@ -4934,6 +4963,7 @@ function drawClubButton() {   // v8.10: HUD bottom-right club swap — right of 
   rect(b.x, b.y, b.w, 1, '#f8d878'); rect(b.x, b.y + b.h - 1, b.w, 1, '#f8d878');
   rect(b.x, b.y, 1, b.h, '#f8d878'); rect(b.x + b.w - 1, b.y, 1, b.h, '#f8d878');
   const nm = CLUBS[clubIdx].name, yd = clubYards();
+  if (CLUB_SET === 'pro') { drawClubPro(b, CLUBS[clubIdx], yd); return; }
   // Full name always — button width is sized for the longest club in layoutChrome
   let sx = (b.h >= 20 && textW(nm, 2) <= b.w - 12) ? 2 : 1;   // roomy HUD corner: chunky 2x label like the HUD title text
   while (sx > 0.5 && textW(nm, sx) > b.w - 6) sx -= 0.25;
@@ -4941,6 +4971,13 @@ function drawClubButton() {   // v8.10: HUD bottom-right club swap — right of 
   const x0 = b.x + Math.round((b.w - (both ? tw + 6 + yw : tw)) / 2), ny = b.y + Math.round((b.h - th) / 2);
   drawText(nm, x0, ny, state === 'aim' ? '#f8d878' : COL.white, sx, sx);
   if (both) drawText(yd, x0 + tw + 6, ny + th - 7, state === 'aim' ? COL.white : COL.gray);
+}
+function drawClubPro(b, C, yd) {   // v8.99.2 pro set: big short name, then loft over carry (minimal; no box beyond the button)
+  const on = state === 'aim', sx = b.h >= 22 ? 2 : 1.5, tw = textW(C.sn, sx), th = Math.round(7 * sx);
+  const l1 = clubIdx === PUTT_I ? 'PUTT' : C.loft + '\u00b0', l2 = clubIdx === PUTT_I ? 'R=' + yd : 'C ' + yd, sw = Math.max(textW(l1), textW(l2));
+  const x0 = b.x + Math.round((b.w - (tw + 5 + sw)) / 2), ny = b.y + Math.round((b.h - th) / 2);
+  drawText(C.sn, x0, ny, on ? '#f8d878' : COL.white, sx, sx);
+  const ty = b.y + Math.round((b.h - 16) / 2); drawText(l1, x0 + tw + 5, ty, on ? COL.white : COL.gray); drawText(l2, x0 + tw + 5, ty + 9, on ? '#f8d878' : COL.gray);
 }
 /* v8.22: full-swing yardage for the selected club from this spot: the same sim the auto club uses (lie, slope, wind, current loft).
    Recomputed only when something changes while aiming; frozen during the swing. The putter shows its range instead. */
@@ -4952,7 +4989,7 @@ function clubYards() {
   const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, wind, shotKind, !!ball.divot].join(':');
   if (!clubYdCache || clubYdCache.key !== key) {
     let reach = 0;
-    try { reach = Math.abs(simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing, shotKindValid(), { divot: ball.divot }).x - ball.x); } catch (e) {}
+    try { const r = simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing, shotKindValid(), { divot: ball.divot }); reach = Math.abs((CLUB_SET === 'pro' ? r.carry : r.x) - ball.x); } catch (e) {}   // v8.99.2: pro set shows CARRY
     clubYdCache = { key, c: clubIdx, t: Math.round(reach) + 'Y' };
   }
   return clubYdCache.t;
@@ -5618,6 +5655,7 @@ function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += 
 function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (!(courseKind === 'lbi' && lbiCtx && lbiCtx.from)) flySeen = new Set();   // v8.77: fresh round = fresh flyovers
   if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { GPV.round(roundSeedNow(), courseKind); } catch (e) { cond = { gust: false, firm: false }; bountyIdx = -1; }   /* v8.79 */ try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
 function startHole() {
+  if (courseKind !== 'lab' && CLUB_SET !== 'std') applyClubSet('std');   // v8.99.2: the pro bag never leaves the LAB
   camY = 0; shotFx = null; yardFx = null;
   const src = HOLES[holeIdx];
   const lr = courseKind === 'lbi' && lbiCtx && !lbiCtx.practice ? mulberry32(seedFromStr('LBI-' + lbiCtx.seed + '-' + holeIdx)) : null;   // v8.63: same pins + wind for everyone in a round
@@ -5657,8 +5695,8 @@ function autoClub() {
   }
   else if (isSplash(WEDGE_I, lie, d)) clubIdx = WEDGE_I;   // greenside bunker: splash it out
   else {
-    let pick = -1, best = WEDGE_I, bestReach = -1e9;
-    for (let c = WEDGE_I; c >= 0; c--) {
+    let pick = -1, best = PUTT_I - 1, bestReach = -1e9;
+    for (let c = PUTT_I - 1; c >= 0; c--) {
       let reach = 0;
       try { reach = (simulateShot(hole, wind, ball.x, c, CLUBS[c].def, 1, 0, dir).x - ball.x) * dir; } catch (e) {}
       if (reach >= d - 2) { pick = c; break; }
@@ -6158,7 +6196,7 @@ function nextHole() {
   else finishRound();
 }
 function finishRound() {
-  if (courseKind === 'lab') { setCourseHoles('front', FRONT_HOLES); quitToMenu(); return; }   // v8.74 LAB never saves a round
+  if (courseKind === 'lab') { applyClubSet('std'); setCourseHoles('front', FRONT_HOLES); quitToMenu(); return; }   // v8.74 LAB never saves a round
   if (courseKind === 'match' && matchCtx && matchCtx.watch) { matchAfterRound(); return; }   // career v2: ghost replay ends at the result panel
   const total = scores.reduce((a, b) => a + b, 0), rel = total - TOTAL_PAR;
   const mode = scoreModeForSave();
@@ -8422,7 +8460,7 @@ function drawHUD() {
   hudCell(2, y1, 'STROKE ' + strokes, COL.white);
   hudCell(3, y1, 'TOTAL ' + fmtRel(rel), rel <= 0 ? COL.lime : COL.orange);
   // row 2: club (tap to change), angle, wind, lie
-  hudCell(0, y2, CLUBS[clubIdx].name, COL.orange, state === 'aim' ? COL.white : COL.lime);
+  hudCell(0, y2, CLUB_SET === 'pro' && clubIdx !== PUTT_I && textW(CLUBS[clubIdx].name + ' ' + CLUBS[clubIdx].loft + '\u00b0') <= HUD_COLS[0][1] - 4 ? CLUBS[clubIdx].name + ' ' + CLUBS[clubIdx].loft + '\u00b0' : CLUBS[clubIdx].name, COL.orange, state === 'aim' ? COL.white : COL.lime);
   const at = clubIdx === PUTT_I ? 'R=' + puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y' : 'ANG ' + Math.round(angle);
   hudCell(1, y2, at, angFlash > 0 ? '#f8d878' : COL.white, angFlash > 0 ? COL.white : COL.lime);
   windHud = true;   // v8.96: wind lives top-middle now (#windInd); the lie cell takes both right columns
@@ -9947,6 +9985,7 @@ const ADMIN_VIEWS = {
   },
   adminLab: () => head('LAB', 'go:admin') + '<p class="sub">TEST MODE. ONLY ADMINS SEE THIS. NOTHING IN THE LAB IS SAVED OR POSTED.</p><div class="msg"></div>' +   // v8.74
     '<button class="btn" data-a="labHybrid">PLAY 3 HOLES</button><p class="sub" style="margin-top:4px">NORMAL SIDE VIEW FOR FULL SHOTS. ONCE YOU ARE ON THE GREEN THE CAMERA SWINGS BEHIND THE BALL TO PUTT.</p>' +
+    '<button class="btn alt" data-a="labClubs">PRO CLUB SET (DLCC 9)</button><p class="sub" style="margin-top:4px">14-CLUB BAG: DRIVER TO LOB WEDGE WITH REAL LOFTS AND GAPPING. SAME REACH, POWER AND WIND. NORMAL PUTTING.</p>' +
     '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
     '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>' +
     '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>',
@@ -10553,7 +10592,7 @@ if (acctEl) {
     if (a === 'maccept') { await respondMatch(id, 'accept'); const m = social.matches.find(x => x.id === id); if (m) showAcct('result', { id }); else showAcct('matches'); return; }
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
-    if (a === 'labHybrid' || a === 'labGreens') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : 'greens'); return; }   // v8.74
+    if (a === 'labHybrid' || a === 'labGreens' || a === 'labClubs') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : a === 'labClubs' ? 'clubs' : 'greens'); return; }   // v8.74
     if (a === 'labDuck') { if (!admin.is) return; duckLab = !duckLab; try { localStorage.setItem('dlg_duck_lab', duckLab ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: duckLab ? 'DUCK ON (ONLY YOU)' : 'DUCK HIDDEN', ok: true }); return; }   // v8.95
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'hidemine') { try { localStorage.setItem('dlg_adm_hide_mine', admHideMine() ? '0' : '1'); } catch (e) {} showAcct('admin'); return; }   // v8.98
@@ -10998,10 +11037,11 @@ function labRender(now) {
   } finally { ctx = old; }
 }
 function labBtn(r, label, on) { rect(r.x, r.y, r.w, r.h, on ? '#f8d878' : COL.white); rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#4c3c00' : '#000'); drawText(label, r.x + Math.round((r.w - textW(label)) / 2), r.y + Math.round((r.h - 7) / 2), on ? '#f8d878' : COL.white); }
+const labEx = () => Math.round(Math.max(0, (LAB.scores || []).length - 3) * 10 / 2);   // v8.99.2: 9-hole club lab summary is taller
 function labRects() {
   const t = (SAFE.t || 0) + 4, cy = Math.round(PLAY_H * 0.5);
   return { exit: { x: 4 + (SAFE.l || 0), y: t, w: 44, h: 15 }, read: { x: W - 52 - (SAFE.r || 0), y: t, w: 48, h: 15 },
-    again: { x: Math.round(W / 2 - 60), y: cy + 30, w: 120, h: 17 }, out: { x: Math.round(W / 2 - 60), y: cy + 52, w: 120, h: 17 } };
+    again: { x: Math.round(W / 2 - 60), y: cy + 30 + labEx(), w: 120, h: 17 }, out: { x: Math.round(W / 2 - 60), y: cy + 52 + labEx(), w: 120, h: 17 } };
 }
 function labHud(now) {
   const g = LAB.g, b = LAB.ball, R = labRects(), y0 = PLAY_H;
@@ -11040,12 +11080,12 @@ function labHud(now) {
   if (['power', 'accuracy', 'stroke', 'roll'].includes(ph)) drawTextR(Math.round(showP * 100) + '%', bx + 134, by + 2, COL.white);
   if (LAB.phase === 'holed' && LAB.t > 0.45) { const nm = LAB.res || 'IN!'; const w = Math.max(150, textW(nm, 2) + 24), x = Math.round((W - w) / 2), y = Math.round(PLAY_H * 0.36); rect(x, y, w, 44, COL.white); rect(x + 1, y + 1, w - 2, 42, '#000'); drawTextC('IN THE HOLE!', y + 7, COL.white); drawTextC(nm, y + 20, '#f8d878', 2); }
   if (LAB.phase === 'summary') {
-    const w = Math.min(W - 16, 200), x = Math.round((W - w) / 2), y = Math.round(PLAY_H * 0.5) - 62; rect(0, 0, W, PLAY_H, 'rgba(0,0,0,0.45)');
-    rect(x, y, w, 154, COL.white); rect(x + 1, y + 1, w - 2, 152, '#000'); drawTextC('LAB ROUND DONE', y + 8, '#f8d878');
+    const nH = LAB.scores.length, ex = Math.max(0, nH - 3) * 10, w = Math.min(W - 16, 200), x = Math.round((W - w) / 2), y = Math.round(PLAY_H * 0.5) - 62 - Math.round(ex / 2); rect(0, 0, W, PLAY_H, 'rgba(0,0,0,0.45)');
+    rect(x, y, w, 154 + ex, COL.white); rect(x + 1, y + 1, w - 2, 152 + ex, '#000'); drawTextC('LAB ROUND DONE', y + 8, '#f8d878');
     const tot = LAB.scores.reduce((a, s) => a + (s || 0), 0), par = HOLES.reduce((a, h, i) => a + (LAB.scores[i] ? h.par : 0), 0);
     LAB.scores.forEach((s, i) => drawTextC('HOLE ' + (i + 1) + '  ' + (HOLES[i] ? HOLES[i].name : '') + '  ' + s, y + 24 + i * 10, COL.white));
-    drawTextC('TOTAL ' + fmtRel(tot - par), y + 62, tot - par <= 0 ? COL.lime : COL.orange, 2);
-    drawTextC('NOTHING WAS SAVED', y + 80, COL.grayD);
+    drawTextC('TOTAL ' + fmtRel(tot - par), y + 62 + ex, tot - par <= 0 ? COL.lime : COL.orange, 2);
+    drawTextC('NOTHING WAS SAVED', y + 80 + ex, COL.grayD);
     labBtn(R.again, 'PLAY AGAIN'); labBtn(R.out, 'EXIT LAB');
   }
 }
@@ -11095,9 +11135,10 @@ function labStart(mode) {
   if (!labAllowed()) return;
   try { hideAcct(); } catch (e) {}
   LAB.mode = mode; LAB.scores = []; LAB.putts = 0; LAB.greenN = 0;
+  applyClubSet(mode === 'clubs' ? 'pro' : 'std');   // v8.99.2
   if (mode === 'greens') { labNextGreen(); return; }
   paused = false; ov = null; roundTip = false; board = null;
-  setCourseHoles('lab', LAB_HOLES()); weather = Object.assign({}, WEATHERS[0]);
+  setCourseHoles('lab', mode === 'clubs' ? FRONT_HOLES : LAB_HOLES()); weather = Object.assign({}, WEATHERS[0]);
   holeIdx = 0; scores = []; flySeen = new Set(); startHole(); showMsg('LAB: NOTHING IS SAVED', '#f8d878', 2.4);
 }
 function labNextGreen() {
@@ -11108,7 +11149,7 @@ function labNextGreen() {
   labOpenGreen(LAB_SPECS[i % LAB_SPECS.length], D, LAB_THEMES[i % LAB_THEMES.length], Math.floor(R() * 4e9), R() < 0.5 ? 1 : -1);
 }
 function labResolve(r) {   // called first thing in resolveBall while courseKind === 'lab'; true = the lab took this ball
-  if (r === 'water' || r === 'ob') return false;
+  if (r === 'water' || r === 'ob' || LAB.mode === 'clubs') return false;   // v8.99.2 club lab: normal side-view putting
   if (r === 'cup') { ball.mode = 'stop'; SFX.cup(); holedDur = 1.8; showMsg('HOLED IT!  (LAB)', '#f8d878', 1.8); setState('holed'); return true; }
   if (strokes >= 10 || surfAt(hole, ball.x) !== 'green') return false;
   ball.mode = 'stop';
@@ -11133,7 +11174,7 @@ function labClose() {
   clearTimeout(LAB.closing); LAB.closing = setTimeout(() => { if (!LAB.on) c.style.display = 'none'; }, 480);
   last = performance.now();
 }
-function labExit() { labClose(); LAB.mode = null; if (courseKind === 'lab') { setCourseHoles('front', FRONT_HOLES); scores = []; } quitToMenu(); }
+function labExit() { labClose(); LAB.mode = null; applyClubSet('std'); if (courseKind === 'lab') { setCourseHoles('front', FRONT_HOLES); scores = []; } quitToMenu(); }
 function labAction() {
   const m = LAB.meter, ph = LAB.phase;
   if (ph === 'in' || ph === 'read') { LAB.phase = 'glide'; LAB.t = 0; LAB.from2 = Object.assign({}, LAB.cam); LAB.to = labPuttCam(LAB.ball.x, LAB.ball.y, LAB.aim, 0); LAB.readK = 0; return; }
