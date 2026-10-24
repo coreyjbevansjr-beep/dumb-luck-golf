@@ -251,7 +251,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.97';
+const GAME_VERSION = 'v8.98';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -984,9 +984,11 @@ const adminErr = r => { const m = String((r.data && r.data.message) || ''); retu
 async function adminRpc(fn, body) { const r = await sb('/rest/v1/rpc/' + fn, { method: 'POST', body: body || {} }, 'admin'); if (r.status === 403 || (r.data && r.data.code === '42501' && /admin only/.test(r.data.message || ''))) { admin.is = false; admin.unlock = false; } return r.ok ? { ok: true, data: r.data } : { ok: false, msg: adminErr(r) }; }
 async function adminLoadStats() {   // v8.96: 7d + 30d stats, last 30d of public scores, newest accounts (all existing admin-gated RPCs / public reads)
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
-  const [r, r30, sc, np, s2] = await Promise.all([adminRpc('admin_stats', { p_days: 7 }), adminRpc('admin_stats', { p_days: 30 }),
-    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=1000', {}, 'admin'), adminRpc('admin_players', { p_query: '' }), adminRpc('admin_stats2', { p_days: 30 })]);
+  const ex = admHideMine();   // v8.98
+  const [r, r30, sc, np, s2, rt] = await Promise.all([adminRpc('admin_stats', { p_days: 7, p_exclude: ex }), adminRpc('admin_stats', { p_days: 30, p_exclude: ex }),
+    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=1000', {}, 'admin'), adminRpc('admin_players', { p_query: '' }), adminRpc('admin_stats2', { p_days: 30, p_exclude: ex }), adminRpc('admin_ratings', {})]);
   admin.stats = r.ok ? r.data : null; admin.stats30 = r30.ok ? r30.data : null; admin.s2 = s2.ok ? s2.data : null;   // v8.97
+  admin.rt = rt.ok ? rt.data : null;   // v8.98
   admin.recent = sc.ok && Array.isArray(sc.data) ? sc.data : []; admin.newp = np.ok && Array.isArray(np.data) ? np.data : [];
   return r;
 }
@@ -1017,6 +1019,19 @@ function admS2(X) {   // v8.97: extra stats (admin_stats2, 30d)
   else { const so = hs.slice().sort((a, b) => b.avg - a.avg), row = x => '<div><span>' + lab(x) + '</span><span>' + fa(x.avg) + ' · ' + x.n + ' PLAYS</span></div>';
     h += '<p class="sec">HARDEST</p><div class="feed">' + so.slice(0, 3).map(row).join('') + '</div><p class="sec">EASIEST</p><div class="feed">' + so.slice(Math.max(3, so.length - 3)).reverse().map(row).join('') + '</div>'; }
   return h + '</details>';
+}
+const admHideMine = () => { try { return localStorage.getItem('dlg_adm_hide_mine') !== '0'; } catch (e) { return true; } };   // v8.98: default on
+function admRatings(X) {   // v8.98: thumbs (admin votes left out server-side)
+  if (!X) return '';
+  const pc = x => { const n = (+x.up || 0) + (+x.down || 0); return n ? Math.round(100 * x.up / n) : 0; }, nn = x => (+x.up || 0) + (+x.down || 0);
+  const cs = (X.courses || []).filter(c => nn(c) > 0).sort((a, b) => pc(a) - pc(b) || nn(b) - nn(a));
+  const hs = (X.holes || []).filter(x => nn(x) > 0).sort((a, b) => pc(a) - pc(b) || b.down - a.down);
+  const row = (l, x) => '<div><span>' + l + '</span><span>' + pc(x) + '% LIKED · ' + x.up + ' / ' + x.down + '</span></div>';
+  let h = '<p class="sec">RATINGS · ALL TIME</p>';
+  if (!cs.length) return h + '<p class="empty">NO RATINGS YET</p>';
+  h += '<div class="feed">' + cs.map(c => row(esc(admMode(c.course)) + (nn({ up: c.cup, down: c.cdown }) ? ' · COURSE ' + c.cup + '/' + c.cdown : ''), c)).join('') + '</div>';
+  if (hs.length) h += '<details><summary>HOLES, LEAST LIKED FIRST</summary><div class="feed">' + hs.slice(0, 20).map(x => row(esc(admMode(x.course)) + ' #' + x.hole, x)).join('') + '</div></details>';
+  return h + '<p class="sub">UP / DOWN. HOLE + COURSE VOTES COMBINED PER COURSE. ' + (X.excluded ? X.excluded + ' ADMIN VOTES LEFT OUT.' : 'ADMIN VOTES LEFT OUT.') + '</p>';
 }
 const admPct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
 const admMode = m => String(m || '?').replace(/[_-]+/g, ' ').toUpperCase();
@@ -2297,9 +2312,48 @@ function trackEvent(event, extra) {
     };
     // strip nulls that PostgREST is fine with either way; keep for clarity on optional fields
     const headers = lbHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' });
+    try {   // v8.98: signed in -> user token + user_id (server re-stamps user_id from the token; expired token -> stay anonymous)
+      const u = account.user;
+      if (u && u.id && u.access_token && (u.expires_at || 0) > Date.now() / 1000 + 30) { headers.Authorization = 'Bearer ' + u.access_token; body.user_id = u.id; }
+    } catch (e2) {}
     // fire-and-forget; never await in gameplay paths
     Promise.resolve(lbFetch(trackEndpoint(), { method: 'POST', headers, body: JSON.stringify(body) })).catch(() => {});
   } catch (e) { /* never throw into game */ }
+}
+/* v8.98: thumbs up / down. Holes on the hole-complete card, the whole course (hole 0) on the scorecard.
+   One vote per device per hole, tap again to clear, tap the other to change. Fire-and-forget RPC; ratings are never readable here. */
+const RATE_STORE = 'dlg_ratings_v1', RATE_UP = { x: 0, y: -99, w: 13, h: 13, on: false }, RATE_DN = { x: 0, y: -99, w: 13, h: 13, on: false };
+const CRATE_UP = { x: 0, y: -99, w: 13, h: 13, on: false }, CRATE_DN = { x: 0, y: -99, w: 13, h: 13, on: false };
+const THUMB_PX = ['...##....', '...##....', '..###....', '##.#####.', '##.######', '##.######', '##.######', '##.#####.', '##..####.'];
+function rateAllowed() { return !!(HOLES && HOLES.length) && courseKind !== 'match' && !(typeof LAB !== 'undefined' && LAB.on); }
+function rateCourseKey() { return courseKind === 'daily' ? (dailyMeta && dailyMeta.date ? 'daily-' + dailyMeta.date : 'daily') : String(courseKind || 'front'); }
+function rateHoleKey(i) {
+  const n = displayHoleNum(i) | 0, k = courseKind;
+  if (k === 'front' || k === 'back' || k === 'full' || k === 'quick3') return n > 9 ? ['back', n - 9] : ['front', n];
+  if (k === 'nycf' || k === 'nycb' || k === 'nyc18') return n > 9 ? ['nycb', n - 9] : ['nycf', n];
+  return [rateCourseKey(), Math.max(1, Math.min(18, n))];
+}
+function rateMap() { try { const m = JSON.parse(localStorage.getItem(RATE_STORE) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; } }
+function rateGet(c, h) { return rateMap()[c + ':' + h] | 0; }
+function rateSet(c, h, v) {
+  const nv = rateGet(c, h) === v ? 0 : v, m = rateMap();
+  if (nv) m[c + ':' + h] = nv; else delete m[c + ':' + h];
+  try { localStorage.setItem(RATE_STORE, JSON.stringify(m)); } catch (e) {}
+  try { SFX.click(); } catch (e) {}
+  if (authOnline() && !/^#preview/.test(location.hash || '') && /^[a-z0-9_-]{1,40}$/.test(c))
+    Promise.resolve(sb('/rest/v1/rpc/rate_hole', { method: 'POST', noAuth: !isSignedIn(), body: { p_visitor: trackVisitorId(), p_course: c, p_hole: h, p_vote: nv } }, 'rate')).catch(() => {});
+  return nv;
+}
+function drawThumb(x, y, down, col) { for (let r = 0; r < 9; r++) { const row = THUMB_PX[down ? 8 - r : r]; for (let c = 0; c < 9; c++) if (row[c] === '#') rect(x + c, y + r, 1, 1, col); } }
+function drawRateBtn(r, down, on) {
+  rect(r.x, r.y, r.w, r.h, on ? (down ? COL.orange : COL.lime) : '#7c7c7c');
+  if (!on) rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, '#000');
+  drawThumb(r.x + 2, r.y + 2, down, on ? '#000' : COL.white);
+}
+function rateTap(p, up, dn, e, keyFn) {   // shared tap: nearer button wins where the 44px hit areas overlap
+  try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
+  const isDn = p.x >= (up.x + up.w + dn.x) / 2, r0 = Object.assign({}, isDn ? dn : up);
+  armUiTap(isDn ? 'rdn' : 'rup', () => { const k = keyFn(); rateSet(k[0], k[1], isDn ? -1 : 1); }, (u) => hitBtn(toLogical(u), r0), e);
 }
 function trackVisitOnce() {
   if (!trackEnabled()) return;
@@ -6353,6 +6407,12 @@ cv.addEventListener('pointerdown', e => {
     if (ak) { nudgeAngle(ak === 'up' ? 1 : -1); held[ak] = 0; loftHold = ak; try { cv.setPointerCapture(e.pointerId); } catch (err) {} }
     touchDown = null; return;
   }
+  if (state === 'done' && RATE_UP.on && (hitBtn(p, RATE_UP) || hitBtn(p, RATE_DN))) {   // v8.98: hole thumbs never advance the hole
+    rateTap(p, RATE_UP, RATE_DN, e, () => rateHoleKey(holeIdx)); touchDown = null; return;
+  }
+  if (state === 'card' && CRATE_UP.on && (hitBtn(p, CRATE_UP) || hitBtn(p, CRATE_DN))) {   // v8.98: course thumbs
+    rateTap(p, CRATE_UP, CRATE_DN, e, () => [rateCourseKey(), 0]); touchDown = null; return;
+  }
   if (GAME_STATES.includes(state) && (hitBtn(p, CLUB_BTN) || hit(p, CLUB_PAD))) {
     try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
     if (state === 'aim' && hitBtn(p, CLUB_BTN)) {
@@ -8879,7 +8939,7 @@ function renderCard() {
   const tall = HOLES.length > 9;
   // v8.59: the 244-wide card is centred on wide screens (drawTextC already centres on W/2) and sized to its content,
   // with SHARE / LEADERBOARD + the key hint always below it
-  const ox = Math.max(0, Math.round((W - 256) / 2)), sumY = tall ? 136 : 96, boxH = sumY + 66;
+  const ox = Math.max(0, Math.round((W - 256) / 2)), sumY = tall ? 136 : 96, rateOn = rateAllowed(), boxH = sumY + 66 + (rateOn ? 18 : 0);   // v8.98: +course rating row
   ctx.globalAlpha = 0.8; rect(ox + 6, 6, 244, boxH, '#000'); ctx.globalAlpha = 1;   // v8.60: see-through card, thin gold rim
   rect(ox + 6, 6, 244, 1, CARD_GOLD); rect(ox + 6, 5 + boxH, 244, 1, CARD_GOLD); rect(ox + 6, 6, 1, boxH, CARD_GOLD); rect(ox + 249, 6, 1, boxH, CARD_GOLD);
   drawTextC('FINAL SCORECARD', 14, CARD_GOLD);
@@ -8919,6 +8979,13 @@ function renderCard() {
     let lbiCol = null; if (courseKind === 'lbi') { const m = lbiCardMsg(); saveMsg = m[0]; lbiCol = m[1]; }   // v8.63
     if (courseKind === 'spooky') saveMsg = ({ cupin: 'YOU\'RE IN THE SPOOKY CUP!', cupguest: 'SIGN IN TO ENTER THE SPOOKY CUP', cupsoon: 'SPOOKY CUP OPENS OCT 14', cupover: 'THE SPOOKY CUP IS OVER', rejected: 'SCORE NOT ACCEPTED' })[saveWhere] || saveMsg;   // v8.52
     drawTextC(saveMsg, sumY + 58, lbiCol ? lbiCol : (saveWhere === 'error' || cardInfo.practice || /^cup(guest|soon|over)$|rejected/.test(saveWhere)) ? COL.orange : COL.white);
+  }
+  CRATE_UP.on = CRATE_DN.on = rateOn;
+  if (rateOn) {   // v8.98
+    const lab = 'RATE THIS COURSE', tw = textW(lab), rx = Math.round((W - (tw + 8 + 30)) / 2), ry = sumY + 70, v = rateGet(rateCourseKey(), 0);
+    drawText(lab, rx, ry + 3, CARD_GOLD);
+    CRATE_UP.x = rx + tw + 8; CRATE_DN.x = CRATE_UP.x + 17; CRATE_UP.y = CRATE_DN.y = ry;
+    drawRateBtn(CRATE_UP, false, v === 1); drawRateBtn(CRATE_DN, true, v === -1);
   }
   {
     const by = Math.max(SHARE_BTN.y, 6 + boxH + 6);
@@ -9399,13 +9466,16 @@ const ADMIN_VIEWS = {
     if (!S) return h + '<p class="empty">LOADING STATS...</p>';
     const m = S.matches || {}, S30 = admin.stats30 || S, rec = admin.recent || [], np = admin.newp || [];
     const tot = (X, k) => (X.daily || []).reduce((a, d) => a + (+d[k] || 0), 0), wk = Date.now() - 7 * 864e5;
+    const hm = admHideMine(), allT = S.all_players_today;   // v8.98
+    h += '<p class="sub"><button class="btn small ' + (hm ? '' : 'alt') + '" data-a="hidemine">HIDE MY DEVICES: ' + (hm ? 'ON' : 'OFF') + '</button>' +
+      (allT != null ? ' TODAY ' + S.players_today + ' PLAYERS · ' + allT + ' WITH ME + BOTS' + (S.excluded_visitors ? ' · ' + S.excluded_visitors + ' DEVICES HIDDEN' : '') : '') + '</p>';
     const new7 = np.filter(p => Date.parse(p.created_at) >= wk).length, new30 = np.filter(p => Date.parse(p.created_at) >= Date.now() - 30 * 864e5).length;
     h += '<div class="kpis"><div><b>' + S.players_today + '</b>PLAYERS TODAY</div><div><b>' + S.players_period + '</b>PLAYERS 7D</div><div><b>' + (admin.stats30 ? S30.players_period : '-') + '</b>PLAYERS 30D</div>' +
       '<div><b>' + S.rounds_today + '</b>ROUNDS TODAY</div><div><b>' + tot(S, 'rounds') + '</b>ROUNDS 7D</div><div><b>' + admPct(tot(S, 'finishes'), tot(S, 'rounds')) + '</b>FINISH 7D</div>' +
       '<div><b>' + S.accounts + '</b>ACCOUNTS</div><div><b>' + new7 + (new7 >= 50 ? '+' : '') + '</b>SIGNUPS 7D</div><div><b>' + (admin.stats30 ? S30.home_screen_share : S.home_screen_share || 0) + '%</b>HOME SCREEN</div></div>';
     h += admSpark('PLAYERS / DAY', admSeries(S30, 'players', 30), '#f8d878') + admSpark('ROUNDS / DAY', admSeries(S30, 'rounds', 30), '#58d854');
     h += '<p class="sub" style="margin-top:6px">30D: ' + tot(S30, 'rounds') + ' ROUNDS · ' + admPct(tot(S30, 'finishes'), tot(S30, 'rounds')) + ' FINISHED · ' + (admin.s2 ? (admin.s2.signups || []).reduce((a, d) => a + (+d.n || 0), 0) : new30 + (new30 >= 50 ? '+' : '')) + ' SIGNUPS · ' + rec.length + ' SCORES POSTED</p>';
-    h += admS2(admin.s2);
+    h += admS2(admin.s2) + admRatings(admin.rt);
     const modes = {}; rec.forEach(s => { const k = admMode(s.mode), o = modes[k] || (modes[k] = { n: 0, b: null }); o.n++; if (!o.b || s.to_par < o.b.to_par) o.b = s; });
     const top = Object.entries(modes).sort((a, b) => b[1].n - a[1].n).slice(0, 5);
     if (top.length && !admin.s2) h += '<p class="sec">TOP MODES · 30D</p><div class="feed">' + top.map(([k, o]) => '<div><span>' + esc(k) + ' · ' + o.n + '</span><span>BEST ' + esc(String(o.b.name).toUpperCase()) + ' ' + (o.b.to_par > 0 ? '+' : '') + o.b.to_par + '</span></div>').join('') + '</div>';
@@ -10122,6 +10192,7 @@ if (acctEl) {
     if (a === 'labHybrid' || a === 'labGreens') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : 'greens'); return; }   // v8.74
     if (a === 'labDuck') { if (!admin.is) return; duckLab = !duckLab; try { localStorage.setItem('dlg_duck_lab', duckLab ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: duckLab ? 'DUCK ON (ONLY YOU)' : 'DUCK HIDDEN', ok: true }); return; }   // v8.95
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
+    if (a === 'hidemine') { try { localStorage.setItem('dlg_adm_hide_mine', admHideMine() ? '0' : '1'); } catch (e) {} showAcct('admin'); return; }   // v8.98
     if (a === 'ssort') { admin.scoreSort = b.getAttribute('data-n'); showAcct('adminScores'); return; }
     if (a === 'sdel') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
       acctBusy(true); const r = await adminRpc('admin_delete_score', { p_id: Number(id) }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct(acctView === 'adminPlayer' ? 'adminPlayer' : 'adminScores', { user: acctOpts.user, msg: 'DELETED ' + r.data.name + ' ' + r.data.strokes, ok: true }); return; }
@@ -10290,6 +10361,7 @@ function renderScene() {
   if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2), my = Math.max(36, (SAFE.t || 0) + 6); rect(x, my, w, 13, COL.white); rect(x + 1, my + 1, w - 2, 11, '#000'); drawText(msg.text, x + 6, my + 3, msg.col); }
   else drawWildCaption();
   drawBanner();
+  if (state !== 'done') rateOffCard();
   if (state === 'done') {
     // v8.13: size the box to its text (min 188, clamped to screen) and center it on W
     const w = Math.min(W - 8, Math.max(188, textW(doneInfo.name, 2) + 24, textW('CLICK FOR SCORECARD') + 16, textW('TOTAL ' + fmtRel(relSoFar())) + 16));
@@ -10297,6 +10369,10 @@ function renderScene() {
     rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
     drawText('HOLE ' + displayHoleNum(holeIdx), x + 8, y + 8, COL.white);
     drawText('PAR ' + hole.par, x + 8, y + 19, COL.white);
+    RATE_UP.on = RATE_DN.on = rateAllowed();   // v8.98: optional thumbs, top-right
+    if (RATE_UP.on) { const hk = rateHoleKey(holeIdx), v = rateGet(hk[0], hk[1]);
+      RATE_DN.x = x + w - 6 - 13; RATE_UP.x = RATE_DN.x - 17; RATE_UP.y = RATE_DN.y = y + 6;
+      drawRateBtn(RATE_UP, false, v === 1); drawRateBtn(RATE_DN, true, v === -1); }
     const nm = doneInfo.name;
     const sc2 = textW(nm, 2) <= w - 12 ? 2 : 1;
     drawTextC(nm, y + 38, doneInfo.d <= 0 ? COL.lime : COL.orange, sc2, sc2 * (sc2 === 2 ? 1.5 : 1));
@@ -10307,6 +10383,7 @@ function renderScene() {
   }
   drawCursor();
 }
+function rateOffCard() { RATE_UP.on = RATE_DN.on = false; if (state !== 'card') CRATE_UP.on = CRATE_DN.on = false; }
 function lastSpotForGolfer() { return ['flight'].includes(state) ? lastSpot : ball.x; }
 let shotFacing = 1;
 function facingForGolfer() { return state === 'flight' ? shotFacing : facing; }
