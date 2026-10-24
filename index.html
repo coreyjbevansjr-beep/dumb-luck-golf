@@ -178,15 +178,28 @@
   #acct .lbipz b{display:block;color:#D4AF37;font-size:18px;margin-bottom:4px}
   #acct .lbipz img{margin:4px auto 0;image-rendering:auto}
   #acct .lbidim{color:#7c8cac;text-decoration:none;text-align:center;line-height:44px}
-  #windInd{position:fixed;left:50%;top:0;transform:translateX(-50%);z-index:4;pointer-events:none;display:none;align-items:center;gap:6px;color:rgba(255,255,255,.78);font:700 12px/1 -apple-system,system-ui,'Segoe UI',sans-serif;letter-spacing:1.5px;text-shadow:0 1px 3px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.25);white-space:nowrap}
+  #windInd{position:fixed;left:50%;top:0;transform:translateX(-50%);z-index:4;pointer-events:none;display:none;align-items:center;gap:.4em;color:#fff;font:900 16px/1 -apple-system,system-ui,'Segoe UI',sans-serif;letter-spacing:.06em;text-shadow:0 2px 0 rgba(0,0,0,.5),0 0 10px rgba(0,0,0,.45),0 0 2px rgba(0,0,0,.6);white-space:nowrap;transition:opacity .25s}
   #windInd.on{display:flex}
-  #windInd svg{width:2.5em;height:1.15em;overflow:visible;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  #windInd.dim{opacity:.22}
+  #windInd span{position:relative}
+  #windInd svg{position:relative;width:2.3em;height:1.1em;overflow:visible;filter:drop-shadow(0 2px 0 rgba(0,0,0,.45)) drop-shadow(0 0 4px rgba(0,0,0,.35))}
   #windInd.l svg{transform:scaleX(-1)}
-  #windInd .wk{stroke:rgba(255,255,255,.45);stroke-width:1.4;stroke-linecap:round;animation:wkf 1.8s linear infinite}
-  #windInd .wk2{animation-delay:-.6s}#windInd .wk3{animation-delay:-1.2s}
-  #windInd.calm svg{display:none}
-  @keyframes wkf{0%{transform:translateX(-8px);opacity:0}30%{opacity:1}100%{transform:translateX(10px);opacity:0}}
-  @media (prefers-reduced-motion:reduce){#windInd .wk{animation:none;opacity:.6}}
+  #windInd .wf{position:absolute;left:-2.6em;right:-2.6em;top:-.55em;bottom:-.55em;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+  #windInd.l .wf{transform:scaleX(-1)}
+  #windInd .wf i{position:absolute;left:-30%;height:.13em;min-height:2px;width:1.9em;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.95));box-shadow:0 1px 1px rgba(0,0,0,.18);opacity:0;animation:wfl var(--d,1.6s) linear infinite}
+  #windInd .wf i:nth-child(1){top:12%;animation-delay:calc(var(--d,1.6s)*-.1)}#windInd .wf i:nth-child(2){top:70%;width:2.6em;animation-delay:calc(var(--d,1.6s)*-.45)}
+  #windInd .wf i:nth-child(3){top:40%;width:1.4em;animation-delay:calc(var(--d,1.6s)*-.75)}#windInd .wf i:nth-child(4){top:88%;width:2.2em;animation-delay:calc(var(--d,1.6s)*-.28)}
+  #windInd .wf i:nth-child(5){top:25%;width:3em;animation-delay:calc(var(--d,1.6s)*-.6)}#windInd .wf i:nth-child(6){top:55%;width:1.7em;animation-delay:calc(var(--d,1.6s)*-.9)}
+  #windInd .wf i:nth-child(7){top:2%;width:2.4em;animation-delay:calc(var(--d,1.6s)*-.38)}
+  #windInd .wf i:nth-child(n+4){display:none}#windInd.w2 .wf i:nth-child(-n+5){display:block}#windInd.w3 .wf i{display:block}
+  #windInd.calm .wf,#windInd.calm svg{display:none}
+  @keyframes wfl{0%{left:-30%;opacity:0}12%{opacity:var(--o,.6)}80%{opacity:var(--o,.6)}100%{left:105%;opacity:0}}
+  #windInd.g1 svg,#windInd.g1 span{animation:wgp .8s ease-out}#windInd.g2 svg,#windInd.g2 span{animation:wgp2 .8s ease-out}
+  #windInd.g1 .wf i,#windInd.g2 .wf i{--o:1}
+  @keyframes wgp{0%{transform:scale(1)}25%{transform:scale(1.14)}100%{transform:scale(1)}}@keyframes wgp2{0%{transform:scale(1)}25%{transform:scale(1.14)}100%{transform:scale(1)}}
+  #windInd.l.g1 svg{animation:wgpl .8s ease-out}#windInd.l.g2 svg{animation:wgpl2 .8s ease-out}
+  @keyframes wgpl{0%{transform:scaleX(-1)}25%{transform:scaleX(-1.14) scaleY(1.14)}100%{transform:scaleX(-1)}}@keyframes wgpl2{0%{transform:scaleX(-1)}25%{transform:scaleX(-1.14) scaleY(1.14)}100%{transform:scaleX(-1)}}
+  @media (prefers-reduced-motion:reduce){#windInd .wf i{animation:none;opacity:.5}#windInd .wf i:nth-child(1){left:8%}#windInd .wf i:nth-child(2){left:62%}#windInd .wf i:nth-child(3){left:30%}#windInd .wf i:nth-child(4){left:75%}#windInd .wf i:nth-child(5){left:15%}#windInd .wf i:nth-child(6){left:50%}#windInd .wf i:nth-child(7){left:40%}#windInd.g1 svg,#windInd.g1 span,#windInd.g2 svg,#windInd.g2 span{animation:none}}
   #acct .spk{border:2px solid #3c4c6c;padding:6px 8px 4px;margin-top:6px}
   #acct .spk small{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1px;color:#bcc8e0}
   #acct .spk small b{color:#f8d878}
@@ -233,7 +246,7 @@
     <div class="row"><button type="button" id="nameSave">SAVE</button><button type="button" id="nameCancel">CANCEL</button></div>
   </div>
 </div>
-<div id="windInd" aria-hidden="true"><svg viewBox="0 0 30 14"><line class="wk" x1="2" y1="3" x2="10" y2="3"/><line class="wk wk2" x1="0" y1="11" x2="8" y2="11"/><line class="wk wk3" x1="4" y1="7" x2="11" y2="7"/><path d="M12 7H27M22 2.5L27.5 7L22 11.5" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span></span></div>
+<div id="windInd" aria-hidden="true"><div class="wf"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><svg viewBox="0 0 34 16"><path d="M3 8H23" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M21 2.2L32.5 8L21 13.8Z" fill="#fff" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span></span></div>
 <div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
 <script>
 (() => {
@@ -251,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.98';
+const GAME_VERSION = 'v8.99';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4046,7 +4059,7 @@ function hlPlan(r) {   // [{seg, i, u}] at 30fps: setup 1.0s, shot (only the non
   // smooth follow camera (world x of the crop centre) + vertical crop top, critically-damped-ish
   const cupX = r.hl.cup, chMax = Math.min(PLAY_H, 170);
   let fx = null, fy = null;
-  const crowdX = r.crowd ? (() => { const sp = crowdSpots(r.hl).filter(p => !p.row); if (!sp.length) return null; return sp.reduce((a, p) => a + p.x, 0) / sp.length; })() : null;
+  const crowdX = r.crowd ? (() => { const sp = crowdSpots(r.hl).filter(p => !p.row && p.z === 'g'); if (!sp.length) return null; return sp.reduce((a, p) => a + p.x, 0) / sp.length; })() : null;
   out.forEach((o, k) => {
     const f = r.f[o.i], by = BASE - Math.max(0, f[1]);
     let tx, ty, z = 1;
@@ -5978,6 +5991,7 @@ function launch() {
   shotRng = testSeed != null ? testSeed : (Math.random() * 4294967296) >>> 0; testSeed = null; shotPred = null;   // testSeed: #test preview clips only
   try { hbArm(); } catch (e) { hb = null; }
   setState('flight');
+  if (!SIM) { try { hecEvent('hit'); } catch (e) {} }   // v8.99 gallery banter (decoration only)
 }
 function flightStep() {   // v8.60: one physics step of a live shot; also used (SIM = true, no side effects) to pre-simulate it
   const px0 = ball.x, air0 = ball.mode === 'air', vy0 = ball.vy, pt0 = ball.pinTried;
@@ -6086,7 +6100,7 @@ function resolveBall(r) {
     if (!SIM && courseKind !== 'lab') { try { careerNoteLost(); } catch (e) {} }   // v8.65 (v8.74: never in the LAB)
     penaltySpot = null;
     if (r === 'water' && hole.drop != null && Math.abs(hole.cup - hole.drop) < Math.abs(hole.cup - lastSpot)) penaltySpot = hole.drop;   // v8.20: island holes use the DROP ZONE
-    try { crowdReactTo('groan'); } catch (e) {}   // v8.91
+    try { crowdReactTo('groan'); hecEvent(r); } catch (e) {}   // v8.91 (v8.99: + the odd heckle)
     if (r === 'water') { SFX.splash(); splashFx(clamp(ball.x, 0, hole.len)); showMsg(penaltySpot != null ? 'WATER +1  TO DROP ZONE' : 'WATER  +1 STROKE', COL.blue, 2.0); announce(penaltySpot != null ? 'water, plus one stroke. ball moved to the drop zone' : 'water, plus one stroke'); }
     else { SFX.sad(); showMsg('OUT OF BOUNDS  +1', COL.orange, 2.0); announce('out of bounds, plus one stroke'); }
     dogPop = { x: clamp(ball.x - camX - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.4 };
@@ -6614,6 +6628,7 @@ function update(dt) {
   if (flagRattle > 0) flagRattle -= dt;   // v8.76
   if (crowdT > 0) crowdT -= dt;   // v8.80
   if (crowdReact && (crowdReact.t -= dt) <= 0) crowdReact = null;   // v8.91
+  try { crowdTick(dt); } catch (e) {}   // v8.99 heckles
   galTick(dt);   // v8.87
   updateWildlife(dt);
   if (courseKind === 'match') { try { ghostTick(dt); } catch (e) {} }
@@ -7156,83 +7171,430 @@ function todTint(hl) {
   if (halloweenOn()) { if (p > 0.2) { ctx.fillStyle = 'rgba(16,0,40,' + (0.26 * (p - 0.2) / 0.8).toFixed(3) + ')'; ctx.fillRect(0, 0, W, PLAY_H); } return; }
   if (p > 0.6) { ctx.fillStyle = 'rgba(248,104,40,' + (0.16 * (p - 0.6) / 0.4).toFixed(3) + ')'; ctx.fillRect(0, 0, W, PLAY_H); }
 }
-/* v8.80 GALLERY (decoration only): Spooky Cup + tournament rounds get a few pixel spectators by the tee and beyond the green.
-   They clap on big shots (PERFECT, chip-ins, aces, DUMB LUCK, birdies, GREAT SAVES). One small loop of rects per frame. */
+/* v8.99 BIG-EVENT GALLERY (decoration + audio only: nothing here touches physics, wind, power, layouts, collision or scoring).
+   Fans line the tee, both sides of the fairway (a raised gallery bank behind a rope) and the green on every course except the
+   LAB. Each fan is a unique build (height, body, skin, hair, outfit, hat, prop, idle pose) themed per course, drawn once per pose
+   frame into a small cached sprite and culled offscreen. Crowd murmur / hush / ooh / groan / cheer / applause are synthesized in
+   WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
 let crowdT = 0;
 const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
-function crowdOn() { return courseKind === 'spooky' || courseKind === 'lbi'; }
-function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); noise(0.9, 0.035); noise(0.5, 0.025, 0.35); }
-// v8.87: a real gallery - golfer-scale spectators in two depth rows along a rope line beside and behind the green (never on it), varied looks
 const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24402c'];
 const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d878'];
+function crowdEvent() { return courseKind === 'spooky' || courseKind === 'lbi'; }
+function crowdOn() { if (courseKind === 'lab' || (typeof LAB !== 'undefined' && LAB.on)) return false; const tk = (hole && hole.theme) || ''; return tk !== 'deep' && tk !== 'lava'; }
+function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; return 'club'; }
+function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } else caClap(Math.min(1.4, 0.7 + 0.3 * (k || 1))); }
+/* ---- palettes ---- */
+const FAN_HAIR = ['#1c1410', '#1c1410', '#2c1c10', '#4c2c18', '#4c2c18', '#8c5028', '#a86c38', '#d8a860', '#f0d088', '#c84c0c'];
+const FAN_PANTS = ['#2c2c3c', '#384c7c', '#c8b48c', '#1c1c1c', '#6c6c74', '#24402c', '#e8e4d8', '#5c4c38', '#1c2c4c'];
+const FAN_PAL = {
+  club: { top: ['#fcfcfc', '#3cbcfc', '#f8d878', '#58d854', '#f878f8', '#fc9838', '#2c5cd8', '#f83800', '#1c3c6c', '#e8d8b8', '#7c3cbc', '#5ca8a0', '#c8102e', '#fcb8c8', '#1c1c1c', '#8cd8a8'],
+          hat: ['#fcfcfc', '#1c2c4c', '#f83800', '#1c1c1c', '#58d854', '#f8d878', '#c8b48c', '#3cbcfc'], rope: '#f8d878', stake: '#fcfcfc' },
+  nyc:  { top: ['#1c1c1c', '#3c3c44', '#1c2c5c', '#6c6c74', '#c8102e', '#fcfcfc', '#f8d878', '#2c5cd8', '#5c3c2c', '#0c5c3c', '#fc7c1c', '#8c8c94'],
+          hat: ['#1c2c5c', '#1c2c5c', '#1c1c1c', '#fc7c1c', '#fcfcfc', '#c8102e'], rope: '#3c8cfc', stake: '#fcfcfc' },
+  hr:   { top: ['#101010', '#fcfcfc', '#7c0c1c', '#d4af37', '#1c1c4c', '#5c0c5c', '#0c4c3c', '#c0c0c8', '#101010', '#2c2c34'],
+          hat: ['#101010', '#d4af37', '#fcfcfc', '#7c0c1c'], rope: '#d4af37', stake: '#8c6c1c' },
+  space: { top: ['#e8e8ec', '#fcfcfc', '#fc7c1c', '#d8d8e0'], hat: ['#fcfcfc'], rope: '#fc7c1c', stake: '#c8c8d0' },
+  spooky: { top: ['#fc7c1c', '#1c1c1c', '#5c2c7c', '#3c5c2c', '#7c0c1c', '#fcfcfc', '#2c2c3c', '#c84c0c'], hat: ['#1c1c1c', '#fc7c1c', '#5c2c7c'], rope: '#fc7c1c', stake: '#1c1c1c' }
+};
+function fanPick(R, a) { return a[Math.floor(R() * a.length) % a.length]; }
+function fanMake(R, th, row, night) {
+  const P = FAN_PAL[th] || FAN_PAL.club, far = row >= 2, sh = c => night < 1 ? shadeHex(c, night) : c, f = { far };
+  f.kid = !far && R() < 0.1; f.fem = R() < 0.46;
+  const b = R(); f.hw = f.kid ? 2 : b < 0.22 ? 2 : b < 0.82 ? 3 : 4; f.belly = !f.kid && f.hw >= 3 && R() < 0.22;
+  const tl = R(); f.legH = f.kid ? 4 : 6 + (tl < 0.25 ? 0 : tl < 0.78 ? 1 : 2) - (f.fem && tl < 0.5 ? 0 : 0); f.torH = f.kid ? 5 : 6 + (R() < 0.5 ? 1 : 0) + (f.hw === 4 ? 1 : 0); f.headH = 5;
+  if (far) { f.hw = Math.max(2, f.hw - 1); f.legH = Math.max(3, f.legH - 2); f.torH = Math.max(4, f.torH - 2); f.headH = 4; }
+  f.skin = sh(fanPick(R, SKINS)); const age = R(); f.old = !f.kid && age > 0.82;
+  f.hair = sh(f.old ? fanPick(R, ['#bcbcbc', '#e0e0e0', '#9c9c9c']) : R() < 0.03 ? fanPick(R, ['#f878f8', '#3cbcfc', '#b8f818']) : fanPick(R, FAN_HAIR));
+  const hs = R(); f.style = f.fem ? (hs < 0.36 ? 'long' : hs < 0.6 ? 'pony' : hs < 0.8 ? 'bob' : hs < 0.9 ? 'bun' : 'curly') : (hs < 0.42 ? 'short' : hs < 0.62 ? 'buzz' : hs < (f.old ? 0.86 : 0.7) ? 'bald' : hs < 0.88 ? 'curly' : 'long');
+  f.beard = !f.fem && !f.kid && R() < 0.22; f.shades = !far && R() < 0.2;
+  // headwear
+  const h = R(); let hat = null;
+  if (th === 'space') hat = 'helmet';
+  else if (th === 'hr') hat = h < 0.6 ? null : h < 0.75 ? 'cap' : h < 0.88 ? 'fedora' : 'visor';
+  else if (th === 'nyc') hat = h < 0.4 ? null : h < 0.72 ? 'cap' : h < 0.82 ? 'dlg' : h < 0.93 ? 'beanie' : 'bucket';
+  else hat = h < 0.32 ? null : h < 0.56 ? 'cap' : h < 0.72 ? 'dlg' : h < 0.84 ? 'visor' : h < 0.95 ? 'bucket' : 'beanie';
+  f.hat = hat; f.hatC = sh(hat === 'dlg' ? '#101010' : fanPick(R, P.hat)); f.back = hat === 'cap' && R() < 0.15; f.ny = th === 'nyc' && hat === 'cap' && R() < 0.6;
+  // outfit
+  const o = R(); let top;
+  if (th === 'hr') top = o < 0.4 ? 'blazer' : o < 0.6 && f.fem ? 'dress' : o < 0.85 ? 'polo' : 'tee';
+  else if (th === 'nyc') top = o < 0.34 ? 'hoodie' : o < 0.62 ? 'tee' : o < 0.78 ? 'jacket' : o < 0.92 ? 'polo' : 'jersey';
+  else if (th === 'space') top = 'suit';
+  else top = o < 0.42 ? 'polo' : o < 0.6 ? 'tee' : o < 0.74 ? 'hoodie' : o < 0.84 ? 'zip' : o < 0.92 ? 'vest' : f.fem ? 'dress' : 'polo';
+  f.top = top; f.topC = sh(fanPick(R, P.top)); f.accent = sh(fanPick(R, P.top)); f.stripe = (top === 'polo' || top === 'tee') && R() < 0.16; f.num = top === 'jersey';
+  if (top === 'vest') f.under = sh(fanPick(R, ['#fcfcfc', '#e8d8b8', '#3cbcfc']));
+  if (top === 'blazer') f.under = sh(R() < 0.6 ? '#fcfcfc' : '#1c1c1c');
+  const bt = R(); f.bot = top === 'dress' || top === 'suit' ? top : (top === 'hoodie' || th === 'hr') ? 'pants' : f.fem && bt < 0.14 ? 'skirt' : bt < 0.42 ? 'shorts' : 'pants';
+  f.botC = sh(top === 'suit' ? f.topC : fanPick(R, FAN_PANTS)); f.shoe = sh(fanPick(R, ['#fcfcfc', '#fcfcfc', '#1c1c1c', '#5c3c20', '#3c3c44']));
+  // spooky season / Spooky Cup costumes (club + spooky themes only)
+  const hw = th === 'spooky' ? 0.34 : (th === 'club' && typeof halloweenOn === 'function' && halloweenOn()) ? 0.08 : 0;
+  if (R() < hw) { f.costume = fanPick(R, ['witch', 'pumpkin', 'ghost', 'vampire', 'skeleton', 'zombie']);
+    if (f.costume === 'witch') { f.hat = 'witch'; f.hatC = sh('#1c1c1c'); f.top = 'dress'; f.bot = 'dress'; f.topC = f.botC = sh('#2c1c3c'); }
+    if (f.costume === 'vampire') { f.top = 'blazer'; f.topC = sh('#101010'); f.under = sh('#fcfcfc'); f.bot = 'pants'; f.botC = sh('#101010'); f.hat = null; f.cape = sh('#a80c1c'); }
+    if (f.costume === 'skeleton') { f.top = 'tee'; f.topC = sh('#101010'); f.bot = 'pants'; f.botC = sh('#101010'); }
+    if (f.costume === 'zombie') { f.skin = sh('#8cb878'); f.top = 'tee'; f.topC = sh('#6c6c5c'); }
+    if (f.costume === 'pumpkin' || f.costume === 'ghost') f.hat = null; }
+  // idle pose + props
+  const p = R(); let pose = p < 0.24 ? 'stand' : p < 0.42 ? 'cross' : p < 0.53 ? 'pocket' : p < 0.62 ? 'hips' : p < 0.78 ? 'drink' : p < 0.87 ? 'phone' : p < 0.93 ? 'shoulders' : 'lean';
+  if (f.kid && (pose === 'shoulders' || pose === 'drink' || pose === 'lean')) pose = R() < 0.5 ? 'stand' : 'hips';
+  if (far && (pose === 'shoulders' || pose === 'lean')) pose = 'stand';
+  if (row !== 0 && pose === 'lean') pose = 'cross';
+  if (f.costume === 'ghost' || f.costume === 'pumpkin') pose = pose === 'shoulders' ? 'stand' : pose;
+  f.pose = pose;
+  f.drink = th === 'hr' ? 'flute' : fanPick(R, ['cup', 'cup', 'beer', 'can', 'water']);
+  f.drinkC = sh(fanPick(R, ['#f83800', '#f83800', '#3cbcfc', '#fcfcfc', '#58d854']));
+  const pr = R(); f.prop = th === 'nyc' && pr < 0.07 ? 'pizza' : th === 'nyc' && pr < 0.13 ? 'foam' : th === 'hr' && pr < 0.08 ? 'chips' : (f.kid && th === 'spooky' && pr < 0.5) ? 'bucket' : pr < 0.04 ? 'flag' : pr < 0.07 ? 'binos' : null;
+  if (pose === 'shoulders') { f.rider = { skin: sh(fanPick(R, SKINS)), top: sh(fanPick(R, P.top)), hair: sh(fanPick(R, FAN_HAIR)), cap: R() < 0.4 ? sh(fanPick(R, P.hat)) : null, bot: sh(fanPick(R, FAN_PANTS)) }; }
+  f.ph = R() * 6.28; f.tempo = 0.75 + R() * 0.6; f.chat = R() < 0.35; f.voice = f.kid ? 1.6 : f.fem ? 1.35 : 1;
+  return f;
+}
+/* ---- placement: tee bank, fairway banks (behind the rope, raised), green rope line + grandstand ---- */
 function crowdSpots(hl) {
   if (hl._crowd) return hl._crowd;
-  const out = [], ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green' && s !== 'sand'; };
+  const out = [], ev = crowdEvent(), th = crowdTheme(hl), night = themeOf(hl).stars ? 0.8 : 1;
+  const ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green' && s !== 'sand' && Math.abs(x - hl.cup) > 18; };   // never in front of the pin
+  const boards = (hl.deco || []).filter(d => d[0] === 'board').map(d => [d[1] - 8, d[1] + 104]);   // never stand people in front of the sponsor board
+  const okFar = x => { const s = x < 0 ? 'rough' : surfAt(hl, x); return s !== 'water' && s !== 'ob' && !boards.some(b => x > b[0] && x < b[1]); };
   let g0 = hl.cup, g1 = hl.cup; while (g0 > 0 && surfAt(hl, g0 - 1) === 'green') g0--; while (g1 < hl.len && surfAt(hl, g1 + 1) === 'green') g1++;
-  const R = mulberry32(((hl.len | 0) * 2654435761 + (hl.cup | 0)) >>> 0), add = (x, row) => { if (ok(x) && x > TEE_X + 40) out.push({ x, row, r: R(), r2: R(), r3: R(), ph: R() * 6.28 }); };
-  // behind the green: a fuller section; beside the front edge: a short run. Back row sits between front-row people.
-  for (let x = g1 + 7, n = 0; x <= Math.min(hl.len - 5, g1 + 58) && n < 9; x += 6 + Math.floor(R() * 3), n++) { add(x, 0); if (n % 2 === 0) add(x + 3, 1); }
-  if (out.length < 5) for (let x = g0 - 14, n = 0; x >= Math.max(TEE_X + 40, g0 - 44) && n < 4; x -= 7 + Math.floor(R() * 3), n++) { add(x, 0); if (n % 2) add(x - 3, 1); }   // short room behind: fill in short of the green
-  out.sort((p, q) => q.row - p.row);   // back row first
-  return (hl._crowd = out.slice(0, 16));
-}
-// v8.91: fans with faces, hair, props (cap / shades / phone / rare DLG flag), idle weight shifts, eyes on the ball, foot shadows and shot reactions
-let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
-function crowdReactTo(kind) { if (!crowdOn() || SIM || REDUCED_MOTION) return; crowdReact = { kind, t: kind === 'clap' ? 1.6 : 1.4 }; if (kind === 'clap') noise(0.6, 0.02); else if (kind === 'ooh') noise(0.4, 0.015); }
-function drawFan(sx, gy, p, t, cheer, i) {
-  const back = p.row === 1, dim = back ? 0.8 : 1, night = themeOf(hole).stars ? 0.82 : 1, sh = c => shadeHex(c, dim * night), K = '#000';
-  const hs = (n) => hash(i * 31 + n * 7 + 3);
-  const skin = sh(SKINS[Math.floor(p.r * SKINS.length)]), skD = shadeHex(skin, 0.82), shirt = sh(CROWD_SHIRTS[Math.floor(p.r2 * CROWD_SHIRTS.length)]), shD = shadeHex(shirt, 0.78);
-  const pants = sh(CROWD_PANTS[Math.floor(p.r3 * CROWD_PANTS.length)]), hair = sh(HAIR_COLS[Math.floor(hs(1) * HAIR_COLS.length)][0]);
-  const dlgCap = hs(11) < 0.3, cap = dlgCap ? sh('#101010') : hs(2) < 0.32 ? sh(CROWD_HATS[Math.floor(hs(3) * CROWD_HATS.length)]) : null, shades = !back && hs(4) < 0.16, phone = !back && hs(5) < 0.1, flag = !phone && hs(6) < 0.06, longHair = !cap && hs(7) < 0.3;
-  const rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, beat = t * 9 + p.ph, hush = v93Hush(), pl = v93PuttLean();   // v8.93: quiet over the ball, lean in on putts
-  let pose = 'idle'; if (cheer) pose = 'up'; else if (rk === 'groan') pose = hs(8) < 0.55 ? 'head' : 'idle'; else if (rk === 'clap') pose = 'clap'; else if (rk === 'ooh') pose = 'ooh'; else if (!hush && Math.floor(t / 2.3 + p.ph) % 11 === 0 && hs(9) < 0.5) pose = 'clap';
-  if (phone && (cheer || (state === 'flight' && ball && ball.mode === 'air'))) pose = pose === 'up' ? 'up' : 'phone';
-  const hop = pose === 'up' ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (back ? 3 : 4)) : 0;
-  const shift = pose === 'idle' && !hush && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0 ? (hs(10) < 0.5 ? -1 : 1) : 0;
-  const lean = pose === 'ooh' || (pl && pose === 'idle' && !back) ? (ball && ball.x > p.x ? 1 : -1) : 0;
-  const look = ball && ['flight', 'holed', 'penalty'].includes(state) ? Math.sign(Math.round(ball.x - p.x)) : (Math.floor(t / 4 + p.ph) % 2 ? 1 : 0);
-  const hw = back ? 2 : 3, legH = back ? 5 : 7, torH = back ? 5 : 7, headH = back ? 4 : 5;
-  const y0 = gy - hop, x = sx + shift, legY = y0 - legH, torY = legY - torH, ux = x + lean, headY = torY - headH;
-  ctx.globalAlpha = 0.28; rect(sx - hw - 2, gy - 1, hw * 2 + 5, 2, K); ctx.globalAlpha = 1;   // foot shadow (stays on the ground while they hop)
-  rect(x - hw - 1, legY - 1, hw * 2 + 3, legH + 1, K); rect(x - hw, legY, hw, legH - 1, pants); rect(x + 1, legY, hw, legH - 1, shadeHex(pants, 0.85)); rect(x - hw, y0 - 1, hw, 1, '#2c2018'); rect(x + 1, y0 - 1, hw, 1, '#2c2018');
-  rect(ux - hw - 1, torY - 1, hw * 2 + 3, torH + 2, K); rect(ux - hw, torY, hw * 2 + 1, torH, shirt); rect(ux + hw - 1, torY, 2, torH, shD); if (!back) rect(ux - 1, torY, 3, 1, shadeHex(shirt, 1.18));
-  const hx = ux + (look < 0 ? -1 : 0);
-  rect(hx - hw, headY - 1, hw * 2 + 1, headH + 2, K); rect(hx - hw + 1, headY, hw * 2 - 1, headH, skin); rect(hx + hw - 1, headY + 1, 1, headH - 1, skD);
-  if (cap) { rect(hx - hw, headY - 1, hw * 2 + 1, 2, cap); rect(hx + (look >= 0 ? hw : -hw - 1), headY, 2, 1, cap); if (dlgCap) rect(hx, headY - 1, 1, 1, '#d4af37'); }   // v8.93 Dumb Luck caps
-  else { rect(hx - hw + 1, headY, hw * 2 - 1, 1, hair); rect(hx - hw, headY, 1, longHair ? headH : 2, hair); rect(hx + hw, headY, 1, longHair ? headH : 2, hair); }
-  if (!back) {
-    const ex = hx + (look > 0 ? 1 : look < 0 ? -1 : 0);
-    if (shades) rect(ex - 2, headY + 2, 5, 1, '#101010'); else { rect(ex - 1, headY + 2, 1, 1, '#1c1c1c'); rect(ex + 1, headY + 2, 1, 1, '#1c1c1c'); }
-    if (pose === 'up' || pose === 'ooh') rect(ex, headY + 3, 1, 1, '#6c1c1c'); else if (pose === 'head') rect(ex - 1, headY + 4, 3, 1, '#6c1c1c');
+  const R = mulberry32(((hl.len | 0) * 2654435761 + (hl.cup | 0)) >>> 0);
+  const add = (x, row, z) => out.push({ x, row, z, r: R(), r2: R(), r3: R(), ph: R() * 6.28 });
+  // green: two rows along a rope beside / behind the green (never on it), as before
+  let ng = 0; const gMax = ev ? 18 : 15;
+  for (let x = g1 + 7, n = 0; x <= Math.min(hl.len - 5, g1 + 62) && n < 10; x += 5 + Math.floor(R() * 3), n++) { if (ok(x) && x > TEE_X + 40) { add(x, 0, 'g'); ng++; } if (n % 2 === 0 && ok(x + 3) && x + 3 > TEE_X + 40) { add(x + 3, 1, 'g'); ng++; } if (ng >= gMax) break; }
+  if (ng < 6) for (let x = g0 - 12, n = 0; x >= Math.max(TEE_X + 40, g0 - 46) && n < 5; x -= 6 + Math.floor(R() * 3), n++) { if (ok(x)) add(x, 0, 'g'); if (n % 2 && ok(x - 3)) add(x - 3, 1, 'g'); }
+  // the far bank over the green (people peering over from the hill)
+  for (let x = g0 - 8; x <= g1 + 8; x += 4 + Math.floor(R() * 3)) if (okFar(x) && Math.abs(x - hl.cup) > 16 && R() < (ev ? 0.9 : 0.7)) add(x, R() < 0.5 ? 2 : 3, 'g');   // keep the pin clear
+  // tee: a packed bank behind the tee box + a short front row behind the golfer
+  for (let x = TEE_X - 30; x <= TEE_X + 44; x += 4 + Math.floor(R() * 2)) { if (okFar(x) && R() < (ev ? 0.95 : 0.8)) add(x, 2, 't'); if (okFar(x + 2) && R() < (ev ? 0.75 : 0.5)) add(x + 2, 3, 't'); }
+  for (let x = TEE_X - 14, n = 0; n < (ev ? 5 : 4); x -= 6 + Math.floor(R() * 2), n++) add(x, 0, 't');
+  // fairway: clusters on the far bank, both halves of the hole
+  const fMax = ev ? 64 : 50; let nf = 0;
+  for (let c = TEE_X + 70 + Math.floor(R() * 20); c < g0 - 26 && nf < fMax; c += (ev ? 28 : 34) + Math.floor(R() * 18)) {
+    const n = 4 + Math.floor(R() * (ev ? 6 : 5)), w = n * 5; let good = true; for (let x = c - 4; x <= c + w + 4; x += 2) if (!okFar(x)) { good = false; break; } if (!good) continue;
+    for (let k = 0, x = c; k < n; k++, x += 4 + Math.floor(R() * 3)) { add(x, R() < 0.62 ? 2 : 3, 'f'); nf++; }
   }
-  const A = (ax, ay, w, h) => { rect(ax - 1, ay - 1, w + 2, h + 2, K); rect(ax, ay, w, h, skin); };
-  if (pose === 'up') { const wv = Math.sin(beat * 1.6 + 1) > 0 ? 1 : 0; A(ux - hw - 2, headY - 3 - wv, 1, torH); A(ux + hw + 1, headY - 3 - (1 - wv), 1, torH); }
-  else if (pose === 'head') { A(ux - hw - 2, headY - 1, 1, torH - 1); A(ux + hw + 1, headY - 1, 1, torH - 1); rect(hx - hw + 1, headY - 1, hw * 2 - 1, 1, skin); }
-  else if (pose === 'clap') { const c = Math.sin(beat * 2.2) > 0; rect(ux - hw - 1, torY + 1, 1, 3, shD); rect(ux + hw + 1, torY + 1, 1, 3, shD); rect(ux - (c ? 1 : 2), torY + 2, 1, 2, skin); rect(ux + (c ? 1 : 2), torY + 2, 1, 2, skin); }
-  else if (pose === 'phone') { rect(ux - hw - 1, torY + 1, 1, torH - 2, shD); A(ux + hw + 1, headY - 2, 1, torH - 1); rect(ux + hw, headY - 6, 3, 4, K); rect(ux + hw + 1, headY - 5, 1, 2, '#bcf0fc'); }
-  else { rect(ux - hw - 1, torY + 1, 1, torH - 1, shD); rect(ux + hw + 1, torY + 1, 1, torH - 1, shD); rect(ux - hw - 1, torY + torH, 1, 1, skin); rect(ux + hw + 1, torY + torH, 1, 1, skin);
-    if (flag) { const fx = ux + hw + 1, wv = Math.floor(t * 4 + p.ph) % 2; rect(fx, torY - 7, 1, torH + 6, '#e0e0e0'); rect(fx + 1, torY - 7, 5, 4 - wv, '#f83800'); rect(fx + 2, torY - 6, 3, 1, '#fcfcfc'); } }
+  out.forEach((p, i) => { const r2 = mulberry32((((hl.len | 0) * 977 + Math.round(p.x * 13) + p.row * 7919 + i) >>> 0)); p.f = fanMake(r2, th, p.row, night); p.i = i; });
+  out.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
+  return (hl._crowd = out.slice(0, ev ? 120 : 96));
+}
+/* ---- reactions ---- */
+let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
+function crowdReactTo(kind) { if (!crowdOn() || SIM || REDUCED_MOTION) { if (crowdOn() && !SIM) { if (kind === 'clap') caClap(0.6); else caVoices(kind === 'groan' ? 'groan' : 'ooh', 0.8); } return; }
+  crowdReact = { kind, t: kind === 'clap' ? 1.6 : 1.4 };
+  if (kind === 'clap') { if (!caClap(0.6)) noise(0.6, 0.02); } else if (kind === 'ooh') { if (!caVoices('ooh', 1)) noise(0.4, 0.015); } else caVoices('groan', 1); }
+const FAN_CACHE = { m: new Map(), hole: null };
+function fanPoseNow(p, t, cheer) {
+  const f = p.f, rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, hush = v93Hush(), beat = t * 9 * f.tempo + p.ph, still = REDUCED_MOTION;
+  let pose = f.pose, fb = 0;
+  if (hec && hec.p === p && hec.t < hec.dur) pose = 'shout';
+  else if (cheer) pose = f.pose === 'shoulders' ? 'shoulders' : 'up';
+  else if (rk === 'groan') pose = hash(p.i * 7 + 8) < 0.55 ? 'head' : hash(p.i * 5 + 1) < 0.5 ? 'hips' : f.pose;
+  else if (rk === 'clap') pose = f.pose === 'shoulders' ? 'shoulders' : 'clap';
+  else if (rk === 'ooh') pose = hash(p.i * 3 + 2) < 0.6 ? 'ooh' : f.pose;
+  else if (!hush && !still && Math.floor(t / 2.3 + p.ph) % 13 === 0 && hash(p.i * 9 + 4) < 0.4) pose = 'clap';
+  if (f.pose === 'phone' && (cheer || (state === 'flight' && ball && ball.mode === 'air'))) pose = cheer && hash(p.i) < 0.5 ? 'up' : 'film';
+  if (pose === 'up' || pose === 'clap') fb = still ? 0 : (Math.sin(beat * (pose === 'clap' ? 2.2 : 1.6)) > 0 ? 1 : 0);
+  if (pose === 'shoulders' && (cheer || rk === 'clap')) fb = 2 + (still ? 0 : (Math.sin(beat * 1.6) > 0 ? 1 : 0));
+  const sip = pose === 'drink' && !hush && !still && ((t * f.tempo + p.ph * 3) % 7) < 1.1 ? 1 : 0;
+  const blink = !still && ((t * 1.3 + p.ph * 5) % 4.2) < 0.13 ? 1 : 0;
+  // eyes on the ball (golfer before the hit), the odd chatty glance at a neighbour when nothing is happening
+  const tx = ball ? ball.x : TEE_X, dx = tx - p.x; let look = Math.abs(dx) < 5 ? 0 : Math.sign(dx);
+  if (f.chat && !hush && !still && state !== 'flight' && !cheer && !rk && Math.floor(t / 3.7 + p.ph) % 4 === 0) look = -look || 1;
+  const hop = (pose === 'up' && !still) ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (f.far ? 2 : 3)) : 0;
+  const shift = (pose === f.pose && !hush && !still && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0) ? (hash(p.i * 11 + 10) < 0.5 ? -1 : 1) : 0;
+  const breathe = !still && !hush && Math.sin(t * 1.7 * f.tempo + p.ph) > 0.6 ? 1 : 0;
+  const lean = (pose === 'ooh' || (v93PuttLean() && !f.far && pose === f.pose)) ? (dx > 0 ? 1 : -1) : 0;
+  return { pose, fb, sip, blink, look, hop, shift, breathe, lean };
+}
+function fanDraw(x, gy, f, s) {   // draws one fan at ctx, feet at (x, gy)
+  const K = '#000', far = f.far, hw = f.hw, A = (ax, ay, w, h, c) => { rect(ax - 1, ay - 1, w + 2, h + 2, K); rect(ax, ay, w, h, c || f.skin); };
+  const legH = f.legH, torH = f.torH, headH = f.headH, y0 = gy, legY = y0 - legH, torY = legY - torH + (s.breathe ? 0 : 0), ux = x + s.lean, headY = torY - headH - (s.breathe && !far ? 0 : 0);
+  const topC = f.topC, topD = shadeHex(topC, 0.78), skin = f.skin, skD = shadeHex(skin, 0.82), sleeve = (f.top === 'tee' || f.top === 'polo' || f.top === 'jersey' || f.top === 'vest' || f.top === 'dress') ? skin : topC;
+  if (f.costume === 'ghost') {   // sheet ghost: one rounded blob, two eyes, wavy hem
+    const hh = legH + torH + headH; rect(x - hw - 2, y0 - hh - 1, hw * 2 + 5, hh + 1, K); rect(x - hw - 1, y0 - hh, hw * 2 + 3, hh - 1, '#f0f0f4'); rect(x - hw - 1, y0 - hh, 1, 1, K); rect(x + hw + 1, y0 - hh, 1, 1, K);
+    for (let k = -hw - 1; k <= hw + 1; k += 2) rect(x + k, y0 - 1, 1, 1, K); if (!far) { rect(x - 1 + s.look, y0 - hh + 2, 1, 2, K); rect(x + 1 + s.look, y0 - hh + 2, 1, 2, K); }
+    if (s.pose === 'up') { A(x - hw - 3, y0 - hh - 2, 1, 4, '#f0f0f4'); A(x + hw + 3, y0 - hh - 2, 1, 4, '#f0f0f4'); } return;
+  }
+  if (f.cape) { rect(ux - hw - 2, torY - 1, hw * 2 + 5, torH + legH - 1, K); rect(ux - hw - 1, torY, hw * 2 + 3, torH + legH - 3, f.cape); }
+  // legs / skirt / dress
+  const bot = f.bot, bc = f.botC, bcD = shadeHex(bc, 0.85);
+  if (bot === 'dress' || bot === 'skirt') { const sk = bot === 'dress' ? topC : bc, top = bot === 'dress' ? legY : legY; rect(x - hw - 2, top - 1, hw * 2 + 5, Math.ceil(legH * 0.6) + 2, K); rect(x - hw - 1, top, hw * 2 + 3, Math.ceil(legH * 0.6), sk);
+    const ly = top + Math.ceil(legH * 0.6); rect(x - hw, ly, hw, y0 - ly, K); rect(x + 1, ly, hw, y0 - ly, K); rect(x - hw + 1, ly, Math.max(1, hw - 1), y0 - ly - 1, skin); rect(x + 1, ly, Math.max(1, hw - 1), y0 - ly - 1, skin); }
+  else { rect(x - hw - 1, legY - 1, hw * 2 + 3, legH + 1, K); const sl = bot === 'shorts' ? Math.ceil(legH * 0.45) : legH - 1;
+    rect(x - hw, legY, hw, sl, bc); rect(x + 1, legY, hw, sl, bcD); if (bot === 'shorts') { rect(x - hw, legY + sl, hw, legH - 1 - sl, skin); rect(x + 1, legY + sl, hw, legH - 1 - sl, skD); } }
+  if (!far) { rect(x - hw, y0 - 1, hw, 1, f.shoe); rect(x + 1, y0 - 1, hw, 1, f.shoe); }
+  // torso
+  const bw = hw * 2 + 1 + (f.belly ? 1 : 0), bx = ux - hw - (f.belly && s.look < 0 ? 1 : 0);
+  if (f.top !== 'dress') { rect(bx - 1, torY - 1, bw + 2, torH + 2, K); rect(bx, torY, bw, torH, topC); rect(bx + bw - 2, torY, 2, torH, topD); }
+  else { rect(ux - hw - 1, torY - 1, hw * 2 + 3, torH + 2, K); rect(ux - hw, torY, hw * 2 + 1, torH, topC); }
+  if (f.costume === 'skeleton') { for (let k = 1; k < torH - 1; k += 2) rect(ux - hw + 1, torY + k, hw * 2 - 1, 1, '#e8e8e8'); rect(ux, torY, 1, torH, '#e8e8e8'); }
+  if (!far) {
+    if (f.top === 'polo') { rect(ux - 1, torY, 3, 1, shadeHex(topC, 1.2)); rect(ux, torY + 1, 1, 2, topD); }
+    else if (f.top === 'hoodie') { rect(ux - hw, torY - 1, hw * 2 + 1, 1, topD); rect(ux - 1, torY + torH - 3, 3, 2, topD); rect(ux - 1, torY, 1, 2, '#e8e8e8'); rect(ux + 1, torY, 1, 2, '#e8e8e8'); }
+    else if (f.top === 'zip') { rect(ux, torY, 1, torH, shadeHex(topC, 0.65)); rect(ux - 1, torY, 3, 1, topD); }
+    else if (f.top === 'vest') { rect(ux - 1, torY, 3, torH, f.under); rect(ux, torY + 1, 1, torH - 1, topD); }
+    else if (f.top === 'blazer') { rect(ux - 1, torY, 3, torH - 1, f.under); rect(ux, torY + 1, 1, torH - 2, f.under === '#fcfcfc' ? '#1c1c1c' : '#7c0c1c'); }
+    else if (f.top === 'jacket') { rect(ux, torY, 1, torH, shadeHex(topC, 0.6)); rect(ux - hw, torY + torH - 1, hw * 2 + 1, 1, topD); }
+    else if (f.top === 'jersey') { rect(ux - 1, torY + 2, 1, 3, '#fcfcfc'); rect(ux + 1, torY + 2, 1, 3, '#fcfcfc'); }
+    else if (f.top === 'suit') { rect(ux - 1, torY + 2, 3, 2, '#3cbcfc'); }
+    if (f.stripe) rect(bx, torY + Math.floor(torH / 2), bw, 1, f.accent);
+  }
+  // head
+  const hx = ux + (s.look < 0 ? -1 : 0), hwH = hw, look = s.look;
+  if (f.costume === 'pumpkin') { rect(hx - hwH - 1, headY - 2, hwH * 2 + 3, headH + 3, K); rect(hx - hwH, headY - 1, hwH * 2 + 1, headH + 1, '#fc7c1c'); rect(hx, headY - 3, 1, 2, '#3c7c1c'); if (!far) { rect(hx - 2 + look, headY + 1, 1, 1, '#f8d878'); rect(hx + 1 + look, headY + 1, 1, 1, '#f8d878'); rect(hx - 1 + look, headY + 3, 3, 1, '#f8d878'); } }
+  else {
+    rect(hx - hwH, headY - 1, hwH * 2 + 1, headH + 2, K); rect(hx - hwH + 1, headY, hwH * 2 - 1, headH, skin); rect(hx + hwH - 1, headY + 1, 1, headH - 1, skD);
+    const hair = f.hair, st = f.style, capOn = f.hat && f.hat !== 'visor';
+    if (!capOn || st === 'long' || st === 'pony') {
+      if (st !== 'bald' || f.hat === 'visor') { if (!capOn) rect(hx - hwH + 1, headY, hwH * 2 - 1, st === 'curly' ? 2 : 1, hair); }
+      if (st === 'long') { rect(hx - hwH, headY, 1, headH + 1, hair); rect(hx + hwH, headY, 1, headH + 1, hair); }
+      else if (st === 'bob') { rect(hx - hwH, headY, 1, headH - 1, hair); rect(hx + hwH, headY, 1, headH - 1, hair); }
+      else if (st === 'pony') { rect(hx - hwH, headY, 1, 2, hair); rect(hx + (look >= 0 ? -hwH - 1 : hwH + 1), headY + 1, 1, 3, hair); }
+      else if (st === 'bun') { rect(hx - 1, headY - 3, 3, 2, K); rect(hx, headY - 2, 1, 1, hair); rect(hx - hwH, headY, 1, 2, hair); rect(hx + hwH, headY, 1, 2, hair); }
+      else if (st === 'curly' && !capOn) { rect(hx - hwH - 1, headY - 2, hwH * 2 + 3, 3, K); rect(hx - hwH, headY - 1, hwH * 2 + 1, 2, hair); rect(hx - hwH, headY, 1, 3, hair); rect(hx + hwH, headY, 1, 3, hair); }
+      else if (st === 'short' && !capOn) { rect(hx - hwH, headY, 1, 2, hair); rect(hx + hwH, headY, 1, 2, hair); }
+      else if (st === 'buzz' && !capOn) { rect(hx - hwH, headY, 1, 1, hair); rect(hx + hwH, headY, 1, 1, hair); }
+    }
+    if (!far) {
+      const ex = hx + (look > 0 ? 1 : look < 0 ? -1 : 0);
+      if (f.hat === 'helmet') {} else if (f.shades) rect(ex - 2, headY + 2, 5, 1, '#101010'); else if (!s.blink) { rect(ex - 1, headY + 2, 1, 1, '#1c1c1c'); rect(ex + 1, headY + 2, 1, 1, '#1c1c1c'); }
+      if (f.beard) { rect(hx - hwH + 1, headY + headH - 1, hwH * 2 - 1, 1, f.hair); rect(hx - hwH + 1, headY + headH - 2, 1, 1, f.hair); rect(hx + hwH - 1, headY + headH - 2, 1, 1, f.hair); }
+      if (s.pose === 'up' || s.pose === 'ooh' || s.pose === 'shout') rect(ex, headY + 3, 1, f.beard ? 1 : 1, '#6c1c1c'); else if (s.pose === 'head') rect(ex - 1, headY + 4, 3, 1, '#6c1c1c');
+    }
+    // hats
+    const hc = f.hatC, hcD = shadeHex(hc, 0.75), bf = f.back ? -1 : 1, dir = look >= 0 ? 1 : -1;
+    if (f.hat === 'cap' || f.hat === 'dlg') { rect(hx - hwH - 1, headY - 2, hwH * 2 + 3, 3, K); rect(hx - hwH, headY - 1, hwH * 2 + 1, 2, hc); rect(hx + dir * bf * (hwH + 1) - (dir * bf < 0 ? 1 : 0), headY, 2, 1, f.hat === 'dlg' ? '#101010' : hcD);
+      if (f.hat === 'dlg') rect(hx, headY - 1, 1, 1, '#d4af37'); else if (f.ny) rect(hx, headY - 1, 1, 1, '#fcfcfc'); }
+    else if (f.hat === 'visor') { rect(hx - hwH, headY - 1, hwH * 2 + 1, 1, hc); rect(hx + dir * (hwH + 1) - (dir < 0 ? 1 : 0), headY, 2, 1, hc); }
+    else if (f.hat === 'bucket') { rect(hx - hwH - 2, headY - 2, hwH * 2 + 5, 4, K); rect(hx - hwH, headY - 2, hwH * 2 + 1, 2, hc); rect(hx - hwH - 1, headY, hwH * 2 + 3, 1, hcD); }
+    else if (f.hat === 'beanie') { rect(hx - hwH - 1, headY - 3, hwH * 2 + 3, 4, K); rect(hx - hwH, headY - 2, hwH * 2 + 1, 3, hc); rect(hx - hwH, headY, hwH * 2 + 1, 1, hcD); rect(hx, headY - 4, 1, 1, '#fcfcfc'); }
+    else if (f.hat === 'fedora') { rect(hx - hwH - 2, headY - 3, hwH * 2 + 5, 4, K); rect(hx - hwH, headY - 3, hwH * 2 + 1, 2, hc); rect(hx - hwH - 1, headY - 1, hwH * 2 + 3, 1, hcD); rect(hx - hwH, headY - 2, hwH * 2 + 1, 1, '#d4af37'); }
+    else if (f.hat === 'witch') { rect(hx - hwH - 2, headY - 2, hwH * 2 + 5, 2, K); rect(hx - hwH - 1, headY - 1, hwH * 2 + 3, 1, hc); for (let k = 0; k < 5; k++) rect(hx - Math.max(0, 2 - (k >> 1)) + (k > 3 ? dir : 0), headY - 2 - k, Math.max(1, 5 - k), 1, k === 0 ? '#7c3cbc' : hc); }
+    else if (f.hat === 'helmet') { ctx.globalAlpha = 0.45; rect(hx - hwH - 2, headY - 3, hwH * 2 + 5, headH + 4, '#bcf0fc'); ctx.globalAlpha = 1; rect(hx - hwH - 2, headY - 3, hwH * 2 + 5, 1, '#fcfcfc'); rect(hx - hwH - 1, headY + 1, 1, 1, '#fcfcfc'); }
+  }
+  // arms
+  const fb = s.fb, sd = shadeHex(sleeve === skin ? topC : sleeve, 0.85), cupC = f.drinkC;
+  const drawDrink = (dx, dy) => { if (f.drink === 'flute') { rect(dx, dy - 3, 1, 3, '#f8e8a0'); rect(dx, dy, 1, 1, '#e8e8e8'); } else if (f.drink === 'can') { rect(dx - 1, dy - 3, 3, 4, K); rect(dx, dy - 2, 1, 2, '#c8c8d0'); } else if (f.drink === 'beer') { rect(dx - 1, dy - 3, 3, 4, K); rect(dx, dy - 2, 1, 2, '#f8c838'); rect(dx, dy - 3, 1, 1, '#fcfcfc'); } else if (f.drink === 'water') { rect(dx - 1, dy - 4, 3, 5, K); rect(dx, dy - 3, 1, 3, '#bcf0fc'); } else { rect(dx - 1, dy - 3, 3, 4, K); rect(dx, dy - 2, 1, 2, cupC); } };
+  const side = (sx2) => { rect(sx2, torY + 1, 1, torH - 1, sleeve === skin ? topD : sd); rect(sx2, torY + torH, 1, 1, skin); };
+  const L = ux - hw - 1 - (f.belly && look < 0 ? 1 : 0), Rr = ux + hw + 1 + (f.belly && look >= 0 ? 1 : 0), pose = s.pose;
+  if (pose === 'up') { A(L - 1, headY - 3 - fb, 1, torH); A(Rr + 1, headY - 3 - (1 - fb), 1, torH);
+    if (f.prop === 'foam') { rect(Rr, headY - 9 - (1 - fb), 3, 6, K); rect(Rr + 1, headY - 8 - (1 - fb), 1, 4, f.hatC === '#fc7c1c' ? '#fc7c1c' : '#3c8cfc'); } }
+  else if (pose === 'head') { A(L - 1, headY - 1, 1, torH - 1); A(Rr + 1, headY - 1, 1, torH - 1); rect(hx - hw + 1, headY - 1, hw * 2 - 1, 1, skin); }
+  else if (pose === 'ooh') { A(L, headY, 1, torH - 2); A(Rr, headY, 1, torH - 2); }
+  else if (pose === 'clap') { const c = fb; rect(L, torY + 1, 1, 3, sd); rect(Rr, torY + 1, 1, 3, sd); rect(ux - (c ? 1 : 2), torY + 2, 1, 2, skin); rect(ux + (c ? 1 : 2), torY + 2, 1, 2, skin); }
+  else if (pose === 'film') { side(L); A(Rr + 1, headY - 2, 1, torH - 1); rect(Rr, headY - 6, 3, 4, K); rect(Rr + 1, headY - 5, 1, 2, '#bcf0fc'); }
+  else if (pose === 'phone') { side(L); rect(Rr, torY + 1, 1, 3, sd); rect(ux + 1, torY + 2, 2, 1, skin); rect(ux + 1, torY, 3, 3, K); rect(ux + 2, torY + 1, 1, 1, '#bcf0fc'); }
+  else if (pose === 'shout') { side(L); A(Rr, headY + 2, 1, torH - 1); rect(hx + (look >= 0 ? hw + 1 : -hw - 1), headY + 2, 1, 2, skin); }
+  else if (pose === 'cross') { rect(L, torY + 1, 1, 3, sd); rect(Rr, torY + 1, 1, 3, sd); rect(ux - hw, torY + 3, hw * 2 + 1, 2, K); rect(ux - hw + 1, torY + 3, hw * 2 - 1, 1, sleeve === skin ? skin : sd); rect(ux - hw, torY + 3, 1, 1, skin); rect(ux + hw, torY + 3, 1, 1, skin); }
+  else if (pose === 'pocket') { rect(L, torY + 1, 1, torH - 1, sleeve === skin ? topD : sd); rect(Rr, torY + 1, 1, torH - 1, sleeve === skin ? topD : sd); }
+  else if (pose === 'hips') { rect(L - 1, torY + 1, 1, 2, sd); rect(L, torY + 3, 1, 2, skin); rect(Rr + 1, torY + 1, 1, 2, sd); rect(Rr, torY + 3, 1, 2, skin); }
+  else if (pose === 'drink') { side(L); const up = s.sip; if (up) { A(Rr, headY + 2, 1, 3); drawDrink(hx + (look >= 0 ? hw + 1 : -hw - 1), headY + 3); } else { rect(Rr, torY + 1, 1, 3, sd); rect(Rr + 1, torY + 3, 1, 1, skin); drawDrink(Rr + 1, torY + 3); } }
+  else if (pose === 'lean') { rect(L, torY + 1, 1, 2, sd); rect(Rr, torY + 1, 1, 2, sd); rect(L, torY + 3, 2, 1, skin); rect(Rr - 1, torY + 3, 2, 1, skin); }
+  else if (pose === 'shoulders') { A(L - 1, headY - 1, 1, torH - 1); A(Rr + 1, headY - 1, 1, torH - 1); }
+  else { side(L); side(Rr);
+    if (f.prop === 'flag') { const fx = Rr + 1, wv = fb; rect(fx, torY - 7, 1, torH + 6, '#e0e0e0'); rect(fx + 1, torY - 7, 5, 4 - wv, '#f83800'); rect(fx + 2, torY - 6, 3, 1, '#fcfcfc'); }
+    else if (f.prop === 'pizza') { rect(Rr, torY + torH - 3, 3, 3, K); rect(Rr + 1, torY + torH - 2, 1, 1, '#f8d878'); rect(Rr + 1, torY + torH - 3, 1, 1, '#c84c0c'); }
+    else if (f.prop === 'binos' && !far) { rect(hx - 2, headY + 1, 5, 2, K); }
+    else if (f.prop === 'bucket') { rect(Rr, torY + torH - 1, 4, 3, K); rect(Rr + 1, torY + torH, 2, 1, '#fc7c1c'); }
+    else if (f.prop === 'chips') { rect(Rr + 1, torY + torH - 1, 2, 2, K); rect(Rr + 1, torY + torH - 1, 1, 1, '#d4af37'); } }
+  // a kid on the shoulders: legs either side of the head, waving when the crowd goes up
+  if (f.rider) { const k = f.rider, ky = headY - 1, kt = ky - 4, kh = kt - 4;
+    rect(hx - hw - 1, ky - 1, 2, 4, K); rect(hx + hw, ky - 1, 2, 4, K); rect(hx - hw - 1, ky, 1, 2, k.bot); rect(hx + hw + 1, ky, 1, 2, k.bot);
+    rect(hx - 2, kt - 1, 5, 5, K); rect(hx - 1, kt, 3, 4, k.top); rect(hx - 2, kh - 1, 5, 5, K); rect(hx - 1, kh, 3, 3, k.skin); rect(hx - 1, kh, 3, 1, k.cap || k.hair); if (k.cap) rect(hx + (look >= 0 ? 2 : -2), kh + 1, 1, 1, k.cap);
+    if (!far && !s.blink) rect(hx + (look > 0 ? 1 : look < 0 ? -1 : 0), kh + 1, 1, 1, '#1c1c1c');
+    if (s.fb >= 2) { const w2 = s.fb & 1; rect(hx - 3, kt - 4 - w2, 1, 4, K); rect(hx + 3, kt - 4 - (1 - w2), 1, 4, K); rect(hx - 3, kt - 4 - w2, 1, 1, k.skin); rect(hx + 3, kt - 4 - (1 - w2), 1, 1, k.skin); }
+    else { rect(hx - 3, kt, 1, 3, k.top); rect(hx + 3, kt, 1, 3, k.top); } }
+}
+const FAN_SW = 40, FAN_SH = 64, FAN_FX = 20, FAN_FY = 60;
+function fanSprite(p, s) {
+  const key = p.i + '|' + s.pose + '|' + s.look + '|' + s.lean + '|' + s.fb + '|' + s.sip + '|' + s.blink;
+  let c = FAN_CACHE.m.get(key); if (c) return c;
+  if (FAN_CACHE.m.size > 700) FAN_CACHE.m.clear();
+  c = mk(FAN_SW, FAN_SH); const saved = ctx; ctx = c.getContext('2d');
+  try { fanDraw(FAN_FX, FAN_FY, p.f, s); } finally { ctx = saved; }
+  FAN_CACHE.m.set(key, c); return c;
+}
+function drawFan(sx, gy, p, t, cheer) { const s = fanPoseNow(p, t, cheer); ctx.globalAlpha = p.f.far ? 0.22 : 0.28; rect(sx - p.f.hw - 2, gy - 1, p.f.hw * 2 + 5, p.f.far ? 1 : 2, '#000'); ctx.globalAlpha = 1;
+  ctx.drawImage(fanSprite(p, s), sx + s.shift - FAN_FX, gy - s.hop - FAN_FY); }
+const FAN_DEPTH = [0, 2, 7, 11];
+function crowdRope(hl, cam, s0, s1, dy, col, stake, tall) {
+  for (let sx = Math.max(0, s0); sx <= Math.min(W - 1, s1); sx++) { const x = sx + cam, s = x < 0 ? 'rough' : surfAt(hl, x); if (s === 'green' && !dy) continue; if (s === 'water' || s === 'ob' && x >= 0) continue;
+    const gy = Math.round(BASE - groundH(hl, x)) + (dy ? -dy : 1), ph = ((sx - s0) % 12 + 12) % 12;
+    if (ph === 0) { rect(sx, gy - tall, 1, tall, stake); rect(sx, gy - tall, 1, 1, '#000'); } else rect(sx, gy - tall + 1 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, col); }
 }
 function drawCrowd(hl, cam, C) {
   if (!crowdOn()) return;
-  const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl);
+  if (FAN_CACHE.hole !== hl) { FAN_CACHE.hole = hl; FAN_CACHE.m.clear(); }
+  const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl), P = FAN_PAL[crowdTheme(hl)] || FAN_PAL.club;
+  const vis = p => { const sx = Math.round(p.x - cam); return sx > -12 && sx < W + 12; };
+  // raised gallery banks under the far rows (one darker grass strip per group, soft stepped ends)
+  const bank = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.6 : 0.82), runs = [];
+  sp.forEach(p => { if (p.row < 2 || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
+  runs.sort((a, b) => a[0] - b[0]);
+  for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(13, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
+  let rowDone = 4;
+  const ropeFar = () => { for (const [a, b] of runs) crowdRope(hl, cam, a - 6, b + 6, 4, P.rope, P.stake, 4); };
   try { v93Stand(hl, cam, sp, t, cheer); } catch (e) {}   // v8.93 grandstand behind the green
-  let rx0 = 1e9, rx1 = -1e9;
-  sp.forEach((p, i) => {
-    const sx = Math.round(p.x - cam); if (sx < -8 || sx > W + 8) return;
-    const gy = Math.round(BASE - groundH(hl, p.x)) - (p.row ? 2 : 0); drawFan(sx, gy, p, t, cheer, i);
-    if (!p.row) { rx0 = Math.min(rx0, sx - 5); rx1 = Math.max(rx1, sx + 5); }
+  const front = { g: [1e9, -1e9], t: [1e9, -1e9] };
+  sp.forEach(p => {
+    if (p.row < 2 && rowDone >= 2) { ropeFar(); rowDone = 1; }
+    if (!vis(p)) return; const sx = Math.round(p.x - cam), gy = Math.round(BASE - groundH(hl, Math.max(0, p.x))) - FAN_DEPTH[p.row];
+    drawFan(sx, gy, p, t, cheer);
+    if (p.row === 0 && front[p.z]) { front[p.z][0] = Math.min(front[p.z][0], sx - 5); front[p.z][1] = Math.max(front[p.z][1], sx + 5); }
   });
-  // rope line in front of the front row: posts + a sagging rope at knee height
-  if (rx1 > rx0) for (let sx = Math.max(0, rx0); sx <= Math.min(W - 1, rx1); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)) + 1, ph = ((sx - rx0) % 12 + 12) % 12;
-    if (surfAt(hl, x) === 'green') continue; if (ph === 0) rect(sx, gy - 6, 1, 6, '#fcfcfc'); else rect(sx, gy - 5 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, '#f83800'); }
+  if (rowDone >= 2) ropeFar();
+  for (const k in front) if (front[k][1] > front[k][0]) crowdRope(hl, cam, front[k][0], front[k][1], 0, P.rope, P.stake, 6);
+}
+/* ---- v8.99 crowd audio (WebAudio synth, one master gain; nothing plays when muted / paused / hidden) ---- */
+const CA = { g: null, mur: null, tgt: -1, clapB: null };
+function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
+  try { const A = AC, g = A.createGain(); g.gain.value = 1; g.connect(A.destination);
+    const n = Math.floor(A.sampleRate * 4), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0);
+    const env = [0.5, 0.5, 0.5], tg = [0.5, 0.5, 0.5], lp = [0, 0, 0], ks = [0.5, 0.3, 0.18];   // three layers of far-off voices, each with its own syllable swells
+    for (let i = 0; i < n; i++) { let v = 0; for (let j = 0; j < 3; j++) { if (i % (3200 + j * 900) === 0) tg[j] = 0.15 + Math.random() * 0.85; env[j] += (tg[j] - env[j]) * 0.0009; lp[j] += ((Math.random() * 2 - 1) - lp[j]) * ks[j]; v += lp[j] * env[j]; } d[i] = v * 0.6; }
+    const fade = Math.floor(A.sampleRate * 0.25); for (let i = 0; i < fade; i++) { const k = i / fade; d[i] = d[i] * k + d[n - fade + i] * (1 - k); }   // seamless loop
+    const s = A.createBufferSource(); s.buffer = b; s.loop = true; const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 0.7;
+    const lo = A.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 1400; const mg = A.createGain(); mg.gain.value = 0;
+    s.connect(bp).connect(lo).connect(mg).connect(g); s.start(); CA.g = g; CA.mur = mg; return true; } catch (e) { CA.g = null; return false; }
+}
+function caTick() {
+  if (!CA.mur || !AC) return;
+  let v = 0;
+  if (!muted && !paused && !document.hidden && !SIM && hole && crowdOn() && GAME_STATES.includes(state) && state !== 'done') {
+    v = v93Hush() ? 0.01 : state === 'flight' ? 0.09 : 0.072; if (crowdEvent()) v *= 1.3; if (crowdT > 0) v = 0.18;
+  }
+  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { CA.mur.gain.setTargetAtTime(v, AC.currentTime, v < 0.01 ? 0.35 : 0.5); } catch (e) {} }
+}
+function caVoices(kind, k) {   // a bank of detuned saw 'voices' through a vowel formant: ooh / aww (groan) / yeah (cheer)
+  if (!caReady()) return false;
+  const A = AC, t0 = A.currentTime + 0.02, F = { ooh: [420, 1.18, 1.3], groan: [560, 0.72, 1.4], cheer: [880, 1.22, 1.9] }[kind] || [420, 1.1, 1.3];
+  const n = kind === 'cheer' ? 10 : 8, dur = F[2] * (0.85 + 0.15 * Math.min(2, k || 1)), vol = 0.014 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.2 : 1);
+  const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = F[0]; bp.Q.value = 1.4; const bp2 = A.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = F[0] * 2.6; bp2.Q.value = 2;
+  const mix = A.createGain(); mix.gain.value = 1; bp.connect(mix); bp2.connect(mix); mix.connect(CA.g);
+  for (let i = 0; i < n; i++) { const o = A.createOscillator(), g = A.createGain(), ts = t0 + Math.random() * 0.2, f = (100 + Math.random() * 90) * (i % 2 ? 1.75 : 1);
+    o.type = 'sawtooth'; o.detune.value = (Math.random() - 0.5) * 40; o.frequency.setValueAtTime(f, ts); o.frequency.linearRampToValueAtTime(f * F[1], ts + dur * 0.55); o.frequency.linearRampToValueAtTime(f * F[1] * (kind === 'cheer' ? 1.05 : 0.9), ts + dur);
+    g.gain.setValueAtTime(0.0001, ts); g.gain.exponentialRampToValueAtTime(vol, ts + (kind === 'cheer' ? 0.08 : 0.16)); g.gain.setValueAtTime(vol, ts + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, ts + dur);
+    o.connect(g); g.connect(bp); g.connect(bp2); o.start(ts); o.stop(ts + dur + 0.05); }
+  if (kind === 'cheer') { const s = A.createBufferSource(), nn = Math.floor(A.sampleRate * dur), b = A.createBuffer(1, nn, A.sampleRate), d = b.getChannelData(0); for (let i = 0; i < nn; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 2000) * (1 - i / nn) ** 1.5;
+    const hp = A.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 2200; hp.Q.value = 0.6; const g = A.createGain(); g.gain.value = 0.05 * Math.min(1.6, k || 1); s.buffer = b; s.connect(hp).connect(g).connect(CA.g); s.start(t0); }
+  return true;
+}
+function caClap(k) {   // applause: ~40 clappers at their own tempo, pre-rendered once
+  if (!caReady()) return false;
+  const A = AC;
+  if (!CA.clapB) { const sr = A.sampleRate, n = Math.floor(sr * 2.6), b = A.createBuffer(1, n, sr), d = b.getChannelData(0);
+    for (let c = 0; c < 40; c++) { const per = sr / (3.6 + Math.random() * 2.4), amp = 0.3 + Math.random() * 0.7; let t = Math.random() * per;
+      while (t < n) { const s0 = Math.floor(t), fade = 1 - t / n; for (let j = 0; j < 220 && s0 + j < n; j++) d[s0 + j] += (Math.random() * 2 - 1) * amp * Math.exp(-j / 45) * fade * fade; t += per * (0.92 + Math.random() * 0.16); } }
+    CA.clapB = b; }
+  const s = A.createBufferSource(), bp = A.createBiquadFilter(), g = A.createGain(); s.buffer = CA.clapB; bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 0.8;
+  g.gain.value = 0.048 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.25 : 1); s.connect(bp).connect(g).connect(CA.g); s.start(); return true;
+}
+function caShh() { if (!caReady()) return; const A = AC, nn = Math.floor(A.sampleRate * 0.5), b = A.createBuffer(1, nn, A.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < nn; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 1500) * (1 - i / nn);
+  const s = A.createBufferSource(), hp = A.createBiquadFilter(), g = A.createGain(); hp.type = 'highpass'; hp.frequency.value = 2600; g.gain.value = 0.02; s.buffer = b; s.connect(hp).connect(g).connect(CA.g); s.start(); }
+function caMumble(text, voice) {   // a short muffled 'voice' under the bubble: one blip per syllable, rising on the '!'
+  if (!caReady()) return; const A = AC, syl = clamp(Math.round(text.replace(/[^A-Z]/g, '').length / 3), 2, 7), base = 150 * (voice || 1);
+  const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.6; bp.connect(CA.g);
+  let t = A.currentTime + 0.02; for (let i = 0; i < syl; i++) { const o = A.createOscillator(), g = A.createGain(), d = 0.07 + Math.random() * 0.05, f = base * (0.9 + Math.random() * 0.3) * (i === syl - 1 && /!/.test(text) ? 1.25 : 1);
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * (i === syl - 1 ? 1.2 : 0.95), t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(bp); o.start(t); o.stop(t + d + 0.02); t += d + 0.025; }
+}
+document.addEventListener('visibilitychange', () => { try { caTick(); } catch (e) {} });
+/* ---- v8.99 heckles: at most one line per shot (plus the odd splash / OB jab), never two shots running, PG only ---- */
+const HEC = {
+  tee: ['GRIP IT AND RIP IT!', "DON'T SHANK IT!", 'NO PRESSURE!', 'SWING EASY!', 'YOU GOT THIS!', 'HIT IT ALREADY!', 'KEEP YOUR HEAD DOWN!', 'NICE PANTS!', 'GRANDMA HITS IT FARTHER!', 'LET THE BIG DOG EAT!', 'SMOOTH TEMPO!', 'FAIRWAYS AND GREENS!', 'DO IT FOR THE GALLERY!'],
+  fair: ["DON'T SHANK IT!", 'NO PRESSURE!', 'PICK IT CLEAN!', 'FLAG HUNTING!', 'STICK IT!', 'NICE AND SMOOTH!', 'HIT IT ALREADY!', 'TAKE ONE MORE CLUB!', "DON'T CHUNK IT!"],
+  putt: ['NEVER UP, NEVER IN!', "IT'S ALL BREAK!", 'BABY IT IN!', 'NOONAN!', "DON'T LEAVE IT SHORT!", 'KNEE KNOCKER!', 'SINK IT!', 'READ THE GRAIN!', 'BANG IT IN!'],
+  drive: ['MASHED POTATOES!', 'BABA BOOEY!', 'GET IN THE HOLE!', 'YOU DA MAN!', 'BOOM!', 'IN THE HOLE!'],
+  appr: ['GET IN THE HOLE!', 'BITE! BITE!', 'SIT DOWN!', 'BE THE RIGHT CLUB!', 'GO! GO! GO!'],
+  water: ["THAT'S IN THE WATER", 'SPLASH!', 'FISHING TRIP!', 'GLUB GLUB...', 'BRING A SNORKEL!'],
+  ob: ["THAT'S GONE!", 'RELOAD!', 'FORE!!', 'SEE YA!'],
+  waterPre: ['MIND THE WATER!', 'WATCH THE POND!'],
+  nyc: ['FUGGEDABOUTIT!', "HEY, I'M WALKIN' HERE!", "LET'S GO!", 'SWING, BUDDY!'],
+  hr: ['LET IT RIDE!', 'ALL IN!', 'DOUBLE DOWN!', 'HOUSE ALWAYS WINS!'],
+  spooky: ['BOO!', 'SCARED YET!', 'TRICK SHOT!', 'SPOOKY SWING!'],
+  space: ['ONE SMALL STEP!', 'LOW GRAVITY, BIG SWING!', 'HOUSTON, SWING!']
+};
+let hec = null, hecPlan = null, hecKey = '', hecLast = -9, hecShotN = 0, hecBag = {};
+function hecPickLine(list) { const used = hecBag[list[0]] || (hecBag[list[0]] = []); let pool = list.filter(l => !used.includes(l)); if (!pool.length) { used.length = 0; pool = list.slice(); } const l = pool[Math.floor(Math.random() * pool.length)]; used.push(l); return l; }
+function hecPreList() {
+  const th = crowdTheme(hole), r = Math.random();
+  if (clubIdx === PUTT_I) return HEC.putt;
+  if (th !== 'club' && HEC[th] && r < 0.35) return HEC[th];
+  if (waterSpan && waterSpan(hole) && r < 0.5 && r > 0.38) return HEC.waterPre;
+  return strokes === 0 ? HEC.tee : HEC.fair;
+}
+function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear of the ball, golfer, aim line and HUD
+  if (!crowdOn() || SIM || !hole || !ball) return false;
+  const sp = crowdSpots(hole), Z = worldZoom(), lines = hecWrap(text), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
+  const top = Math.max(36, (SAFE.t || 0) + 6) + 17, bq = w2s(ball.x - camX, BASE - ball.h - 4);
+  const avoid = [{ x: bq.x - 24, y: bq.y - 56 * Z, w: 48, h: 64 * Z }, { x: MC.x - 4, y: 0, w: MC.w + 8, h: MC.y + MC.h + 6 }, { x: 0, y: 0, w: PAUSE_BTN.x + PAUSE_BTN.w + 4, h: PAUSE_BTN.y + PAUSE_BTN.h + 4 }];
+  const pts = lastAimPts || [], hitR = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const cand = [];
+  for (const p of sp) {
+    if (p.f.costume === 'ghost' || p.f.costume === 'pumpkin') continue;
+    if (opts && opts.near != null && Math.abs(p.x - opts.near) > 140) continue;
+    const hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3, q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row] - hh);
+    if (q.x < 6 || q.x > W - 6) continue;
+    for (const lift of [0, 14, 28, 44]) {   // lift the bubble (longer tail) when the aim line runs over the crowd
+      const r = { x: Math.round(clamp(q.x - bw / 2, 2, W - bw - 2)), y: Math.round(q.y - bh - 5 - lift), w: bw, h: bh };
+      if (r.y < top || r.y + r.h > PLAY_H - 4) continue;
+      if (avoid.some(a => hitR(r, a))) continue;
+      const tl = { x: q.x - 3, y: r.y + r.h, w: 6, h: lift + 4 };
+      if (pts.some(d => (d.x >= r.x - 4 && d.x <= r.x + r.w + 4 && d.y >= r.y - 4 && d.y <= r.y + r.h + 4) || (d.x >= tl.x - 2 && d.x <= tl.x + tl.w + 2 && d.y >= tl.y && d.y <= tl.y + tl.h))) continue;
+      cand.push({ p, r, q, lift, w: (p.row < 2 ? 3 : 1) * (p.f.kid ? 0.6 : 1) / (1 + lift / 12) }); break;
+    }
+  }
+  if (!cand.length) return false;
+  let tot = cand.reduce((a, c) => a + c.w, 0), u = Math.random() * tot, pick = cand[0]; for (const c of cand) { u -= c.w; if (u <= 0) { pick = c; break; } }
+  hec = { text, lines, p: pick.p, r: pick.r, lift: pick.lift, tail: pick.q.x, t: 0, dur: 1.9 + text.length * 0.035, hide: 0 };
+  try { caMumble(text, pick.p.f.voice); } catch (e) {}
+  return true;
+}
+function hecWrap(text) { if (text.length <= 16) return [text]; const w = text.split(' '); let best = null; for (let i = 1; i < w.length; i++) { const l = [w.slice(0, i).join(' '), w.slice(i).join(' ')], m = Math.max(l[0].length, l[1].length); if (!best || m < best.m) best = { l, m }; } return best ? best.l : [text]; }   // two balanced lines
+function hecEvent(kind) {   // 'hit' | 'water' | 'ob'
+  if (!crowdOn() || SIM || !hole) return;
+  if (kind === 'hit') { if (hecPlan && hecPlan.done) return; const post = hecShotN - hecLast >= 2 && Math.random() < (crowdEvent() ? 0.4 : 0.3);
+    if (!post || clubIdx === PUTT_I) return; const from = ball ? ball.x : TEE_X, toCup = Math.abs(hole.cup - from);
+    hecPlan = { at: 'flight', delay: 0.45 + Math.random() * 0.3, list: strokes <= 1 && toCup > 160 ? HEC.drive : toCup < 120 ? HEC.appr : HEC.drive, near: from, done: false }; return; }
+  if ((kind === 'water' || kind === 'ob') && Math.random() < 0.6) { hecPlan = { at: 'penalty', delay: 0.55, list: HEC[kind], near: null, done: false }; }
+}
+function crowdTick(dt) {
+  if (hec) { hec.t += dt; if (hec.t > hec.dur || !['aim', 'power', 'accuracy', 'swing', 'flight', 'penalty'].includes(state)) hec = null; }
+  if (!crowdOn() || SIM || !hole || !ball) { hecPlan = null; return; }
+  const key = holeIdx + '|' + strokes;
+  if (state === 'aim' && key !== hecKey) { hecKey = key; hecShotN++;
+    const putt = clubIdx === PUTT_I, p = (crowdEvent() ? 0.5 : 0.4) * (putt ? 0.7 : 1);
+    hecPlan = (hecShotN - hecLast >= 2 && Math.random() < p) ? { at: putt || Math.random() < 0.45 ? 'aim' : 'power', delay: putt ? 0.9 + Math.random() * 1.2 : 0.2 + Math.random() * 0.25, list: null, done: false } : null;
+    if (!hecPlan && !putt && Math.random() < 0.12) setTimeout(() => { try { if (state === 'aim' || state === 'power') caShh(); } catch (e) {} }, 700);
+  }
+  if (hecPlan && !hecPlan.done && !hec && state === hecPlan.at && st >= hecPlan.delay) {
+    const list = hecPlan.list || hecPreList(); hecPlan.done = true;
+    if (hecSay(hecPickLine(list), { near: hecPlan.near })) hecLast = hecShotN;
+  }
+}
+let lastAimPts = null;
+function hecDraw() {
+  if (!hec || !ball || !hole) return; const r = hec.r, p = hec.p, hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3;
+  const q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row] - hh);   // follow the fan as the camera moves
+  r.x = Math.round(clamp(q.x - r.w / 2, 2, W - r.w - 2)); r.y = Math.round(q.y - r.h - 5 - hec.lift); hec.tail = q.x;
+  if (q.x < 2 || q.x > W - 2 || r.y < Math.max(36, (SAFE.t || 0) + 6) + 17 || r.y + r.h > PLAY_H - 4) hec.hide = 1;
+  if (state === 'flight' || state === 'penalty') { const bq = w2s(ball.x - camX, BASE - ball.h - 4); if (bq.x > r.x - 10 && bq.x < r.x + r.w + 10 && bq.y > r.y - 10 && bq.y < r.y + r.h + 14) hec.hide = Math.max(hec.hide, 1); }   // the ball wins: get out of the way
+  if (hec.hide) { hec.hide = Math.min(1, hec.hide); hec.t = Math.max(hec.t, hec.dur - 0.12); }
+  const a = REDUCED_MOTION ? 1 : Math.min(1, hec.t / 0.1, (hec.dur - hec.t) / 0.2); if (a <= 0) return;
+  const pop = REDUCED_MOTION || hec.t > 0.12 ? 0 : 1, x = r.x, y = r.y + pop;
+  ctx.globalAlpha = a;
+  rect(x - 1, y, r.w + 2, r.h, '#000'); rect(x, y - 1, r.w, r.h + 2, '#000'); rect(x, y, r.w, r.h, '#fcfcfc'); rect(x, y + r.h - 1, r.w, 1, '#d8d8e0');
+  const tx = Math.round(clamp(hec.tail, x + 4, x + r.w - 5)); rect(tx - 2, y + r.h, 5, 2, '#000'); rect(tx - 1, y + r.h, 3, 1, '#fcfcfc'); rect(tx - 1, y + r.h + 2, 3, 1, '#000'); rect(tx, y + r.h + 1, 1, 1, '#fcfcfc'); rect(tx, y + r.h + 3, 1, 1, '#000');
+  if (hec.lift) for (let k = 4; k < hec.lift + 2; k += 3) rect(tx, y + r.h + k, 1, 2, '#fcfcfc');   // a dotted 'voice line' down to the fan
+  hec.lines.forEach((l, i) => drawText(l, Math.round(x + (r.w - textW(l)) / 2), y + 3 + i * 9, '#1c1c2c'));
+  ctx.globalAlpha = 1;
 }
 /* v8.87 gallery zoom: on a long hole-out (ace, or a non-putt holed from 20+ yd) at a gallery event, a short push-in on the cheering crowd, then back. Tap skips. Screen-space post zoom (one drawImage). */
 let galZ = null, galCv = null;
 function galArm(fromYd) {
   if (!crowdOn() || SIM || REDUCED_MOTION) return; const ace = strokes === 1; if (!ace && fromYd < 20) return;
-  const sp = crowdSpots(hole).filter(p => !p.row); if (!sp.length) return;
+  const sp = crowdSpots(hole).filter(p => !p.row && p.z === 'g'); if (!sp.length) return;
   const pref = sp.filter(p => p.x > hole.cup); let best = (pref.length ? pref : sp)[0]; for (const p of (pref.length ? pref : sp)) if (Math.abs(p.x - hole.cup) < Math.abs(best.x - hole.cup)) best = p;
   const grp = sp.filter(p => Math.abs(p.x - best.x) < 26), fx = grp.reduce((a, p) => a + p.x, 0) / grp.length;
   galZ = { on: true, at: 0.35, dur: ace ? 1.5 : 1.2, x: fx, t: -1 };
@@ -7389,7 +7751,7 @@ function v93Ducks(cam) {
 }
 /* ---- gallery: grandstand behind the green + seated fans ---- */
 function v93Stand(hl, cam, sp, t, cheer) {
-  const back = sp.filter(p => p.x > hl.cup); if (back.length < 5) return;
+  const back = sp.filter(p => p.z === 'g' && p.row < 2 && p.x > hl.cup); if (back.length < 5) return;
   let x0 = 1e9, x1 = -1e9; back.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }); x0 -= 4; x1 += 4; if (x1 - x0 < 28) return;
   const s0 = Math.round(x0 - cam), s1 = Math.round(x1 - cam); if (s1 < 0 || s0 > W) return;
   let top = 1e9; for (let x = x0; x <= x1; x += 2) top = Math.min(top, Math.round(BASE - groundH(hl, x)));
@@ -7811,7 +8173,7 @@ function aimDot(wx, wh, k, col) {   // k: 0 near the ball .. 1 at the far end
   aimPts.push({ x: Math.round(q.x), y: Math.round(q.y), k, col });
 }
 function flushAimDots() {
-  const pts = aimPts; aimPts = [];
+  const pts = aimPts; aimPts = []; lastAimPts = pts;
   for (const d of pts) {
     if (d.y < 1 || d.y >= PLAY_H - 1) continue;
     if (d.k < 0.7) { rect(d.x - 1, d.y - 1, 4, 4, 'rgba(0,0,0,0.8)'); rect(d.x, d.y, 2, 2, d.col); }
@@ -9013,16 +9375,30 @@ function renderCard() {
 /* v8.96: subtle top-middle wind (number + arrow + drifting streaks); same wind value, display only */
 let windHud = false, windIndKey = '';
 const windIndEl = document.getElementById('windInd'), windIndTxt = windIndEl && windIndEl.querySelector('span');
-function syncWindInd() {
+let windGustAt = 0, windIndW = 0, windIndH = 0;
+function syncWindInd() {   // v8.99: bigger bold number + arrow, streaks flowing with the wind (faster / more with speed), a gust pulse now and then
   if (!windIndEl) return;
   const show = windHud && !!hole && !paused && !ov && !LAB.on && !msg && !roundTip && !['board', 'card', 'title', 'intro', 'done'].includes(state) && !(acctEl && acctEl.classList.contains('on'));   // the centre-top message slot wins while it is up
   let key = 'off';
+  const r = show ? cv.getBoundingClientRect() : null, sc = r ? r.height / H : 1;
   if (show) {
-    const r = cv.getBoundingClientRect(), sc = r.height / H, top = Math.round(r.top + Math.max((SAFE.t || 0) + 3, MC.y + MC.h + 4) * sc);   // just under the pause button / mini scorecard row
+    const top = Math.round(r.top + Math.max((SAFE.t || 0) + 4, MC.y + MC.h + 5) * sc);   // just under the pause button / mini scorecard row (clear of the notch)
     key = wind + '|' + top + '|' + Math.round(sc * 10);
-    if (key !== windIndKey) { windIndTxt.textContent = wind === 0 ? 'CALM' : Math.abs(wind) + ' MPH'; windIndEl.classList.toggle('l', wind < 0); windIndEl.classList.toggle('calm', wind === 0); windIndEl.style.top = top + 'px'; windIndEl.style.fontSize = Math.round(Math.max(12, Math.min(22, sc * 6.5))) + 'px'; }
+    if (key !== windIndKey) { const a = Math.abs(wind); windIndTxt.textContent = wind === 0 ? 'CALM' : a + ' MPH'; windIndEl.classList.toggle('l', wind < 0); windIndEl.classList.toggle('calm', wind === 0);
+      windIndEl.classList.toggle('w2', a >= 4 && a < 8); windIndEl.classList.toggle('w3', a >= 8);
+      windIndEl.style.setProperty('--d', clamp(2.3 - a * 0.15, 0.6, 2.3).toFixed(2) + 's'); windIndEl.style.setProperty('--o', clamp(0.4 + a * 0.05, 0.4, 0.95).toFixed(2));
+      windIndEl.style.top = top + 'px'; windIndEl.style.fontSize = Math.round(Math.max(18, Math.min(30, Math.max(sc * 9.5, innerWidth * 0.056)))) + 'px'; }
   }
-  if (key !== windIndKey) { windIndEl.classList.toggle('on', show); windIndKey = key; }
+  if (key !== windIndKey) { windIndEl.classList.toggle('on', show); windIndKey = key; if (show) { windIndW = windIndEl.offsetWidth; windIndH = windIndEl.offsetHeight; } }
+  if (!show) return;
+  // stay out of the way: fade right down when the ball or the aim line passes under it
+  let dim = false; const cx = r.left + r.width / 2, x0 = cx - windIndW / 2 - 14, x1 = cx + windIndW / 2 + 14, y0 = parseFloat(windIndEl.style.top) - 8, y1 = y0 + windIndH + 16;
+  const inR = (gx, gy) => { const X = r.left + gx * sc, Y = r.top + gy * sc; return X > x0 && X < x1 && Y > y0 && Y < y1; };
+  if (ball) { const q = w2s(ball.x - camX, BASE - ball.h - 4); if (inR(q.x, q.y)) dim = true; }
+  if (!dim && lastAimPts) for (const d of lastAimPts) if (inR(d.x, d.y)) { dim = true; break; }
+  if (windIndEl.classList.contains('dim') !== dim) windIndEl.classList.toggle('dim', dim);
+  const now = performance.now(), a = Math.abs(wind);
+  if (!REDUCED_MOTION && a >= 3 && now > windGustAt) { if (windGustAt) { const g = windIndEl.classList.contains('g1'); windIndEl.classList.toggle('g1', !g); windIndEl.classList.toggle('g2', g); } windGustAt = now + (a >= 8 ? 2600 : 4200) + Math.random() * 3000; }
 }
 function render() {
   windHud = false;
@@ -10336,6 +10712,7 @@ function renderScene() {
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   try { galDraw(); } catch (e) {}   // v8.87 gallery zoom (world only, under the HUD)
+  try { hecDraw(); } catch (e) {}   // v8.99 heckle bubble (screen space, kept clear of ball / aim / HUD)
   flushAimDots();   // v8.70
   try { drawHidden(); } catch (e) {}   // v8.77 flyover highlights
   try { drawYardage(); } catch (e) {}   // v8.70 pin distance + carry / roll
@@ -10908,7 +11285,8 @@ function frame(now) {
   const dt = clamp((now - last) / 1000, 0, 1 / 20) * TIME_SCALE; last = now;   // rAF time can be a hair before 'last' on the first frame
   if (LAB.on) { labFrame(now); requestAnimationFrame(frame); return; }   // v8.74: admin LAB putting view owns the screen
   const pre = state;
-  if (!paused) { update(dt); updateCart(dt); }   // paused = completely frozen
+  if (!paused) { update(dt); updateCart(dt); }
+  try { caTick(); } catch (e) {}   // v8.99 crowd murmur follows mute / pause / hush   // paused = completely frozen
   if (pre === 'swing' && state === 'flight') shotFacing = facing;
   // v8.20: static screens (leaderboard, scorecard, pause/settings) redraw at ~8fps unless there was recent input
   const staticScreen = paused || state === 'board' || state === 'card';
