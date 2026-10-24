@@ -231,7 +231,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.94';
+const GAME_VERSION = 'v8.95';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3831,41 +3831,44 @@ function hwSky(fairTop) {   // title / menus: orange-to-purple sky, full moon, b
 // October: the four spooky holes join the Daily pool (NY date, so everyone shares the same day's design)
 try { if (HW_FORCE !== false && (HW_FORCE === true || Number(nyDateStr().slice(5, 7)) === 10)) DAILY_HOLES.push(...SPOOKY_DAILY); } catch (e) {}
 
-/* ================= v8.42 HIGHLIGHTS =================
-   A light rolling record of the LAST shot only (~30 samples/s of ball x/h, camera and swing angle; capped), never video.
-   SAVE HIGHLIGHT re-renders that record into an offscreen canvas and records it with MediaRecorder (MP4 if the browser
-   can, else WebM). No MediaRecorder -> a still PNG with the full trail. Then share (navigator.share files) or download. */
-const HL_DT = 1 / 30, HL_MAX = 30 * 14, HL_SHOW = 9;   // sample rate, max samples (~14s), seconds the button stays up
-const hl = { rec: null, last: null, busy: false, ready: null, t: 0, msg: '', msgT: 0, btn: null };
+/* ================= v8.95 HIGHLIGHTS =================
+   A light record of the LAST shot only (~30 tiny samples/s: ball x/h, camera, swing, heartbeat level), never video.
+   The clip is only offered for GREAT shots (hlGreat): aces, eagle or better, any hole-out from off the green (chip-ins),
+   putts holed from 15Y+, and heartbeat shots that drop. SAVE CLIP re-renders that record as a vertical 9:16 1080x1920
+   story clip (setup beat on the golfer + hole, smooth follow cam, the heartbeat slow-mo/zoom/red pulse with its thumps
+   on an audio track, the drop + celebration push-in, then a clean end card) via MediaRecorder (MP4 where the browser can,
+   else WebM; no recorder -> a 1080x1920 PNG). Then the share sheet (navigator.share files -> Instagram > Story) or save. */
+const HL_DT = 1 / 30, HL_MAX = 30 * 14, HL_SHOW = 12;
+const hl = { rec: null, last: null, busy: false, ready: null, t: 0, msg: '', msgT: 0, btn: null, btn2: null, duckT: 9 };
 function hlRecStart() {
   hl.rec = { hl: hole, holeIdx, holeNo: displayHoleNum(holeIdx), name: hole.name || '', par: hole.par, x0: ball.x, dir: facing, club: clubIdx, power: meter.power,
-             dist0: Math.abs(hole.cup - ball.x), perfect: !!shotPerfect, look: lookPlay(lookOf(player)), f: [], acc: HL_DT, ballSkin: settings.pumpkinBall && halloweenOn(), spooky: !!(hole.spooky || (hole.def && hole.def.spooky)) || courseKind === 'spooky', cup: courseKind === 'spooky' };
+             dist0: Math.abs(hole.cup - ball.x), perfect: !!shotPerfect, look: lookPlay(lookOf(player)), f: [], beats: [], acc: HL_DT, ballSkin: settings.pumpkinBall && halloweenOn(), spooky: !!(hole.spooky || (hole.def && hole.def.spooky)) || courseKind === 'spooky', cup: courseKind === 'spooky', crowd: crowdOn(), hbSeen: false };
   if (hl.ready && hl.ready.url) { try { URL.revokeObjectURL(hl.ready.url); } catch (e) {} }
   hl.ready = null; hl.last = null;
 }
 function hlRecSample(dt) {
   const r = hl.rec; if (!r || r.f.length >= HL_MAX) return;
   r.acc += dt; if (r.acc < HL_DT) return; r.acc = 0;
-  r.f.push([Math.round(ball.x * 10) / 10, Math.round(ball.h * 10) / 10, Math.round(camX), Math.round(swingAng)]);
+  let e = 0, p = 0; if (hb) { r.hbSeen = true; e = Math.round(hbEnv() * 100) / 100; p = Math.round(hbProg() * 100) / 100 + 0.001; }
+  r.f.push([Math.round(ball.x * 10) / 10, Math.round(ball.h * 10) / 10, Math.round(camX), Math.round(swingAng), e, p]);
+}
+function hlBeat() { const r = hl.rec; if (r) r.beats.push(r.f.length); }   // called by hbTick on each lub
+function hlGreat(r, res, d) {   // the only shots that get a clip
+  if (res !== 'cup') return false;
+  if (r.strokes === 1 || d <= -2) return true;            // ace, eagle, albatross
+  if (r.club !== PUTT_I) return true;                     // hole-out / chip-in from off the green
+  if (r.dist0 >= 15) return true;                         // long made putt
+  return !!r.hbSeen;                                      // a heartbeat shot that dropped
 }
 function hlRecEnd(res) {
   const r = hl.rec; if (!r) return; hl.rec = null;
-  r.f.push([ball.x, res === 'cup' ? groundH(hole, hole.cup) : ball.h, Math.round(camX), Math.round(swingAng)]);
-  const sn = ball.seen || {}, d = res === 'cup' ? strokes - hole.par : null, total = Math.abs(ball.x - r.x0);
-  let label = '', notable = false;
-  if (res === 'cup') {
-    notable = true;
-    label = strokes === 1 ? 'HOLE IN ONE!' : d <= -3 ? 'ALBATROSS!' : d === -2 ? 'EAGLE!' : d === -1 ? 'BIRDIE!' : r.club === PUTT_I ? (r.dist0 >= 8 ? Math.round(r.dist0) + 'Y PUTT!' : 'PAR SAVE') : 'HOLED IT!';
-    if (r.club !== PUTT_I && strokes > 1 && d >= 0) label = 'HOLE-OUT!';
-    if (r.club === PUTT_I && r.dist0 < 8 && d >= 0) notable = false;
-  } else if (res !== 'water' && res !== 'ob') {
-    if (sn.luck) { notable = true; label = 'DUMB LUCK!'; }
-    else if (sn.pad || sn.wall || sn.mover) { notable = true; label = sn.pad ? 'BIG BOUNCE!' : sn.wall ? 'OFF THE WALL!' : 'BLOCKED!'; }
-    else if (r.perfect) { notable = true; label = 'PURE! ' + Math.round(total) + 'Y'; }
-    else if (total >= 250) { notable = true; label = Math.round(total) + 'Y BOMB!'; }
-  } else if (sn.pad || sn.wall) { notable = true; label = res === 'water' ? 'SPLASH!' : 'OUT OF HERE!'; }
-  r.res = res; r.label = label; r.notable = notable; r.strokes = strokes;
-  hl.last = r; hl.t = 0;
+  r.f.push([ball.x, res === 'cup' ? groundH(hole, hole.cup) : ball.h, Math.round(camX), Math.round(swingAng), 0, r.hbSeen ? 1 : 0]);
+  r.strokes = strokes; r.res = res;
+  const d = res === 'cup' ? strokes - hole.par : null;
+  r.notable = hlGreat(r, res, d);
+  r.label = !r.notable ? '' : strokes === 1 ? 'HOLE IN ONE!' : d <= -3 ? 'ALBATROSS!' : d === -2 ? 'EAGLE!' : r.club !== PUTT_I ? (r.dist0 <= 40 ? 'CHIP-IN!' : 'HOLE-OUT!') : Math.round(r.dist0) + 'Y PUTT!';
+  r.sub = d == null ? '' : d <= -2 || strokes === 1 ? '' : d === -1 ? 'FOR BIRDIE' : d === 0 ? 'FOR PAR' : '';
+  hl.last = r; hl.t = 0; hl.duckT = r.notable ? 0 : 9;
 }
 function hlVisible() {
   const r = hl.last;
@@ -3877,105 +3880,197 @@ function hlBtnRect() { const w = 132, h = 22; return { x: Math.round((W - w) / 2
 function drawHighlightBtn() {
   if (hl.msg && (hl.msgT += 1 / 60) > 2.6) hl.msg = '';
   if (hl.msg) { const m = hl.msg; ctx.globalAlpha = 0.7; rect(Math.round((W - textW(m)) / 2) - 4, (SAFE.t || 0) + 56, textW(m) + 8, 11, '#000'); ctx.globalAlpha = 1; drawTextC(m, (SAFE.t || 0) + 58, COL.white); }
-  if (!hlVisible()) { hl.btn = null; return; }
+  try { duckCheerHud(); } catch (e) {}
+  if (!hlVisible()) { hl.btn = hl.btn2 = null; return; }
   hl.t += 1 / 60;
-  const r = hlBtnRect(); hl.btn = r;
-  const lab = hl.busy ? 'RECORDING ' + Math.round((hl.prog || 0) * 100) + '%' : hl.ready ? (hl.ready.share ? 'SHARE CLIP' : 'SAVE CLIP') : 'SAVE HIGHLIGHT';
+  const two = !!(hl.ready && hl.ready.share), r0 = hlBtnRect(), r = two ? { x: r0.x - 22, y: r0.y, w: r0.w, h: r0.h } : r0; hl.btn = r;
+  const lab = hl.busy ? 'RECORDING ' + Math.round((hl.prog || 0) * 100) + '%' : hl.ready ? (hl.ready.share ? 'SHARE CLIP' : 'SAVE CLIP') : 'SAVE CLIP';
   const blink = !hl.busy && !hl.ready && Math.floor(hl.t * 3) % 2;
   rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2, '#000'); rect(r.x, r.y, r.w, r.h, blink ? '#fce4a0' : '#f8d878'); rect(r.x + 1, r.y + r.h - 2, r.w - 2, 1, '#c89c38');
-  rect(r.x + 6, r.y + 7, 7, 7, '#000'); rect(r.x + 7, r.y + 8, 5, 5, hl.busy ? '#f83800' : '#fcfcfc'); if (!hl.busy) rect(r.x + 9, r.y + 10, 1, 1, '#f83800');   // little camera / rec dot
+  rect(r.x + 6, r.y + 7, 7, 7, '#000'); rect(r.x + 7, r.y + 8, 5, 5, hl.busy ? '#f83800' : '#fcfcfc'); if (!hl.busy) rect(r.x + 9, r.y + 10, 1, 1, '#f83800');
   drawText(lab, r.x + 18 + Math.round((r.w - 22 - textW(lab)) / 2), r.y + 8, '#000');
+  if (two) { const b = { x: r.x + r.w + 4, y: r.y, w: 40, h: r.h }; hl.btn2 = b; rect(b.x - 1, b.y - 1, b.w + 2, b.h + 2, '#000'); rect(b.x, b.y, b.w, b.h, '#1c1c1c'); drawText('SAVE', b.x + Math.round((b.w - textW('SAVE')) / 2), b.y + 8, COL.white); }
+  else hl.btn2 = null;
 }
 function hlPointer(p, e) {
-  if (!hl.btn || !hlVisible() || !hit(p, hitExpand(hl.btn))) return false;
+  if (!hlVisible()) return false;
+  const on2 = hl.btn2 && hit(p, hitExpand(hl.btn2)), on1 = hl.btn && hit(p, hitExpand(hl.btn));
+  if (!on1 && !on2) return false;
   try { e.preventDefault(); e.stopPropagation(); } catch (x) {}
   if (hl.busy) return true;
+  if (on2) { armUiTap('highlight2', () => hlSave(), up => hl.btn2 && hit(toLogical(up), hitExpand(hl.btn2)), e); return true; }
   armUiTap('highlight', () => { if (hl.ready) hlDeliver(); else hlRecord(); }, up => hit(toLogical(up), hitExpand(hl.btn || hlBtnRect())), e);
   return true;
 }
-/* ---- replay renderer: draws sample i of the record into a logical-size frame canvas (scene crop + overlay bars) ---- */
-function hlLayout(r) {
-  const cropH = Math.min(PLAY_H, 250), y0 = clamp(BASE + 36 - cropH, 0, PLAY_H - cropH), top = 30, bot = 26;
-  return { w: W, cropH, y0, top, bot, h: top + cropH + bot };
+/* ---- vertical story renderer: logical 270x480 frame (x4 = 1080x1920) ---- */
+const HLV = { w: 270, h: 480, top: 96, band: 340, cw: 135 };   // scene crop 135 game px wide -> 2x into the band
+function hlPlan(r) {   // [{seg, i, u}] at 30fps: setup 1.0s, shot (only the non-heartbeat part is sped up if long), drop + celebration 2.2s, end card 2.0s
+  const n = r.f.length, out = [], fps = 30;
+  for (let k = 0; k < 1.0 * fps; k++) out.push({ seg: 'pre', i: 0, u: k / fps });
+  const nHb = r.f.filter(q => q[5] > 0).length, nN = n - nHb, room = Math.max(2.2 * fps, 5 * fps - nHb), step = nN > room ? nN / room : 1;
+  let acc = 0;
+  for (let q = 0; q < n; q++) {
+    if (r.f[q][5] > 0 || step === 1) { out.push({ seg: 'shot', i: q, u: 0 }); continue; }
+    acc += 1; if (acc >= step) { acc -= step; out.push({ seg: 'shot', i: q, u: 0 }); }
+  }
+  for (let k = 0; k < 2.2 * fps; k++) out.push({ seg: 'cele', i: n - 1, u: k / (2.2 * fps) });
+  for (let k = 0; k < 2.0 * fps; k++) out.push({ seg: 'end', i: n - 1, u: k / (2.0 * fps) });
+  // smooth follow camera (world x of the crop centre) + vertical crop top, critically-damped-ish
+  const cupX = r.hl.cup, chMax = Math.min(PLAY_H, 170);
+  let fx = null, fy = null;
+  const crowdX = r.crowd ? (() => { const sp = crowdSpots(r.hl).filter(p => !p.row); if (!sp.length) return null; return sp.reduce((a, p) => a + p.x, 0) / sp.length; })() : null;
+  out.forEach((o, k) => {
+    const f = r.f[o.i], by = BASE - Math.max(0, f[1]);
+    let tx, ty, z = 1;
+    if (o.seg === 'pre') tx = r.x0 + r.dir * HLV.cw * 0.3;
+    else if (o.seg === 'shot') { tx = f[0] + r.dir * (f[5] > 0 ? 0 : 18); if (f[5] > 0) tx = lerp(f[0], cupX, 0.5); z = 1 + (f[5] > 0 ? 0.18 * Math.min(1, f[5] * 1.6) + 0.06 * f[4] : 0); }
+    else if (o.seg === 'cele') { const pull = crowdX != null ? clamp((o.u - 0.35) / 0.4, 0, 1) : 0; tx = lerp(cupX, lerp(cupX, crowdX || cupX, 0.6), pull * pull * (3 - 2 * pull)); z = 1 + 0.35 * Math.min(1, o.u / 0.3) ** 0.7; }
+    else tx = cupX;
+    ty = clamp(Math.min(BASE + 40 - chMax, by - chMax * 0.42), 0, PLAY_H - chMax);
+    if (fx == null) { fx = tx; fy = ty; }
+    const kx = o.seg === 'shot' && f[5] === 0 ? 0.2 : 0.12;
+    fx += (tx - fx) * kx; fy += (ty - fy) * 0.12;
+    o.cx = fx; o.cy = fy; o.z = o.zs = (k && out[k - 1].zs != null) ? out[k - 1].zs + (z - out[k - 1].zs) * 0.15 : z; o.ch = chMax;
+  });
+  return out;
 }
-function hlDrawFrame(fc, r, i, L, holdT) {
+let hlSceneC = null;
+function hlDrawFrame(fc, r, o, k, plan) {
   const g = fc.getContext('2d'), saved = ctx; ctx = g; ctx.imageSmoothingEnabled = false;
+  const savedCrowd = crowdT;
   try {
-    const f = r.f[Math.min(i, r.f.length - 1)], cam = f[2];
-    rect(0, 0, L.w, L.h, '#000');
-    ctx.save(); ctx.beginPath(); ctx.rect(0, L.top, L.w, L.cropH); ctx.clip(); ctx.translate(0, L.top - L.y0);
+    const V = HLV;
+    rect(0, 0, V.w, V.h, '#0b0f0c');
+    if (o.seg === 'end') { hlEndCard(r, o.u); return; }
+    // scene: draw the course at the game's own size, then crop around the follow camera into the band
+    if (!hlSceneC || hlSceneC.width !== W || hlSceneC.height !== PLAY_H) hlSceneC = mk(W, PLAY_H);
+    const sg = hlSceneC.getContext('2d'); ctx = sg; ctx.imageSmoothingEnabled = false;
+    const cw = V.cw / o.z, ch = o.ch / o.z, f = r.f[o.i];
+    const cam = Math.round(o.cx - W / 2);
+    if (o.seg === 'cele' && r.crowd) crowdT = 1;
+    rect(0, 0, W, PLAY_H, '#000');
     drawCourse(r.hl, cam);
-    const gx = Math.round(r.x0 - cam) - r.dir * 7, gy = Math.round(BASE - groundH(r.hl, r.x0)), st0 = i * HL_DT;
-    drawGolfer(gx, gy, r.dir, f[3], r.look, { finish: r.club === PUTT_I ? 0 : clamp((st0 - 0.04) / 0.2, 0, 1) });
-    for (let k = Math.max(0, i - 60); k < i; k += 2) { const q = r.f[k], sx = Math.round(q[0] - cam), sy = Math.round(BASE - q[1]) - 2; rect(sx, sy, 1, 1, k > i - 20 ? '#fcfcfc' : '#bcbcbc'); }
+    const gx = Math.round(r.x0 - cam) - r.dir * 7, gy = Math.round(BASE - groundH(r.hl, r.x0));
+    const shotK = o.seg === 'pre' ? -1 : o.i;
+    drawGolfer(gx, gy, r.dir, o.seg === 'pre' ? r.f[0][3] : f[3], r.look, { finish: o.seg === 'pre' || r.club === PUTT_I ? 0 : clamp((shotK * HL_DT - 0.04) / 0.2, 0, 1) });
+    if (shotK >= 0) for (let q = Math.max(0, shotK - 60); q < shotK; q += 2) { const p = r.f[q], sx = Math.round(p[0] - cam), sy = Math.round(BASE - p[1]) - 2; rect(sx, sy, 1, 1, q > shotK - 20 ? '#fcfcfc' : '#bcbcbc'); }
     const bx = Math.round(f[0] - cam), by = Math.round(BASE - f[1]) - 4;
-    if (!(r.res === 'cup' && i >= r.f.length - 1)) {
-      if (by < L.y0 + 2) { rect(bx - 2, L.y0 + 1, 5, 1, COL.white); rect(bx - 1, L.y0 + 2, 3, 1, COL.white); }
-      else ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, bx - 2, by);
+    if (o.seg === 'pre') ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, Math.round(r.x0 - cam) - 2, Math.round(BASE - groundH(r.hl, r.x0)) - 4);
+    else if (!(r.res === 'cup' && (o.seg === 'cele' || o.i >= r.f.length - 1))) ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, bx - 2, by);
+    if (o.seg === 'cele' && duckOn()) { const cx0 = Math.round(r.hl.cup - cam) + 10 * r.dir; drawDuck(cx0 - 8, Math.round(BASE - groundH(r.hl, r.hl.cup)) - 15, o.u * 2.2, true, r.dir < 0); }
+    ctx = g;
+    const sx0 = (W / 2) - cw / 2, sy0 = clamp(o.cy + (o.ch - ch) * 0.55, 0, PLAY_H - ch);
+    g.drawImage(hlSceneC, sx0, sy0, cw, ch, 0, V.top, V.w, V.band);
+    // heartbeat: red vignette that throbs with the recorded lub-dub, clear around ball + cup
+    if (o.seg === 'shot' && f[5] > 0) {
+      const e = f[4], pr = Math.min(1, f[5]), a = Math.min(0.95, (0.18 + 0.27 * pr) + e * (0.45 + 0.15 * pr)) * (REDUCED_MOTION ? 0.45 : 1);
+      const toX = x => (x - cam - sx0) / cw * V.w, toY = y => V.top + (y - sy0) / ch * V.band;
+      const fx = (toX(f[0]) + toX(r.hl.cup)) / 2, fy = (toY(BASE - f[1]) + toY(BASE - groundH(r.hl, r.hl.cup))) / 2;
+      const r0 = Math.max(40, Math.hypot(toX(f[0]) - toX(r.hl.cup), toY(BASE - f[1]) - toY(BASE - groundH(r.hl, r.hl.cup))) / 2 + 30), r1 = r0 + 200 * (1 - 0.18 * e);
+      const gr = g.createRadialGradient(fx, fy, r0, fx, fy, r1); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.35, 'rgba(120,0,18,0.55)'); gr.addColorStop(1, 'rgba(70,0,10,1)');
+      g.save(); g.beginPath(); g.rect(0, V.top, V.w, V.band); g.clip(); g.globalAlpha = a; g.fillStyle = gr; g.fillRect(0, V.top, V.w, V.band); g.restore();
     }
-    ctx.restore();
-    // overlay: top bar (logo, hole, player) + bottom bar (result, site)
-    rect(0, 0, L.w, L.top, '#0c1430'); rect(0, L.top - 1, L.w, 1, '#f8d878');
-    rect(2, 2, 40, 26, '#fce4a0'); if (typeof LOGO_BIG !== 'undefined' && LOGO_BIG.complete && LOGO_BIG.naturalWidth) ctx.drawImage(LOGO_BIG, 3, 2, 38, 26); else ctx.drawImage(hlLogoImg(), 3, 2, 38, 26);   // own raster (drawLogo is the title's DOM layer)
-    const who = hasUsername() ? '@' + myName() : 'GUEST';
-    drawText((r.cup ? 'SPOOKY CUP  H' + r.holeNo : 'HOLE ' + r.holeNo) + '  PAR ' + r.par, 46, 5, r.spooky ? '#fc9838' : '#f8d878');
-    drawText(String(r.name).slice(0, Math.floor((L.w - 50) / 6)), 46, 17, COL.white);
-    drawText(who, L.w - 4 - textW(who), 5, COL.white);
-    const by0 = L.top + L.cropH; rect(0, by0, L.w, L.bot, '#0c1430'); rect(0, by0, L.w, 1, '#f8d878');
-    { const site = r.spooky ? 'DUMBLUCKGOLF.COM/?CUP=SPOOKY' : 'DUMBLUCKGOLF.COM'; drawText(site, L.w - 4 - textW(site), by0 + 5, r.spooky ? '#fc9838' : '#bcbcbc'); }   /* v8.52 */ drawText('@DUMBLUCKGOLFING', L.w - 4 - textW('@DUMBLUCKGOLFING'), by0 + 15, '#f8a0d8');   // v8.43
-    if (holdT != null && r.label) {   // result pops in after the ball stops
-      const sc = holdT < 0.15 ? 1 : 2, lab = r.label;
-      outlined(lab, Math.round((L.w - textW(lab, 2)) / 2), L.top + 10, r.res === 'cup' ? '#58d854' : '#f8d878', sc === 2 ? 2 : 1);
+    // flash on the drop
+    if (o.seg === 'cele' && r.res === 'cup' && o.u < 0.08) { g.globalAlpha = 0.5 * (1 - o.u / 0.08); rect(0, V.top, V.w, V.band, '#fff'); g.globalAlpha = 1; }
+    // top: hole + name (setup/shot) -> the result label (celebration). Bottom: player + site. Minimal.
+    rect(0, V.top - 1, V.w, 1, '#000'); rect(0, V.top + V.band, V.w, 1, '#000');
+    const gold = r.spooky ? '#fc9838' : '#f8d878';
+    if (o.seg === 'cele') {
+      const pop = Math.min(1, o.u / 0.12), lab = r.label, sc = textW(lab, 3) <= V.w - 16 ? 3 : 2;
+      if (pop > 0) outlined(lab, Math.round((V.w - textW(lab, sc)) / 2), 34 - Math.round((1 - pop) * 8), gold, sc);
+      if (r.sub) drawText(r.sub, Math.round((V.w - textW(r.sub)) / 2), 68, '#bcbcbc');
+    } else {
+      const ht = (r.cup ? 'SPOOKY CUP  ' : '') + 'HOLE ' + r.holeNo + '  PAR ' + r.par;
+      drawText(ht, Math.round((V.w - textW(ht)) / 2), 30, gold);
+      const nm = String(r.name).toUpperCase().slice(0, 21), ns = textW(nm, 2) <= V.w - 16 ? 2 : 1;
+      outlined(nm, Math.round((V.w - textW(nm, ns)) / 2), 46, COL.white, ns);
+      if (o.seg === 'pre') { const dl = Math.round(r.dist0) + 'Y TO THE PIN'; drawText(dl, Math.round((V.w - textW(dl)) / 2), 70, '#8c8c8c'); }
     }
-    drawText(r.label || '', 4, by0 + 10, '#f8d878');
-  } finally { ctx = saved; }
+    const who = hasUsername() ? '@' + myName() : '';
+    if (who) drawText(who.toUpperCase(), Math.round((V.w - textW(who)) / 2), V.top + V.band + 12, COL.white);
+    drawText('DUMBLUCKGOLF.COM', Math.round((V.w - textW('DUMBLUCKGOLF.COM')) / 2), V.h - 16, '#8c8c8c');
+  } finally { ctx = saved; crowdT = savedCrowd; }
+}
+function hlEndCard(r, u) {
+  const V = HLV, a = Math.min(1, u / 0.18), gold = r.spooky ? '#fc9838' : '#f8d878';
+  ctx.globalAlpha = a;
+  const lw = 132, lh = 90, lx = Math.round((V.w - lw) / 2), ly = 92;
+  if (typeof LOGO_BIG !== 'undefined' && LOGO_BIG.complete && LOGO_BIG.naturalWidth) ctx.drawImage(LOGO_BIG, lx, ly, lw, lh); else ctx.drawImage(hlLogoImg(), lx, ly, lw, lh);
+  const lab = r.label.replace(/!$/, ''), sc = textW(lab, 3) <= V.w - 20 ? 3 : 2;
+  outlined(lab, Math.round((V.w - textW(lab, sc)) / 2), 214, gold, sc);
+  const nm = String(r.name).toUpperCase().slice(0, 40); drawText(nm, Math.round((V.w - textW(nm)) / 2), 246, COL.white);
+  const ht = 'HOLE ' + r.holeNo + '  PAR ' + r.par; drawText(ht, Math.round((V.w - textW(ht)) / 2), 260, '#8c8c8c');
+  rect(Math.round(V.w / 2) - 20, 282, 40, 1, '#2c3a2c');
+  if (duckOn()) drawDuck(Math.round(V.w / 2) - 27, 296, u * 2, false, false, 3);
+  drawText('DUMBLUCKGOLF.COM', Math.round((V.w - textW('DUMBLUCKGOLF.COM')) / 2), 384, gold);
+  drawText('@DUMBLUCKGOLFING', Math.round((V.w - textW('@DUMBLUCKGOLFING')) / 2), 398, '#8c8c8c');
+  ctx.globalAlpha = 1;
 }
 let hlLogoC = null;
 function hlLogoImg() { if (hlLogoC) return hlLogoC; const c = mk(152, 104), g = c.getContext('2d'); try { g.setTransform(152 / 160, 0, 0, 104 / 111, 0, 0); drawLogoVec(g); } catch (e) {} return (hlLogoC = c); }
-function hlMime() {
+function hlMime(audio) {
   if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return null;
-  for (const m of ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
+  const list = audio ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4;codecs=avc1.42E01E,opus']   // H.264 MP4 only with sound (Instagram-friendly); else silent H.264 below
+                     : ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  for (const m of list) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
   return null;
 }
-function hlPlan(r) {   // sample index per output frame: 0.5s windup hold + shot (sped up if long) + 1.2s result hold; 3-6s total
-  const n = r.f.length, fps = 30, maxShot = 4.2 * fps, step = n > maxShot ? n / maxShot : 1, out = [];
-  for (let k = 0; k < 0.5 * fps; k++) out.push([0, null]);
-  for (let q = 0; q < n; q += step) out.push([Math.floor(q), null]);
-  const hold = Math.max(1.2 * fps, 3 * fps - out.length);
-  for (let k = 0; k < hold; k++) out.push([n - 1, k / fps]);
-  return out;
+function hlAudio(plan, r) {   // a little sound track on the game's own AudioContext: heartbeat thumps at the recorded beats, the cup, a cheer
+  try {
+    if (!AC || !AC.createMediaStreamDestination || AC.state !== 'running') return null;   // never let a locked context stall the recorder
+    const dest = AC.createMediaStreamDestination();
+    const A = { createOscillator: () => AC.createOscillator(), createGain: () => AC.createGain(), createBuffer: (a, b, c) => AC.createBuffer(a, b, c), createBufferSource: () => AC.createBufferSource(), createBiquadFilter: () => AC.createBiquadFilter(), sampleRate: AC.sampleRate, destination: dest };
+    const beats = new Set(r.beats), ev = [];
+    let last = -1;
+    plan.forEach((o, k) => {
+      if (o.seg === 'shot') { for (let i = last + 1; i <= o.i; i++) if (beats.has(i)) ev.push(['beat', k / 30, r.f[o.i][5]]); last = o.i; }
+      if (o.seg === 'cele' && o.u === 0) ev.push(['cup', k / 30]);
+      if (o.seg === 'end' && o.u === 0) ev.push(['end', k / 30]);
+    });
+    const tone2 = (t, f, dur, type, vol) => { const os = AC.createOscillator(), gg = AC.createGain(); os.type = type; os.frequency.setValueAtTime(f, t); gg.gain.setValueAtTime(vol, t); gg.gain.exponentialRampToValueAtTime(0.0001, t + dur); os.connect(gg).connect(dest); os.start(t); os.stop(t + dur + 0.02); };
+    const noise2 = (t, dur, vol) => { const n = Math.floor(AC.sampleRate * dur), b = AC.createBuffer(1, n, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / n); const s = AC.createBufferSource(), bp = AC.createBiquadFilter(), gg = AC.createGain(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.5; gg.gain.value = vol; s.buffer = b; s.connect(bp).connect(gg).connect(dest); s.start(t); };
+    return { stream: dest.stream, start(t0) {
+      ev.forEach(([kind, t, p]) => {
+        const at = t0 + t;
+        if (kind === 'beat') { const lv = 0.75 + 0.35 * Math.min(1, p || 0); synthThump(A, at, 0.34 * lv, 92, 44); synthThump(A, at + 0.2, 0.25 * lv, 104, 50); }
+        else if (kind === 'cup') { tone2(at, 523, 0.08, 'square', 0.05); tone2(at + 0.08, 392, 0.16, 'triangle', 0.12); [523, 659, 784, 1047].forEach((f, i) => tone2(at + 0.35 + i * 0.1, f, 0.12, 'square', 0.035)); noise2(at + 0.15, 1.6, r.crowd ? 0.22 : 0.08); }
+      });
+    }, stop() { try { dest.stream.getTracks().forEach(t => t.stop()); } catch (e) {} } };
+  } catch (e) { return null; }
 }
 async function hlRecord() {
   const r = hl.last; if (!r || hl.busy) return;
   hl.busy = true; hl.prog = 0;
-  const L = hlLayout(r), fc = mk(L.w, L.h), S = 2, oc = mk(L.w * S, L.h * S), og = oc.getContext('2d'); og.imageSmoothingEnabled = false;
+  const V = HLV, S = 4, fc = mk(V.w, V.h), oc = mk(V.w * S, V.h * S), og = oc.getContext('2d'); og.imageSmoothingEnabled = false;
   const plan = hlPlan(r), blit = () => og.drawImage(fc, 0, 0, oc.width, oc.height);
   const base = 'dlg-highlight-' + nyDateStr() + '-h' + r.holeNo;
+  let au = null;
   try {
-    const mime = hlMime();
-    if (!mime || !oc.captureStream) {   // fallback: still PNG of the finish with the whole trail
-      hlDrawFrame(fc, r, r.f.length - 1, L, 1);
-      { const g = fc.getContext('2d'), cam = r.f[r.f.length - 1][2]; for (let k = 0; k < r.f.length; k += 2) { const q = r.f[k]; g.fillStyle = '#fcfcfc'; g.fillRect(Math.round(q[0] - cam), Math.round(BASE - q[1]) - 2 + L.top - L.y0, 1, 1); } }
-      blit();
+    au = oc.captureStream ? hlAudio(plan, r) : null;
+    let mime = hlMime(!!au); if (!mime && au) { au.stop(); au = null; mime = hlMime(false); }
+    if (!mime || !oc.captureStream) {   // fallback: a still story picture of the celebration
+      const k = plan.findIndex(o => o.seg === 'cele') + 20; hlDrawFrame(fc, r, plan[k], k, plan); blit();
       const blob = await new Promise(res => oc.toBlob(res, 'image/png'));
       hlReady(blob, base + '.png', 'image/png'); return;
     }
-    const stream = oc.captureStream(30), chunks = [];
-    const mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
+    const vs = oc.captureStream(30), stream = new MediaStream([...vs.getVideoTracks(), ...(au ? au.stream.getAudioTracks() : [])]), chunks = [];
+    let mr; try { mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000, audioBitsPerSecond: 128000 }); }
+    catch (e) { if (!au) throw e; au.stop(); au = null; mime = hlMime(false); mr = new MediaRecorder(vs, { mimeType: mime, videoBitsPerSecond: 6000000 }); }
     mr.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
     const done = new Promise(res => { mr.onstop = res; });
-    hlDrawFrame(fc, r, 0, L, null); blit();
+    hlDrawFrame(fc, r, plan[0], 0, plan); blit();
     mr.start(250);
-    const t0 = performance.now();
+    const t0 = performance.now(); if (au) au.start(AC.currentTime + 0.02);
     for (let k = 0; k < plan.length; k++) {
-      const [i, hold] = plan[k]; hlDrawFrame(fc, r, i, L, hold); blit(); hl.prog = k / plan.length;
+      hlDrawFrame(fc, r, plan[k], k, plan); blit(); hl.prog = k / plan.length;
       const due = t0 + (k + 1) * 1000 / 30, wait = due - performance.now();
       await new Promise(res => setTimeout(res, Math.max(0, wait)));
     }
-    mr.stop(); stream.getTracks().forEach(t => t.stop()); await done;
+    mr.stop(); await done; stream.getTracks().forEach(t => t.stop()); vs.getTracks().forEach(t => t.stop()); if (au) au.stop();
     const type = mime.split(';')[0], blob = new Blob(chunks, { type });
     hlReady(blob, base + (type === 'video/mp4' ? '.mp4' : '.webm'), type);
-  } catch (e) { hl.msg = 'COULD NOT RECORD - TRY AGAIN'; hl.msgT = 0; }
+    try { window.__hlLast.audio = !!au; window.__hlLast.mime = mime; } catch (e) {}
+  } catch (e) { try { window.__hlErr = String(e && e.stack || e); } catch (x) {} hl.msg = 'COULD NOT RECORD - TRY AGAIN'; hl.msgT = 0; if (au) au.stop(); }
   finally { hl.busy = false; }
 }
 function hlReady(blob, name, type) {
@@ -3984,9 +4079,10 @@ function hlReady(blob, name, type) {
   try { const f = new File([blob], name, { type }); share = !!(navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); hl.ready = { blob, name, type, file: f, share }; }
   catch (e) { hl.ready = { blob, name, type, share: false }; }
   hl.t = 0;
-  try { window.__hlLast = { size: blob.size, name, type }; } catch (e) {}
+  if (share) { hl.msg = 'SHARE > INSTAGRAM > STORY'; hl.msgT = 0; }
+  try { window.__hlLast = { size: blob.size, name, type }; window.__hlBlob = AUTH_TEST ? blob : null; } catch (e) {}
 }
-function hlShareText(r) {   // v8.52: Halloween clips link straight into the Spooky Cup round
+function hlShareText(r) {
   const lab = r && r.label ? r.label + ' ' : '';
   if (r && r.spooky) return lab + (r.name ? 'on ' + r.name + ' ' : '') + '- Spooky Cup at Dumb Luck Golf ' + SPOOKY_CUP.url;
   return lab + 'dumbluckgolf.com';
@@ -3994,15 +4090,61 @@ function hlShareText(r) {   // v8.52: Halloween clips link straight into the Spo
 async function hlDeliver() {
   const R = hl.ready; if (!R) return;
   if (R.share) {
-    try { await navigator.share({ files: [R.file], title: 'Dumb Luck Golf', text: hlShareText(hl.last) }); hl.msg = 'SHARED!'; hl.msgT = 0; return; }
+    try { await navigator.share({ files: [R.file] }); hl.msg = 'SHARED!'; hl.msgT = 0; return; }   // files only: Instagram drops shares that carry text
     catch (e) { if (e && e.name === 'AbortError') return; }
   }
+  hlSave();
+}
+function hlSave() {
+  const R = hl.ready; if (!R) return;
   try {
     const url = R.url || (R.url = URL.createObjectURL(R.blob)), a = document.createElement('a');
     a.href = url; a.download = R.name; document.body.appendChild(a); a.click(); a.remove();
     hl.msg = 'SAVED ' + (R.type === 'image/png' ? 'PICTURE' : 'CLIP'); hl.msgT = 0;
     try { window.__hlDownloaded = R.name; } catch (e) {}
   } catch (e) { hl.msg = 'COULD NOT SAVE'; hl.msgT = 0; }
+}
+/* ---- v8.95 the Dumb Luck Duck (ADMIN LAB PREVIEW ONLY - players never see it until Corey approves) ---- */
+let duckLab = false; try { duckLab = localStorage.getItem('dlg_duck_lab') === '1'; } catch (e) {}
+function duckOn() { return !!duckLab && ((admin.is && isSignedIn()) || (AUTH_TEST && window.__duckForce)); }
+const DUCK_MAP = [
+  '.....KKKK.......',
+  '....KKKKKK......',
+  '....KKGKKKKKK...',
+  '....YYYYYY......',
+  '...YYYYYEYY.....',
+  '...YYYYYYYOOO...',
+  '...YYYYYYOOO....',
+  '.....YYYY.......',
+  '..YYYYYYYYY.....',
+  'YYYYYYwYYYYY....',
+  '.YYYYwwwYYYY....',
+  '..YYYYYYYYY.....',
+  '....O...O.......',
+  '...OO..OO.......'];
+const duckC = {};
+function duckSprite(flap, flip) {
+  const key = (flap ? 'f' : 's') + (flip ? 'L' : 'R'); if (duckC[key]) return duckC[key];
+  const m = DUCK_MAP.map(s => s.split(''));
+  if (flap) { m[9][6] = 'Y'; m[10][5] = m[10][6] = m[10][7] = 'Y'; m[6][1] = 'w'; m[7][0] = m[7][1] = 'w'; m[8][0] = m[8][1] = 'w'; m[5][1] = 'w'; }
+  const P = { K: '#101010', G: '#58d854', Y: '#f8d878', w: '#d8a838', O: '#f08830', E: '#101010' };
+  const c = mk(18, 16), g = c.getContext('2d');
+  const put = (x, y, col) => { g.fillStyle = col; g.fillRect(flip ? 17 - x : x, y, 1, 1); };
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < 16; x++) if (m[y][x] !== '.') for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) put(x + 1 + dx, y + 1 + dy, '#000');
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < 16; x++) if (m[y][x] !== '.') put(x + 1, y + 1, P[m[y][x]]);
+  put(10, 2, '#2c2c2c');   // a hint of cap seam
+  return (duckC[key] = c);
+}
+function drawDuck(x, y, t, cheer, flip, sc = 1) {   // t = seconds into the pose
+  const hop = cheer && !REDUCED_MOTION ? Math.round(Math.abs(Math.sin(t * 7)) * 4) : 0, flap = cheer ? Math.floor(t * 8) % 2 === 0 : (Math.floor(t * 1.2) % 5 === 0 && (t % 1) < 0.15);
+  ctx.drawImage(duckSprite(flap, flip), x, y - hop * sc, 18 * sc, 16 * sc);
+}
+if (AUTH_TEST) window.__hlEval = src => eval(src);   // #test only: clip + duck test hook
+function duckCheerHud() {   // short cheer after a great shot, bottom corner, ~2s, then gone
+  if (!duckOn() || hl.duckT > 2.2 || paused || ov || !['holed', 'done'].includes(state)) return;
+  hl.duckT += 1 / 60;
+  const a = Math.min(1, hl.duckT / 0.15, (2.2 - hl.duckT) / 0.3); ctx.globalAlpha = Math.max(0, a);
+  drawDuck(6 + (SAFE.l || 0), PLAY_H - 22, hl.duckT, true, false); ctx.globalAlpha = 1;
 }
 
 /* ---------------- game state ---------------- */
@@ -5766,6 +5908,7 @@ function hbTick(dt) {
     hb.ph -= Math.floor(hb.ph); hb.q = 0; const dub = Math.min(0.2, hb.per * 0.38), lv = 0.75 + 0.35 * hbProg();
     thump(0.34 * lv, 0, 92, 44);                 // lub
     thump(0.25 * lv, dub, 104, 50);              // dub (a touch higher + softer, like a real heart)
+    try { hlBeat(); } catch (e) {}               // v8.95 clip remembers the beats
     hap([26, Math.round(dub * 1000) - 26, 16]);                                                 // no-op where vibrate isn't supported (iOS)
   }
 }
@@ -7978,6 +8121,7 @@ function renderTitle() {
     ? Math.min(dogBot - 18, TITLE_FAIR + Math.max(4, Math.round((H - TITLE_FAIR - 18) * 0.35)))
     : Math.min(dogBot - 18, TITLE_FAIR + Math.max(2, Math.round((H - TITLE_FAIR - 20) / 2)));
   ctx.drawImage(SPR[k], Math.max(2, Math.min(W - 28, Math.round(d.x))), dogY);
+  try { if (duckOn()) drawDuck(W - 26 - (SAFE.r || 0), dogY + 2, st, false, true); } catch (e) {}   // v8.95 duck (admin LAB preview)
   drawMenuPopup();
 }
 /* v8.10 SHOP: Corey's camo snapback — no auto-spin. Rests on the clean front photo and turns a little toward the pointer
@@ -9251,7 +9395,8 @@ const ADMIN_VIEWS = {
   adminLab: () => head('LAB', 'go:admin') + '<p class="sub">TEST MODE. ONLY ADMINS SEE THIS. NOTHING IN THE LAB IS SAVED OR POSTED.</p><div class="msg"></div>' +   // v8.74
     '<button class="btn" data-a="labHybrid">PLAY 3 HOLES</button><p class="sub" style="margin-top:4px">NORMAL SIDE VIEW FOR FULL SHOTS. ONCE YOU ARE ON THE GREEN THE CAMERA SWINGS BEHIND THE BALL TO PUTT.</p>' +
     '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
-    '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>',
+    '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>' +
+    '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>',
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
@@ -9855,6 +10000,7 @@ if (acctEl) {
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
     if (a === 'labHybrid' || a === 'labGreens') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : 'greens'); return; }   // v8.74
+    if (a === 'labDuck') { if (!admin.is) return; duckLab = !duckLab; try { localStorage.setItem('dlg_duck_lab', duckLab ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: duckLab ? 'DUCK ON (ONLY YOU)' : 'DUCK HIDDEN', ok: true }); return; }   // v8.95
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'ssort') { admin.scoreSort = b.getAttribute('data-n'); showAcct('adminScores'); return; }
     if (a === 'sdel') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
