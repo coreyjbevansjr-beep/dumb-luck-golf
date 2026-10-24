@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.4';
+const GAME_VERSION = 'v8.99.5';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7286,6 +7286,20 @@ function fanMake(R, th, row, night) {
   f.ph = R() * 6.28; f.tempo = 0.75 + R() * 0.6; f.chat = R() < 0.35; f.voice = f.kid ? 1.6 : f.fem ? 1.35 : 1;
   return f;
 }
+function crowdKeepOut(hl) {   // v8.99.5: world-x spans no spectator may overlap (obstacles, hazards, props, cup), with padding
+  const K = [], P = 4, th = themeOf(hl), add = (a, b) => K.push([a - P, b + P]);
+  for (const [kind, dx] of hl.deco || []) { const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH; add(dx, dx + ((img && img.width) || 24)); }
+  if (halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '')) for (const [k, dx] of hwDecoList(hl)) { const img = k === 'pumpkin' ? HW.pumpkin : k === 'grave' ? HW.grave : HW.dead; add(dx, dx + ((img && img.width) || 16)); }
+  for (const w of hl.walls || []) add(w.x - (w.ww || 0) - 4, w.x + (w.ww || 0) + 4);
+  for (const p of hl.pads || []) add(p.x0, p.x1);
+  for (const r of hl.ramps || []) add(r.x - 10, r.x + 6);
+  for (const m of hl.movers || []) { const hw = (m.w || 14) / 2; if (m.kind === 'windmill') { const r = Math.max(hw, (m.hTop || 28) * 0.75); add(m.x - r, m.x + r); } else add(m.x - (m.amp || 40) - hw, m.x + (m.amp || 40) + hw); }   // full motion path
+  let s0 = null; for (let x = 0; x <= hl.len + 1; x++) { const s = x <= hl.len ? surfAt(hl, x) : 'end', hz = s === 'sand' || s === 'water'; if (hz && s0 == null) s0 = x; else if (!hz && s0 != null) { add(s0, x - 1); s0 = null; } }
+  add(hl.cup - 12, hl.cup + 12);   // cup + flag
+  return K;
+}
+const crowdBox = p => [p.x - ((p.f && p.f.hw) || 4) - 2, p.x + ((p.f && p.f.hw) || 4) + 3];
+const crowdHit = (b, K) => K.some(k => b[0] < k[1] && b[1] > k[0]);
 /* ---- placement: tee bank, fairway banks (behind the rope, raised), green rope line + grandstand ---- */
 function crowdSpots(hl) {
   if (hl._crowd) return hl._crowd;
@@ -7312,8 +7326,15 @@ function crowdSpots(hl) {
     for (let k = 0, x = c; k < n; k++, x += 4 + Math.floor(R() * 3)) { add(x, R() < 0.62 ? 2 : 3, 'f'); nf++; }
   }
   out.forEach((p, i) => { const r2 = mulberry32((((hl.len | 0) * 977 + Math.round(p.x * 13) + p.row * 7919 + i) >>> 0)); p.f = fanMake(r2, th, p.row, night); p.i = i; });
-  out.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
-  return (hl._crowd = out.slice(0, ev ? 120 : 96));
+  // v8.99.5: never overlap an obstacle / hazard / prop: nudge a spectator up to 90 yd to a free gap in the same row, else drop them
+  const KO = crowdKeepOut(hl), kept = [];
+  for (const p of out) {
+    const free = x => { const q = { x, f: p.f }, b = crowdBox(q); return !crowdHit(b, KO) && x > -40 && x < hl.len + 40 && !kept.some(o => o.row === p.row && Math.abs(o.x - x) < 3); };
+    if (free(p.x)) { kept.push(p); continue; }
+    for (let d = 3; d <= 90; d += 3) { const x = free(p.x + d) ? p.x + d : free(p.x - d) ? p.x - d : null; if (x != null) { p.x = x; kept.push(p); break; } }
+  }
+  kept.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
+  return (hl._crowd = kept.slice(0, ev ? 120 : 96));
 }
 /* ---- reactions ---- */
 let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
@@ -7465,6 +7486,8 @@ function drawCrowd(hl, cam, C) {
   if (FAN_CACHE.hole !== hl) { FAN_CACHE.hole = hl; FAN_CACHE.m.clear(); }
   const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl), P = FAN_PAL[crowdTheme(hl)] || FAN_PAL.club;
   const vis = p => { const sx = Math.round(p.x - cam); return sx > -12 && sx < W + 12; };
+  const bx = ball ? (state === 'flight' ? lastSpot : ball.x) : null, gx = bx == null ? null : bx - (state === 'flight' ? shotFacing : facing) * 7;   // v8.99.5: ball + golfer always clear
+  const CZ = bx == null || !GAME_STATES.includes(state) ? [] : [[Math.min(bx, gx) - 12, Math.max(bx, gx) + 12]], clr = p => CZ.length && crowdHit(crowdBox(p), CZ);
   // raised gallery banks under the far rows (one darker grass strip per group, soft stepped ends)
   const bank = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.6 : 0.82), runs = [];
   sp.forEach(p => { if (p.row < 2 || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
@@ -7476,7 +7499,7 @@ function drawCrowd(hl, cam, C) {
   const front = { g: [1e9, -1e9], t: [1e9, -1e9] };
   sp.forEach(p => {
     if (p.row < 2 && rowDone >= 2) { ropeFar(); rowDone = 1; }
-    if (!vis(p)) return; const sx = Math.round(p.x - cam), gy = Math.round(BASE - groundH(hl, Math.max(0, p.x))) - FAN_DEPTH[p.row];
+    if (!vis(p) || clr(p)) return; const sx = Math.round(p.x - cam), gy = Math.round(BASE - groundH(hl, Math.max(0, p.x))) - FAN_DEPTH[p.row];
     drawFan(sx, gy, p, t, cheer);
     if (p.row === 0 && front[p.z]) { front[p.z][0] = Math.min(front[p.z][0], sx - 5); front[p.z][1] = Math.max(front[p.z][1], sx + 5); }
   });
