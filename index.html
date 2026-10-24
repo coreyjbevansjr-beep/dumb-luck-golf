@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.2';
+const GAME_VERSION = 'v8.99.3';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7213,7 +7213,7 @@ function todTint(hl) {
    Fans line the tee, both sides of the fairway (a raised gallery bank behind a rope) and the green on every course except the
    LAB. Each fan is a unique build (height, body, skin, hair, outfit, hat, prop, idle pose) themed per course, drawn once per pose
    frame into a small cached sprite and culled offscreen. Crowd murmur / hush / ooh / groan / cheer / applause are real CC0
-   recordings (audio/, v8.99.1) played through WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
+   outdoor recordings (audio/, v8.99.3: EQ'd, spread L/R, breeze+birds bed) played through WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
 let crowdT = 0;
 const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
 const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24402c'];
@@ -7483,28 +7483,43 @@ function drawCrowd(hl, cam, C) {
   if (rowDone >= 2) ropeFar();
   for (const k in front) if (front[k][1] > front[k][0]) crowdRope(hl, cam, front[k][0], front[k][1], 0, P.rope, P.stake, 6);
 }
-/* ---- v8.99.1 crowd audio: real recorded gallery sounds (CC0), decoded into WebAudio after the first tap; one master gain, silent when muted / paused / hidden ----
-   CREDITS (all CC0 1.0 public domain dedication; trimmed, denoised, normalized, mono 22 kHz mp3):
-   audio/crowd-murmur.mp3  'R08-02-Outdoor Crowd' (Red Library, digitized by Craig Smith / USC Cinema) https://archive.org/details/Red_Library_Crowds_Outdoor  CC0 https://creativecommons.org/publicdomain/zero/1.0/
-   audio/crowd-ooh.mp3     'R27-20-Small Crowd Gasps' (Red Library) https://archive.org/details/Red_Library_Crowds_Indoor_2  CC0
-   audio/crowd-groan.mp3   'R27-20-Small Crowd Gasps' (Red Library, another take) https://archive.org/details/Red_Library_Crowds_Indoor_2  CC0
-   audio/crowd-roar.mp3    'R19-35-Golf Crowd Reacts to Good Shot' (Red Library) https://archive.org/details/Red_Library_Crowds_Sports  (also freesound.org/s/486219)  CC0
-   audio/crowd-clap.mp3    'R19-34-Golf Crowd Applauds' (Red Library) https://archive.org/details/Red_Library_Sports  (also freesound.org/s/479967)  CC0 */
-const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', ooh: 'audio/crowd-ooh.mp3?v=180', groan: 'audio/crowd-groan.mp3?v=180', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
-const CA_LOOP_S = 12;   // the murmur file is a 12 s seamless loop
-const CA = { g: null, mur: null, murS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
+/* ---- v8.99.3 crowd audio: real recorded OUTDOOR gallery sounds (CC0), decoded into WebAudio after the first tap; one master gain, silent when muted / paused / hidden.
+   Outdoor feel: master EQ (cut 200-500 Hz room boxiness, gentle air shelf), each sound spread as two decorrelated layers panned L/R, and a faint breeze + birds bed under the murmur.
+   CREDITS (all CC0 1.0 public domain dedication https://creativecommons.org/publicdomain/zero/1.0/ ; Red Library, digitized by Craig Smith / USC Cinema; trimmed, denoised, EQ'd, normalized, mono 22 kHz mp3):
+   audio/crowd-murmur.mp3  'R08-02-Outdoor Crowd'                       https://archive.org/details/Red_Library_Crowds_Outdoor
+   audio/crowd-ooh.mp3     'R28-29-Large Crowd Quiet, Then Big Reaction' https://archive.org/details/Red_Library_Crowds_Outdoor
+   audio/crowd-groan.mp3   'R27-20-Small Crowd Gasps' (de-roomed: low-mid cut, gated tail) https://archive.org/details/Red_Library_Crowds_Indoor_2
+   audio/crowd-roar.mp3    'R19-35-Golf Crowd Reacts to Good Shot'      https://archive.org/details/Red_Library_Crowds_Sports  (also freesound.org/s/486219)
+   audio/crowd-clap.mp3    'R19-34-Golf Crowd Applauds'                 https://archive.org/details/Red_Library_Sports  (also freesound.org/s/479967)
+   audio/crowd-air.mp3     'R01-24-Birds Chirping Outside' https://archive.org/details/Red_Library_Animals_Birds + 'R08-47-Outdoor Ambience' https://archive.org/details/Red_Library_Ambience_1 */
+const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', air: 'audio/crowd-air.mp3?v=182', ooh: 'audio/crowd-ooh.mp3?v=182', groan: 'audio/crowd-groan.mp3?v=182', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
+const CA_LOOP_S = 12;   // murmur + air files are 12 s seamless loops
+const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
 function caLoopBuf(b) {   // drop any mp3 encoder padding so the loop is exactly CA_LOOP_S long
   const d = b.getChannelData(0), L = Math.min(d.length, Math.round(CA_LOOP_S * b.sampleRate)); let s = 0; while (s < d.length - L && Math.abs(d[s]) < 1e-4) s++;
   const o = AC.createBuffer(1, L, b.sampleRate); o.getChannelData(0).set(d.subarray(s, s + L)); return o;
 }
-function caStartMur() { if (CA.murS || !CA.buf.murmur || !CA.mur) return; try { const s = AC.createBufferSource(); s.buffer = CA.buf.murmur; s.loop = true; s.connect(CA.mur); s.start(0, Math.random() * (CA_LOOP_S - 1)); CA.murS = s; } catch (e) {} }
+function caPan(p, dest) { try { if (AC.createStereoPanner) { const n = AC.createStereoPanner(); n.pan.value = p; n.connect(dest); return n; } } catch (e) {} return dest; }   // no panner (old Safari): plain mono
+function caLoopStart(buf, dest, off, rate) { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate || 1; s.connect(dest); s.start(0, off % CA_LOOP_S); return s; }
+function caStartMur() {   // two copies of the murmur 5 s apart, panned wide, read as a spread-out gallery instead of one mono blob
+  if (CA.murS.length || !CA.buf.murmur || !CA.mur) return;
+  try { const o = Math.random() * CA_LOOP_S; CA.murS = [caLoopStart(CA.buf.murmur, caPan(-0.55, CA.mur), o), caLoopStart(CA.buf.murmur, caPan(0.55, CA.mur), o + 5.3)]; } catch (e) {}
+}
+function caStartAir() { if (CA.airS || !CA.buf.air || !CA.air) return; try { CA.airS = caLoopStart(CA.buf.air, CA.air, Math.random() * CA_LOOP_S); } catch (e) {} }
 function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
   for (const k in CA_FILES) fetch(CA_FILES[k]).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
     .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))   // callback form for older iOS Safari
-    .then(b => { CA.buf[k] = k === 'murmur' ? caLoopBuf(b) : b; if (k === 'murmur') caStartMur(); }).catch(() => {});
+    .then(b => { const lp = k === 'murmur' || k === 'air'; CA.buf[k] = lp ? caLoopBuf(b) : b; if (k === 'murmur') caStartMur(); if (k === 'air') caStartAir(); }).catch(() => {});
 }
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
-  try { const g = AC.createGain(); g.gain.value = 1; g.connect(AC.destination); const mg = AC.createGain(); mg.gain.value = 0; mg.connect(g); CA.g = g; CA.mur = mg; caLoad(); return true; } catch (e) { CA.g = null; return false; }
+  try {
+    const g = AC.createGain(); g.gain.value = 1; g.connect(AC.destination);
+    const sh = AC.createBiquadFilter(); sh.type = 'highshelf'; sh.frequency.value = 5000; sh.gain.value = 3; sh.connect(g);   // a little open-air sparkle
+    const pk = AC.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 330; pk.Q.value = 0.8; pk.gain.value = -4; pk.connect(sh);   // cut the 200-500 Hz room box
+    const mg = AC.createGain(); mg.gain.value = 0; mg.connect(pk);
+    const ag = AC.createGain(); ag.gain.value = 0; ag.connect(g);   // ambience bed skips the EQ
+    CA.g = g; CA.bus = pk; CA.mur = mg; CA.air = ag; caLoad(); return true;
+  } catch (e) { CA.g = null; return false; }
 }
 function caTick() {
   if (!AC) return;
@@ -7515,11 +7530,16 @@ function caTick() {
     if (!CA.g) caReady();
   }
   if (!CA.mur) return;
-  const m = live ? 1 : 0;   // master: cuts one-shots too when muted / paused / hidden
+  const m = live ? 1 : 0;   // master: cuts one-shots and the bed too when muted / paused / hidden
   if (m !== CA.mtgt) { CA.mtgt = m; try { CA.g.gain.setTargetAtTime(m, AC.currentTime, 0.05); } catch (e) {} }
-  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { CA.mur.gain.setTargetAtTime(v, AC.currentTime, v < 0.1 ? 0.35 : 0.5); } catch (e) {} }
+  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { const t = AC.currentTime, tc = v < 0.1 ? 0.35 : 0.5; CA.mur.gain.setTargetAtTime(v * 0.72, t, tc); CA.air.gain.setTargetAtTime(v > 0 ? 0.32 : 0, t, 0.8); } catch (e) {} }   // 0.72: two layers; bed stays steady (even during the hush) and fades out with the crowd
 }
-function caPlay(key, vol) { const b = CA.buf[key]; if (!b) return; try { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = 0.96 + Math.random() * 0.08; g.gain.value = vol; s.connect(g).connect(CA.g); s.start(); } catch (e) {} }
+function caPlay(key, vol) {   // two layers: L/R, ~20 ms apart, slightly different speed: wide and natural, not a mono point source
+  const b = CA.buf[key]; if (!b) return;
+  try { const r = 0.96 + Math.random() * 0.08, t = AC.currentTime;
+    [[-0.45, 0, 1], [0.45, 0.018 + Math.random() * 0.012, 0.985]].forEach(([p, d, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk; g.gain.value = vol * 0.7; s.connect(g).connect(caPan(p, CA.bus)); s.start(t + d); });
+  } catch (e) {}
+}
 function caVoices(kind, k) {   // recorded gallery reactions: ooh / groan / cheer (a golf-crowd roar with applause)
   if (!caReady()) return false;
   const ev = crowdEvent() ? 1.15 : 1, kk = Math.min(1.6, k || 1);
