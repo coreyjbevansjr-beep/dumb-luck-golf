@@ -178,6 +178,25 @@
   #acct .lbipz b{display:block;color:#D4AF37;font-size:18px;margin-bottom:4px}
   #acct .lbipz img{margin:4px auto 0;image-rendering:auto}
   #acct .lbidim{color:#7c8cac;text-decoration:none;text-align:center;line-height:44px}
+  #windInd{position:fixed;left:50%;top:0;transform:translateX(-50%);z-index:4;pointer-events:none;display:none;align-items:center;gap:6px;color:rgba(255,255,255,.78);font:700 12px/1 -apple-system,system-ui,'Segoe UI',sans-serif;letter-spacing:1.5px;text-shadow:0 1px 3px rgba(0,0,0,.6),0 0 8px rgba(0,0,0,.25);white-space:nowrap}
+  #windInd.on{display:flex}
+  #windInd svg{width:2.5em;height:1.15em;overflow:visible;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  #windInd.l svg{transform:scaleX(-1)}
+  #windInd .wk{stroke:rgba(255,255,255,.45);stroke-width:1.4;stroke-linecap:round;animation:wkf 1.8s linear infinite}
+  #windInd .wk2{animation-delay:-.6s}#windInd .wk3{animation-delay:-1.2s}
+  #windInd.calm svg{display:none}
+  @keyframes wkf{0%{transform:translateX(-8px);opacity:0}30%{opacity:1}100%{transform:translateX(10px);opacity:0}}
+  @media (prefers-reduced-motion:reduce){#windInd .wk{animation:none;opacity:.6}}
+  #acct .spk{border:2px solid #3c4c6c;padding:6px 8px 4px;margin-top:6px}
+  #acct .spk small{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1px;color:#bcc8e0}
+  #acct .spk small b{color:#f8d878}
+  #acct .spk svg{display:block;width:100%;height:34px;margin-top:3px}
+  #acct .feed{font-size:11px;line-height:1.5;color:#bcc8e0}
+  #acct .feed div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid #26324a;padding:3px 0}
+  #acct .feed span:last-child{color:#7c8cac;white-space:nowrap}
+  #acct details{margin-top:8px}#acct summary{font-size:11px;letter-spacing:1px;color:#3cbcfc;cursor:pointer}
+  #acct .qlinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  #acct .qlinks a{flex:1;text-align:center;border:2px solid #3c4c6c;padding:6px 2px;font-size:10px;letter-spacing:1px;color:#3cbcfc;text-decoration:none}
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
@@ -214,6 +233,7 @@
     <div class="row"><button type="button" id="nameSave">SAVE</button><button type="button" id="nameCancel">CANCEL</button></div>
   </div>
 </div>
+<div id="windInd" aria-hidden="true"><svg viewBox="0 0 30 14"><line class="wk" x1="2" y1="3" x2="10" y2="3"/><line class="wk wk2" x1="0" y1="11" x2="8" y2="11"/><line class="wk wk3" x1="4" y1="7" x2="11" y2="7"/><path d="M12 7H27M22 2.5L27.5 7L22 11.5" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span></span></div>
 <div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
 <script>
 (() => {
@@ -231,7 +251,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.95';
+const GAME_VERSION = 'v8.96';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -962,7 +982,38 @@ async function loadAdmin() {
 }
 const adminErr = r => { const m = String((r.data && r.data.message) || ''); return r.status === 0 ? 'NETWORK ERROR' : /admin only/.test(m) ? 'NOT AN ADMIN' : /no such/.test(m) ? m.toUpperCase() : /name taken/.test(m) ? 'NAME TAKEN' : /bad username/.test(m) ? '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' : /cannot ban an admin/.test(m) ? "CAN'T BAN AN ADMIN" : 'FAILED: ' + (m || r.status).toString().toUpperCase().slice(0, 40); };
 async function adminRpc(fn, body) { const r = await sb('/rest/v1/rpc/' + fn, { method: 'POST', body: body || {} }, 'admin'); if (r.status === 403 || (r.data && r.data.code === '42501' && /admin only/.test(r.data.message || ''))) { admin.is = false; admin.unlock = false; } return r.ok ? { ok: true, data: r.data } : { ok: false, msg: adminErr(r) }; }
-async function adminLoadStats() { const r = await adminRpc('admin_stats', { p_days: 7 }); admin.stats = r.ok ? r.data : null; return r; }
+async function adminLoadStats() {   // v8.96: 7d + 30d stats, last 30d of public scores, newest accounts (all existing admin-gated RPCs / public reads)
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const [r, r30, sc, np] = await Promise.all([adminRpc('admin_stats', { p_days: 7 }), adminRpc('admin_stats', { p_days: 30 }),
+    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=1000', {}, 'admin'), adminRpc('admin_players', { p_query: '' })]);
+  admin.stats = r.ok ? r.data : null; admin.stats30 = r30.ok ? r30.data : null;
+  admin.recent = sc.ok && Array.isArray(sc.data) ? sc.data : []; admin.newp = np.ok && Array.isArray(np.data) ? np.data : [];
+  return r;
+}
+async function adminLoadPlayer(name) {   // v8.96: one player's card (profiles/careers are signed-in reads, scores are public; email stays server-side)
+  const P = { name, ok: false }; admin.player = P;
+  const n = String(name || '').replace(/[%_*,()]/g, '');
+  const [pr, ap] = await Promise.all([sb('/rest/v1/profiles?select=id,username,created_at&username=ilike.' + encodeURIComponent(n) + '&limit=1', {}, 'admin'), adminRpc('admin_players', { p_query: n })]);
+  const p = pr.ok && Array.isArray(pr.data) && pr.data[0]; if (!p) { P.msg = pr.ok ? 'NO SUCH PLAYER' : (pr.msg || 'COULD NOT LOAD'); return P; }
+  P.p = p; P.a = (ap.ok && Array.isArray(ap.data) ? ap.data : []).find(x => String(x.username).toLowerCase() === String(p.username).toLowerCase()) || {};
+  const [cr, sr] = await Promise.all([sb('/rest/v1/careers?select=rank,xp,rounds,updated_at&user_id=eq.' + encodeURIComponent(p.id), {}, 'admin'),
+    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&user_id=eq.' + encodeURIComponent(p.id) + '&order=created_at.desc&limit=300', {}, 'admin')]);
+  P.c = cr.ok && Array.isArray(cr.data) && cr.data[0] || null; P.s = sr.ok && Array.isArray(sr.data) ? sr.data : []; P.ok = true; return P;
+}
+const admPct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
+const admMode = m => String(m || '?').replace(/[_-]+/g, ' ').toUpperCase();
+const admAgo = t => { const d = (Date.now() - Date.parse(t)) / 1000; if (!(d >= 0)) return ''; return d < 3600 ? Math.max(1, Math.round(d / 60)) + 'M' : d < 86400 ? Math.round(d / 3600) + 'H' : Math.round(d / 86400) + 'D'; };
+function admSeries(S, key, days) {   // daily rows (newest first, gaps missing) -> oldest..today array
+  const m = {}; (S && S.daily || []).forEach(d => { m[String(d.day).slice(0, 10)] = +d[key] || 0; });
+  const out = [], et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  for (let i = days - 1; i >= 0; i--) { const d = new Date(et); d.setDate(d.getDate() - i); const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); out.push(m[k] || 0); }
+  return out;
+}
+function admSpark(label, arr, col) {
+  const mx = Math.max(1, ...arr), n = arr.length, pts = arr.map((v, i) => (n > 1 ? i * 100 / (n - 1) : 50).toFixed(1) + ',' + (32 - v / mx * 30).toFixed(1)).join(' ');
+  const sum = arr.reduce((a, b) => a + b, 0);
+  return '<div class="spk"><small><span>' + label + '</span><span>TODAY <b>' + arr[n - 1] + '</b> · PEAK <b>' + mx + '</b> · 30D <b>' + sum + '</b></span></small><svg viewBox="0 0 100 34" preserveAspectRatio="none"><polyline points="0,34 ' + pts + ' 100,34" fill="' + col + '22" stroke="none"/><polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg></div>';
+}
 async function adminLoadScores() {
   const ord = admin.scoreSort === 'best' ? 'to_par.asc,strokes.asc' : 'created_at.desc';
   const r = await sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&order=' + ord + '&limit=40', {}, 'admin');
@@ -7938,10 +7989,9 @@ function drawHUD() {
   hudCell(0, y2, CLUBS[clubIdx].name, COL.orange, state === 'aim' ? COL.white : COL.lime);
   const at = clubIdx === PUTT_I ? 'R=' + puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y' : 'ANG ' + Math.round(angle);
   hudCell(1, y2, at, angFlash > 0 ? '#f8d878' : COL.white, angFlash > 0 ? COL.white : COL.lime);
-  const wt = wind === 0 ? 'CALM' : (wind > 0 ? '>' : '<') + Math.abs(wind) + 'MPH', [wx, ww] = HUD_COLS[2], wtx = wx + Math.round((ww - textW(wt) - 8) / 2);
-  box(wx, y2, ww, 11); drawText('W', wtx, y2 + 2, COL.blue); drawText(wt, wtx + 8, y2 + 2, COL.white);
-  const lie = surfAt(hole, ball.x), lieName = lieLabel();   // v8.78: + DIVOT / UP / DN
-  hudCell(3, y2, lieName, lie === 'sand' ? COL.sand : lie === 'rough' || ball.divot ? '#f8d878' : COL.lime);
+  windHud = true;   // v8.96: wind lives top-middle now (#windInd); the lie cell takes both right columns
+  const lie = surfAt(hole, ball.x), lieName = lieLabel(), lc = lie === 'sand' ? COL.sand : lie === 'rough' || ball.divot ? '#f8d878' : COL.lime, lx = HUD_COLS[2][0], lw = HUD_COLS[3][0] + HUD_COLS[3][1] - lx;   // v8.78: + DIVOT / UP / DN
+  box(lx, y2, lw, 11); drawText(lieName, lx + Math.round((lw - textW(lieName)) / 2), y2 + 2, lc);
   drawMeter();
   drawMiniMap();   // v8.10: minimap + yardage moved into the dirt strip (was here, bottom-right of the HUD)
 }
@@ -8867,7 +8917,22 @@ function renderCard() {
   const f = Math.floor(st * 7) % 2;
   dimg(f ? SPR.walkA : SPR.walkB, ox + 96, Math.max(190, SHARE_BTN.y + 28));
 }
+/* v8.96: subtle top-middle wind (number + arrow + drifting streaks); same wind value, display only */
+let windHud = false, windIndKey = '';
+const windIndEl = document.getElementById('windInd'), windIndTxt = windIndEl && windIndEl.querySelector('span');
+function syncWindInd() {
+  if (!windIndEl) return;
+  const show = windHud && !!hole && !paused && !ov && !LAB.on && !msg && !roundTip && !['board', 'card', 'title', 'intro', 'done'].includes(state) && !(acctEl && acctEl.classList.contains('on'));   // the centre-top message slot wins while it is up
+  let key = 'off';
+  if (show) {
+    const r = cv.getBoundingClientRect(), sc = r.height / H, top = Math.round(r.top + Math.max((SAFE.t || 0) + 3, MC.y + MC.h + 4) * sc);   // just under the pause button / mini scorecard row
+    key = wind + '|' + top + '|' + Math.round(sc * 10);
+    if (key !== windIndKey) { windIndTxt.textContent = wind === 0 ? 'CALM' : Math.abs(wind) + ' MPH'; windIndEl.classList.toggle('l', wind < 0); windIndEl.classList.toggle('calm', wind === 0); windIndEl.style.top = top + 'px'; windIndEl.style.fontSize = Math.round(Math.max(12, Math.min(22, sc * 6.5))) + 'px'; }
+  }
+  if (key !== windIndKey) { windIndEl.classList.toggle('on', show); windIndKey = key; }
+}
 function render() {
+  windHud = false;
   renderScene();
   if (state === 'title') { drawSpookyBanner(); drawHomeYtButton(); drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
@@ -8882,6 +8947,7 @@ function render() {
   syncShopHat(); syncShopChip();
   syncLogoLayer();
   syncPageBg();
+  syncWindInd();
 }
 /* v8.22: the page background shows wherever the canvas does not reach (iOS Safari draws its toolbar over the page and leaves
    the strip below 100dvh to the page). v8.23: two fills, each the most common colour of one canvas edge row:
@@ -9305,12 +9371,24 @@ const ADMIN_VIEWS = {
     const S = admin.stats;
     let h = head('ADMIN') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><div class="msg"></div>';
     if (!S) return h + '<p class="empty">LOADING STATS...</p>';
-    const m = S.matches || {};
-    h += '<div class="kpis"><div><b>' + S.players_today + '</b>PLAYERS TODAY</div><div><b>' + S.rounds_today + '</b>ROUNDS TODAY</div><div><b>' + S.players_period + '</b>PLAYERS 7D</div>' +
-      '<div><b>' + S.accounts + '</b>ACCOUNTS</div><div><b>' + S.scores_total + '</b>SCORES</div><div><b>' + (S.banned || 0) + '</b>BANNED</div></div>';
-    h += '<p class="sec">DAILY PLAYERS (ET)</p><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
-      (S.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table>';
-    h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · HOME SCREEN ' + (S.home_screen_share || 0) + '%</p>';
+    const m = S.matches || {}, S30 = admin.stats30 || S, rec = admin.recent || [], np = admin.newp || [];
+    const tot = (X, k) => (X.daily || []).reduce((a, d) => a + (+d[k] || 0), 0), wk = Date.now() - 7 * 864e5;
+    const new7 = np.filter(p => Date.parse(p.created_at) >= wk).length, new30 = np.filter(p => Date.parse(p.created_at) >= Date.now() - 30 * 864e5).length;
+    h += '<div class="kpis"><div><b>' + S.players_today + '</b>PLAYERS TODAY</div><div><b>' + S.players_period + '</b>PLAYERS 7D</div><div><b>' + (admin.stats30 ? S30.players_period : '-') + '</b>PLAYERS 30D</div>' +
+      '<div><b>' + S.rounds_today + '</b>ROUNDS TODAY</div><div><b>' + tot(S, 'rounds') + '</b>ROUNDS 7D</div><div><b>' + admPct(tot(S, 'finishes'), tot(S, 'rounds')) + '</b>FINISH 7D</div>' +
+      '<div><b>' + S.accounts + '</b>ACCOUNTS</div><div><b>' + new7 + (new7 >= 50 ? '+' : '') + '</b>SIGNUPS 7D</div><div><b>' + (admin.stats30 ? S30.home_screen_share : S.home_screen_share || 0) + '%</b>HOME SCREEN</div></div>';
+    h += admSpark('PLAYERS / DAY', admSeries(S30, 'players', 30), '#f8d878') + admSpark('ROUNDS / DAY', admSeries(S30, 'rounds', 30), '#58d854');
+    h += '<p class="sub" style="margin-top:6px">30D: ' + tot(S30, 'rounds') + ' ROUNDS · ' + admPct(tot(S30, 'finishes'), tot(S30, 'rounds')) + ' FINISHED · ' + new30 + (new30 >= 50 ? '+' : '') + ' SIGNUPS · ' + rec.length + ' SCORES POSTED</p>';
+    const modes = {}; rec.forEach(s => { const k = admMode(s.mode), o = modes[k] || (modes[k] = { n: 0, b: null }); o.n++; if (!o.b || s.to_par < o.b.to_par) o.b = s; });
+    const top = Object.entries(modes).sort((a, b) => b[1].n - a[1].n).slice(0, 5);
+    if (top.length) h += '<p class="sec">TOP MODES · 30D</p><div class="feed">' + top.map(([k, o]) => '<div><span>' + esc(k) + ' · ' + o.n + '</span><span>BEST ' + esc(String(o.b.name).toUpperCase()) + ' ' + (o.b.to_par > 0 ? '+' : '') + o.b.to_par + '</span></div>').join('') + '</div>';
+    const feed = rec.slice(0, 10).map(s => ({ t: s.created_at, h: at(s.name) + ' ' + esc(admMode(s.mode)) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span>' }))
+      .concat(np.filter(p => Date.parse(p.created_at) >= wk).slice(0, 6).map(p => ({ t: p.created_at, h: at(p.username) + ' <span style="color:#58d854">JOINED</span>' })))
+      .sort((a, b) => Date.parse(b.t) - Date.parse(a.t)).slice(0, 10);
+    h += '<p class="sec">RECENT ACTIVITY</p>' + (feed.length ? '<div class="feed">' + feed.map(f => '<div><span>' + f.h + '</span><span>' + admAgo(f.t) + '</span></div>').join('') + '</div>' : '<p class="empty">NOTHING YET</p>');
+    h += '<details><summary>DAILY TABLE (ET)</summary><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
+      (S30.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table></details>';
+    h += '<p class="sub" style="margin-top:8px">FRIENDSHIPS ' + (S.friendships || 0) + ' · MATCHES ' + (Object.values(m).reduce((a, b) => a + b, 0)) + ' (' + (m.complete || 0) + ' DONE) · SCORES ' + S.scores_total + ' · BANNED ' + (S.banned || 0) + '</p>';
     h += '<div class="row"><button class="btn" data-a="go:adminScores">SCORES</button><button class="btn" data-a="go:adminPlayers">PLAYERS</button><button class="btn" data-a="go:adminStore">STORE</button></div>' + '<button class="btn alt" data-a="lbiOpen">TOURNAMENT</button>' +   // v8.63
       '<button class="btn alt" data-a="go:adminLab">LAB (TEST MODE)</button>' +   // v8.74
       '<button class="btn alt" data-a="adminUnlock">' + (admin.unlock ? 'UNLOCK ALL: ON (TAP TO TURN OFF)' : 'UNLOCK ALL RANKS + ITEMS (TEST)') + '</button>' +
@@ -9318,6 +9396,8 @@ const ADMIN_VIEWS = {
       '<button class="link" data-a="go:adminGear">GEAR + CODES</button>' +
       '<button class="link" data-a="go:adminLog">ADMIN LOG</button>' +
       '<button class="link" data-a="go:adminFeedback">FEEDBACK' + ((admin.feedback || []).filter(f => f.status === 'new').length ? ' (' + admin.feedback.filter(f => f.status === 'new').length + ' NEW)' : '') + '</button>';
+    h += '<p class="sec">QUICK LINKS</p><div class="qlinks"><a href="https://supabase.com/dashboard/project/secxsuymqvwgbfhmarxj" target="_blank" rel="noopener">SUPABASE</a><a href="https://github.com/coreyjbevansjr-beep/dumb-luck-golf" target="_blank" rel="noopener">GITHUB</a><a href="https://search.google.com/search-console?resource_id=sc-domain:dumbluckgolf.com" target="_blank" rel="noopener">SEARCH CONSOLE</a></div>' +
+      '<p class="sub" style="margin-top:8px">' + esc(GAME_VERSION.toUpperCase()) + ' · ' + (a2hsInstalled() ? 'HOME SCREEN APP' : 'BROWSER') + ' · STATS ' + fmtTs(Date.now()) + ' ET</p>';
     return h;
   },
   adminScores: () => {
@@ -9330,7 +9410,19 @@ const ADMIN_VIEWS = {
     let h = head('PLAYERS', 'go:admin') + '<form data-f="adminSearch" novalidate><div class="row"><input id="aQ" type="text" maxlength="12" placeholder="SEARCH USERNAME" autocapitalize="off" spellcheck="false" value="' + esc(o.q || '') + '"><button class="btn" type="submit">FIND</button></div></form><div class="msg"></div>';
     if (!admin.players.length) return h + '<p class="empty">NO PLAYERS FOUND.</p>';
     return h + '<div class="list">' + admin.players.map(p => '<div class="item"><div class="who wr">' + at(p.username) + (p.banned ? '<span class="ban">BANNED</span>' : '') + '<span class="st">' + p.rounds + ' ROUNDS · ' + p.xp + ' XP · ' + p.matches + ' MATCHES</span></div>' +
-      (p.admin ? '' : '<button class="btn small alt" data-a="prename" data-id="' + esc(p.username) + '">RENAME</button><button class="btn small ' + (p.banned ? '' : 'alt') + '" data-a="' + (p.banned ? 'punban' : 'pban') + '" data-id="' + esc(p.username) + '">' + (p.banned ? 'UNBAN' : 'BAN') + '</button>') + '</div>').join('') + '</div>';
+      '<button class="btn small" data-a="pview" data-id="' + esc(p.username) + '">VIEW</button>' + (p.admin ? '' : '<button class="btn small alt" data-a="prename" data-id="' + esc(p.username) + '">RENAME</button><button class="btn small ' + (p.banned ? '' : 'alt') + '" data-a="' + (p.banned ? 'punban' : 'pban') + '" data-id="' + esc(p.username) + '">' + (p.banned ? 'UNBAN' : 'BAN') + '</button>') + '</div>').join('') + '</div>';
+  },
+  adminPlayer: o => {   // v8.96 player card
+    const P = admin.player || {}; let h = head('PLAYER', 'go:adminPlayers');
+    if (!P.ok) return h + '<p class="big">' + at(o.user) + '</p><div class="msg"></div><p class="empty">' + esc(P.msg || 'LOADING...') + '</p>';
+    const c = P.c || {}, a = P.a || {}, s = P.s || [], last = [c.updated_at, s[0] && s[0].created_at].filter(Boolean).sort().pop();
+    const best = {}; s.forEach(x => { const k = admMode(x.mode); if (!best[k] || x.to_par < best[k].to_par || (x.to_par === best[k].to_par && x.strokes < best[k].strokes)) best[k] = x; });
+    h += '<p class="big">' + at(P.p.username) + (a.banned ? '<span class="ban">BANNED</span>' : '') + '</p><p class="sub">JOINED ' + fmtTs(P.p.created_at) + (last ? ' · LAST SEEN ' + admAgo(last) + ' AGO' : '') + '</p><div class="msg"></div>';
+    h += '<div class="kpis"><div><b>' + (c.rounds || a.rounds || 0) + '</b>ROUNDS</div><div><b>' + s.length + '</b>SCORES</div><div><b>' + (a.matches || 0) + '</b>MATCHES</div><div><b>' + esc(String(c.rank || '-').toUpperCase()) + '</b>RANK</div><div><b>' + (c.xp || 0) + '</b>XP</div><div><b>' + Object.keys(best).length + '</b>MODES</div></div>';
+    const bk = Object.entries(best); if (bk.length) h += '<p class="sec">BEST SCORES</p><div class="feed">' + bk.map(([k, x]) => '<div><span>' + esc(k) + '</span><span style="color:#f8d878">' + x.strokes + ' (' + (x.to_par > 0 ? '+' : '') + x.to_par + ')</span></div>').join('') + '</div>';
+    h += '<p class="sec">RECENT SCORES</p>' + (s.length ? '<div class="list">' + s.slice(0, 8).map(x => '<div class="item"><div class="who wr">' + esc(admMode(x.mode)) + ' <span style="color:#f8d878">' + x.strokes + ' (' + (x.to_par > 0 ? '+' : '') + x.to_par + ')</span><span class="st">' + fmtTs(x.created_at) + '</span></div><button class="btn small alt" data-a="sdel" data-id="' + esc(x.id) + '">DELETE</button></div>').join('') + '</div>' : '<p class="empty">NO SCORES</p>');
+    if (!a.admin) h += '<div class="row"><button class="btn small alt" data-a="prename" data-id="' + esc(P.p.username) + '">RENAME</button><button class="btn small ' + (a.banned ? '' : 'alt') + '" data-a="' + (a.banned ? 'punban' : 'pban') + '" data-id="' + esc(P.p.username) + '">' + (a.banned ? 'UNBAN' : 'BAN') + '</button></div>';
+    return h + '<p class="sub" style="margin-top:6px">EMAIL IS NOT SHOWN HERE (STAYS SERVER-SIDE).</p>';
   },
   adminRename: o => head('RENAME', 'go:adminPlayers') + '<p class="big">' + at(o.user) + '</p><form data-f="adminRename" novalidate><label for="aNew">NEW USERNAME</label><input id="aNew" type="text" maxlength="12" autocapitalize="off" spellcheck="false" value="' + esc(o.draft || '') + '">' +
     '<button class="btn" type="submit">' + (o.confirm ? 'CONFIRM: @' + esc(String(o.user).toUpperCase()) + ' → @' + esc(String(o.draft).toUpperCase()) : 'RENAME') + '</button></form><div class="msg"></div>',
@@ -9818,6 +9910,7 @@ async function showAcct(view, opts) {
     if (!admin.is) { hideAcct(); careerMsg = { text: 'NOT AN ADMIN', t: 0 }; return; }
     if (view === 'admin') { admin.stats = null; acctBox.innerHTML = VIEWS.admin(); const r = await adminLoadStats(); if (acctView !== view) return; if (!r.ok) acctOpts.msg = r.msg; }
     if (view === 'adminScores') await adminLoadScores();
+    if (view === 'adminPlayer') { admin.player = null; acctBox.innerHTML = VIEWS.adminPlayer(acctOpts); await adminLoadPlayer(acctOpts.user); }
     if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
     if (view === 'adminLog') await adminLoadAudit();
     if (view === 'adminGear') { const r = await adminRpc('admin_gear_list', {}); admin.gear = r.ok && Array.isArray(r.data) ? r.data : []; if (!r.ok) acctOpts.msg = r.msg; }
@@ -10004,9 +10097,10 @@ if (acctEl) {
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'ssort') { admin.scoreSort = b.getAttribute('data-n'); showAcct('adminScores'); return; }
     if (a === 'sdel') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
-      acctBusy(true); const r = await adminRpc('admin_delete_score', { p_id: Number(id) }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct('adminScores', { msg: 'DELETED ' + r.data.name + ' ' + r.data.strokes, ok: true }); return; }
+      acctBusy(true); const r = await adminRpc('admin_delete_score', { p_id: Number(id) }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct(acctView === 'adminPlayer' ? 'adminPlayer' : 'adminScores', { user: acctOpts.user, msg: 'DELETED ' + r.data.name + ' ' + r.data.strokes, ok: true }); return; }
     if (a === 'nban') { if (b.dataset.arm !== '1') { acctBox.querySelectorAll('[data-arm="1"]').forEach(x => { x.dataset.arm = ''; x.textContent = x.getAttribute('data-a') === 'sdel' ? 'DELETE' : 'BAN NAME'; }); b.dataset.arm = '1'; b.textContent = 'SURE?'; b.classList.remove('alt'); return; }
       acctBusy(true); const r = await adminRpc('admin_ban_name', { p_name: id, p_reason: 'leaderboard', p_on: true }); acctBusy(false); if (!r.ok) { acctMsg(r.msg); return; } showAcct('adminScores', { msg: r.data.name + " CAN'T POST SCORES NOW", ok: true }); return; }
+    if (a === 'pview') { showAcct('adminPlayer', { user: id }); return; }
     if (a === 'prename') { showAcct('adminRename', { user: id, draft: '' }); return; }
     if (a === 'pban') { showAcct('adminBan', { user: id }); return; }
     if (a === 'punban') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } const r = await adminRpc('admin_unban_user', { p_username: id }); showAcct('adminPlayers', r.ok ? { msg: '@' + id.toUpperCase() + ' UNBANNED', ok: true } : { msg: r.msg }); return; }
