@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99';
+const GAME_VERSION = 'v8.99.1';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7174,8 +7174,8 @@ function todTint(hl) {
 /* v8.99 BIG-EVENT GALLERY (decoration + audio only: nothing here touches physics, wind, power, layouts, collision or scoring).
    Fans line the tee, both sides of the fairway (a raised gallery bank behind a rope) and the green on every course except the
    LAB. Each fan is a unique build (height, body, skin, hair, outfit, hat, prop, idle pose) themed per course, drawn once per pose
-   frame into a small cached sprite and culled offscreen. Crowd murmur / hush / ooh / groan / cheer / applause are synthesized in
-   WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
+   frame into a small cached sprite and culled offscreen. Crowd murmur / hush / ooh / groan / cheer / applause are real CC0
+   recordings (audio/, v8.99.1) played through WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
 let crowdT = 0;
 const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
 const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24402c'];
@@ -7183,7 +7183,7 @@ const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d
 function crowdEvent() { return courseKind === 'spooky' || courseKind === 'lbi'; }
 function crowdOn() { if (courseKind === 'lab' || (typeof LAB !== 'undefined' && LAB.on)) return false; const tk = (hole && hole.theme) || ''; return tk !== 'deep' && tk !== 'lava'; }
 function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; return 'club'; }
-function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } else caClap(Math.min(1.4, 0.7 + 0.3 * (k || 1))); }
+function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
 /* ---- palettes ---- */
 const FAN_HAIR = ['#1c1410', '#1c1410', '#2c1c10', '#4c2c18', '#4c2c18', '#8c5028', '#a86c38', '#d8a860', '#f0d088', '#c84c0c'];
 const FAN_PANTS = ['#2c2c3c', '#384c7c', '#c8b48c', '#1c1c1c', '#6c6c74', '#24402c', '#e8e4d8', '#5c4c38', '#1c2c4c'];
@@ -7445,60 +7445,50 @@ function drawCrowd(hl, cam, C) {
   if (rowDone >= 2) ropeFar();
   for (const k in front) if (front[k][1] > front[k][0]) crowdRope(hl, cam, front[k][0], front[k][1], 0, P.rope, P.stake, 6);
 }
-/* ---- v8.99 crowd audio (WebAudio synth, one master gain; nothing plays when muted / paused / hidden) ---- */
-const CA = { g: null, mur: null, tgt: -1, clapB: null };
+/* ---- v8.99.1 crowd audio: real recorded gallery sounds (CC0), decoded into WebAudio after the first tap; one master gain, silent when muted / paused / hidden ----
+   CREDITS (all CC0 1.0 public domain dedication; trimmed, denoised, normalized, mono 22 kHz mp3):
+   audio/crowd-murmur.mp3  'R08-02-Outdoor Crowd' (Red Library, digitized by Craig Smith / USC Cinema) https://archive.org/details/Red_Library_Crowds_Outdoor  CC0 https://creativecommons.org/publicdomain/zero/1.0/
+   audio/crowd-ooh.mp3     'R27-20-Small Crowd Gasps' (Red Library) https://archive.org/details/Red_Library_Crowds_Indoor_2  CC0
+   audio/crowd-groan.mp3   'R27-20-Small Crowd Gasps' (Red Library, another take) https://archive.org/details/Red_Library_Crowds_Indoor_2  CC0
+   audio/crowd-roar.mp3    'R19-35-Golf Crowd Reacts to Good Shot' (Red Library) https://archive.org/details/Red_Library_Crowds_Sports  (also freesound.org/s/486219)  CC0
+   audio/crowd-clap.mp3    'R19-34-Golf Crowd Applauds' (Red Library) https://archive.org/details/Red_Library_Sports  (also freesound.org/s/479967)  CC0 */
+const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', ooh: 'audio/crowd-ooh.mp3?v=180', groan: 'audio/crowd-groan.mp3?v=180', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
+const CA_LOOP_S = 12;   // the murmur file is a 12 s seamless loop
+const CA = { g: null, mur: null, murS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
+function caLoopBuf(b) {   // drop any mp3 encoder padding so the loop is exactly CA_LOOP_S long
+  const d = b.getChannelData(0), L = Math.min(d.length, Math.round(CA_LOOP_S * b.sampleRate)); let s = 0; while (s < d.length - L && Math.abs(d[s]) < 1e-4) s++;
+  const o = AC.createBuffer(1, L, b.sampleRate); o.getChannelData(0).set(d.subarray(s, s + L)); return o;
+}
+function caStartMur() { if (CA.murS || !CA.buf.murmur || !CA.mur) return; try { const s = AC.createBufferSource(); s.buffer = CA.buf.murmur; s.loop = true; s.connect(CA.mur); s.start(0, Math.random() * (CA_LOOP_S - 1)); CA.murS = s; } catch (e) {} }
+function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
+  for (const k in CA_FILES) fetch(CA_FILES[k]).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+    .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))   // callback form for older iOS Safari
+    .then(b => { CA.buf[k] = k === 'murmur' ? caLoopBuf(b) : b; if (k === 'murmur') caStartMur(); }).catch(() => {});
+}
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
-  try { const A = AC, g = A.createGain(); g.gain.value = 1; g.connect(A.destination);
-    const n = Math.floor(A.sampleRate * 4), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0);
-    const env = [0.5, 0.5, 0.5], tg = [0.5, 0.5, 0.5], lp = [0, 0, 0], ks = [0.5, 0.3, 0.18];   // three layers of far-off voices, each with its own syllable swells
-    for (let i = 0; i < n; i++) { let v = 0; for (let j = 0; j < 3; j++) { if (i % (3200 + j * 900) === 0) tg[j] = 0.15 + Math.random() * 0.85; env[j] += (tg[j] - env[j]) * 0.0009; lp[j] += ((Math.random() * 2 - 1) - lp[j]) * ks[j]; v += lp[j] * env[j]; } d[i] = v * 0.6; }
-    const fade = Math.floor(A.sampleRate * 0.25); for (let i = 0; i < fade; i++) { const k = i / fade; d[i] = d[i] * k + d[n - fade + i] * (1 - k); }   // seamless loop
-    const s = A.createBufferSource(); s.buffer = b; s.loop = true; const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 0.7;
-    const lo = A.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 1400; const mg = A.createGain(); mg.gain.value = 0;
-    s.connect(bp).connect(lo).connect(mg).connect(g); s.start(); CA.g = g; CA.mur = mg; return true; } catch (e) { CA.g = null; return false; }
+  try { const g = AC.createGain(); g.gain.value = 1; g.connect(AC.destination); const mg = AC.createGain(); mg.gain.value = 0; mg.connect(g); CA.g = g; CA.mur = mg; caLoad(); return true; } catch (e) { CA.g = null; return false; }
 }
 function caTick() {
-  if (!CA.mur || !AC) return;
+  if (!AC) return;
+  const live = !muted && !paused && !document.hidden && !SIM;
   let v = 0;
-  if (!muted && !paused && !document.hidden && !SIM && hole && crowdOn() && GAME_STATES.includes(state) && state !== 'done') {
-    v = v93Hush() ? 0.01 : state === 'flight' ? 0.09 : 0.072; if (crowdEvent()) v *= 1.3; if (crowdT > 0) v = 0.18;
+  if (live && hole && crowdOn() && GAME_STATES.includes(state) && state !== 'done') {
+    v = v93Hush() ? 0.04 : state === 'flight' ? 0.5 : 0.38; if (crowdEvent()) v = Math.min(1, v * 1.3); if (crowdT > 0) v = 0.6;
+    if (!CA.g) caReady();
   }
-  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { CA.mur.gain.setTargetAtTime(v, AC.currentTime, v < 0.01 ? 0.35 : 0.5); } catch (e) {} }
+  if (!CA.mur) return;
+  const m = live ? 1 : 0;   // master: cuts one-shots too when muted / paused / hidden
+  if (m !== CA.mtgt) { CA.mtgt = m; try { CA.g.gain.setTargetAtTime(m, AC.currentTime, 0.05); } catch (e) {} }
+  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { CA.mur.gain.setTargetAtTime(v, AC.currentTime, v < 0.1 ? 0.35 : 0.5); } catch (e) {} }
 }
-function caVoices(kind, k) {   // a bank of detuned saw 'voices' through a vowel formant: ooh / aww (groan) / yeah (cheer)
+function caPlay(key, vol) { const b = CA.buf[key]; if (!b) return; try { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = 0.96 + Math.random() * 0.08; g.gain.value = vol; s.connect(g).connect(CA.g); s.start(); } catch (e) {} }
+function caVoices(kind, k) {   // recorded gallery reactions: ooh / groan / cheer (a golf-crowd roar with applause)
   if (!caReady()) return false;
-  const A = AC, t0 = A.currentTime + 0.02, F = { ooh: [420, 1.18, 1.3], groan: [560, 0.72, 1.4], cheer: [880, 1.22, 1.9] }[kind] || [420, 1.1, 1.3];
-  const n = kind === 'cheer' ? 10 : 8, dur = F[2] * (0.85 + 0.15 * Math.min(2, k || 1)), vol = 0.014 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.2 : 1);
-  const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = F[0]; bp.Q.value = 1.4; const bp2 = A.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = F[0] * 2.6; bp2.Q.value = 2;
-  const mix = A.createGain(); mix.gain.value = 1; bp.connect(mix); bp2.connect(mix); mix.connect(CA.g);
-  for (let i = 0; i < n; i++) { const o = A.createOscillator(), g = A.createGain(), ts = t0 + Math.random() * 0.2, f = (100 + Math.random() * 90) * (i % 2 ? 1.75 : 1);
-    o.type = 'sawtooth'; o.detune.value = (Math.random() - 0.5) * 40; o.frequency.setValueAtTime(f, ts); o.frequency.linearRampToValueAtTime(f * F[1], ts + dur * 0.55); o.frequency.linearRampToValueAtTime(f * F[1] * (kind === 'cheer' ? 1.05 : 0.9), ts + dur);
-    g.gain.setValueAtTime(0.0001, ts); g.gain.exponentialRampToValueAtTime(vol, ts + (kind === 'cheer' ? 0.08 : 0.16)); g.gain.setValueAtTime(vol, ts + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, ts + dur);
-    o.connect(g); g.connect(bp); g.connect(bp2); o.start(ts); o.stop(ts + dur + 0.05); }
-  if (kind === 'cheer') { const s = A.createBufferSource(), nn = Math.floor(A.sampleRate * dur), b = A.createBuffer(1, nn, A.sampleRate), d = b.getChannelData(0); for (let i = 0; i < nn; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 2000) * (1 - i / nn) ** 1.5;
-    const hp = A.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 2200; hp.Q.value = 0.6; const g = A.createGain(); g.gain.value = 0.05 * Math.min(1.6, k || 1); s.buffer = b; s.connect(hp).connect(g).connect(CA.g); s.start(t0); }
+  const ev = crowdEvent() ? 1.15 : 1, kk = Math.min(1.6, k || 1);
+  if (kind === 'cheer') caPlay('roar', Math.min(1, 0.62 * kk * ev)); else caPlay(kind === 'groan' ? 'groan' : 'ooh', Math.min(1, 0.5 * kk * ev));
   return true;
 }
-function caClap(k) {   // applause: ~40 clappers at their own tempo, pre-rendered once
-  if (!caReady()) return false;
-  const A = AC;
-  if (!CA.clapB) { const sr = A.sampleRate, n = Math.floor(sr * 2.6), b = A.createBuffer(1, n, sr), d = b.getChannelData(0);
-    for (let c = 0; c < 40; c++) { const per = sr / (3.6 + Math.random() * 2.4), amp = 0.3 + Math.random() * 0.7; let t = Math.random() * per;
-      while (t < n) { const s0 = Math.floor(t), fade = 1 - t / n; for (let j = 0; j < 220 && s0 + j < n; j++) d[s0 + j] += (Math.random() * 2 - 1) * amp * Math.exp(-j / 45) * fade * fade; t += per * (0.92 + Math.random() * 0.16); } }
-    CA.clapB = b; }
-  const s = A.createBufferSource(), bp = A.createBiquadFilter(), g = A.createGain(); s.buffer = CA.clapB; bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 0.8;
-  g.gain.value = 0.048 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.25 : 1); s.connect(bp).connect(g).connect(CA.g); s.start(); return true;
-}
-function caShh() { if (!caReady()) return; const A = AC, nn = Math.floor(A.sampleRate * 0.5), b = A.createBuffer(1, nn, A.sampleRate), d = b.getChannelData(0);
-  for (let i = 0; i < nn; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 1500) * (1 - i / nn);
-  const s = A.createBufferSource(), hp = A.createBiquadFilter(), g = A.createGain(); hp.type = 'highpass'; hp.frequency.value = 2600; g.gain.value = 0.02; s.buffer = b; s.connect(hp).connect(g).connect(CA.g); s.start(); }
-function caMumble(text, voice) {   // a short muffled 'voice' under the bubble: one blip per syllable, rising on the '!'
-  if (!caReady()) return; const A = AC, syl = clamp(Math.round(text.replace(/[^A-Z]/g, '').length / 3), 2, 7), base = 150 * (voice || 1);
-  const bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.6; bp.connect(CA.g);
-  let t = A.currentTime + 0.02; for (let i = 0; i < syl; i++) { const o = A.createOscillator(), g = A.createGain(), d = 0.07 + Math.random() * 0.05, f = base * (0.9 + Math.random() * 0.3) * (i === syl - 1 && /!/.test(text) ? 1.25 : 1);
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * (i === syl - 1 ? 1.2 : 0.95), t + d);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(bp); o.start(t); o.stop(t + d + 0.02); t += d + 0.025; }
-}
+function caClap(k) { if (!caReady()) return false; caPlay('clap', Math.min(1, 0.55 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.15 : 1))); return true; }   // polite golf applause
 document.addEventListener('visibilitychange', () => { try { caTick(); } catch (e) {} });
 /* ---- v8.99 heckles: at most one line per shot (plus the odd splash / OB jab), never two shots running, PG only ---- */
 const HEC = {
@@ -7548,7 +7538,6 @@ function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear o
   if (!cand.length) return false;
   let tot = cand.reduce((a, c) => a + c.w, 0), u = Math.random() * tot, pick = cand[0]; for (const c of cand) { u -= c.w; if (u <= 0) { pick = c; break; } }
   hec = { text, lines, p: pick.p, r: pick.r, lift: pick.lift, tail: pick.q.x, t: 0, dur: 1.9 + text.length * 0.035, hide: 0 };
-  try { caMumble(text, pick.p.f.voice); } catch (e) {}
   return true;
 }
 function hecWrap(text) { if (text.length <= 16) return [text]; const w = text.split(' '); let best = null; for (let i = 1; i < w.length; i++) { const l = [w.slice(0, i).join(' '), w.slice(i).join(' ')], m = Math.max(l[0].length, l[1].length); if (!best || m < best.m) best = { l, m }; } return best ? best.l : [text]; }   // two balanced lines
@@ -7566,7 +7555,6 @@ function crowdTick(dt) {
   if (state === 'aim' && key !== hecKey) { hecKey = key; hecShotN++;
     const putt = clubIdx === PUTT_I, p = (crowdEvent() ? 0.5 : 0.4) * (putt ? 0.7 : 1);
     hecPlan = (hecShotN - hecLast >= 2 && Math.random() < p) ? { at: putt || Math.random() < 0.45 ? 'aim' : 'power', delay: putt ? 0.9 + Math.random() * 1.2 : 0.2 + Math.random() * 0.25, list: null, done: false } : null;
-    if (!hecPlan && !putt && Math.random() < 0.12) setTimeout(() => { try { if (state === 'aim' || state === 'power') caShh(); } catch (e) {} }, 700);
   }
   if (hecPlan && !hecPlan.done && !hec && state === hecPlan.at && st >= hecPlan.delay) {
     const list = hecPlan.list || hecPreList(); hecPlan.done = true;

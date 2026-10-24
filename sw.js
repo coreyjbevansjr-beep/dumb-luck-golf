@@ -1,5 +1,5 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v179';
+const CACHE = 'dlg-golf-v180';
 // v8.20+: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
 const PRECACHE = [
   './',
@@ -19,7 +19,12 @@ const PRECACHE = [
   './shop/lucky-marker-back.webp?v=848',
   './shop/lucky-marker-front-720.webp?v=850',
   './shop/lucky-marker-back-720.webp?v=850',
-  './shop/crest-112.webp?v=850'
+  './shop/crest-112.webp?v=850',
+  './audio/crowd-murmur.mp3?v=180',
+  './audio/crowd-ooh.mp3?v=180',
+  './audio/crowd-groan.mp3?v=180',
+  './audio/crowd-roar.mp3?v=180',
+  './audio/crowd-clap.mp3?v=180'
 ];
 
 self.addEventListener('install', (e) => {
