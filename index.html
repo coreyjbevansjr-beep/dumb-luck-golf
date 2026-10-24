@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.5';
+const GAME_VERSION = 'v8.99.6';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7287,16 +7287,16 @@ function fanMake(R, th, row, night) {
   return f;
 }
 function crowdKeepOut(hl) {   // v8.99.5: world-x spans no spectator may overlap (obstacles, hazards, props, cup), with padding
-  const K = [], P = 4, th = themeOf(hl), add = (a, b) => K.push([a - P, b + P]);
-  for (const [kind, dx] of hl.deco || []) { const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH; add(dx, dx + ((img && img.width) || 24)); }
-  if (halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '')) for (const [k, dx] of hwDecoList(hl)) { const img = k === 'pumpkin' ? HW.pumpkin : k === 'grave' ? HW.grave : HW.dead; add(dx, dx + ((img && img.width) || 16)); }
+  const K = [], S = [], P = 2, th = themeOf(hl), add = (a, b) => K.push([a - P, b + P]), soft = (a, b) => S.push([a - P, b + P]);   // v8.99.6: S = scenery (trees / bushes / boards / props): back-row fans may stand BEHIND it (drawn before it), never in front
+  for (const [kind, dx] of hl.deco || []) { const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH; soft(dx, dx + ((img && img.width) || 24)); }
+  if (halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '')) for (const [k, dx] of hwDecoList(hl)) { const img = k === 'pumpkin' ? HW.pumpkin : k === 'grave' ? HW.grave : HW.dead; soft(dx, dx + ((img && img.width) || 16)); }
   for (const w of hl.walls || []) add(w.x - (w.ww || 0) - 4, w.x + (w.ww || 0) + 4);
   for (const p of hl.pads || []) add(p.x0, p.x1);
   for (const r of hl.ramps || []) add(r.x - 10, r.x + 6);
   for (const m of hl.movers || []) { const hw = (m.w || 14) / 2; if (m.kind === 'windmill') { const r = Math.max(hw, (m.hTop || 28) * 0.75); add(m.x - r, m.x + r); } else add(m.x - (m.amp || 40) - hw, m.x + (m.amp || 40) + hw); }   // full motion path
   let s0 = null; for (let x = 0; x <= hl.len + 1; x++) { const s = x <= hl.len ? surfAt(hl, x) : 'end', hz = s === 'sand' || s === 'water'; if (hz && s0 == null) s0 = x; else if (!hz && s0 != null) { add(s0, x - 1); s0 = null; } }
   add(hl.cup - 12, hl.cup + 12);   // cup + flag
-  return K;
+  K.soft = S; return K;
 }
 const crowdBox = p => [p.x - ((p.f && p.f.hw) || 4) - 2, p.x + ((p.f && p.f.hw) || 4) + 3];
 const crowdHit = (b, K) => K.some(k => b[0] < k[1] && b[1] > k[0]);
@@ -7327,12 +7327,20 @@ function crowdSpots(hl) {
   }
   out.forEach((p, i) => { const r2 = mulberry32((((hl.len | 0) * 977 + Math.round(p.x * 13) + p.row * 7919 + i) >>> 0)); p.f = fanMake(r2, th, p.row, night); p.i = i; });
   // v8.99.5: never overlap an obstacle / hazard / prop: nudge a spectator up to 90 yd to a free gap in the same row, else drop them
-  const KO = crowdKeepOut(hl), kept = [];
+  const KO = crowdKeepOut(hl), kept = [], lost = [];
   for (const p of out) {
-    const free = x => { const q = { x, f: p.f }, b = crowdBox(q); return !crowdHit(b, KO) && x > -40 && x < hl.len + 40 && !kept.some(o => o.row === p.row && Math.abs(o.x - x) < 3); };
+    const free = x => { const q = { x, f: p.f }, b = crowdBox(q); return !crowdHit(b, KO) && (p.row >= 2 || !crowdHit(b, KO.soft)) && x > -40 && x < hl.len + 40 && !kept.some(o => o.row === p.row && Math.abs(o.x - x) < 3); };
     if (free(p.x)) { kept.push(p); continue; }
-    for (let d = 3; d <= 90; d += 3) { const x = free(p.x + d) ? p.x + d : free(p.x - d) ? p.x - d : null; if (x != null) { p.x = x; kept.push(p); break; } }
+    let x = null; for (let d = 2; d <= 90 && x == null; d += 2) x = free(p.x + d) ? p.x + d : free(p.x - d) ? p.x - d : null;
+    if (x != null) { p.x = x; kept.push(p); } else lost.push(p);
   }
+  // v8.99.6: keep it full: anyone still without a spot refills the nearest open gap anywhere along the hole (any row, incl. the bands past either end)
+  for (const p of lost) { let best = null;
+    for (const row of [p.row, 3, 2, 1, 0]) { const fr = x => { const b = crowdBox({ x, f: p.f }); return !crowdHit(b, KO) && (row >= 2 || !crowdHit(b, KO.soft)) && !kept.some(o => o.row === row && Math.abs(o.x - x) < 3); };
+      for (let d = 0; d <= hl.len + 120; d += 2) { const x = fr(p.x + d) && p.x + d <= hl.len + 36 ? p.x + d : fr(p.x - d) && p.x - d >= -40 ? p.x - d : null; if (x != null) { if (!best || d < best.d) best = { x, row, d }; break; } if (best && d >= best.d) break; }
+      if (best && best.row === p.row) break; }
+    if (best) { p.x = best.x; if (best.row !== p.row) { p.row = best.row; p.z = p.z === 'g' && best.row >= 2 ? 'g' : p.z; } kept.push(p); } }
+  kept.forEach(p => { p.bk = crowdHit(crowdBox(p), KO.soft); });   // behind scenery -> drawn in the 'back' pass before trees / props
   kept.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
   return (hl._crowd = kept.slice(0, ev ? 120 : 96));
 }
@@ -7481,13 +7489,13 @@ function crowdRope(hl, cam, s0, s1, dy, col, stake, tall) {
     const gy = Math.round(BASE - groundH(hl, x)) + (dy ? -dy : 1), ph = ((sx - s0) % 12 + 12) % 12;
     if (ph === 0) { rect(sx, gy - tall, 1, tall, stake); rect(sx, gy - tall, 1, 1, '#000'); } else rect(sx, gy - tall + 1 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, col); }
 }
-function drawCrowd(hl, cam, C) {
+function drawCrowd(hl, cam, C, pass) {
   if (!crowdOn()) return;
   if (FAN_CACHE.hole !== hl) { FAN_CACHE.hole = hl; FAN_CACHE.m.clear(); }
-  const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl), P = FAN_PAL[crowdTheme(hl)] || FAN_PAL.club;
+  const t = performance.now() / 1000, cheer = (crowdT > 0 || (galZ && galZ.on)) && !REDUCED_MOTION, sp = crowdSpots(hl).filter(p => !p.bk === (pass !== 'back')), P = FAN_PAL[crowdTheme(hl)] || FAN_PAL.club;
   const vis = p => { const sx = Math.round(p.x - cam); return sx > -12 && sx < W + 12; };
   const bx = ball ? (state === 'flight' ? lastSpot : ball.x) : null, gx = bx == null ? null : bx - (state === 'flight' ? shotFacing : facing) * 7;   // v8.99.5: ball + golfer always clear
-  const CZ = bx == null || !GAME_STATES.includes(state) ? [] : [[Math.min(bx, gx) - 12, Math.max(bx, gx) + 12]], clr = p => CZ.length && crowdHit(crowdBox(p), CZ);
+  const CZ = bx == null || !GAME_STATES.includes(state) ? [] : [[Math.min(bx, gx) - 7, Math.max(bx, gx) + 7]], clr = p => CZ.length && crowdHit(crowdBox(p), CZ);
   // raised gallery banks under the far rows (one darker grass strip per group, soft stepped ends)
   const bank = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.6 : 0.82), runs = [];
   sp.forEach(p => { if (p.row < 2 || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
@@ -7495,7 +7503,7 @@ function drawCrowd(hl, cam, C) {
   for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(13, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
   let rowDone = 4;
   const ropeFar = () => { for (const [a, b] of runs) crowdRope(hl, cam, a - 6, b + 6, 4, P.rope, P.stake, 4); };
-  try { v93Stand(hl, cam, sp, t, cheer); } catch (e) {}   // v8.93 grandstand behind the green
+  if (pass !== 'back') try { v93Stand(hl, cam, sp, t, cheer); } catch (e) {}   // v8.93 grandstand behind the green
   const front = { g: [1e9, -1e9], t: [1e9, -1e9] };
   sp.forEach(p => {
     if (p.row < 2 && rowDone >= 2) { ropeFar(); rowDone = 1; }
@@ -7940,6 +7948,7 @@ function drawCourse(hl, cam) {
     if ((Math.floor(wx) * 7) % 11 === 0) rect(sx, hh + 3, 1, 2, th.hillL);
   }
   if (!th.bg) drawCart('course', cam * 0.4);
+  if (hl === hole) drawCrowd(hl, cam, C, 'back');   // v8.99.6: fans standing behind scenery, drawn before it
   // trees, bushes, cacti and the oak stand on the ground
   for (const [kind, dx] of hl.deco) {
     const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH, sx = Math.round(dx - cam);
