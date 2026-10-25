@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.15';
+const GAME_VERSION = 'v8.99.16';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2164,7 +2164,21 @@ const LB_MODES = [
   { id: 'front9', label: 'FRONT' }, { id: 'back9', label: 'BACK' }, { id: 'full18', label: 'FULL 18' },
   { id: 'coral', label: 'CORAL' }, { id: 'daily', label: 'DAILY' }];
 const LB_DEVICE_BEST = 'dlg_lb_best_v2';
-function boardModes() { return cupBoardShown() ? LB_MODES.concat([{ id: 'spooky', label: 'SPOOKY' }]) : LB_MODES; }   // v8.52
+/* v8.99.16 all-courses board: courses ordered by player count (all-time distinct players, read-only leaderboard_rank_of), most popular first */
+const LB_NAMES = { front9: 'FRONT 9', back9: 'BACK 9', full18: 'FULL 18', coral: 'CORAL CLIFFS', daily: 'DAILY HOLE', spooky: 'SPOOKY CUP' };
+const lbPop = { n: {}, at: -1e9, busy: null, ok: false };
+function lbPopOrder(L) { const i0 = new Map(L.map((m, i) => [m.id, i])); return L.slice().sort((a, b) => ((lbPop.n[b.id] | 0) - (lbPop.n[a.id] | 0)) || (i0.get(a.id) - i0.get(b.id))); }
+function lbPopLoad(force) {
+  if (lbPop.busy) return lbPop.busy;
+  if (!force && performance.now() - lbPop.at < 300000) return Promise.resolve(lbPop.n);
+  if (!authOnline() || lbV2.ok === false) return Promise.resolve(lbPop.n);
+  lbPop.at = performance.now();
+  lbPop.busy = Promise.all(LB_MODES.map(m => sb('/rest/v1/rpc/leaderboard_rank_of', { method: 'POST', noAuth: true, body: { p_mode: lbServerMode(m.id), p_period: 'all', p_to_par: 999, p_strokes: 999 } }, 'lb')
+    .then(r => { const x = r && r.ok && Array.isArray(r.data) ? r.data[0] : null; if (x && isFinite(+x.total)) { lbPop.n[m.id] = +x.total; lbPop.ok = true; } }).catch(() => {})))
+    .then(() => { lbPop.busy = null; try { titlePopApply(); } catch (e) {} return lbPop.n; });
+  return lbPop.busy;
+}
+function boardModes() { const L = lbPopOrder(LB_MODES); return cupBoardShown() ? L.concat([{ id: 'spooky', label: 'SPOOKY' }]) : L; }   // v8.52
 function lbModeId(m) { if (!m || m === 'front9') return 'front9'; if (m === 'coral9') return 'coral'; return String(m).startsWith('daily') ? 'daily' : m; }
 function lbServerMode(id) { return id === 'daily' ? 'daily-' + nyDateStr() : id; }
 function lbWeekStartNy(now) {   // Monday 00:00 America/New_York, as a NY calendar date string
@@ -5337,10 +5351,13 @@ function nameHitRect() { return { x: Math.round(CZ_COLX - 76), y: CZ_Y[0] - 4, w
 let board = null, pendingSave = null, lastEntry = null, saveWhere = '';
 let boardPeriod = 'weekly', boardScope = 'all';   // v8.44 tabs: WEEK / ALL-TIME, EVERYONE / FRIENDS
 function openBoard(entry, mode) {
-  const id = lbModeId(mode || (entry && entry.mode));
-  board = { rows: null, hi: -1, entry, mode: mode || null, modeId: boardModes().some(m => m.id === id) ? id : 'front9', pendingMode: false, me: null, src: '', gen: 0 };
+  const id = lbModeId(mode || (entry && entry.mode)), pick = !entry && (!mode || mode === 'auto');   // v8.99.16: no finished round = most popular course
+  board = { rows: null, hi: -1, entry, mode: mode || null, modeId: !pick && boardModes().some(m => m.id === id) ? id : boardModes()[0].id, pendingMode: false, me: null, src: '', gen: 0 };
   setState('board');
-  loadBoardTab();
+  if (!pick) { loadBoardTab(); lbPopLoad(); return; }
+  const b = board; let done = false;
+  const go = () => { if (done) return; done = true; if (board !== b) return; if (!b.touched) b.modeId = boardModes()[0].id; loadBoardTab(); };
+  lbPopLoad().then(go, go); setTimeout(go, 1200);
 }
 function loadBoardTab() {
   const b = board; if (!b) return;
@@ -5360,7 +5377,8 @@ function loadBoardTab() {
 function boardSetTab(kind, v) {
   if (!board) return;
   if (kind === 'ig') { SFX.click(); showAcct('spookyIg', { ig: cupMyIg || '' }); return; }   // v8.52
-  if (kind === 'mode') board.modeId = v; else if (kind === 'period') boardPeriod = v; else if (kind === 'scope') boardScope = v;
+  if (kind === 'cyc') { boardCycle(v); return; }   // v8.99.16
+  if (kind === 'mode') { board.modeId = v; board.touched = true; } else if (kind === 'period') boardPeriod = v; else if (kind === 'scope') boardScope = v;
   SFX.tick(); loadBoardTab();
 }
 function boardCycle(dir) { const L = boardModes(), i = L.findIndex(m => m.id === board.modeId); boardSetTab('mode', L[(i + dir + L.length) % L.length].id); }
@@ -5375,12 +5393,12 @@ function boardTabRects0() {
     [['scope', 'all', 'EVERYONE'], ['scope', 'friends', 'FRIENDS']].forEach(([k, v, l], i) => out.push({ kind: k, v, label: l, x: 130 + i * 57, y: 44, w: 55, h: 12 }));
     return out;
   }
-  LB_MODES.forEach((m, i) => out.push({ kind: 'mode', v: m.id, label: m.label, x: mx + i * (mw + 1), y: 30, w: mw, h: 12 }));
+  out.push({ kind: 'cyc', v: -1, label: '<', x: 14, y: 29, w: 26, h: 13 }, { kind: 'cyc', v: 1, label: '', center: true, x: 42, y: 29, w: 172, h: 13 }, { kind: 'cyc', v: 1, label: '>', x: 216, y: 29, w: 26, h: 13 });   // v8.99.16 one course switcher
   [['period', 'weekly', 'WEEK'], ['period', 'all', 'ALL-TIME'], ['scope', 'all', 'EVERYONE'], ['scope', 'friends', 'FRIENDS']]
     .forEach(([k, v, l], i) => out.push({ kind: k, v, label: l, x: 14 + i * 57 + (i >= 2 ? 2 : 0), y: 44, w: 55, h: 12 }));
   return out;
 }
-function boardTabOn(t) { if (t.kind === 'ig') return !!cupMyIg; return t.kind === 'mode' ? board.modeId === t.v : t.kind === 'period' ? boardPeriod === t.v : boardScope === t.v; }
+function boardTabOn(t) { if (t.kind === 'cyc') return false; if (t.kind === 'ig') return !!cupMyIg; return t.kind === 'mode' ? board.modeId === t.v : t.kind === 'period' ? boardPeriod === t.v : boardScope === t.v; }
 function closeBoard() { board = null; SFX.click(); setState('title'); }
 /* --- home-screen leaderboard: top scores for the selected board, refreshed each time the title shows.
    < > cycles FRONT 9 / BACK 9 / FULL 18 / today's DAILY. Tap the board (not the arrows) for the full list. */
@@ -5392,7 +5410,17 @@ const TITLE_BOARDS0 = [
   { id: 'daily', label: 'DAILY' }
 ];
 const TITLE_SPOOKY = { id: 'spooky', label: 'SPOOKY CUP' };
-function titleBoards() { return cupBoardShown() ? [TITLE_SPOOKY].concat(TITLE_BOARDS0) : TITLE_BOARDS0; }   // v8.52
+let titleBoardTouched = false;
+function titleBoards() { const L = lbPopOrder(TITLE_BOARDS0); return cupBoardShown() ? [TITLE_SPOOKY].concat(L) : L; }   // v8.52   // v8.99.16: most popular first
+function titlePopApply() {   // v8.99.16: counts arrived - keep the board you picked, else show the most popular
+  const prev = titleLB.mode, L = titleBoards();
+  if (!titleBoardTouched) titleBoardI = 0;
+  else { const id = lbModeId(prev); const j = L.findIndex(b => b.id === id); if (j >= 0) titleBoardI = j; }
+  const mode = titleBoardMode(); if (mode === prev) return;
+  const c = titleLB.cache[mode]; titleLB.mode = mode;
+  if (c) { titleLB.rows = c.rows; titleLB.src = c.src; titleLB.pendingMode = !!c.pendingMode; } else { titleLB.rows = null; titleLB.pendingMode = false; }
+  if (state === 'title') refreshTitleLB(true);
+}
 let titleBoardI = 0;
 let titleLB = { rows: null, src: '', t: -1e9, busy: false, mode: 'front9', pendingMode: false, gen: 0, cache: {} }, tlbHover = false, tlbArrow = null;
 function titleBoardSpec() { return titleBoards()[titleBoardI] || titleBoards()[0]; }
@@ -5434,7 +5462,7 @@ function hitTlbArrow(p, r) {
   return hitBtn(p, r) && hit(p, TLB_R);
 }
 function cycleTitleBoard(dir) {
-  titleBoardI = (titleBoardI + (dir || 1) + titleBoards().length) % titleBoards().length;
+  titleBoardI = (titleBoardI + (dir || 1) + titleBoards().length) % titleBoards().length; titleBoardTouched = true;
   SFX.tick();
   const mode = titleBoardMode();
   const cached = titleLB.cache[mode];
@@ -5444,7 +5472,7 @@ function cycleTitleBoard(dir) {
   refreshTitleLB(true);
 }
 function refreshTitleLB(force) {
-  const now = performance.now();
+  const now = performance.now(); lbPopLoad();
   const mode = titleBoardMode();
   if (!force && titleLB.mode === mode && (titleLB.busy || now - titleLB.t < 1500)) return;
   titleLB.busy = true; titleLB.t = now; titleLB.mode = mode;
@@ -9691,6 +9719,12 @@ function renderBoardPanel() {
   } else drawTextC('LEADERBOARD', 12, COL.orange, 2);
   for (const t of boardTabRects0()) {
     const on = boardTabOn(t);
+    if (t.center) {   // v8.99.16: course name + player count; the most popular course comes first
+      const n = lbPop.n[board.modeId];
+      const nm = LB_NAMES[board.modeId] || board.modeId.toUpperCase(), sub = n > 0 ? '  ' + n + (n === 1 ? ' PLAYER' : ' PLAYERS') : '';
+      const tw = textW(nm) + textW(sub), x0 = t.x + Math.round((t.w - tw) / 2);
+      drawText(nm, x0, t.y + 3, '#f8d878'); if (sub) drawText(sub, x0 + textW(nm), t.y + 3, COL.gray);
+      continue; }
     if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828'); drawText(t.label, t.x + 4, t.y + 2, on ? '#000' : COL.gray); continue; }   // v8.61 IG chip (pink)
     rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
     drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
@@ -9759,7 +9793,7 @@ function renderBoardPanel() {
     else if (e && lbModeId(e.mode) === board.modeId) drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 200, COL.orange);
     else drawTextC(cup ? 'BEST SINGLE ROUND COUNTS' : boardPeriod === 'weekly' ? 'WEEK STARTS MONDAY 12AM ET' : 'ALL-TIME BEST SCORES', 200, COL.gray);
   }
-  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > MODE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
+  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > COURSE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
 }
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function shareModeLabel() {
