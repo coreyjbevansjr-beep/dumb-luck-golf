@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.16';
+const GAME_VERSION = 'v8.99.17';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7783,7 +7783,11 @@ function hecDraw() {
    audio/crowd-aww.mp3   'R07-02-Large Crowd Booing and Cheering' (stadium, outdoor; pitched down, low-passed into a groan)  https://archive.org/details/Red_Library_Crowds_Sports
    audio/crowd-jeer.mp3  'R07-02-Large Crowd Booing and Cheering' (boos)  https://archive.org/details/Red_Library_Crowds_Sports
    audio/crowd-laugh.mp3 'R16-02-Very Large Group Laughing' (de-roomed: low cut, gated)  https://archive.org/details/Red_Library_Crowds_Indoor_2
-   audio/crowd-shout.mp3 'R29-46-Men Yell and Cheer at Sporting Event'  https://archive.org/details/Red_Library_Sports */
+   audio/crowd-shout.mp3 'R29-46-Men Yell and Cheer at Sporting Event'  https://archive.org/details/Red_Library_Sports
+   v8.99.17 iPhone only (Red Library, CC0 1.0): audio/ios/crowd-voices.m4a = whole pre-cut reactions, cut at natural boundaries, faded + level-matched:
+     cheer1 'R29-46-Men Yell and Cheer at Sporting Event' (Red_Library_Sports); cheer2 'R19-35-Golf Crowd Reacts to Good Shot' (Red_Library_Crowds_Sports);
+     ooh1-3 'R27-20-Small Crowd Gasps' (Red_Library_Crowds_Indoor_2); chuckle1-2 'R15-84-Intimate Group Laughing' (Red_Library_Crowds_Indoor_2)
+   audio/ios/crowd-chuckle.m4a (replaces the iPhone laugh) = one whole dry group chuckle from 'R15-84-Intimate Group Laughing' */
 let liveGal = true; try { liveGal = localStorage.getItem('dlg_live_gal') !== '0'; } catch (e) {}   // v8.99.8: live for everyone (admin LAB off switch)
 function lgOn() { return liveGal && courseKind !== 'lab' && !SIM && crowdOn(); }
 const LG_FILES = { hush: 'audio/crowd-hush.mp3?v=186', aww: 'audio/crowd-aww.mp3?v=186', jeer: 'audio/crowd-jeer.mp3?v=186', laugh: 'audio/crowd-laugh.mp3?v=186', shout: 'audio/crowd-shout.mp3?v=186' };
@@ -7826,6 +7830,7 @@ function lgPick(list) { return hecPickLine(list); }
 function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot: two close layers around 'pan', optional slice + fade, optional rising gain
   if (isIOS && key === 'aww' && CA.buf.groan) key = 'groan';   // v8.99.13 iPhone: the pitched-down 'aww' read as a fart on the phone speaker
   const b = CA.buf[key]; if (!b || !caReady()) return false;
+  if (isIOS && key === 'laugh') { off = 0; dur = 0; rate = 1; rise = 0; }   // v8.99.17 iPhone: the chuckle is one whole reaction - always play it start to end
   try { const t = AC.currentTime, o = off || 0, d = Math.min(dur || b.duration, b.duration - o), r = (rate || 1) * (0.97 + Math.random() * 0.06); if (!caVoiceOk()) return false;
     (isIOS ? [[0, 0, 1]] : [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]]).forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
       const v = vol * (isIOS ? 1.05 : 0.6); if (isIOS && !rise) { g.gain.setValueAtTime(0, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + 0.012); } else if (rise) { g.gain.setValueAtTime(v * 0.15, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + rise); } else g.gain.setValueAtTime(v, t + dl);
@@ -7835,10 +7840,16 @@ function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot
 }
 const lgHyp = () => 0.7 + LG.hype / 170;   // hype -> loudness (0.7 .. ~1.29)
 const lgPanX = wx => clamp((wx - camX - W / 2) / (W / 2), -0.85, 0.85);
+const LG_VOX = {"cheer1":[0.3,1.34],"cheer2":[1.94,1.61],"ooh1":[3.85,1.81],"ooh2":[5.96,1.445],"ooh3":[7.705,1.51],"chuckle1":[9.515,1.535],"chuckle2":[11.35,1.65]};   // v8.99.17 iPhone: [offset, dur] in crowd-voices.m4a
+const LG_IOS_FILES = { laugh: 'audio/ios/crowd-chuckle.m4a?v=196', voices: 'audio/ios/crowd-voices.m4a?v=196' };
 function lgLoad() { if (LG.loaded || !CA.g || !AC) return; LG.loaded = true;
-  for (const k in LG_FILES) fetch(caUrl(LG_FILES[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
+  const F = isIOS ? Object.assign({}, LG_FILES, { laugh: null, voices: null }) : LG_FILES;
+  for (const k in F) fetch(isIOS && LG_IOS_FILES[k] ? LG_IOS_FILES[k] : caUrl(F[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
 function lgBlip(p, hostile) {   // a short voice-y murmur under a bubble: random source + slice, cooled down so it never machine-guns
   const T = lgT(); if (T - LG.blipT < 1.1) return; LG.blipT = T;
+  if (isIOS) {   // v8.99.17 iPhone: a whole clean reaction (cheer / ooh / chuckle), never a random mid-clip slice; pitch only +-3%
+    if (!CA.buf.voices) return; const P = hostile ? ['chuckle1', 'chuckle2', 'ooh2'] : ['cheer1', 'cheer2', 'ooh1', 'ooh3'], c = LG_VOX[P[Math.floor(Math.random() * P.length)]];
+    lgCaAt('voices', 0.4 * lgHyp(), lgPanX(p.x), c[0], c[1], 1); return; }
   const pool = hostile ? (isIOS ? ['laugh', 'murmur', 'murmur'] : ['jeer', 'laugh', 'murmur']) : ['shout', 'murmur', 'murmur']   /* v8.99.13 iPhone: no random slices of the boo track (sounded like a fart on the phone speaker) */, k = pool[Math.floor(Math.random() * pool.length)], b = CA.buf[k]; if (!b) return;
   const d = 0.45 + Math.random() * 0.35; lgCaAt(k, (k === 'murmur' ? 0.55 : 0.32) * lgHyp(), lgPanX(p.x), Math.random() * Math.max(0, b.duration - d), d, 0.95 + Math.random() * 0.12);
 }
