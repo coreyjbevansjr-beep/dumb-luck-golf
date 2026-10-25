@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.8';
+const GAME_VERSION = 'v8.99.9';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3860,7 +3860,7 @@ function hap(pat) { if (!settings.haptics || typeof navigator === 'undefined' ||
 function saveSettings() { try { localStorage.setItem('dlg_golf_settings', JSON.stringify(settings)); } catch (e) {} }
 let AC = null, muted = !settings.sound;
 function audioOn() { if (navigator.userActivation && !navigator.userActivation.isActive) return;   // no gesture yet (e.g. touchstart): wait for touchend/click
-  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); }
+  if (!AC) { try { const C = window.AudioContext || window.webkitAudioContext; if (isIOS) { try { AC = new C({ latencyHint: 'playback' }); } catch (e) { AC = null; } } if (!AC) AC = new C(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); }
 // mobile browsers only unlock audio on touchend/pointerup/click, not touchstart: retry there
 for (const t of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(t, () => { if (!AC || AC.state !== 'running') audioOn(); }, { passive: true, capture: true });
 // v8.68: the synth voices take an audio context + start time, so #test can re-render the exact same sounds offline (preview clips)
@@ -7564,7 +7564,7 @@ function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
 }
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
   try {
-    const g = AC.createGain(); g.gain.value = 1; g.connect(AC.destination);
+    const g = AC.createGain(); g.gain.value = isIOS ? 0.8 : 1; if (isIOS && AC.createDynamicsCompressor) { const lim = AC.createDynamicsCompressor(); lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.2; lim.connect(AC.destination); g.connect(lim); } else g.connect(AC.destination);   // v8.99.9: phone limiter (no clipping)
     const sh = AC.createBiquadFilter(); sh.type = 'highshelf'; sh.frequency.value = 5000; sh.gain.value = 3; sh.connect(g);   // a little open-air sparkle
     const pk = AC.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 330; pk.Q.value = 0.8; pk.gain.value = -4; pk.connect(sh);   // cut the 200-500 Hz room box
     const mg = AC.createGain(); mg.gain.value = 0; mg.connect(pk);
@@ -7585,10 +7585,13 @@ function caTick() {
   if (m !== CA.mtgt) { CA.mtgt = m; try { CA.g.gain.setTargetAtTime(m, AC.currentTime, 0.05); } catch (e) {} }
   if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { const t = AC.currentTime, tc = v < 0.1 ? 0.35 : 0.5; CA.mur.gain.setTargetAtTime(v * 0.72, t, tc); CA.air.gain.setTargetAtTime(v > 0 ? 0.32 : 0, t, 0.8); } catch (e) {} }   // 0.72: two layers; bed stays steady (even during the hush) and fades out with the crowd
 }
+let caEnds = []; const CA_MAX_IOS = 6;   // v8.99.9: one-shot voice cap on iPhone (single mono layer, no comb/chorus on the phone speaker)
+function caVoiceOk() { if (!isIOS) return true; const t = AC.currentTime; caEnds = caEnds.filter(e => e > t); return caEnds.length < CA_MAX_IOS; }
+function caTrack(s, dur) { if (isIOS) caEnds.push(AC.currentTime + (dur || (s.buffer ? s.buffer.duration / (s.playbackRate.value || 1) : 1)) + 0.05); }
 function caPlay(key, vol) {   // two layers: L/R, ~20 ms apart, slightly different speed: wide and natural, not a mono point source
   const b = CA.buf[key]; if (!b) return;
-  try { const r = 0.96 + Math.random() * 0.08, t = AC.currentTime;
-    [[-0.45, 0, 1], [0.45, 0.018 + Math.random() * 0.012, 0.985]].forEach(([p, d, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk; g.gain.value = vol * 0.7; s.connect(g).connect(caPan(p, CA.bus)); s.start(t + d); });
+  try { const r = 0.96 + Math.random() * 0.08, t = AC.currentTime; if (!caVoiceOk()) return;
+    (isIOS ? [[0, 0, 1, 1.25]] : [[-0.45, 0, 1, 0.7], [0.45, 0.018 + Math.random() * 0.012, 0.985, 0.7]]).forEach(([p, d, rk, gv]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk; g.gain.value = vol * gv; s.connect(g).connect(isIOS ? CA.bus : caPan(p, CA.bus)); caTrack(s); s.start(t + d); });
   } catch (e) {}
 }
 function caVoices(kind, k) {   // recorded gallery reactions: ooh / groan / cheer (a golf-crowd roar with applause)
@@ -7739,11 +7742,11 @@ const LG_COME = [['WATCH THIS.', 'OK... SHOW ME!'], ['I GOT THIS.', 'DOUBT IT!']
 function lgPick(list) { return hecPickLine(list); }
 function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot: two close layers around 'pan', optional slice + fade, optional rising gain
   const b = CA.buf[key]; if (!b || !caReady()) return false;
-  try { const t = AC.currentTime, o = off || 0, d = Math.min(dur || b.duration, b.duration - o), r = (rate || 1) * (0.97 + Math.random() * 0.06);
-    [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]].forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
-      const v = vol * 0.6; if (rise) { g.gain.setValueAtTime(v * 0.15, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + rise); } else g.gain.setValueAtTime(v, t + dl);
+  try { const t = AC.currentTime, o = off || 0, d = Math.min(dur || b.duration, b.duration - o), r = (rate || 1) * (0.97 + Math.random() * 0.06); if (!caVoiceOk()) return false;
+    (isIOS ? [[0, 0, 1]] : [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]]).forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
+      const v = vol * (isIOS ? 1.05 : 0.6); if (isIOS && !rise) { g.gain.setValueAtTime(0, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + 0.012); } else if (rise) { g.gain.setValueAtTime(v * 0.15, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + rise); } else g.gain.setValueAtTime(v, t + dl);
       g.gain.setValueAtTime(rise ? v : v, t + dl + Math.max(0.05, d / r - 0.18)); g.gain.linearRampToValueAtTime(0, t + dl + d / r);
-      s.connect(g).connect(caPan(clamp(pan + dp, -0.95, 0.95), CA.bus)); s.start(t + dl, o, d + 0.02); });
+      s.connect(g).connect(isIOS ? CA.bus : caPan(clamp(pan + dp, -0.95, 0.95), CA.bus)); caTrack(s, d / r + dl); s.start(t + dl, o, d + 0.02); });
     return true; } catch (e) { return false; }
 }
 const lgHyp = () => 0.7 + LG.hype / 170;   // hype -> loudness (0.7 .. ~1.29)
