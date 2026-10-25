@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.11';
+const GAME_VERSION = 'v8.99.12';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4014,18 +4014,28 @@ try { if (HW_FORCE !== false && (HW_FORCE === true || Number(nyDateStr().slice(5
    else WebM; no recorder -> a 1080x1920 PNG). Then the share sheet (navigator.share files -> Instagram > Story) or save. */
 const HL_DT = 1 / 30, HL_MAX = 30 * 14, HL_SHOW = 12;
 const hl = { rec: null, last: null, busy: false, ready: null, t: 0, msg: '', msgT: 0, btn: null, btn2: null, duckT: 9 };
+function hlBubDraw(hl0, cam, hb, cx0, cw, cy0) {   // scene-space bubble over the fan (same look as in-game)
+  const p = hb.p, hh = p.f.legH + p.f.torH + p.f.headH + 3, fx = Math.round(p.x - cam), fy = Math.round(BASE - groundH(hl0, clamp(p.x, 0, hl0.len)) - (FAN_DEPTH[p.row] + (p.lift || 0)) - hh);
+  const w = Math.max(...hb.lines.map(l => textW(l))) + 8, h = hb.lines.length * 9 + 5, x = Math.round(clamp(fx - w / 2, cx0 + 2, cx0 + cw - w - 2)), y = Math.round(Math.max(cy0 + 2, fy - h - 5));
+  if (fx < cx0 - 220 || fx > cx0 + cw + 220) return;
+  rect(x - 1, y, w + 2, h, '#000'); rect(x, y - 1, w, h + 2, '#000'); rect(x, y, w, h, '#fcfcfc');
+  const tx = clamp(fx, x + 4, x + w - 5); rect(tx - 2, y + h, 5, 2, '#000'); rect(tx - 1, y + h, 3, 1, '#fcfcfc'); rect(tx, y + h + 1, 1, 1, '#fcfcfc'); rect(tx, y + h + 2, 1, 1, '#000');
+  hb.lines.forEach((l, i) => drawText(l, Math.round(x + (w - textW(l)) / 2), y + 3 + i * 9, hb.c && i === 0 ? hb.c : '#1c1c2c'));
+}
 function hlRecStart() {
   hl.rec = { hl: hole, holeIdx, holeNo: displayHoleNum(holeIdx), name: hole.name || '', par: hole.par, x0: ball.x, dir: facing, club: clubIdx, power: meter.power,
              dist0: Math.abs(hole.cup - ball.x), perfect: !!shotPerfect, look: lookPlay(lookOf(player)), f: [], beats: [], acc: HL_DT, ballSkin: settings.pumpkinBall && halloweenOn(), spooky: !!(hole.spooky || (hole.def && hole.def.spooky)) || courseKind === 'spooky', cup: courseKind === 'spooky', crowd: crowdOn(), hbSeen: false };
   if (hl.ready && hl.ready.url) { try { URL.revokeObjectURL(hl.ready.url); } catch (e) {} }
-  hl.ready = null; hl.last = null;
+  hl.ready = null; hl.last = null; if (hec && hec.p) hl.rec.pre = hlBub();
 }
 function hlRecSample(dt) {
   const r = hl.rec; if (!r || r.f.length >= HL_MAX) return;
   r.acc += dt; if (r.acc < HL_DT) return; r.acc = 0;
   let e = 0, p = 0; if (hb) { r.hbSeen = true; e = Math.round(hbEnv() * 100) / 100; p = Math.round(hbProg() * 100) / 100 + 0.001; }
   r.f.push([Math.round(ball.x * 10) / 10, Math.round(ball.h * 10) / 10, Math.round(camX), Math.round(swingAng), e, p]);
+  if (hec && hec.p && !hec.hide) { r.b = r.b || {}; r.b[r.f.length - 1] = hlBub(); }   // v8.99.12: gallery bubbles ride along in the clip
 }
+function hlBub() { return hec.hb || (hec.hb = { lines: hec.lines, p: hec.p, c: hec.who ? hec.who.c : null }); }
 function hlBeat() { const r = hl.rec; if (r) r.beats.push(r.f.length); }   // called by hbTick on each lub
 function hlGreat(r, res, d) {   // the only shots that get a clip
   if (res !== 'cup') return false;
@@ -4044,6 +4054,7 @@ function hlRecEnd(res) {
   r.sub = d == null ? '' : d <= -2 || strokes === 1 ? '' : d === -1 ? 'FOR BIRDIE' : d === 0 ? 'FOR PAR' : '';
   hl.last = r; hl.t = 0; hl.duckT = r.notable ? 0 : 9;
 }
+function hlCele(hb) { const r = hl.last; if (r && !r.cele && state === 'holed') r.cele = hb; }
 function hlVisible() {
   const r = hl.last;
   if (!r || !r.notable || paused || ov || roundTip || r.hl !== hole) return false;
@@ -4131,6 +4142,8 @@ function hlDrawFrame(fc, r, o, k, plan) {
     const bx = Math.round(f[0] - cam), by = Math.round(BASE - f[1]) - 4;
     if (o.seg === 'pre') ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, Math.round(r.x0 - cam) - 2, Math.round(BASE - groundH(r.hl, r.x0)) - 4);
     else if (!(r.res === 'cup' && (o.seg === 'cele' || o.i >= r.f.length - 1))) ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, bx - 2, by);
+    try { let hb = null; if (o.seg === 'pre') hb = r.pre; else if (o.seg === 'shot' && r.b) { for (let q = o.i; q >= Math.max(0, o.i - 2); q--) if (r.b[q]) { hb = r.b[q]; break; } } else if (o.seg === 'cele' && o.u > 0.25) hb = r.cele;
+      if (hb) hlBubDraw(r.hl, cam, hb, (W / 2) - cw / 2, cw, clamp(o.cy + (o.ch - ch) * 0.55, 0, PLAY_H - ch)); } catch (e) {}
     if (o.seg === 'cele' && duckOn()) { const cx0 = Math.round(r.hl.cup - cam) + 10 * r.dir; drawDuck(cx0 - 8, Math.round(BASE - groundH(r.hl, r.hl.cup)) - 15, o.u * 2.2, true, r.dir < 0); }
     ctx = g;
     const sx0 = (W / 2) - cw / 2, sy0 = clamp(o.cy + (o.ch - ch) * 0.55, 0, PLAY_H - ch);
@@ -7363,7 +7376,8 @@ function crowdSpots(hl) {
           q.lift = Math.round(Hm - groundH(hl, clamp(x, 0, hl.len))) + L; q.bk = true; q.i = out.length + 1000 + nst++; kept.push(q); } } }
       for (let i = kept.length - 1; i >= 0; i--) { const p = kept[i]; if (!p.st && p.row >= 2 && hl._stands.some(s => p.x > s.x0 - 4 && p.x < s.x1 + 4)) kept.splice(i, 1); } } } catch (e) { hl._stands = []; }
   kept.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
-  return (hl._crowd = kept.slice(0, (ev ? 120 : 96) + nst));
+  const fin = kept.slice(0, (ev ? 120 : 96) + nst); try { lgCast(hl, fin); } catch (e) {}
+  return (hl._crowd = fin);
 }
 /* ---- reactions ---- */
 let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
@@ -7639,7 +7653,7 @@ function hecPreList() {
 }
 function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear of the ball, golfer, aim line and HUD
   if (!crowdOn() || SIM || !hole || !ball) return false;
-  const sp = crowdSpots(hole), Z = worldZoom(), lines = hecWrap(text), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
+  const sp = crowdSpots(hole), Z = worldZoom(), who = opts && opts.who, lines = (who ? [who.name] : []).concat(hecWrap(text)), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
   const top = Math.max(36, (SAFE.t || 0) + 6) + 17, bq = w2s(ball.x - camX, BASE - ball.h - 4);
   const rx = opts && opts.relax, avoid = [rx ? { x: bq.x - 8, y: bq.y - 30 * Z, w: 16, h: 34 * Z } : { x: bq.x - 24, y: bq.y - 56 * Z, w: 48, h: 64 * Z }, { x: MC.x - 4, y: 0, w: MC.w + 8, h: MC.y + MC.h + 6 }, { x: 0, y: 0, w: PAUSE_BTN.x + PAUSE_BTN.w + 4, h: PAUSE_BTN.y + PAUSE_BTN.h + 4 }];
   const pts = (opts && opts.relax && !['aim', 'power', 'accuracy'].includes(state)) ? [] : lastAimPts || [], hitR = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -7656,12 +7670,12 @@ function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear o
       if (avoid.some(a => hitR(r, a))) continue;
       const tl = { x: q.x - 3, y: r.y + r.h, w: 6, h: lift + 4 };
       if (pts.some(d => (d.x >= r.x - 4 && d.x <= r.x + r.w + 4 && d.y >= r.y - 4 && d.y <= r.y + r.h + 4) || (d.x >= tl.x - 2 && d.x <= tl.x + tl.w + 2 && d.y >= tl.y && d.y <= tl.y + tl.h))) continue;
-      cand.push({ p, r, q, lift, w: (p.row < 2 ? 3 : 1) * (p.f.kid ? 0.6 : 1) / (1 + lift / 12) }); break;
+      cand.push({ p, r, q, lift, w: (p.row < 2 ? 3 : 1) * (p.f.kid ? 0.6 : 1) / (1 + lift / 12) * (opts && opts.low ? 0.2 + (r.y / PLAY_H) ** 2 * 4 : 1) }); break;
     }
   }
   if (!cand.length) return false;
   let tot = cand.reduce((a, c) => a + c.w, 0), u = Math.random() * tot, pick = cand[0]; for (const c of cand) { u -= c.w; if (u <= 0) { pick = c; break; } }
-  hec = { text, lines, p: pick.p, r: pick.r, lift: pick.lift, tail: pick.q.x, t: 0, dur: 1.9 + text.length * 0.035, hide: 0 };
+  hec = { text, lines, who: who || null, p: pick.p, r: pick.r, lift: pick.lift, tail: pick.q.x, t: 0, dur: (opts && opts.dur) || 1.9 + text.length * 0.035, hide: 0 };
   return true;
 }
 function hecWrap(text) { if (text.length <= 16) return [text]; const w = text.split(' '); let best = null; for (let i = 1; i < w.length; i++) { const l = [w.slice(0, i).join(' '), w.slice(i).join(' ')], m = Math.max(l[0].length, l[1].length); if (!best || m < best.m) best = { l, m }; } return best ? best.l : [text]; }   // two balanced lines
@@ -7700,7 +7714,7 @@ function hecDraw() {
   rect(x - 1, y, r.w + 2, r.h, '#000'); rect(x, y - 1, r.w, r.h + 2, '#000'); rect(x, y, r.w, r.h, '#fcfcfc'); rect(x, y + r.h - 1, r.w, 1, '#d8d8e0');
   const tx = Math.round(clamp(hec.tail, x + 4, x + r.w - 5)); rect(tx - 2, y + r.h, 5, 2, '#000'); rect(tx - 1, y + r.h, 3, 1, '#fcfcfc'); rect(tx - 1, y + r.h + 2, 3, 1, '#000'); rect(tx, y + r.h + 1, 1, 1, '#fcfcfc'); rect(tx, y + r.h + 3, 1, 1, '#000');
   if (hec.lift) for (let k = 4; k < hec.lift + 2; k += 3) rect(tx, y + r.h + k, 1, 2, '#fcfcfc');   // a dotted 'voice line' down to the fan
-  hec.lines.forEach((l, i) => drawText(l, Math.round(x + (r.w - textW(l)) / 2), y + 3 + i * 9, '#1c1c2c'));
+  hec.lines.forEach((l, i) => drawText(l, Math.round(x + (r.w - textW(l)) / 2), y + 3 + i * 9, hec.who && i === 0 ? hec.who.c : '#1c1c2c'));
   ctx.globalAlpha = 1;
 }
 /* ---- v8.99.7 LIVE GALLERY (admin LAB preview, only on this device; decoration + sound only, never touches scores / stats) ----
@@ -7778,7 +7792,8 @@ const lgNear = (x, r) => p => Math.abs(p.x - x) < r;
 function lgSay(list, opts) {   // bubble + blip, rate-limited by hype (chattier when the crowd is up OR when it turns on you)
   const T = lgT(), gap = 2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50); if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
   if (hec && opts && opts.force) hec = null;
-  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null })) && !lgSayAny(line, opts)) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
+  if (!(opts && opts.noCast) && list !== LG_PROMO && Math.random() < 0.4 && lgCastSay(opts && opts.kind ? opts.kind : (opts && opts.heck ? 'bad' : (state === 'aim' ? 'pre' : 'good')), opts && opts.near != null ? { near: opts.near } : null)) { LG.sayT = T; return true; }
+  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null })) && !lgSayAny(line, opts)) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { hlCele(hlBub()); } catch (e) {} try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
 }
 function lgSayAny(line, opts) {   // v8.99.8: nobody near? nearest visible fan (incl. structure fans), relaxed placement
   if (!hole || !ball) return false; const tx = opts && opts.near != null ? opts.near : ball.x;
@@ -7802,18 +7817,78 @@ function lgPreList() {
   const th = crowdTheme(hole); if (th !== 'club' && HEC[th] && r > 0.8) return [HEC[th], false];
   return [strokes === 0 ? LGL.tee : LGL.fair, r < 0.5];
 }
+// v8.99.12: the regulars. Same four faces every hole (same look, same spot type, same voice); they remember this round and your last one
+const LG_CAST = [
+  { id: 'sal', name: 'BIG SAL', c: '#d82800', where: 't', rows: [0, 1], heck: true, look: { hat: 'cap', back: true, hatC: '#101010', top: 'tee', topC: '#d82800', stripe: false, beard: true, shades: true, prop: null } },
+  { id: 'dana', name: 'DANA', c: '#1c7cd8', where: 'g', rows: [0, 1], heck: false, look: { hat: 'dlg', hatC: '#101010', top: 'jersey', num: true, topC: '#3cbcfc', accent: '#fcfcfc', prop: 'flag' } },
+  { id: 'mac', name: 'OLD MAC', c: '#5c8c2c', where: 'f', rows: [2, 3, 0, 1], heck: true, look: { old: true, hair: '#d8d8d8', hat: 'visor', hatC: '#fcfcfc', top: 'polo', topC: '#4c7c2c', stripe: true, prop: 'binos' } },
+  { id: 'toby', name: 'LIL TOBY', c: '#8c48c8', where: 'g', rows: [1, 0, 2], heck: false, look: { hat: 'bucket', hatC: '#b8f818', top: 'hoodie', topC: '#8c48c8', prop: null, shades: false } },
+];
+function lgCast(hl, sp) {   // pick each regular's fan on this hole: spot type first (tee / green / fairway bank), then any free normal fan
+  hl._cast = {}; if (!liveGal) return; const used = new Set();
+  for (const c of LG_CAST) { let best = null;
+    for (const pass of [0, 1]) { for (const p of sp) { if (used.has(p) || p.st || p.f.costume || p.f.rider || p.f.kid) continue; if (!c.rows.includes(p.row)) continue; if (!pass && p.z !== c.where) continue;
+        const sc = c.where === 't' ? -Math.abs(p.x - TEE_X) : c.where === 'g' ? -Math.abs(p.x - hl.cup) : -Math.abs(p.x - hl.len / 2); if (!best || sc > best.sc) best = { p, sc }; } if (best) break; }
+    if (!best) continue; used.add(best.p); best.p.cast = c; Object.assign(best.p.f, c.look); if (best.p.f.top !== 'blazer') best.p.f.under = best.p.f.under || '#fcfcfc'; hl._cast[c.id] = best.p; }
+}
+const LG_MEM_KEY = 'dlg_gal_mem';
+function lgMemLast() { try { return JSON.parse(localStorage.getItem(LG_MEM_KEY) || 'null'); } catch (e) { return null; } }
+function lgMemSave() { try { const m = LG.mem || {}; localStorage.setItem(LG_MEM_KEY, JSON.stringify({ d: lgParDiff(), water: m.water || 0, sand: m.sand || 0, birdies: m.birdies || 0, at: Date.now() })); } catch (e) {} }
+const sgn = d => d > 0 ? '+' + d : d === 0 ? 'EVEN' : String(d);
+function lgCastLine(c, kind) {   // kind: 'pre' | 'swing' | 'good' | 'bad'
+  const m = LG.mem || {}, L = LG.last, pd = lgParDiff(), out = [];
+  if (c.id === 'sal') {
+    if (kind === 'swing') out.push('DONT CHUNK IT!', 'SHANK INCOMING!', 'BIG MISS LEFT!', 'HEY! OVER HERE!', 'YOUR FLY IS DOWN!');
+    else if (kind === 'good') out.push('LUCKY. PURE LUCK.', 'EVEN A CLOCK IS RIGHT TWICE', 'I STILL THINK YOU STINK');
+    else out.push('TOLD YA!', 'SAL CALLED IT!', 'THATS MY GUY... NOT!', 'YOU OWE ME 20 BUCKS');
+    if (m.water) out.push('THATS ' + m.water + ' SPLASH' + (m.water > 1 ? 'ES' : '') + ' TODAY!');
+    if (m.sand) out.push('SANDCASTLE COUNT: ' + m.sand);
+    if (L && L.d > 0) out.push('LAST ROUND: ' + sgn(L.d) + '. HAHA!'); if (L && L.water) out.push('LAST TIME YOU FED ' + L.water + ' BALLS TO THE FISH');
+  } else if (c.id === 'dana') {
+    if (kind === 'swing') out.push('YOU GOT THIS!!', 'DANA BELIEVES!', 'SMOOTH TEMPO!');
+    else if (kind === 'bad') out.push('SHAKE IT OFF!', 'STILL YOUR #1 FAN!', 'NEXT ONE IS PURE!');
+    else out.push('THATS MY GOLFER!', 'I HAVE YOUR POSTER!', 'DANA SAW THAT!', 'SIGN MY HAT!');
+    if (m.birdies) out.push(m.birdies + ' BIRDIE' + (m.birdies > 1 ? 'S' : '') + ' TODAY! I KNEW IT!');
+    if (L && L.d <= 0) out.push('LAST ROUND ' + sgn(L.d) + '! DO IT AGAIN!'); if (pd < 0) out.push(sgn(pd) + ' TODAY! LETS GO!');
+  } else if (c.id === 'mac') {
+    if (kind === 'swing') out.push('*COUGH*', 'IN MY DAY...', 'TOO FAST. WAY TOO FAST.');
+    else if (kind === 'good') out.push('HMPH. NOT BAD.', 'REMINDS ME OF 1962', 'FINE. I CLAPPED.');
+    else out.push('BACK IN MY DAY WE MADE PARS', 'KIDS THESE DAYS', 'I HAVE SEEN WORSE. BARELY.');
+    if (LG.prevD >= 1) out.push('BOGEYED THE LAST ONE. AGAIN?'); if (L) out.push('LAST ROUND: ' + sgn(L.d) + '. I REMEMBER.');
+    if (pd >= 3) out.push(sgn(pd) + '? I SHOT THAT IN THE WAR');
+  } else {
+    if (kind === 'swing') out.push('IM SO NERVOUS!', 'I CANT LOOK!', 'IS IT GOING IN?!');
+    else if (kind === 'good') out.push('WHOA! HOW?!', 'I WANNA DO THAT!', 'BEST DAY EVER!');
+    else if (kind === 'bad') out.push('IS THAT... BAD?', 'OOPS!', 'I STILL LIKE YOU!');
+    else out.push('MY FIRST TOURNAMENT!', 'IS IT ALWAYS THIS TENSE?', 'WHICH ONE IS THE HOLE?');
+    if (m.water) out.push('WHY DO YOU LIKE THE WATER?');
+  }
+  return out;
+}
+function lgCastSay(kind, opts) {   // a regular speaks if visible + placeable; heckle kinds prefer Sal / Mac, nice kinds Dana / Toby
+  const cast = hole && hole._cast; if (!cast) return false;
+  const want = kind === 'good' ? ['dana', 'toby', 'mac', 'sal'] : kind === 'bad' ? ['sal', 'mac', 'toby', 'dana'] : kind === 'swing' ? ['sal', 'mac', 'toby', 'dana'] : ['sal', 'dana', 'mac', 'toby'];
+  const ids = want.filter(id => cast[id]).sort(() => Math.random() - 0.35);
+  for (const id of ids) { const p = cast[id], c = p.cast, line = hecPickLine(lgCastLine(c, kind)); if (!line) continue;
+    if (hecSay(line, Object.assign({ fan: p, who: c, relax: true }, opts || {}))) { hec.lg = true; hec.heck = c.heck; LG.sayT = lgT(); try { lgBlip(p, c.heck); } catch (e) {} return true; } }
+  return false;
+}
+const LG_SWING = ['DONT CHUNK IT!', 'NOT THE WATER!', 'MISS IT!', 'DONT SHANK IT!', 'BLADE IT!', 'YIPS ALERT!', 'BREATHE...', 'HEAD DOWN!', 'NOONAN!', 'FORE!', '*CLICK*', 'BIG MISS RIGHT!', 'CHOKE!', 'BALL ON THE GROUND? COOL', 'DONT THINK ABOUT THE WATER'];
 const LG_PROMO = ['THAT NEW DUMB LUCK HAT IS TOUGH!', 'NICE DLG HAT!', 'FOLLOW @DUMBLUCKGOLFING!', 'GOT MY DUMB LUCK HAT ON!', 'DUMB LUCK GOLF!', 'WHERE DID YOU GET THAT MERCH?', 'DLG SHOP HAS THE DRIP!', 'POST THAT ON @DUMBLUCKGOLFING!', 'SKILL? NAH. DUMB LUCK!', 'DUMB LUCK GOLF FOREVER!', 'HAT GAME > SWING GAME', 'MY DLG HAT HAS BETTER AIM', 'TAG @DUMBLUCKGOLFING!', 'RUN IT BACK. DUMB LUCK!'];
 function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
   const T = lgT(); lgLoad();
   if (LG.me) { LG.me.t += dt; if (LG.me.t > LG.me.dur) LG.me = null; }
   const rk = (typeof courseKind === 'string' ? courseKind : '') + '|' + (HOLES[0] && HOLES[0].name);
-  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.gs = 0; LG.bs = 0; LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
+  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.gs = 0; LG.bs = 0; LG.mem = { water: 0, sand: 0, birdies: 0 }; LG.last = lgMemLast(); LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
   const key = holeIdx + '|' + strokes;
   if (state === 'aim' && key !== LG.key) { LG.key = key; LG.shotN++; LG.ducked.clear(); LG.minD = 1e9; LG.startD = Math.abs(hole.cup - ball.x);
     const putt = clubIdx === PUTT_I, p = 0.45 + Math.abs(LG.hype - 50) / 120;
     LG.plan = Math.random() < p ? { at: putt || Math.random() < 0.55 ? 'aim' : 'power', delay: putt ? 0.7 + Math.random() * 1.0 : 0.25 + Math.random() * 0.5, done: false } : null; }
   const hk = rk + '|' + holeIdx; if (LG.promoH !== hk) { LG.promoH = hk; if (LG.promoLeft == null) LG.promoLeft = 1 + Math.floor(Math.random() * 3); LG.promo = --LG.promoLeft <= 0; if (LG.promo) LG.promoLeft = 2 + Math.floor(Math.random() * 3); }   // v8.99.11: brand shout-out about every 3rd hole (2-4 apart), max 1 per hole, between shots only
-  if (LG.promo && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true })) LG.promoUsed.push(line); }   // no repeats within a round
+  if (LG.promo && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true, noCast: true })) LG.promoUsed.push(line); }   // no repeats within a round
+  if (state === 'aim' && LG.swKey !== key) { LG.swKey = key; LG.sw = Math.random() < (clubIdx === PUTT_I ? 0.3 : 0.42) * (LG.debut ? 1.4 : 1) ? { at: Math.random() < 0.6 ? 'power' : 'accuracy', delay: 0.12 + Math.random() * 0.35, done: false } : null; }   // v8.99.12: mid-swing distraction (real golf energy)
+  if (LG.sw && !LG.sw.done && state === LG.sw.at && st >= LG.sw.delay) { LG.sw.done = true; if (hec && hec.lg && !hec.heck) hec = null;
+    if (!(Math.random() < 0.45 && lgCastSay('swing', { low: true, dur: 1.4 }))) { const line = hecPickLine(LG_SWING); if ((hecSay(line, { low: true, relax: true, dur: 1.4 }) || lgSayAny(line, {})) && hec) { hec.lg = true; hec.heck = true; hec.dur = Math.min(hec.dur, 1.6); LG.sayT = T; } } }
   if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
   // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
   if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) lgCaAt('hush', (cl ? 0.32 : 0.2) * lgHyp(), 0, 0, 2.6, 1, 0.35); else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
@@ -7843,11 +7918,11 @@ function lgStreak(good, say) {   // count it; say = may talk now (between shots,
   else if (!good && LG.bs >= 5) { list = LGS.bad5; p = 0.9; } else if (!good && LG.bs >= 3) { list = LGS.bad3; p = 0.85; } else if (!good && LG.bs === 2) { list = LGS.bad2; p = 0.55; }
   if (!list || Math.random() >= p) return false;
   if (good) LG.hype = clamp(LG.hype + Math.min(6, LG.gs), 0, 100); else LG.hype = clamp(LG.hype - Math.min(6, LG.bs), 0, 100);
-  return lgSay(list, { near: ball ? ball.x : null, heck: !good, force: true });
+  return lgSay(list, { near: ball ? ball.x : null, heck: !good, force: true, kind: good ? 'good' : 'bad' });
 }
 function lgShotEnd() {
   if (!lgOn() || !hole || !ball) return; const dc = Math.abs(hole.cup - ball.x), s = surfAt(hole, ball.x), putt = clubIdx === PUTT_I, sd = LG.startD || dc;
-  lgShotEnd0();
+  if (LG.mem && s === 'sand') LG.mem.sand++; lgShotEnd0();
   const good = putt ? dc <= 3 : (s === 'green' || (s === 'fair' && dc < sd * 0.5) || dc <= 6);
   const bad = putt ? (sd < 12 && dc > 1.5) || dc > sd * 0.5 : (s === 'sand' || (sd > 40 && dc > sd * 0.7) || (s !== 'fair' && s !== 'green' && dc > sd * 0.5));
   if (good || bad) lgStreak(good, true);
@@ -7863,7 +7938,7 @@ function lgShotEnd0() {   // ball stopped (not holed, not a penalty)
   if (!putt && LG.startD > 40 && Math.abs(hole.cup - ball.x) > LG.startD * 0.7) { lgReact(near, p => hash(p.i * 6) < 0.4 ? 'hips' : 'lean', 1.6); if (hostile) lgCaAt('laugh', 0.35, pan, 0, 1.2); lgSay(LGL.bad, { near: ball.x, heck: true }); }
 }
 function lgPenalty(kind) {
-  if (!lgOn() || !ball) return; const x = clamp(ball.x, 0, hole.len), pan = lgPanX(x);
+  if (!lgOn() || !ball) return; const x = clamp(ball.x, 0, hole.len), pan = lgPanX(x); if (LG.mem && kind === 'water') LG.mem.water++;
   lgReact(lgNear(x, 160), p => hash(p.i * 8) < 0.45 ? 'point' : 'head', 2.2); LG.hype = clamp(LG.hype - 8, 0, 100);
   if (LG.hype < 40) setTimeout(() => { try { lgCaAt(Math.random() < 0.5 ? 'laugh' : 'jeer', 0.5 * lgHyp(), pan); } catch (e) {} }, 450);
   lgSay(kind === 'water' ? LGL.water : LGL.ob, { force: true, heck: true });
@@ -7878,7 +7953,7 @@ function lgHoled() {   // hole-outs, clutch putts, eagles: roar (existing) + lay
 }
 function lgHoleDone(d) {
   if (!lgOn()) return; LG.prevD = d; LG.hype = clamp(LG.hype + (d <= -2 ? 30 : d === -1 ? 16 : d === 0 ? 5 : d === 1 ? -8 : d === 2 ? -16 : -24), 0, 100);
-  if (d <= 0) { LG.streak++; LG.cold = 0; } else { LG.streak = 0; LG.cold++; }
+  if (d <= 0) { LG.streak++; LG.cold = 0; } else { LG.streak = 0; LG.cold++; } if (LG.mem && d <= -1) LG.mem.birdies++; if (holeIdx >= HOLES.length - 1) lgMemSave();   // v8.99.12 memory for next round
   if (d >= 2) { lgReact(() => true, p => hash(p.i * 13) < 0.5 ? 'cross' : 'hips', 3, 0.5); lgCaAt(Math.random() < 0.5 ? 'jeer' : 'laugh', 0.5 * lgHyp(), 0); }
 }
 function lgPose(p, pose) {   // per-fan override + hype mood
