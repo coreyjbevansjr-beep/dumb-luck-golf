@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.10';
+const GAME_VERSION = 'v8.99.11';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7550,7 +7550,7 @@ function drawCrowd(hl, cam, C, pass) {
 const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', air: 'audio/crowd-air.mp3?v=182', ooh: 'audio/crowd-ooh.mp3?v=182', groan: 'audio/crowd-groan.mp3?v=182', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
 const CA_LOOP_S = 12;   // murmur + air files are 12 s seamless loops
 const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
-function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-189' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
+function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-190' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
 function caLoopBuf(b) {
   if (isIOS) {   // v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
     const d = b.getChannelData(0), sr = b.sampleRate, X = Math.round(0.06 * sr); let s = 0; while (s < d.length - 1 && Math.abs(d[s]) < 1e-4) s++;
@@ -7576,7 +7576,7 @@ function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
   try {
     const g = AC.createGain(); g.gain.value = 1; g.connect(sDest(AC));   // v8.99.10: iPhone -> shared master limiter
-    const sh = AC.createBiquadFilter(); sh.type = 'highshelf'; sh.frequency.value = 5000; sh.gain.value = 3; sh.connect(g);   // a little open-air sparkle
+    const sh = AC.createBiquadFilter(); sh.type = 'highshelf'; sh.frequency.value = 5000; sh.gain.value = isIOS ? 0 : 3; sh.connect(g);   // a little open-air sparkle
     const pk = AC.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 330; pk.Q.value = 0.8; pk.gain.value = -4; pk.connect(sh);   // cut the 200-500 Hz room box
     const mg = AC.createGain(); mg.gain.value = 0; mg.connect(pk);
     const ag = AC.createGain(); ag.gain.value = 0; ag.connect(g);   // ambience bed skips the EQ
@@ -7802,18 +7802,21 @@ function lgPreList() {
   const th = crowdTheme(hole); if (th !== 'club' && HEC[th] && r > 0.8) return [HEC[th], false];
   return [strokes === 0 ? LGL.tee : LGL.fair, r < 0.5];
 }
+const LG_PROMO = ['THAT NEW DUMB LUCK HAT IS TOUGH!', 'NICE DLG HAT!', 'FOLLOW @DUMBLUCKGOLFING!', 'GOT MY DUMB LUCK HAT ON!', 'DUMB LUCK GOLF!', 'WHERE DID YOU GET THAT MERCH?', 'DLG SHOP HAS THE DRIP!', 'POST THAT ON @DUMBLUCKGOLFING!', 'SKILL? NAH. DUMB LUCK!', 'DUMB LUCK GOLF FOREVER!', 'HAT GAME > SWING GAME', 'MY DLG HAT HAS BETTER AIM', 'TAG @DUMBLUCKGOLFING!', 'RUN IT BACK. DUMB LUCK!'];
 function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
   const T = lgT(); lgLoad();
   if (LG.me) { LG.me.t += dt; if (LG.me.t > LG.me.dur) LG.me = null; }
   const rk = (typeof courseKind === 'string' ? courseKind : '') + '|' + (HOLES[0] && HOLES[0].name);
-  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
+  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.gs = 0; LG.bs = 0; LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
   const key = holeIdx + '|' + strokes;
   if (state === 'aim' && key !== LG.key) { LG.key = key; LG.shotN++; LG.ducked.clear(); LG.minD = 1e9; LG.startD = Math.abs(hole.cup - ball.x);
     const putt = clubIdx === PUTT_I, p = 0.45 + Math.abs(LG.hype - 50) / 120;
     LG.plan = Math.random() < p ? { at: putt || Math.random() < 0.55 ? 'aim' : 'power', delay: putt ? 0.7 + Math.random() * 1.0 : 0.25 + Math.random() * 0.5, done: false } : null; }
+  const hk = rk + '|' + holeIdx; if (LG.promoH !== hk) { LG.promoH = hk; if (LG.promoLeft == null) LG.promoLeft = 1 + Math.floor(Math.random() * 3); LG.promo = --LG.promoLeft <= 0; if (LG.promo) LG.promoLeft = 2 + Math.floor(Math.random() * 3); }   // v8.99.11: brand shout-out about every 3rd hole (2-4 apart), max 1 per hole, between shots only
+  if (LG.promo && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true })) LG.promoUsed.push(line); }   // no repeats within a round
   if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
   // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
-  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }
+  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) lgCaAt('hush', (cl ? 0.32 : 0.2) * lgHyp(), 0, 0, 2.6, 1, 0.35); else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
   if (state === 'flight' && ball) {
     const d = Math.abs(hole.cup - ball.x); LG.minD = Math.min(LG.minD, d);
     // rising ooh as a rolling ball tracks at the cup
@@ -7822,7 +7825,34 @@ function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
     if (ball.mode === 'air' && ball.h < 40) for (const p of crowdSpots(hole)) { if (LG.ducked.has(p.i) || Math.abs(p.x - ball.x) > 9) continue; LG.ducked.add(p.i); LG.r.set(p.i, { pose: 'duck', at: T, until: T + 0.9 }); if (LG.ducked.size === 1 && Math.random() < 0.5) { lgSay(LGL.duck, { near: p.x, force: !hec }); lgCaAt('shout', 0.3, lgPanX(p.x), Math.random() * 2, 0.5); } }
   }
 }
-function lgShotEnd() {   // ball stopped (not holed, not a penalty)
+// v8.99.11: per-SHOT streaks. Good runs -> praise escalates, bad runs -> chirps escalate, a good one after a bad run -> relief/sarcasm
+const LGS = {
+  good2: ['BACK TO BACK!', 'TWO IN A ROW!', 'OK, I SEE YOU!', 'DIALED IN!'],
+  good3: ['MACHINE!', 'PURE AGAIN!', 'ON A HEATER!', 'CANT MISS TODAY!', 'SAME SWING. AGAIN!'],
+  good5: ['ARE YOU A ROBOT?!', 'CALL THE TOUR!', 'STOP. YOURE TOO HOT!', 'UNCONSCIOUS!', 'SOMEONE GET A FAN!'],
+  bad2: ['AGAIN?!', 'TWO STINKERS!', 'HERE WE GO AGAIN', 'SAME MISTAKE!'],
+  bad3: ['MAKE IT STOP!', 'SELL THE CLUBS!', 'THIS IS PAINFUL!', 'WHO TAUGHT YOU?!', 'ITS GETTING WORSE!'],
+  bad5: ['I WANT A REFUND!', 'CALL IT A DAY!', 'TAKE UP BOWLING!', 'IM LEAVING!', 'HISTORICALLY BAD!'],
+  relief: ['FINALLY!', 'ABOUT TIME!', 'YOU REMEMBERED!', 'EVEN A BLIND SQUIRREL...', 'THERE IT IS!', 'DONT GET USED TO IT!']
+};
+function lgStreak(good, say) {   // count it; say = may talk now (between shots, after the result)
+  const pb = LG.bs || 0; if (good) { LG.gs = (LG.gs || 0) + 1; LG.bs = 0; } else { LG.bs = pb + 1; LG.gs = 0; }
+  if (!say) return false; let list = null, p = 0;
+  if (good && pb >= 2) { list = LGS.relief; p = 0.9; }
+  else if (good && LG.gs >= 5) { list = LGS.good5; p = 0.9; } else if (good && LG.gs >= 3) { list = LGS.good3; p = 0.85; } else if (good && LG.gs === 2) { list = LGS.good2; p = 0.5; }
+  else if (!good && LG.bs >= 5) { list = LGS.bad5; p = 0.9; } else if (!good && LG.bs >= 3) { list = LGS.bad3; p = 0.85; } else if (!good && LG.bs === 2) { list = LGS.bad2; p = 0.55; }
+  if (!list || Math.random() >= p) return false;
+  if (good) LG.hype = clamp(LG.hype + Math.min(6, LG.gs), 0, 100); else LG.hype = clamp(LG.hype - Math.min(6, LG.bs), 0, 100);
+  return lgSay(list, { near: ball ? ball.x : null, heck: !good, force: true });
+}
+function lgShotEnd() {
+  if (!lgOn() || !hole || !ball) return; const dc = Math.abs(hole.cup - ball.x), s = surfAt(hole, ball.x), putt = clubIdx === PUTT_I, sd = LG.startD || dc;
+  lgShotEnd0();
+  const good = putt ? dc <= 3 : (s === 'green' || (s === 'fair' && dc < sd * 0.5) || dc <= 6);
+  const bad = putt ? (sd < 12 && dc > 1.5) || dc > sd * 0.5 : (s === 'sand' || (sd > 40 && dc > sd * 0.7) || (s !== 'fair' && s !== 'green' && dc > sd * 0.5));
+  if (good || bad) lgStreak(good, true);
+}
+function lgShotEnd0() {   // ball stopped (not holed, not a penalty)
   if (!lgOn() || !hole || !ball) return; const dc = Math.abs(hole.cup - ball.x), s = surfAt(hole, ball.x), putt = clubIdx === PUTT_I, near = lgNear(ball.x, 120), pan = lgPanX(ball.x), hostile = LG.hype < 35;
   if (LG.minD <= 1.1 && dc > 0.5 && (putt || s === 'green')) {   // lip-out
     lgReact(lgNear(hole.cup, 160), p => hash(p.i * 7) < 0.65 ? 'head' : 'ooh', 2.2); lgCaAt('aww', 0.75 * lgHyp(), lgPanX(hole.cup)); LG.hype = clamp(LG.hype - 2, 0, 100); lgSay(LGL.lip, { near: hole.cup, force: true }); return; }
@@ -7837,8 +7867,10 @@ function lgPenalty(kind) {
   lgReact(lgNear(x, 160), p => hash(p.i * 8) < 0.45 ? 'point' : 'head', 2.2); LG.hype = clamp(LG.hype - 8, 0, 100);
   if (LG.hype < 40) setTimeout(() => { try { lgCaAt(Math.random() < 0.5 ? 'laugh' : 'jeer', 0.5 * lgHyp(), pan); } catch (e) {} }, 450);
   lgSay(kind === 'water' ? LGL.water : LGL.ob, { force: true, heck: true });
+  if ((LG.bs || 0) >= 1) setTimeout(() => { try { if (lgOn()) lgStreak(false, true); } catch (e) {} }, 1600); else lgStreak(false, false);   // v8.99.11 streak
 }
 function lgHoled() {   // hole-outs, clutch putts, eagles: roar (existing) + layered yells by hype, everybody up, staggered
+  try { if (lgOn()) lgStreak(true, false); } catch (e) {}   // v8.99.11: counts as a good shot (the hole-out line wins)
   if (!lgOn() || !hole) return; const putt = clubIdx === PUTT_I, big = !putt || strokes <= hole.par - 2, clutch = putt && (LG.startD >= 6 || strokes >= hole.par);
   if (!putt || clutch || big) { lgReact(() => true, p => hash(p.i * 3) < 0.15 ? 'point' : 'up', big ? 3 : 2.2, 0.4); lgCaAt('shout', (big ? 0.6 : 0.45) * lgHyp(), lgPanX(hole.cup) * 0.5, Math.random() * 1.2, 2.3); if (big && LG.hype > 60) setTimeout(() => { try { lgCaAt('shout', 0.4, -lgPanX(hole.cup) * 0.5, 0.5 + Math.random(), 1.8); } catch (e) {} }, 380); if (!crowdT) crowdCheer(big ? 1.3 : 1); }
   else lgReact(lgNear(hole.cup, 150), p => hash(p.i * 9) < 0.6 ? 'clap' : null, 1.4);
