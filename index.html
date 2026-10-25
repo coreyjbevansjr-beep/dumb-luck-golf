@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.14';
+const GAME_VERSION = 'v8.99.15';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7537,11 +7537,13 @@ function fanSprite(p, s) {
 }
 function drawFan(sx, gy, p, t, cheer) { const s = fanPoseNow(p, t, cheer); ctx.globalAlpha = p.f.far ? 0.22 : 0.28; rect(sx - p.f.hw - 2, gy - 1, p.f.hw * 2 + 5, p.f.far ? 1 : 2, '#000'); ctx.globalAlpha = 1;
   ctx.drawImage(fanSprite(p, s), sx + s.shift - FAN_FX, gy - s.hop - FAN_FY); }
-const FAN_DEPTH = [0, 2, 7, 11];
+const FAN_DEPTH = [2, 3, 7, 11];   // v8.99.15: front row stands on the verge, behind the rope
+const ROPE_COL = '#d8d2c0', ROPE_STAKE = '#a8a290';   // v8.99.15: one thin muted off-white rope + small stakes on every course (was a bright theme colour that read as a line on the fairway)
 function crowdRope(hl, cam, s0, s1, dy, col, stake, tall) {
-  for (let sx = Math.max(0, s0); sx <= Math.min(W - 1, s1); sx++) { const x = sx + cam, s = x < 0 ? 'rough' : surfAt(hl, x); if (s === 'green' && !dy) continue; if (s === 'water' || s === 'ob' && x >= 0) continue;
-    const gy = Math.round(BASE - groundH(hl, x)) + (dy ? -dy : 1), ph = ((sx - s0) % 12 + 12) % 12;
-    if (ph === 0) { rect(sx, gy - tall, 1, tall, stake); rect(sx, gy - tall, 1, 1, '#000'); } else rect(sx, gy - tall + 1 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, col); }
+  col = ROPE_COL; stake = ROPE_STAKE; ctx.globalAlpha = 0.78;
+  try { for (let sx = Math.max(0, s0); sx <= Math.min(W - 1, s1); sx++) { const x = sx + cam, s = x < 0 ? 'rough' : surfAt(hl, x); if (s === 'green' && !dy) continue; if (s === 'water' || s === 'ob' && x >= 0) continue;
+    const gy = Math.round(BASE - groundH(hl, x)) + (dy ? -dy : -1), ph = ((sx - s0) % 12 + 12) % 12;
+    if (ph === 0) { rect(sx, gy - tall, 1, tall, stake); rect(sx, gy - tall, 1, 1, '#000'); } else rect(sx, gy - tall + 1 + Math.round(Math.sin(ph / 12 * Math.PI) * 1.4), 1, 1, col); } } finally { ctx.globalAlpha = 1; }
 }
 function drawCrowd(hl, cam, C, pass) {
   if (!crowdOn()) return;
@@ -7555,6 +7557,9 @@ function drawCrowd(hl, cam, C, pass) {
   sp.forEach(p => { if (p.row < 2 || p.st || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
   runs.sort((a, b) => a[0] - b[0]);
   for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(13, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
+  { const fr = []; sp.forEach(p => { if (p.row || p.st || !vis(p)) return; const sx = Math.round(p.x - cam); fr.push([sx - 6, sx + 6]); });   // v8.99.15: a 2px rough verge under the front row (off the playing surface)
+    const vg = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.7 : 0.9);
+    for (const [a, b] of fr) for (let sx = Math.max(0, a); sx <= Math.min(W - 1, b); sx++) { const x = sx + cam, sf = x < 0 ? 'rough' : surfAt(hl, x); if (sf === 'green' || sf === 'water' || sf === 'sand') continue; rect(sx, Math.round(BASE - groundH(hl, x)) - 2, 1, 2, vg); } }
   let rowDone = 4;
   const ropeFar = () => { for (const [a, b] of runs) crowdRope(hl, cam, a - 6, b + 6, 4, P.rope, P.stake, 4); };
   if (pass === 'back') try { crowdStands(hl, cam); } catch (e) {}   // v8.99.8
@@ -7567,7 +7572,7 @@ function drawCrowd(hl, cam, C, pass) {
     if (p.row === 0 && front[p.z]) { front[p.z][0] = Math.min(front[p.z][0], sx - 5); front[p.z][1] = Math.max(front[p.z][1], sx + 5); }
   });
   if (rowDone >= 2) ropeFar();
-  for (const k in front) if (front[k][1] > front[k][0]) crowdRope(hl, cam, front[k][0], front[k][1], 0, P.rope, P.stake, 6);
+  for (const k in front) if (front[k][1] > front[k][0]) crowdRope(hl, cam, front[k][0], front[k][1], 0, P.rope, P.stake, 5);
 }
 /* ---- v8.99.3 crowd audio: real recorded OUTDOOR gallery sounds (CC0), decoded into WebAudio after the first tap; one master gain, silent when muted / paused / hidden.
    Outdoor feel: master EQ (cut 200-500 Hz room boxiness, gentle air shelf), each sound spread as two decorrelated layers panned L/R, and a faint breeze + birds bed under the murmur.
@@ -7580,29 +7585,32 @@ function drawCrowd(hl, cam, C, pass) {
    audio/crowd-air.mp3     'R01-24-Birds Chirping Outside' https://archive.org/details/Red_Library_Animals_Birds + 'R08-47-Outdoor Ambience' https://archive.org/details/Red_Library_Ambience_1 */
 const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', air: 'audio/crowd-air.mp3?v=182', ooh: 'audio/crowd-ooh.mp3?v=182', groan: 'audio/crowd-groan.mp3?v=182', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
 const CA_LOOP_S = 12;   // murmur + air files are 12 s seamless loops
+const CA_LOOP_IOS = { murmur: 40, air: 37 };   // v8.99.15 iPhone: long beds (random-offset segments, equal-power crossfades + loop seam baked offline), different lengths so they never line up
 const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
-function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-190' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
-function caLoopBuf(b) {
+function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-194' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
+function caLoopBuf(b, k) {
   if (false) {   // v8.99.13: off (plain trimmed loop on iPhone too). v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
     const d = b.getChannelData(0), sr = b.sampleRate, X = Math.round(0.06 * sr); let s = 0; while (s < d.length - 1 && Math.abs(d[s]) < 1e-4) s++;
     const L = Math.min(Math.round(CA_LOOP_S * sr), d.length - s - X); if (L > X * 4) {
       const o = AC.createBuffer(1, L, sr), od = o.getChannelData(0); od.set(d.subarray(s, s + L));
       for (let i = 0; i < X; i++) { const k = i / X; od[i] = d[s + i] * Math.sin(k * Math.PI / 2) + d[s + L + i] * Math.cos(k * Math.PI / 2); }
       return o; } }   // drop any mp3 encoder padding so the loop is exactly CA_LOOP_S long
-  const d = b.getChannelData(0), L = Math.min(d.length, Math.round(CA_LOOP_S * b.sampleRate)); let s = 0; while (s < d.length - L && Math.abs(d[s]) < 1e-4) s++;
+  const d = b.getChannelData(0), L = Math.min(d.length, Math.round((isIOS && CA_LOOP_IOS[k] || CA_LOOP_S) * b.sampleRate)); let s = 0; while (s < d.length - L && Math.abs(d[s]) < 1e-4) s++;
   const o = AC.createBuffer(1, L, b.sampleRate); o.getChannelData(0).set(d.subarray(s, s + L)); return o;
 }
 function caPan(p, dest) { try { if (AC.createStereoPanner) { const n = AC.createStereoPanner(); n.pan.value = p; n.connect(dest); return n; } } catch (e) {} return dest; }   // no panner (old Safari): plain mono
-function caLoopStart(buf, dest, off, rate) { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate || 1; s.connect(dest); s.start(0, off % CA_LOOP_S); return s; }
+function caLoopStart(buf, dest, off, rate) { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate || 1; s.connect(dest); s.start(0, off % buf.duration); return s; }
 function caStartMur() {   // two copies of the murmur 5 s apart, panned wide, read as a spread-out gallery instead of one mono blob
   if (CA.murS.length || !CA.buf.murmur || !CA.mur) return;
-  try { const o = Math.random() * CA_LOOP_S; CA.murS = [caLoopStart(CA.buf.murmur, caPan(-0.55, CA.mur), o), caLoopStart(CA.buf.murmur, caPan(0.55, CA.mur), o + 5.3)]; } catch (e) {}
+  try { const D = CA.buf.murmur.duration, o = Math.random() * D; CA.murS = isIOS   // v8.99.15 iPhone: layers far apart at slightly different speeds, so the two copies drift and never repeat together
+    ? [caLoopStart(CA.buf.murmur, caPan(-0.55, CA.mur), o), caLoopStart(CA.buf.murmur, caPan(0.55, CA.mur), o + D * (0.35 + Math.random() * 0.3), 0.971)]
+    : [caLoopStart(CA.buf.murmur, caPan(-0.55, CA.mur), o), caLoopStart(CA.buf.murmur, caPan(0.55, CA.mur), o + 5.3)]; } catch (e) {}
 }
-function caStartAir() { if (CA.airS || !CA.buf.air || !CA.air) return; try { CA.airS = caLoopStart(CA.buf.air, CA.air, Math.random() * CA_LOOP_S); } catch (e) {} }
+function caStartAir() { if (CA.airS || !CA.buf.air || !CA.air) return; try { CA.airS = caLoopStart(CA.buf.air, CA.air, Math.random() * CA.buf.air.duration); } catch (e) {} }
 function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
   for (const k in CA_FILES) fetch(caUrl(CA_FILES[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
     .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))   // callback form for older iOS Safari
-    .then(b => { const lp = k === 'murmur' || k === 'air'; CA.buf[k] = lp ? caLoopBuf(b) : b; if (k === 'murmur') caStartMur(); if (k === 'air') caStartAir(); }).catch(() => {});
+    .then(b => { const lp = k === 'murmur' || k === 'air'; CA.buf[k] = lp ? caLoopBuf(b, k) : b; if (k === 'murmur') caStartMur(); if (k === 'air') caStartAir(); }).catch(() => {});
 }
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
   try {
@@ -10013,28 +10021,37 @@ function drawCoursePreview(r, ci) {
   // scene window: theme sky + side-view terrain silhouette, pin and tee ball
   const sx0 = ix + 2, sy0 = iy + capH, swd = iw - 4, sh = ih - capH * 2;
   if (sh < 20) return;
-  const th = themeOf(hl);
+  // v8.99.15: a true mini of the hole: the game's own drawCourse (sky, backdrop, grass, sand, water, trees, obstacles, tee + flag)
+  // rendered once at 1x into an offscreen canvas (no gallery: hl is never the live hole), refreshed ~4x/s for water shimmer + flag
   rect(sx0 - 1, sy0 - 1, swd + 2, sh + 2, '#000');
-  rect(sx0, sy0, swd, sh, th.sky);
-  let lo = 1e9, hi = -1e9;
-  for (let x = 0; x <= hl.len; x++) { lo = Math.min(lo, hl.Hs[x]); hi = Math.max(hi, hl.Hs[x]); }
-  const m = 6, sc = (swd - m * 2) / hl.len, kv = Math.min(1.4, (sh * 0.42) / Math.max(18, hi - lo));
-  const base = sy0 + sh - Math.max(8, Math.round(sh * 0.26));
-  const gyAt = wx => Math.round(base - (groundH(hl, clamp(wx, 0, hl.len)) - lo) * kv);
-  for (let i = 0; i < swd; i++) {
-    const wx = (i - m) / sc, s = wx < 0 ? 'tee' : wx > hl.len ? 'rough' : surfAt(hl, wx), gy = gyAt(wx), x = sx0 + i, hgt = sy0 + sh - gy;
-    if (hgt <= 0) continue;
-    if (s === 'water') { rect(x, gy, 1, hgt, COL.waterD); rect(x, gy, 1, 2, COL.water); continue; }
-    rect(x, gy, 1, hgt, COL.dirt);
-    const top = s === 'green' ? COL.green2 : s === 'sand' ? COL.sand : (s === 'rough' || s === 'end' || s === 'ob') ? COL.grassD : COL.grass;
-    rect(x, gy, 1, Math.min(hgt, 3), top);
-    rect(x, gy - 1, 1, 1, '#000');
-  }
-  const cx = Math.round(sx0 + m + hl.cup * sc), cy = gyAt(hl.cup), ph = Math.min(14, Math.max(8, Math.round(sh * 0.22)));
-  rect(cx - 1, cy - ph - 1, 3, ph + 1, '#000'); rect(cx, cy - ph, 1, ph, COL.white);
-  rect(cx + 1, cy - ph - 1, 6, 5, '#000'); rect(cx + 1, cy - ph, 5, 3, COL.red);
-  const tx = Math.round(sx0 + m + TEE_X * sc), ty = gyAt(TEE_X);
-  rect(tx - 2, ty - 4, 4, 4, '#000'); rect(tx - 1, ty - 3, 2, 2, COL.white);
+  const pv = csPrevImg(hl);
+  if (!pv) return;
+  // 1:1 game pixels (crisp at any phone scale); long holes glide tee -> green while each hole is shown, then hold on the pin
+  const cw = Math.min(swd, pv.w), ch0 = Math.min(sh, pv.bot), cy0 = pv.bot - ch0;
+  const u = clamp((((st - csPrevMark) / 2.6) % 1 - 0.18) / 0.6, 0, 1), e = REDUCED_MOTION ? 0 : u * u * (3 - 2 * u);
+  const cx0 = Math.round((pv.w - cw) * e), ox = sx0 + Math.floor((swd - cw) / 2);
+  if (cw < swd) rect(sx0, sy0, swd, sh, '#000');
+  ctx.drawImage(pv.c, cx0, cy0, cw, ch0, ox, sy0 + sh - ch0, cw, ch0);
+  // subtle yardage stakes (100 red / 150 white / 200 blue from the pin) on the fairway line
+  const tx = wx => Math.round(ox + wx + 4 - cx0), ty = wx => Math.round(sy0 + sh - ch0 + BASE - groundH(hl, wx) - cy0);
+  for (const [d, col] of [[100, '#f83800'], [150, '#fcfcfc'], [200, '#3c7cfc']]) { const wx = hl.cup - d; if (wx < TEE_X + 30 || surfAt(hl, wx) === 'water') continue;
+    const x = tx(wx), y = ty(wx); if (x <= ox || x >= ox + cw - 1) continue; rect(x - 1, y - 5, 3, 5, '#000'); rect(x, y - 4, 1, 3, col); }
+}
+let csPv = null;
+function csPrevImg(hl) {
+  const now = performance.now();
+  if (csPv && csPv.hl === hl && (REDUCED_MOTION || now - csPv.at < 250)) return csPv;
+  const w = Math.max(40, Math.ceil(hl.len) + 12), h = PLAY_H;
+  const c = csPv && csPv.c.width === w && csPv.c.height === h ? csPv.c : mk(w, h);
+  const sv = { ctx, W, weather, flagRattle };
+  try {
+    ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false; W = w; weather = null; flagRattle = 0;
+    rect(0, 0, w, h, '#000'); drawCourse(hl, -4);
+  } catch (e) { return csPv && csPv.hl === hl ? csPv : null; }
+  finally { ctx = sv.ctx; W = sv.W; weather = sv.weather; flagRattle = sv.flagRattle; }
+  let hi = -1e9; for (let x = 0; x <= hl.len; x++) hi = Math.max(hi, groundH(hl, x));
+  csPv = { hl, c, w, at: now, bot: Math.min(h, BASE + 22), top0: Math.round(BASE - hi - 70) };
+  return csPv;
 }
 function renderCourseSelect() {
   drawSkyScene(CS_FAIR, true);
