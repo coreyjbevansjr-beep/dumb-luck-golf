@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.9';
+const GAME_VERSION = 'v8.99.10';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3860,31 +3860,35 @@ function hap(pat) { if (!settings.haptics || typeof navigator === 'undefined' ||
 function saveSettings() { try { localStorage.setItem('dlg_golf_settings', JSON.stringify(settings)); } catch (e) {} }
 let AC = null, muted = !settings.sound;
 function audioOn() { if (navigator.userActivation && !navigator.userActivation.isActive) return;   // no gesture yet (e.g. touchstart): wait for touchend/click
-  if (!AC) { try { const C = window.AudioContext || window.webkitAudioContext; if (isIOS) { try { AC = new C({ latencyHint: 'playback' }); } catch (e) { AC = null; } } if (!AC) AC = new C(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); }
+  if (!AC) { try { const C = window.AudioContext || window.webkitAudioContext; if (isIOS) { try { AC = new C({ latencyHint: 'playback' }); } catch (e) { AC = null; } } if (!AC) AC = new C(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); try { if (isIOS && navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {} }
 // mobile browsers only unlock audio on touchend/pointerup/click, not touchstart: retry there
 for (const t of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(t, () => { if (!AC || AC.state !== 'running') audioOn(); }, { passive: true, capture: true });
 // v8.68: the synth voices take an audio context + start time, so #test can re-render the exact same sounds offline (preview clips)
+// v8.99.10 iPhone: every live sound goes through ONE master bus + limiter (desktop and offline renders: straight to the speakers, as before)
+let iosMaster = null;
+function sDest(A) { if (!isIOS || A !== AC) return A.destination; if (!iosMaster) { try { const g = AC.createGain(); g.gain.value = 0.8; const lim = AC.createDynamicsCompressor(); lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.2; g.connect(lim).connect(AC.destination); iosMaster = g; } catch (e) { return A.destination; } } return iosMaster; }
+const sAtk = A => isIOS && A === AC;   // iPhone: 5 ms attack instead of a hard 0 -> full jump (the click)
 function synthTone(A, t0, f, dur, type, vol, slide) {
   const o = A.createOscillator(), g = A.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
-  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(A.destination); o.start(t0); o.stop(t0 + dur + 0.03);
+  if (sAtk(A)) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.005, dur / 4)); } else g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(sDest(A)); o.start(t0); o.stop(t0 + dur + 0.03);
 }
 function synthNoise(A, t0, dur, vol) {
   const n = Math.max(1, Math.floor(A.sampleRate * dur)), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
-  const s = A.createBufferSource(), g = A.createGain(); s.buffer = b; g.gain.value = vol; s.connect(g).connect(A.destination); s.start(t0);
+  const s = A.createBufferSource(), g = A.createGain(); s.buffer = b; if (sAtk(A)) { g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.004); } else g.gain.value = vol; s.connect(g).connect(sDest(A)); s.start(t0);
 }
 // v8.68 heartbeat thump: a pitch-dropping sine body (felt more than heard) + a short low-passed noise thud + a soft knock on top
 function synthThump(A, t0, vol, f0, f1) {
   const o = A.createOscillator(), g = A.createGain();
   o.type = 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + 0.13);
   g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
-  o.connect(g).connect(A.destination); o.start(t0); o.stop(t0 + 0.3);
+  o.connect(g).connect(sDest(A)); o.start(t0); o.stop(t0 + 0.3);
   const n = Math.floor(A.sampleRate * 0.07), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 3;
   const s = A.createBufferSource(), lp = A.createBiquadFilter(), ng = A.createGain(); s.buffer = b; lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = 0.9; ng.gain.value = vol * 1.6;
-  s.connect(lp).connect(ng).connect(A.destination); s.start(t0);
+  s.connect(lp).connect(ng).connect(sDest(A)); s.start(t0);
   synthTone(A, t0, f0 * 2.2, 0.035, 'triangle', vol * 0.12, f0 * 1.4);
 }
 let sndLog = null;   // #test only: [{ t (page seconds), fn, a }] for offline re-render
@@ -7546,7 +7550,14 @@ function drawCrowd(hl, cam, C, pass) {
 const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', air: 'audio/crowd-air.mp3?v=182', ooh: 'audio/crowd-ooh.mp3?v=182', groan: 'audio/crowd-groan.mp3?v=182', roar: 'audio/crowd-roar.mp3?v=180', clap: 'audio/crowd-clap.mp3?v=180' };
 const CA_LOOP_S = 12;   // murmur + air files are 12 s seamless loops
 const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
-function caLoopBuf(b) {   // drop any mp3 encoder padding so the loop is exactly CA_LOOP_S long
+function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-189' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
+function caLoopBuf(b) {
+  if (isIOS) {   // v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
+    const d = b.getChannelData(0), sr = b.sampleRate, X = Math.round(0.06 * sr); let s = 0; while (s < d.length - 1 && Math.abs(d[s]) < 1e-4) s++;
+    const L = Math.min(Math.round(CA_LOOP_S * sr), d.length - s - X); if (L > X * 4) {
+      const o = AC.createBuffer(1, L, sr), od = o.getChannelData(0); od.set(d.subarray(s, s + L));
+      for (let i = 0; i < X; i++) { const k = i / X; od[i] = d[s + i] * Math.sin(k * Math.PI / 2) + d[s + L + i] * Math.cos(k * Math.PI / 2); }
+      return o; } }   // drop any mp3 encoder padding so the loop is exactly CA_LOOP_S long
   const d = b.getChannelData(0), L = Math.min(d.length, Math.round(CA_LOOP_S * b.sampleRate)); let s = 0; while (s < d.length - L && Math.abs(d[s]) < 1e-4) s++;
   const o = AC.createBuffer(1, L, b.sampleRate); o.getChannelData(0).set(d.subarray(s, s + L)); return o;
 }
@@ -7558,13 +7569,13 @@ function caStartMur() {   // two copies of the murmur 5 s apart, panned wide, re
 }
 function caStartAir() { if (CA.airS || !CA.buf.air || !CA.air) return; try { CA.airS = caLoopStart(CA.buf.air, CA.air, Math.random() * CA_LOOP_S); } catch (e) {} }
 function caLoad() { if (CA.loading || !AC) return; CA.loading = true;
-  for (const k in CA_FILES) fetch(CA_FILES[k]).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+  for (const k in CA_FILES) fetch(caUrl(CA_FILES[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
     .then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); }))   // callback form for older iOS Safari
     .then(b => { const lp = k === 'murmur' || k === 'air'; CA.buf[k] = lp ? caLoopBuf(b) : b; if (k === 'murmur') caStartMur(); if (k === 'air') caStartAir(); }).catch(() => {});
 }
 function caReady() { if (!AC || muted || SIM || AC.state !== 'running') return false; if (CA.g) return true;
   try {
-    const g = AC.createGain(); g.gain.value = isIOS ? 0.8 : 1; if (isIOS && AC.createDynamicsCompressor) { const lim = AC.createDynamicsCompressor(); lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.2; lim.connect(AC.destination); g.connect(lim); } else g.connect(AC.destination);   // v8.99.9: phone limiter (no clipping)
+    const g = AC.createGain(); g.gain.value = 1; g.connect(sDest(AC));   // v8.99.10: iPhone -> shared master limiter
     const sh = AC.createBiquadFilter(); sh.type = 'highshelf'; sh.frequency.value = 5000; sh.gain.value = 3; sh.connect(g);   // a little open-air sparkle
     const pk = AC.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 330; pk.Q.value = 0.8; pk.gain.value = -4; pk.connect(sh);   // cut the 200-500 Hz room box
     const mg = AC.createGain(); mg.gain.value = 0; mg.connect(pk);
@@ -7752,7 +7763,7 @@ function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot
 const lgHyp = () => 0.7 + LG.hype / 170;   // hype -> loudness (0.7 .. ~1.29)
 const lgPanX = wx => clamp((wx - camX - W / 2) / (W / 2), -0.85, 0.85);
 function lgLoad() { if (LG.loaded || !CA.g || !AC) return; LG.loaded = true;
-  for (const k in LG_FILES) fetch(LG_FILES[k]).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
+  for (const k in LG_FILES) fetch(caUrl(LG_FILES[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
 function lgBlip(p, hostile) {   // a short voice-y murmur under a bubble: random source + slice, cooled down so it never machine-guns
   const T = lgT(); if (T - LG.blipT < 1.1) return; LG.blipT = T;
   const pool = hostile ? ['jeer', 'laugh', 'murmur'] : ['shout', 'murmur', 'murmur'], k = pool[Math.floor(Math.random() * pool.length)], b = CA.buf[k]; if (!b) return;
