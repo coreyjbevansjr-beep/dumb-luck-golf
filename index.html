@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.12';
+const GAME_VERSION = 'v8.99.13';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3860,13 +3860,13 @@ function hap(pat) { if (!settings.haptics || typeof navigator === 'undefined' ||
 function saveSettings() { try { localStorage.setItem('dlg_golf_settings', JSON.stringify(settings)); } catch (e) {} }
 let AC = null, muted = !settings.sound;
 function audioOn() { if (navigator.userActivation && !navigator.userActivation.isActive) return;   // no gesture yet (e.g. touchstart): wait for touchend/click
-  if (!AC) { try { const C = window.AudioContext || window.webkitAudioContext; if (isIOS) { try { AC = new C({ latencyHint: 'playback' }); } catch (e) { AC = null; } } if (!AC) AC = new C(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); try { if (isIOS && navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {} }
+  if (!AC) { try { const C = window.AudioContext || window.webkitAudioContext; AC = new C();   /* v8.99.13 iPhone: default context again (no 'playback' latency / audio-session override) */ } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); }
 // mobile browsers only unlock audio on touchend/pointerup/click, not touchstart: retry there
 for (const t of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(t, () => { if (!AC || AC.state !== 'running') audioOn(); }, { passive: true, capture: true });
 // v8.68: the synth voices take an audio context + start time, so #test can re-render the exact same sounds offline (preview clips)
 // v8.99.10 iPhone: every live sound goes through ONE master bus + limiter (desktop and offline renders: straight to the speakers, as before)
 let iosMaster = null;
-function sDest(A) { if (!isIOS || A !== AC) return A.destination; if (!iosMaster) { try { const g = AC.createGain(); g.gain.value = 0.8; const lim = AC.createDynamicsCompressor(); lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.2; g.connect(lim).connect(AC.destination); iosMaster = g; } catch (e) { return A.destination; } } return iosMaster; }
+function sDest(A) { if (!isIOS || A !== AC) return A.destination; if (!iosMaster) { try { const g = AC.createGain(); g.gain.value = 0.8; const lim = AC.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 12; lim.ratio.value = 4; lim.attack.value = 0.02; lim.release.value = 0.3;   /* v8.99.13: gentle safety limiter (the old 3 ms / 12:1 one pumped and buzzed the low end all hole long) */ g.connect(lim).connect(AC.destination); iosMaster = g; } catch (e) { return A.destination; } } return iosMaster; }
 const sAtk = A => isIOS && A === AC;   // iPhone: 5 ms attack instead of a hard 0 -> full jump (the click)
 function synthTone(A, t0, f, dur, type, vol, slide) {
   const o = A.createOscillator(), g = A.createGain();
@@ -7566,7 +7566,7 @@ const CA_LOOP_S = 12;   // murmur + air files are 12 s seamless loops
 const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false };
 function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-190' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
 function caLoopBuf(b) {
-  if (isIOS) {   // v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
+  if (false) {   // v8.99.13: off (plain trimmed loop on iPhone too). v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
     const d = b.getChannelData(0), sr = b.sampleRate, X = Math.round(0.06 * sr); let s = 0; while (s < d.length - 1 && Math.abs(d[s]) < 1e-4) s++;
     const L = Math.min(Math.round(CA_LOOP_S * sr), d.length - s - X); if (L > X * 4) {
       const o = AC.createBuffer(1, L, sr), od = o.getChannelData(0); od.set(d.subarray(s, s + L));
@@ -7622,7 +7622,7 @@ function caPlay(key, vol) {   // two layers: L/R, ~20 ms apart, slightly differe
 function caVoices(kind, k) {   // recorded gallery reactions: ooh / groan / cheer (a golf-crowd roar with applause)
   if (!caReady()) return false;
   const ev = crowdEvent() ? 1.15 : 1, kk = Math.min(1.6, k || 1);
-  if (kind === 'cheer') caPlay('roar', Math.min(1, 0.62 * kk * ev)); else { if (kind === 'ooh' && lgOn() && lgT() - LG.oohAt < 3) return true; const g = kind === 'groan' ? (lgOn() && CA.buf.aww ? 'aww' : 'groan') : 'ooh'; caPlay(g, Math.min(1, 0.5 * kk * ev * (lgOn() ? lgHyp() : 1))); }
+  if (kind === 'cheer') caPlay('roar', Math.min(1, 0.62 * kk * ev)); else { if (kind === 'ooh' && lgOn() && lgT() - LG.oohAt < 3) return true; const g = kind === 'groan' ? (lgOn() && CA.buf.aww && !isIOS ? 'aww' : 'groan') : 'ooh'; caPlay(g, Math.min(1, 0.5 * kk * ev * (lgOn() ? lgHyp() : 1))); }
   return true;
 }
 function caClap(k) { if (!caReady()) return false; caPlay('clap', Math.min(1, 0.55 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.15 : 1))); return true; }   // polite golf applause
@@ -7766,6 +7766,7 @@ const LGL = {
 const LG_COME = [['WATCH THIS.', 'OK... SHOW ME!'], ['I GOT THIS.', 'DOUBT IT!'], ['TAKE NOTES.', 'NOTE: YOU STINK!'], ['QUIET PLEASE!', 'MAKE ME!'], ['YOU TRY IT!', 'NOT FOR FREE!'], ['SIGN UP THEN!', 'I CANT AFFORD CLUBS'], ['THIS ONE IS FOR YOU.', 'AWW... STILL BOO!'], ['NICE SHIRT.', 'HEY! THATS LOW.']];
 function lgPick(list) { return hecPickLine(list); }
 function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot: two close layers around 'pan', optional slice + fade, optional rising gain
+  if (isIOS && key === 'aww' && CA.buf.groan) key = 'groan';   // v8.99.13 iPhone: the pitched-down 'aww' read as a fart on the phone speaker
   const b = CA.buf[key]; if (!b || !caReady()) return false;
   try { const t = AC.currentTime, o = off || 0, d = Math.min(dur || b.duration, b.duration - o), r = (rate || 1) * (0.97 + Math.random() * 0.06); if (!caVoiceOk()) return false;
     (isIOS ? [[0, 0, 1]] : [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]]).forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
@@ -7780,7 +7781,7 @@ function lgLoad() { if (LG.loaded || !CA.g || !AC) return; LG.loaded = true;
   for (const k in LG_FILES) fetch(caUrl(LG_FILES[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
 function lgBlip(p, hostile) {   // a short voice-y murmur under a bubble: random source + slice, cooled down so it never machine-guns
   const T = lgT(); if (T - LG.blipT < 1.1) return; LG.blipT = T;
-  const pool = hostile ? ['jeer', 'laugh', 'murmur'] : ['shout', 'murmur', 'murmur'], k = pool[Math.floor(Math.random() * pool.length)], b = CA.buf[k]; if (!b) return;
+  const pool = hostile ? (isIOS ? ['laugh', 'murmur', 'murmur'] : ['jeer', 'laugh', 'murmur']) : ['shout', 'murmur', 'murmur']   /* v8.99.13 iPhone: no random slices of the boo track (sounded like a fart on the phone speaker) */, k = pool[Math.floor(Math.random() * pool.length)], b = CA.buf[k]; if (!b) return;
   const d = 0.45 + Math.random() * 0.35; lgCaAt(k, (k === 'murmur' ? 0.55 : 0.32) * lgHyp(), lgPanX(p.x), Math.random() * Math.max(0, b.duration - d), d, 0.95 + Math.random() * 0.12);
 }
 function lgReact(filter, pose, dur, spread) {   // staggered per-fan poses (a ripple, not a synchronized robot crowd)
@@ -7891,7 +7892,7 @@ function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
     if (!(Math.random() < 0.45 && lgCastSay('swing', { low: true, dur: 1.4 }))) { const line = hecPickLine(LG_SWING); if ((hecSay(line, { low: true, relax: true, dur: 1.4 }) || lgSayAny(line, {})) && hec) { hec.lg = true; hec.heck = true; hec.dur = Math.min(hec.dur, 1.6); LG.sayT = T; } } }
   if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
   // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
-  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) lgCaAt('hush', (cl ? 0.32 : 0.2) * lgHyp(), 0, 0, 2.6, 1, 0.35); else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
+  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) {} /* v8.99.13 iPhone: no hush clip during the meter (it buzzed on the phone speaker); the crowd bed already dips (v93Hush) */ else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
   if (state === 'flight' && ball) {
     const d = Math.abs(hole.cup - ball.x); LG.minD = Math.min(LG.minD, d);
     // rising ooh as a rolling ball tracks at the cup
