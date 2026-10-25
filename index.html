@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.13';
+const GAME_VERSION = 'v8.99.14';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -732,9 +732,9 @@ async function loadMatches() {
   if (r.ok) loadH2H();
   return r;
 }
-async function createMatch(friend, holes) {
+async function createMatch(friend, holes, chirps) {
   const seed = (Math.random() * 2147483647) | 0, plan = matchPlanNew(seed, holes);   // v8.47: Daily-hole shuffle
-  const body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: plan.setup };
+  const ch = (chirps || []).filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2), body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: ch.length ? Object.assign({}, plan.setup, { chirps: ch }) : plan.setup };   // v8.99.14 picked chirps ride in setup (existing jsonb)
   const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
   if (!r.ok) return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
   const m = Object.assign({ challenger_username: account.profile.username, opponent_username: friend.friend_username }, (r.data && r.data[0]) || body);
@@ -833,7 +833,7 @@ const GHOST_DT = 0.1;
 let ghostRec = null;          // recording for the current match round
 let ghostPlay = null;         // { name, data, hole: {...} } playback of the opponent
 let matchCtx = null;          // { match, plan, watch, other, submitted, result }
-function ghostRecStart() { ghostRec = { v: 1, holes: [] }; }
+function ghostRecStart() { ghostRec = { v: 1, holes: [] }; try { if (liveGal) ghostRec.fans = fansNow(); } catch (e) {} }   // v8.99.14: your FANS ride along in the ghost (no DB change) for the rival's AWAY GAME
 function ghostRecShot() {
   if (!ghostRec) return;
   const h = ghostRec.holes[holeIdx] || (ghostRec.holes[holeIdx] = { s: 0, shots: [] });
@@ -5680,6 +5680,7 @@ function startHole() {
   // v8.20: course holes pick one of 2-3 pins and a wind from the hole's range each round (Daily stays seeded)
   const def = (courseKind !== 'daily' && courseKind !== 'match' && src.pins && src.pins.length) ? Object.assign({}, src, { cup: src.pins[Math.floor((lr ? lr() : mulberry32(seedFromStr('DLG-PIN-' + nyDateStr() + '-' + (src.name || holeIdx)))()) * src.pins.length)] }) : src;   // v8.79: today's pin (same for everyone on a given day)
   hole = compileHole(def);
+  try { fansHoleStart(); } catch (e) {}   // v8.99.14
   strokes = 0; lastSpot = TEE_X; penaltySpot = null; holeSave = false; ball = null; crowdT = 0; crowdReact = null;
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
@@ -6195,6 +6196,7 @@ function finishHole() {
   try { careerNoteHole(scores[holeIdx] - hole.par, scores[holeIdx]); ghostRecHole(scores[holeIdx]); ghostOnPlayerHoled(); } catch (e) {}
   const d = scores[holeIdx] - hole.par;
   try { lgHoleDone(d); } catch (e) {}
+  try { fansHoleDone(d, scores[holeIdx]); } catch (e) {}   // v8.99.14
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
   if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1); } catch (e) {} }   // v8.78
   holeSave = false;
@@ -7242,7 +7244,7 @@ const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24
 const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d878'];
 function crowdEvent() { return courseKind === 'spooky' || courseKind === 'lbi'; }
 function crowdOn() { if (courseKind === 'lab' || (typeof LAB !== 'undefined' && LAB.on)) return false; const tk = (hole && hole.theme) || ''; return tk !== 'deep' && tk !== 'lava'; }
-function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; return 'club'; }
+function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; if (/^tropic/.test(t) || t === 'pier') return 'beach'; if (t === 'snow') return 'snow'; if (t === 'desert' || t === 'pyramid' || t === 'canyon') return 'desert'; if (t === 'farm' || t === 'patch') return 'farm'; if (t === 'stadium') return 'stadium'; return 'club'; }   // v8.99.14 course-themed crowds
 function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
 /* ---- palettes ---- */
 const FAN_HAIR = ['#1c1410', '#1c1410', '#2c1c10', '#4c2c18', '#4c2c18', '#8c5028', '#a86c38', '#d8a860', '#f0d088', '#c84c0c'];
@@ -7255,7 +7257,12 @@ const FAN_PAL = {
   hr:   { top: ['#101010', '#fcfcfc', '#7c0c1c', '#d4af37', '#1c1c4c', '#5c0c5c', '#0c4c3c', '#c0c0c8', '#101010', '#2c2c34'],
           hat: ['#101010', '#d4af37', '#fcfcfc', '#7c0c1c'], rope: '#d4af37', stake: '#8c6c1c' },
   space: { top: ['#e8e8ec', '#fcfcfc', '#fc7c1c', '#d8d8e0'], hat: ['#fcfcfc'], rope: '#fc7c1c', stake: '#c8c8d0' },
-  spooky: { top: ['#fc7c1c', '#1c1c1c', '#5c2c7c', '#3c5c2c', '#7c0c1c', '#fcfcfc', '#2c2c3c', '#c84c0c'], hat: ['#1c1c1c', '#fc7c1c', '#5c2c7c'], rope: '#fc7c1c', stake: '#1c1c1c' }
+  spooky: { top: ['#fc7c1c', '#1c1c1c', '#5c2c7c', '#3c5c2c', '#7c0c1c', '#fcfcfc', '#2c2c3c', '#c84c0c'], hat: ['#1c1c1c', '#fc7c1c', '#5c2c7c'], rope: '#fc7c1c', stake: '#1c1c1c' },
+  beach: { top: ['#fcfcfc', '#3cbcfc', '#f878f8', '#fc9838', '#58d854', '#f8d878', '#fcb8c8', '#00a8a8', '#f83800'], hat: ['#fcfcfc', '#f8d878', '#3cbcfc', '#f878f8'], rope: '#fc9838', stake: '#fcfcfc' },
+  snow: { top: ['#c8102e', '#1c3c6c', '#1c1c1c', '#fcfcfc', '#2c5cd8', '#0c5c3c', '#7c3cbc', '#fc7c1c'], hat: ['#c8102e', '#fcfcfc', '#1c3c6c', '#58d854'], rope: '#c8102e', stake: '#fcfcfc' },
+  desert: { top: ['#e8d8b8', '#c8b48c', '#fcfcfc', '#c84c0c', '#5ca8a0', '#8c6c1c', '#fc9838'], hat: ['#e8d8b8', '#c8b48c', '#fcfcfc', '#5c3c20'], rope: '#c84c0c', stake: '#e8d8b8' },
+  farm: { top: ['#3c5ca8', '#c8102e', '#58d854', '#e8d8b8', '#5c3c20', '#fcfcfc', '#f8d878'], hat: ['#f8d878', '#c8102e', '#3c5ca8', '#e8d8b8'], rope: '#f8d878', stake: '#8c6c1c' },
+  stadium: { top: ['#c8102e', '#c8102e', '#fcfcfc', '#1c3c6c', '#1c3c6c', '#f8d878'], hat: ['#c8102e', '#1c3c6c', '#fcfcfc'], rope: '#fcfcfc', stake: '#c8102e' }
 };
 function fanPick(R, a) { return a[Math.floor(R() * a.length) % a.length]; }
 function fanMake(R, th, row, night) {
@@ -7273,6 +7280,11 @@ function fanMake(R, th, row, night) {
   if (th === 'space') hat = 'helmet';
   else if (th === 'hr') hat = h < 0.6 ? null : h < 0.75 ? 'cap' : h < 0.88 ? 'fedora' : 'visor';
   else if (th === 'nyc') hat = h < 0.4 ? null : h < 0.72 ? 'cap' : h < 0.82 ? 'dlg' : h < 0.93 ? 'beanie' : 'bucket';
+  else if (th === 'beach') hat = h < 0.3 ? null : h < 0.55 ? 'bucket' : h < 0.75 ? 'visor' : h < 0.9 ? 'cap' : 'dlg';
+  else if (th === 'snow') hat = h < 0.55 ? 'beanie' : h < 0.75 ? 'cap' : h < 0.9 ? 'dlg' : 'bucket';
+  else if (th === 'desert') hat = h < 0.35 ? 'bucket' : h < 0.6 ? 'fedora' : h < 0.8 ? 'visor' : 'cap';
+  else if (th === 'farm') hat = h < 0.55 ? 'cap' : h < 0.75 ? 'bucket' : h < 0.9 ? 'fedora' : null;
+  else if (th === 'stadium') hat = h < 0.35 ? null : h < 0.7 ? 'cap' : h < 0.9 ? 'dlg' : 'beanie';
   else hat = h < 0.32 ? null : h < 0.56 ? 'cap' : h < 0.72 ? 'dlg' : h < 0.84 ? 'visor' : h < 0.95 ? 'bucket' : 'beanie';
   f.hat = hat; f.hatC = sh(hat === 'dlg' ? '#101010' : fanPick(R, P.hat)); f.back = hat === 'cap' && R() < 0.15; f.ny = th === 'nyc' && hat === 'cap' && R() < 0.6;
   // outfit
@@ -7280,14 +7292,19 @@ function fanMake(R, th, row, night) {
   if (th === 'hr') top = o < 0.4 ? 'blazer' : o < 0.6 && f.fem ? 'dress' : o < 0.85 ? 'polo' : 'tee';
   else if (th === 'nyc') top = o < 0.34 ? 'hoodie' : o < 0.62 ? 'tee' : o < 0.78 ? 'jacket' : o < 0.92 ? 'polo' : 'jersey';
   else if (th === 'space') top = 'suit';
+  else if (th === 'beach') top = o < 0.5 ? 'tee' : o < 0.75 ? 'polo' : o < 0.85 ? 'vest' : f.fem ? 'dress' : 'tee';
+  else if (th === 'snow') top = o < 0.45 ? 'hoodie' : o < 0.75 ? 'jacket' : o < 0.9 ? 'zip' : 'vest';
+  else if (th === 'desert') top = o < 0.5 ? 'tee' : o < 0.8 ? 'polo' : 'vest';
+  else if (th === 'farm') top = o < 0.4 ? 'vest' : o < 0.7 ? 'tee' : 'polo';
+  else if (th === 'stadium') top = o < 0.55 ? 'jersey' : o < 0.8 ? 'tee' : 'hoodie';
   else top = o < 0.42 ? 'polo' : o < 0.6 ? 'tee' : o < 0.74 ? 'hoodie' : o < 0.84 ? 'zip' : o < 0.92 ? 'vest' : f.fem ? 'dress' : 'polo';
   f.top = top; f.topC = sh(fanPick(R, P.top)); f.accent = sh(fanPick(R, P.top)); f.stripe = (top === 'polo' || top === 'tee') && R() < 0.16; f.num = top === 'jersey';
   if (top === 'vest') f.under = sh(fanPick(R, ['#fcfcfc', '#e8d8b8', '#3cbcfc']));
   if (top === 'blazer') f.under = sh(R() < 0.6 ? '#fcfcfc' : '#1c1c1c');
-  const bt = R(); f.bot = top === 'dress' || top === 'suit' ? top : (top === 'hoodie' || th === 'hr') ? 'pants' : f.fem && bt < 0.14 ? 'skirt' : bt < 0.42 ? 'shorts' : 'pants';
+  const bt = R(); f.bot = top === 'dress' || top === 'suit' ? top : (top === 'hoodie' || th === 'hr' || th === 'snow') ? 'pants' : f.fem && bt < 0.14 ? 'skirt' : bt < (th === 'beach' ? 0.8 : th === 'desert' ? 0.6 : 0.42) ? 'shorts' : 'pants';
   f.botC = sh(top === 'suit' ? f.topC : fanPick(R, FAN_PANTS)); f.shoe = sh(fanPick(R, ['#fcfcfc', '#fcfcfc', '#1c1c1c', '#5c3c20', '#3c3c44']));
   // spooky season / Spooky Cup costumes (club + spooky themes only)
-  const hw = th === 'spooky' ? 0.34 : (th === 'club' && typeof halloweenOn === 'function' && halloweenOn()) ? 0.08 : 0;
+  const hw = th === 'spooky' ? 0.34 : (['club', 'beach', 'desert', 'farm', 'stadium', 'snow'].includes(th) && typeof halloweenOn === 'function' && halloweenOn()) ? 0.08 : 0;
   if (R() < hw) { f.costume = fanPick(R, ['witch', 'pumpkin', 'ghost', 'vampire', 'skeleton', 'zombie']);
     if (f.costume === 'witch') { f.hat = 'witch'; f.hatC = sh('#1c1c1c'); f.top = 'dress'; f.bot = 'dress'; f.topC = f.botC = sh('#2c1c3c'); }
     if (f.costume === 'vampire') { f.top = 'blazer'; f.topC = sh('#101010'); f.under = sh('#fcfcfc'); f.bot = 'pants'; f.botC = sh('#101010'); f.hat = null; f.cape = sh('#a80c1c'); }
@@ -7303,7 +7320,7 @@ function fanMake(R, th, row, night) {
   f.pose = pose;
   f.drink = th === 'hr' ? 'flute' : fanPick(R, ['cup', 'cup', 'beer', 'can', 'water']);
   f.drinkC = sh(fanPick(R, ['#f83800', '#f83800', '#3cbcfc', '#fcfcfc', '#58d854']));
-  const pr = R(); f.prop = th === 'nyc' && pr < 0.07 ? 'pizza' : th === 'nyc' && pr < 0.13 ? 'foam' : th === 'hr' && pr < 0.08 ? 'chips' : (f.kid && th === 'spooky' && pr < 0.5) ? 'bucket' : pr < 0.04 ? 'flag' : pr < 0.07 ? 'binos' : null;
+  const pr = R(); f.prop = th === 'nyc' && pr < 0.07 ? 'pizza' : th === 'nyc' && pr < 0.13 ? 'foam' : th === 'stadium' && pr < 0.14 ? 'foam' : th === 'hr' && pr < 0.08 ? 'chips' : (f.kid && th === 'spooky' && pr < 0.5) ? 'bucket' : pr < 0.04 ? 'flag' : pr < 0.07 ? 'binos' : null;
   if (pose === 'shoulders') { f.rider = { skin: sh(fanPick(R, SKINS)), top: sh(fanPick(R, P.top)), hair: sh(fanPick(R, FAN_HAIR)), cap: R() < 0.4 ? sh(fanPick(R, P.hat)) : null, bot: sh(fanPick(R, FAN_PANTS)) }; }
   f.ph = R() * 6.28; f.tempo = 0.75 + R() * 0.6; f.chat = R() < 0.35; f.voice = f.kid ? 1.6 : f.fem ? 1.35 : 1;
   return f;
@@ -7323,7 +7340,7 @@ function crowdKeepOut(hl) {   // v8.99.5: world-x spans no spectator may overlap
 const crowdBox = p => [p.x - ((p.f && p.f.hw) || 4) - 2, p.x + ((p.f && p.f.hw) || 4) + 3];
 const crowdHit = (b, K) => K.some(k => b[0] < k[1] && b[1] > k[0]);
 /* ---- placement: tee bank, fairway banks (behind the rope, raised), green rope line + grandstand ---- */
-function crowdSpots(hl) {
+function crowdSpotsAll(hl) {
   if (hl._crowd) return hl._crowd;
   const out = [], ev = crowdEvent(), th = crowdTheme(hl), night = themeOf(hl).stars ? 0.8 : 1;
   const ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green' && s !== 'sand' && Math.abs(x - hl.cup) > 18; };   // never in front of the pin
@@ -7640,7 +7657,12 @@ const HEC = {
   nyc: ['FUGGEDABOUTIT!', "HEY, I'M WALKIN' HERE!", "LET'S GO!", 'SWING, BUDDY!'],
   hr: ['LET IT RIDE!', 'ALL IN!', 'DOUBLE DOWN!', 'HOUSE ALWAYS WINS!'],
   spooky: ['BOO!', 'SCARED YET!', 'TRICK SHOT!', 'SPOOKY SWING!'],
-  space: ['ONE SMALL STEP!', 'LOW GRAVITY, BIG SWING!', 'HOUSTON, SWING!']
+  space: ['ONE SMALL STEP!', 'LOW GRAVITY, BIG SWING!', 'HOUSTON, SWING!'],
+  beach: ['SURFS UP!', 'HANG TEN!', 'SUNSCREEN ON?', 'ALOHA, BIRDIE!', 'SAND IS FOR TOWELS!'],
+  snow: ['BRRR! SWING!', 'COLD HANDS, HOT PUTTER!', 'SNOW WAY!', 'DONT SLIP!'],
+  desert: ['DRY HEAT!', 'YEEHAW!', 'HOT ONE TODAY!', 'WATER? WHAT WATER?'],
+  farm: ['MOOOVE IT!', 'CORN-FED SWING!', 'GIDDY UP!', 'YEEHAW!'],
+  stadium: ['LETS GO!!', 'MVP! MVP!', 'LOUDER!!', 'WE WANT BIRDIES!']
 };
 let hec = null, hecPlan = null, hecKey = '', hecLast = -9, hecShotN = 0, hecBag = {};
 function hecPickLine(list) { const used = hecBag[list[0]] || (hecBag[list[0]] = []); let pool = list.filter(l => !used.includes(l)); if (!pool.length) { used.length = 0; pool = list.slice(); } const l = pool[Math.floor(Math.random() * pool.length)]; used.push(l); return l; }
@@ -7791,10 +7813,11 @@ function lgReact(filter, pose, dur, spread) {   // staggered per-fan poses (a ri
 }
 const lgNear = (x, r) => p => Math.abs(p.x - x) < r;
 function lgSay(list, opts) {   // bubble + blip, rate-limited by hype (chattier when the crowd is up OR when it turns on you)
-  const T = lgT(), gap = 2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50); if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
+  const T = lgT(), gap = (2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50)) * (FANS.away > 0 ? 0.5 : 1);   // v8.99.14 away game: rival fans chirp ~2x if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
   if (hec && opts && opts.force) hec = null;
   if (!(opts && opts.noCast) && list !== LG_PROMO && Math.random() < 0.4 && lgCastSay(opts && opts.kind ? opts.kind : (opts && opts.heck ? 'bad' : (state === 'aim' ? 'pre' : 'good')), opts && opts.near != null ? { near: opts.near } : null)) { LG.sayT = T; return true; }
-  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null })) && !lgSayAny(line, opts)) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { hlCele(hlBub()); } catch (e) {} try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
+  if (FANS.away > 0 && opts && opts.heck && Math.random() < 0.8 && list !== LG_PROMO) { const l2 = lgPick(Math.random() < 0.5 ? lgAway('pre') : list); if (lgRivalSay(l2, opts)) { LG.sayT = T; return true; } }
+  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null })) && !lgSayAny(line, opts)) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { hlCele(hlBub()); } catch (e) {} try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck) || !!(hec.p && hec.p.rv)); } catch (e) {} return true;
 }
 function lgSayAny(line, opts) {   // v8.99.8: nobody near? nearest visible fan (incl. structure fans), relaxed placement
   if (!hole || !ball) return false; const tx = opts && opts.near != null ? opts.near : ball.x;
@@ -7805,6 +7828,7 @@ function lgSayAny(line, opts) {   // v8.99.8: nobody near? nearest visible fan (
 function lgParDiff() { let d = 0; for (let i = 0; i < holeIdx; i++) if (scores[i]) d += scores[i] - HOLES[i].par; return d; }
 function lgPreList() {
   const putt = clubIdx === PUTT_I, from = ball ? ball.x : TEE_X, toCup = Math.abs(hole.cup - from), r = Math.random(), pd = lgParDiff();
+  if (FANS.away > 0 && r < 0.45) return [lgAway('pre'), true];   // v8.99.14
   if (LG.hype < 25 && r < 0.6) return [LGL.cold, true];
   if (ghostPlay && ghostPlay.hole && r < 0.3) return [LGL.ghost, true];
   if (putt) { if (strokes >= hole.par - 1 && toCup > 2.5 && r < 0.5) return [LGL.clutch, false]; if (toCup > 60) return [LGL.puttFar, true]; return [toCup < 6 ? LGL.puttShort : LGL.puttLong, true]; }
@@ -7876,20 +7900,100 @@ function lgCastSay(kind, opts) {   // a regular speaks if visible + placeable; h
 }
 const LG_SWING = ['DONT CHUNK IT!', 'NOT THE WATER!', 'MISS IT!', 'DONT SHANK IT!', 'BLADE IT!', 'YIPS ALERT!', 'BREATHE...', 'HEAD DOWN!', 'NOONAN!', 'FORE!', '*CLICK*', 'BIG MISS RIGHT!', 'CHOKE!', 'BALL ON THE GROUND? COOL', 'DONT THINK ABOUT THE WATER'];
 const LG_PROMO = ['THAT NEW DUMB LUCK HAT IS TOUGH!', 'NICE DLG HAT!', 'FOLLOW @DUMBLUCKGOLFING!', 'GOT MY DUMB LUCK HAT ON!', 'DUMB LUCK GOLF!', 'WHERE DID YOU GET THAT MERCH?', 'DLG SHOP HAS THE DRIP!', 'POST THAT ON @DUMBLUCKGOLFING!', 'SKILL? NAH. DUMB LUCK!', 'DUMB LUCK GOLF FOREVER!', 'HAT GAME > SWING GAME', 'MY DLG HAT HAS BETTER AIM', 'TAG @DUMBLUCKGOLFING!', 'RUN IT BACK. DUMB LUCK!'];
+/* ---- v8.99.14 gallery: FANS (your own following: 5 per hole to start, near-full debut round, cap 10,000), AWAY GAME (rival fans in ghost
+   matches: louder chirps + harsher lines ONLY, never the meter / shot), clutch-putt silence, superfans who follow you, picked chirps ---- */
+const FANS_KEY = 'dlg_fans', FANS_CAP = 10000;
+const FANS = { o: null, shown: 0, debut: false, rvN: -1, away: 0, key: '', lastGain: 0, lastHole: -1 };
+function fansSave(o) { try { localStorage.setItem(FANS_KEY, JSON.stringify(o)); } catch (e) {} }
+function fansLoad() { if (FANS.o) return FANS.o; let o = null; try { o = JSON.parse(localStorage.getItem(FANS_KEY) || 'null'); } catch (e) {}
+  if (!o || typeof o !== 'object' || typeof o.n !== 'number') { let back = false; try { back = !!localStorage.getItem(LG_MEM_KEY); } catch (e) {} o = { n: back ? 60 : 0, d: back ? 0 : 1, r: 0 }; fansSave(o); }   // returning players skip the debut and start with a small following
+  o.n = clamp(Math.round(o.n) || 0, 0, FANS_CAP); return (FANS.o = o); }
+function fansNow() { return fansLoad().n; }
+function fansFmt(n) { return n >= 1000 ? (Math.floor(n / 100) / 10) + 'K' : String(n); }
+function fansVisFrom(n, total) { return clamp(5 + Math.round((total - 5) * Math.sqrt(clamp(n, 0, FANS_CAP) / FANS_CAP)), Math.min(5, total), total); }
+function fansRival() {   // racing a friend's ghost: their FANS come from their ghost; older ghosts get a fair guess
+  if (courseKind !== 'match' || !ghostPlay || !matchCtx || matchCtx.watch) return -1; const g = ghostPlay.data || {}, f = Number(g.fans);
+  return Number.isFinite(f) && f >= 0 ? clamp(Math.round(f), 0, FANS_CAP) : Math.round(Math.max(40, fansNow()) * (0.9 + 0.5 * hash(seedFromStr(String(ghostPlay.name || '?')) % 99991)));
+}
+function fansHoleStart() { if (!liveGal) { FANS.key = ''; return; } const o = fansLoad(); FANS.debut = !!o.d; FANS.shown = o.n; FANS.rvN = fansRival(); FANS.away = 0; FANS.key = holeIdx + '|' + FANS.shown + '|' + FANS.rvN + '|' + (FANS.debut ? 1 : 0); LG.debut = FANS.debut; }
+function fansHoleDone(d, sc) { if (!liveGal || SIM || courseKind === 'lab' || !crowdOn()) return; const o = fansLoad();
+  let g = d <= -3 ? 60 : d === -2 ? 30 : d === -1 ? 12 : d === 0 ? 5 : d === 1 ? 1 : 0; if (sc === 1) g += 100; if (LG.streak >= 3 && d <= 0) g += Math.min(10, 2 * LG.streak);
+  g = Math.round(g * (1 + o.n / 2500)); g = Math.min(g, FANS_CAP - o.n); o.n += g; FANS.lastGain = g; FANS.lastHole = holeIdx;
+  if (holeIdx >= HOLES.length - 1) { o.r = (o.r || 0) + 1; o.d = 0; } fansSave(o); }
+function fansPri(p) { return p.cast ? -10 + p.r : p.st ? 0.6 + p.r : p.r - (p.row < 2 && p.z === 'g' ? 0.3 : 0) - (p.z === 't' ? 0.15 : 0); }
+const RIVAL_COLS = ['#c8102e', '#7c3cbc', '#fc7c1c', '#0c5c3c', '#1c1c1c'];
+function fansApply(hl, all) {
+  hl._fvk = FANS.key; const T = all.length;
+  if (!hl._rkd) { hl._rkd = 1; all.slice().sort((a, b) => fansPri(a) - fansPri(b)).forEach((p, i) => { p.rk = i; }); }
+  let you = FANS.debut ? Math.max(5, Math.round(T * 0.9)) : fansVisFrom(FANS.shown, T), rv = FANS.rvN >= 0 ? fansVisFrom(FANS.rvN, T) : 0;
+  if (rv && you + rv > T) { const k = T / (you + rv); you = Math.max(5, Math.round(you * k)); rv = Math.max(5, T - you); }
+  const rc = RIVAL_COLS[Math.floor(hash(seedFromStr(String((ghostPlay && ghostPlay.name) || '?')) % 99991) * RIVAL_COLS.length) % RIVAL_COLS.length];
+  for (const p of all) { p.rv = !!rv && p.rk >= you && p.rk < you + rv && !p.cast; if (p.rv && !p.f._rvd && !p.f.costume) { p.f._rvd = 1; if (hash(p.i * 31 + 7) < 0.75) { p.f.topC = rc; if (p.f.hat) p.f.hatC = hash(p.i * 37) < 0.5 ? rc : '#fcfcfc'; } } }
+  FANS.away = rv ? (rv > you ? 1 : -1) : 0;
+  // superfans: 2 (3 once you're popular / on your debut) on the far bank, wearing DLG gold; they walk with you and rush the green on a hole-out
+  const nsf = FANS.debut || FANS.shown >= 1000 ? 3 : 2, cand = all.filter(p => p.row >= 2 && !p.st && !p.cast && !p.f.costume && !p.f.rider && !p.f.kid).sort((a, b) => Math.abs(a.x - TEE_X) - Math.abs(b.x - TEE_X));
+  hl._sf = REDUCED_MOTION ? [] : cand.slice(0, nsf); hl._sf.forEach((p, k) => { p.sf = k; p.rv = false; Object.assign(p.f, { hat: 'dlg', hatC: '#101010', top: 'jersey', num: true, topC: '#f8d878', accent: '#101010', prop: k === 0 ? 'flag' : p.f.prop }); });
+  hl._fv = all.filter(p => p.sf == null && (p.rk < you + rv));
+}
+function crowdSpots(hl) { const all = crowdSpotsAll(hl);
+  if (hl !== hole || !FANS.key || !liveGal || SIM || courseKind === 'lab' || crowdEvent()) return all;
+  if (hl._fvk !== FANS.key) fansApply(hl, all);
+  const sf = hl._sf; if (!sf || !sf.length) return hl._fv;
+  const out = hl._fv.slice(); for (const p of sf) if (!p.sfHide) out.push(p); return out;
+}
+function sfTick(dt) { const sf = hole && hole._sf; if (!sf || !sf.length || !ball || !FANS.key) return;
+  if (!hole._g01) { let g0 = hole.cup, g1 = hole.cup; while (g0 > 0 && surfAt(hole, g0 - 1) === 'green') g0--; while (g1 < hole.len && surfAt(hole, g1 + 1) === 'green') g1++; hole._g01 = [g0, g1]; }
+  const KO = hole._ko || (hole._ko = crowdKeepOut(hole)), [g0, g1] = hole._g01, rush = !!hole._sfGo && (state === 'holed' || state === 'done');
+  sf.forEach((p, k) => {
+    const tx = rush ? (k % 2 ? g1 + 20 + k * 4 : g0 - 20 - k * 4) : clamp(Math.min(ball.x, hole.cup - 20) - 16 - k * 7, -34, hole.len + 30), d = tx - p.x;
+    if (Math.abs(d) < 0.5) return; const spd = rush ? 70 : 26; p.x += clamp(d, -spd * dt, spd * dt);
+    const b = crowdBox(p); p.sfHide = crowdHit(b, KO) || Math.abs(p.x - hole.cup) < 16 || (hole._stands || []).some(s => p.x > s.x0 - 4 && p.x < s.x1 + 4) || p.x < -40 || p.x > hole.len + 40; p.bk = crowdHit(b, KO.soft);
+  });
+  if (rush && !hole._sfR) { hole._sfR = 1; lgReact(p => p.sf != null, 'up', 3.5, 0.2); }
+}
+const LG_LONE = ['MISS IT.', '*COUGH*', 'CHOKE...', 'NOONAN.', 'YIPS...', '*SNEEZE*', 'NO PRESSURE.'];
+const LG_DEBUT = ['WHO IS THIS?!', 'A STAR IS BORN!', 'NEW FAVORITE GOLFER!', 'WHERE DID YOU COME FROM?!', 'I WAS HERE FIRST!'];
+function lgAway(kind) { const n = String((ghostPlay && ghostPlay.name) || 'THEM');
+  if (kind === 'pre') return ['@' + n + ' OWNS THIS PLACE!', 'WRONG CROWD, BUDDY!', 'THIS IS ' + n + ' COUNTRY!', 'AWAY TEAM STINKS!', n + ' WOULD STICK THIS!', 'NOBODY CAME FOR YOU!', 'GO HOME!', 'OUR COURSE! OUR RULES!'];
+  if (kind === 'swing') return ['MISS IT!!', 'CHOKE, AWAY BOY!', 'YOU WILL BLOW IT!', 'DOUBLE BOGEY INCOMING!', 'NOBODY CARES!', n + ' IS BETTER!', 'SHANK! SHANK! SHANK!'];
+  return ['HAHAHA!', 'THATS WHY YOU LOSE!', n + ' WOULD NEVER!', 'SIT DOWN!', 'GET OFF OUR COURSE!', 'HISTORIC CHOKE!'];
+}
+function lgRivalSay(line, opts) {   // a rival fan (their colors) says it; falls back to anyone
+  if (!hole || !ball) return false; const tx = opts && opts.near != null ? opts.near : ball.x;
+  const vis = crowdSpots(hole).filter(p => p.rv && !p.f.costume && (() => { const sx = w2s(p.x - camX, 0).x; return sx > 4 && sx < W - 4; })()).sort((a, b) => Math.abs(a.x - tx) - Math.abs(b.x - tx));
+  let ok = false; for (const p of vis.slice(0, 8)) if (hecSay(line, Object.assign({ relax: true }, opts || {}, { fan: p, near: undefined }))) { ok = true; break; }
+  if (!ok) ok = hecSay(line, Object.assign({ relax: true }, opts || {}, { fan: undefined, near: undefined })); if (!ok || !hec) return false;
+  hec.lg = true; hec.heck = true; try { lgBlip(hec.p, true); } catch (e) {} return true;
+}
+const CHIRP_PICKS = ['NICE SWING... NOT!', 'YOU PLAY LIKE MY GRANDMA!', 'BRING EXTRA BALLS!', 'IS THAT YOUR BEST?', 'I ALREADY WON!', 'WATER IS THAT WAY!', 'YOU CANT PUTT!', 'SEE YOU AT THE 19TH!'];
+function chirpsMine() { const m = matchCtx && matchCtx.match; if (!m || !ghostPlay || matchCtx.watch || courseKind !== 'match' || matchSide(m) !== 'opponent') return [];
+  const c = m.setup && m.setup.chirps; return Array.isArray(c) ? c.filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2).map(i => CHIRP_PICKS[i]) : []; }
+function lgChirpTick() {   // the challenger's picked chirps: one per hole (about 60% of holes), from a rival fan, labeled so you know who sent it
+  if (state !== 'aim' || LG.clutch || hec || st < 1.0 || LG.chirpH === holeIdx) return; LG.chirpH = holeIdx; const c = chirpsMine(); if (!c.length || Math.random() > 0.6) return;
+  const line = c[Math.floor(Math.random() * c.length)], who = { name: '@' + String(ghostPlay.name).slice(0, 10) + ' SAYS', c: '#c8102e' };
+  if (lgRivalSay(line, { who, dur: 2.4 })) LG.sayT = lgT();
+}
 function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
   const T = lgT(); lgLoad();
   if (LG.me) { LG.me.t += dt; if (LG.me.t > LG.me.dur) LG.me = null; }
   const rk = (typeof courseKind === 'string' ? courseKind : '') + '|' + (HOLES[0] && HOLES[0].name);
-  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.gs = 0; LG.bs = 0; LG.mem = { water: 0, sand: 0, birdies: 0 }; LG.last = lgMemLast(); LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
+  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.debutHeck = false; LG.debutGood = false; LG.awayMsg = false; LG.chirpH = -1; LG.hype = 50; LG.gs = 0; LG.bs = 0; LG.mem = { water: 0, sand: 0, birdies: 0 }; LG.last = lgMemLast(); LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
   const key = holeIdx + '|' + strokes;
   if (state === 'aim' && key !== LG.key) { LG.key = key; LG.shotN++; LG.ducked.clear(); LG.minD = 1e9; LG.startD = Math.abs(hole.cup - ball.x);
-    const putt = clubIdx === PUTT_I, p = 0.45 + Math.abs(LG.hype - 50) / 120;
-    LG.plan = Math.random() < p ? { at: putt || Math.random() < 0.55 ? 'aim' : 'power', delay: putt ? 0.7 + Math.random() * 1.0 : 0.25 + Math.random() * 0.5, done: false } : null; }
+    const putt = clubIdx === PUTT_I, p = Math.min(0.9, (0.45 + Math.abs(LG.hype - 50) / 120) * (FANS.away > 0 ? 1.5 : FANS.away < 0 ? 0.8 : 1));
+    LG.clutch = putt && strokes >= hole.par - 1 && LG.startD > 2.5;   // v8.99.14 clutch-putt silence: the gallery holds its breath (one lone heckler at most)
+    LG.plan = !LG.clutch && Math.random() < p ? { at: putt || Math.random() < 0.55 ? 'aim' : 'power', delay: putt ? 0.7 + Math.random() * 1.0 : 0.25 + Math.random() * 0.5, done: false } : null; }
+  if (state === 'aim' && holeIdx === 0 && strokes === 0 && FANS.away && !LG.awayMsg && st > 0.3) { LG.awayMsg = true; crowdSpots(hole); if (FANS.away > 0 && ghostPlay) showMsg('AWAY GAME! @' + ghostPlay.name + ' FANS', '#f83800', 2.2); else if (FANS.away < 0) showMsg('HOME CROWD!', '#f8d878', 1.8); }
+  try { sfTick(dt); lgChirpTick(); } catch (e) {}
   const hk = rk + '|' + holeIdx; if (LG.promoH !== hk) { LG.promoH = hk; if (LG.promoLeft == null) LG.promoLeft = 1 + Math.floor(Math.random() * 3); LG.promo = --LG.promoLeft <= 0; if (LG.promo) LG.promoLeft = 2 + Math.floor(Math.random() * 3); }   // v8.99.11: brand shout-out about every 3rd hole (2-4 apart), max 1 per hole, between shots only
-  if (LG.promo && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true, noCast: true })) LG.promoUsed.push(line); }   // no repeats within a round
-  if (state === 'aim' && LG.swKey !== key) { LG.swKey = key; LG.sw = Math.random() < (clubIdx === PUTT_I ? 0.3 : 0.42) * (LG.debut ? 1.4 : 1) ? { at: Math.random() < 0.6 ? 'power' : 'accuracy', delay: 0.12 + Math.random() * 0.35, done: false } : null; }   // v8.99.12: mid-swing distraction (real golf energy)
+  if (LG.promo && !LG.clutch && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true, noCast: true })) LG.promoUsed.push(line); }   // no repeats within a round
+  if (state === 'aim' && LG.swKey !== key) { LG.swKey = key; LG.sw = Math.random() < Math.min(0.9, (LG.clutch ? 0.5 : (clubIdx === PUTT_I ? 0.3 : 0.42) * (LG.debut ? 1.4 : 1) * (FANS.away > 0 ? 2 : FANS.away < 0 ? 0.75 : 1))) ? { at: Math.random() < 0.6 ? 'power' : 'accuracy', delay: 0.12 + Math.random() * 0.35, done: false, lone: LG.clutch } : null;
+    if (LG.debut && holeIdx === 0 && strokes === 0 && !LG.debutHeck) { LG.debutHeck = true; LG.sw = { at: 'power', delay: 0.2, done: false }; } }   // v8.99.14: debut round always gets a first-tee heckle   // v8.99.12: mid-swing distraction (real golf energy)
   if (LG.sw && !LG.sw.done && state === LG.sw.at && st >= LG.sw.delay) { LG.sw.done = true; if (hec && hec.lg && !hec.heck) hec = null;
-    if (!(Math.random() < 0.45 && lgCastSay('swing', { low: true, dur: 1.4 }))) { const line = hecPickLine(LG_SWING); if ((hecSay(line, { low: true, relax: true, dur: 1.4 }) || lgSayAny(line, {})) && hec) { hec.lg = true; hec.heck = true; hec.dur = Math.min(hec.dur, 1.6); LG.sayT = T; } } }
+    if (LG.sw.lone) { const line = hecPickLine(LG_LONE), vis = crowdSpots(hole).filter(p => { const sx = w2s(p.x - camX, 0).x; return sx > 4 && sx < W - 4 && !p.f.costume; }), p = vis[Math.floor(Math.random() * vis.length)];
+      if (p && (hecSay(line, { fan: p, low: true, relax: true, dur: 1.3 }) || hecSay(line, { low: true, relax: true, dur: 1.3 })) && hec) { hec.lg = true; hec.heck = true; LG.sayT = T; } }
+    else if (FANS.away > 0 && Math.random() < 0.5) { lgRivalSay(hecPickLine(lgAway('swing')), { low: true, dur: 1.4 }) && hec && (hec.dur = Math.min(hec.dur, 1.6)); }
+    else if (!(Math.random() < 0.45 && lgCastSay('swing', { low: true, dur: 1.4 }))) { const line = hecPickLine(LG_SWING); if ((hecSay(line, { low: true, relax: true, dur: 1.4 }) || lgSayAny(line, {})) && hec) { hec.lg = true; hec.heck = true; hec.dur = Math.min(hec.dur, 1.6); LG.sayT = T; } } }
   if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
   // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
   if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) {} /* v8.99.13 iPhone: no hush clip during the meter (it buzzed on the phone speaker); the crowd bed already dips (v93Hush) */ else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
@@ -7917,6 +8021,8 @@ function lgStreak(good, say) {   // count it; say = may talk now (between shots,
   if (good && pb >= 2) { list = LGS.relief; p = 0.9; }
   else if (good && LG.gs >= 5) { list = LGS.good5; p = 0.9; } else if (good && LG.gs >= 3) { list = LGS.good3; p = 0.85; } else if (good && LG.gs === 2) { list = LGS.good2; p = 0.5; }
   else if (!good && LG.bs >= 5) { list = LGS.bad5; p = 0.9; } else if (!good && LG.bs >= 3) { list = LGS.bad3; p = 0.85; } else if (!good && LG.bs === 2) { list = LGS.bad2; p = 0.55; }
+  if (good && LG.debut && !LG.debutGood) { LG.debutGood = true; try { crowdCheer(1.2); lgReact(() => true, q => hash(q.i * 3) < 0.2 ? 'point' : 'up', 2.4, 0.4); } catch (e) {} LG.hype = clamp(LG.hype + 10, 0, 100); return lgSay(LG_DEBUT, { near: ball ? ball.x : null, force: true, noCast: true }); }   // v8.99.14 debut: big reaction to the first good shot
+  if (!good && FANS.away > 0 && list) list = list.concat(lgAway('bad'));
   if (!list || Math.random() >= p) return false;
   if (good) LG.hype = clamp(LG.hype + Math.min(6, LG.gs), 0, 100); else LG.hype = clamp(LG.hype - Math.min(6, LG.bs), 0, 100);
   return lgSay(list, { near: ball ? ball.x : null, heck: !good, force: true, kind: good ? 'good' : 'bad' });
@@ -7946,6 +8052,7 @@ function lgPenalty(kind) {
   if ((LG.bs || 0) >= 1) setTimeout(() => { try { if (lgOn()) lgStreak(false, true); } catch (e) {} }, 1600); else lgStreak(false, false);   // v8.99.11 streak
 }
 function lgHoled() {   // hole-outs, clutch putts, eagles: roar (existing) + layered yells by hype, everybody up, staggered
+  try { if (hole) hole._sfGo = true; } catch (e) {}   // v8.99.14 superfans rush the green edge
   try { if (lgOn()) lgStreak(true, false); } catch (e) {}   // v8.99.11: counts as a good shot (the hole-out line wins)
   if (!lgOn() || !hole) return; const putt = clubIdx === PUTT_I, big = !putt || strokes <= hole.par - 2, clutch = putt && (LG.startD >= 6 || strokes >= hole.par);
   if (!putt || clutch || big) { lgReact(() => true, p => hash(p.i * 3) < 0.15 ? 'point' : 'up', big ? 3 : 2.2, 0.4); lgCaAt('shout', (big ? 0.6 : 0.45) * lgHyp(), lgPanX(hole.cup) * 0.5, Math.random() * 1.2, 2.3); if (big && LG.hype > 60) setTimeout(() => { try { lgCaAt('shout', 0.4, -lgPanX(hole.cup) * 0.5, 0.5 + Math.random(), 1.8); } catch (e) {} }, 380); if (!crowdT) crowdCheer(big ? 1.3 : 1); }
@@ -10475,6 +10582,7 @@ const VIEWS = {
     return head('CHALLENGE', 'go:friends') + '<p class="big">' + at(f ? f.friend_username : '?') + '</p>' +
       '<p class="sub">YOU BOTH PLAY THE SAME HOLES, PINS AND WIND.<br>YOU GO FIRST; THEY RACE YOUR GHOST.</p><label>HOLES</label><div class="seg">' +
       MATCH_SIZES.map(k => '<button type="button" data-a="holes" data-n="' + k + '" class="' + (k === n ? 'on' : '') + '">' + k + '<small>' + (k === 3 ? 'QUICK' : k === 9 ? 'NINE' : 'FULL') + '</small></button>').join('') +
+      '</div><label>CHIRPS FOR THEIR ROUND (PICK 2)</label><div class="seg" style="flex-wrap:wrap">' + CHIRP_PICKS.map((l, i) => '<button type="button" data-a="chirp" data-n="' + i + '" class="' + ((o.chirps || []).includes(i) ? 'on' : '') + '" style="flex:1 1 40%;min-height:40px;font-size:11px;letter-spacing:1px">' + esc(l) + '</button>').join('') +
       '</div><button class="btn" data-a="sendch" data-id="' + esc(o.fid) + '">SEND + PLAY FIRST</button><div class="msg"></div>';
   },
   matches: () => {
@@ -10969,9 +11077,10 @@ if (acctEl) {
     if (a === 'fremove') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } await removeFriend(id); showAcct('friends'); return; }
     if (a === 'challenge') { showAcct('challenge', { fid: id, holes: 9 }); return; }
     if (a === 'holes') { acctOpts.holes = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
+    if (a === 'chirp') { const i = +b.getAttribute('data-n'), c = acctOpts.chirps || (acctOpts.chirps = []), k = c.indexOf(i); if (k >= 0) c.splice(k, 1); else { c.push(i); if (c.length > 2) c.shift(); } showAcct('challenge', acctOpts); return; }
     if (a === 'sendch') {
       const f = social.friends.find(x => x.id === id); if (!f) return;
-      acctBusy(true); const r = await createMatch(f, acctOpts.holes || 9); acctBusy(false);
+      acctBusy(true); const r = await createMatch(f, acctOpts.holes || 9, acctOpts.chirps); acctBusy(false);
       if (!r.ok) { acctMsg(r.msg); return; }
       const s = await startMatchRound(r.match, false); if (!s.ok) acctMsg(s.msg);
       return;
@@ -11165,6 +11274,7 @@ function renderScene() {
     if (RATE_UP.on) { const hk = rateHoleKey(holeIdx), v = rateGet(hk[0], hk[1]);
       RATE_DN.x = x + w - 6 - 13; RATE_UP.x = RATE_DN.x - 17; RATE_UP.y = RATE_DN.y = y + 6;
       drawRateBtn(RATE_UP, false, v === 1); drawRateBtn(RATE_DN, true, v === -1); }
+    if (FANS.lastHole === holeIdx && FANS.o && liveGal && crowdOn()) { const ft = 'FANS ' + fansFmt(FANS.o.n) + (FANS.lastGain ? ' +' + FANS.lastGain : ''); drawText(ft, x + w - 8 - textW(ft), y + 24, '#f8d878'); }   // v8.99.14
     const nm = doneInfo.name;
     const sc2 = textW(nm, 2) <= w - 12 ? 2 : 1;
     drawTextC(nm, y + 38, doneInfo.d <= 0 ? COL.lime : COL.orange, sc2, sc2 * (sc2 === 2 ? 1.5 : 1));
