@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.7';
+const GAME_VERSION = 'v8.99.8';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7346,8 +7346,20 @@ function crowdSpots(hl) {
       if (best && best.row === p.row) break; }
     if (best) { p.x = best.x; if (best.row !== p.row) { p.row = best.row; p.z = p.z === 'g' && best.row >= 2 ? 'g' : p.z; } kept.push(p); } }
   kept.forEach(p => { p.bk = crowdHit(crowdBox(p), KO.soft); });   // behind scenery -> drawn in the 'back' pass before trees / props
+  // v8.99.8: viewing structures where the hole has no dry open ground (island / moat / water-heavy holes, tight tees): bleachers or a dock-style deck
+  // past either end of the hole (never over play, hazards, obstacles or the cup); their fans sit / stand on the tiers
+  hl._stands = []; let nst = 0;
+  try { let wet = 0; for (let x = 0; x <= hl.len; x++) { const s = surfAt(hl, x); if (s === 'water' || s === 'ob') wet++; }
+    const need = wet / Math.max(1, hl.len) >= 0.15 || hl.drop != null || lost.length >= 6; if (need) {
+      const dock = wet / Math.max(1, hl.len) >= 0.25, cand = [[-46, -16], [hl.len + 6, hl.len + 34]];
+      for (const [x0, x1] of cand) { if (crowdHit([x0 - 2, x1 + 2], KO)) continue; let Hm = -1e9; for (let x = x0; x <= x1; x += 2) Hm = Math.max(Hm, groundH(hl, clamp(x, 0, hl.len)));
+        const st = { x0, x1, Hm, dock, tiers: [[2, 4], [3, 10]] }; hl._stands.push(st);
+        for (let k = 0; k < 2; k++) { const [row, L] = st.tiers[k]; for (let x = x0 + 3 + k * 3; x <= x1 - 3 - k * 3; x += 4 + (k ? 1 : 0)) {
+          const q = { x, row, z: x < 0 ? 't' : 'g', r: R(), r2: R(), r3: R(), ph: R() * 6.28, st: 1 }; q.f = fanMake(mulberry32(((hl.len | 0) * 131 + x * 17 + row * 7) >>> 0), th, row, night);
+          q.lift = Math.round(Hm - groundH(hl, clamp(x, 0, hl.len))) + L; q.bk = true; q.i = out.length + 1000 + nst++; kept.push(q); } } }
+      for (let i = kept.length - 1; i >= 0; i--) { const p = kept[i]; if (!p.st && p.row >= 2 && hl._stands.some(s => p.x > s.x0 - 4 && p.x < s.x1 + 4)) kept.splice(i, 1); } } } catch (e) { hl._stands = []; }
   kept.sort((p, q) => q.row - p.row || p.x - q.x);   // back rows first
-  return (hl._crowd = kept.slice(0, ev ? 120 : 96));
+  return (hl._crowd = kept.slice(0, (ev ? 120 : 96) + nst));
 }
 /* ---- reactions ---- */
 let crowdReact = null;   // { kind: 'ooh' | 'clap' | 'groan', t }
@@ -7505,16 +7517,17 @@ function drawCrowd(hl, cam, C, pass) {
   const CZ = bx == null || !GAME_STATES.includes(state) ? [] : [[Math.min(bx, gx) - 7, Math.max(bx, gx) + 7]], clr = p => CZ.length && crowdHit(crowdBox(p), CZ);
   // raised gallery banks under the far rows (one darker grass strip per group, soft stepped ends)
   const bank = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.6 : 0.82), runs = [];
-  sp.forEach(p => { if (p.row < 2 || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
+  sp.forEach(p => { if (p.row < 2 || p.st || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
   runs.sort((a, b) => a[0] - b[0]);
   for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(13, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
   let rowDone = 4;
   const ropeFar = () => { for (const [a, b] of runs) crowdRope(hl, cam, a - 6, b + 6, 4, P.rope, P.stake, 4); };
+  if (pass === 'back') try { crowdStands(hl, cam); } catch (e) {}   // v8.99.8
   if (pass !== 'back') try { v93Stand(hl, cam, sp, t, cheer); } catch (e) {}   // v8.93 grandstand behind the green
   const front = { g: [1e9, -1e9], t: [1e9, -1e9] };
   sp.forEach(p => {
     if (p.row < 2 && rowDone >= 2) { ropeFar(); rowDone = 1; }
-    if (!vis(p) || clr(p)) return; const sx = Math.round(p.x - cam), gy = Math.round(BASE - groundH(hl, Math.max(0, p.x))) - FAN_DEPTH[p.row];
+    if (!vis(p) || clr(p)) return; const sx = Math.round(p.x - cam), gy = Math.round(BASE - groundH(hl, Math.max(0, p.x))) - (FAN_DEPTH[p.row] + (p.lift || 0));
     drawFan(sx, gy, p, t, cheer);
     if (p.row === 0 && front[p.z]) { front[p.z][0] = Math.min(front[p.z][0], sx - 5); front[p.z][1] = Math.max(front[p.z][1], sx + 5); }
   });
@@ -7614,16 +7627,16 @@ function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear o
   if (!crowdOn() || SIM || !hole || !ball) return false;
   const sp = crowdSpots(hole), Z = worldZoom(), lines = hecWrap(text), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
   const top = Math.max(36, (SAFE.t || 0) + 6) + 17, bq = w2s(ball.x - camX, BASE - ball.h - 4);
-  const avoid = [{ x: bq.x - 24, y: bq.y - 56 * Z, w: 48, h: 64 * Z }, { x: MC.x - 4, y: 0, w: MC.w + 8, h: MC.y + MC.h + 6 }, { x: 0, y: 0, w: PAUSE_BTN.x + PAUSE_BTN.w + 4, h: PAUSE_BTN.y + PAUSE_BTN.h + 4 }];
-  const pts = lastAimPts || [], hitR = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const rx = opts && opts.relax, avoid = [rx ? { x: bq.x - 8, y: bq.y - 30 * Z, w: 16, h: 34 * Z } : { x: bq.x - 24, y: bq.y - 56 * Z, w: 48, h: 64 * Z }, { x: MC.x - 4, y: 0, w: MC.w + 8, h: MC.y + MC.h + 6 }, { x: 0, y: 0, w: PAUSE_BTN.x + PAUSE_BTN.w + 4, h: PAUSE_BTN.y + PAUSE_BTN.h + 4 }];
+  const pts = (opts && opts.relax && !['aim', 'power', 'accuracy'].includes(state)) ? [] : lastAimPts || [], hitR = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const cand = [];
   for (const p of sp) {
     if (p.f.costume === 'ghost' || p.f.costume === 'pumpkin') continue;
     if (opts && opts.fan && p !== opts.fan) continue;
     if (opts && opts.near != null && Math.abs(p.x - opts.near) > 140) continue;
-    const hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3, q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row] - hh);
+    const hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3, q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - (FAN_DEPTH[p.row] + (p.lift || 0)) - hh);
     if (q.x < 6 || q.x > W - 6) continue;
-    for (const lift of [0, 14, 28, 44]) {   // lift the bubble (longer tail) when the aim line runs over the crowd
+    for (const lift of (rx ? [0, 14, 28, 44, 60, 76] : [0, 14, 28, 44])) {   // lift the bubble (longer tail) when the aim line runs over the crowd
       const r = { x: Math.round(clamp(q.x - bw / 2, 2, W - bw - 2)), y: Math.round(q.y - bh - 5 - lift), w: bw, h: bh };
       if (r.y < top || r.y + r.h > PLAY_H - 4) continue;
       if (avoid.some(a => hitR(r, a))) continue;
@@ -7662,7 +7675,7 @@ function crowdTick(dt) {
 let lastAimPts = null;
 function hecDraw() {
   if (!hec || !ball || !hole) return; const r = hec.r, p = hec.p, hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3;
-  const q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row] - hh);   // follow the fan as the camera moves
+  const q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - (FAN_DEPTH[p.row] + (p.lift || 0)) - hh);   // follow the fan as the camera moves
   r.x = Math.round(clamp(q.x - r.w / 2, 2, W - r.w - 2)); r.y = Math.round(q.y - r.h - 5 - hec.lift); hec.tail = q.x;
   if (q.x < 2 || q.x > W - 2 || r.y < Math.max(36, (SAFE.t || 0) + 6) + 17 || r.y + r.h > PLAY_H - 4) hec.hide = 1;
   if (state === 'flight' || state === 'penalty') { const bq = w2s(ball.x - camX, BASE - ball.h - 4); if (bq.x > r.x - 10 && bq.x < r.x + r.w + 10 && bq.y > r.y - 10 && bq.y < r.y + r.h + 14) hec.hide = Math.max(hec.hide, 1); }   // the ball wins: get out of the way
@@ -7685,8 +7698,8 @@ function hecDraw() {
    audio/crowd-jeer.mp3  'R07-02-Large Crowd Booing and Cheering' (boos)  https://archive.org/details/Red_Library_Crowds_Sports
    audio/crowd-laugh.mp3 'R16-02-Very Large Group Laughing' (de-roomed: low cut, gated)  https://archive.org/details/Red_Library_Crowds_Indoor_2
    audio/crowd-shout.mp3 'R29-46-Men Yell and Cheer at Sporting Event'  https://archive.org/details/Red_Library_Sports */
-let liveGal = false; try { liveGal = localStorage.getItem('dlg_live_gal') === '1'; } catch (e) {}
-function lgOn() { return liveGal && !!(admin && admin.is) && courseKind !== 'lab' && !SIM && crowdOn(); }
+let liveGal = true; try { liveGal = localStorage.getItem('dlg_live_gal') !== '0'; } catch (e) {}   // v8.99.8: live for everyone (admin LAB off switch)
+function lgOn() { return liveGal && courseKind !== 'lab' && !SIM && crowdOn(); }
 const LG_FILES = { hush: 'audio/crowd-hush.mp3?v=186', aww: 'audio/crowd-aww.mp3?v=186', jeer: 'audio/crowd-jeer.mp3?v=186', laugh: 'audio/crowd-laugh.mp3?v=186', shout: 'audio/crowd-shout.mp3?v=186' };
 const LG = { hype: 50, r: new Map(), sayT: -99, blipT: -99, tapT: -99, key: '', shotN: 0, plan: null, minD: 1e9, startD: 0, oohAt: -99, hushKey: '', loaded: false, streak: 0, cold: 0, prevD: 0, me: null, comeT: -99, ducked: new Set(), round: '' };
 const lgT = () => performance.now() / 1000;
@@ -7751,7 +7764,13 @@ const lgNear = (x, r) => p => Math.abs(p.x - x) < r;
 function lgSay(list, opts) {   // bubble + blip, rate-limited by hype (chattier when the crowd is up OR when it turns on you)
   const T = lgT(), gap = 2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50); if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
   if (hec && opts && opts.force) hec = null;
-  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null }))) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
+  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null })) && !lgSayAny(line, opts)) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
+}
+function lgSayAny(line, opts) {   // v8.99.8: nobody near? nearest visible fan (incl. structure fans), relaxed placement
+  if (!hole || !ball) return false; const tx = opts && opts.near != null ? opts.near : ball.x;
+  const vis = crowdSpots(hole).filter(p => { const sx = w2s(p.x - camX, 0).x; return sx > 4 && sx < W - 4 && p.f.costume !== 'ghost' && p.f.costume !== 'pumpkin'; }).sort((a, b) => Math.abs(a.x - tx) - Math.abs(b.x - tx));
+  for (const p of vis.slice(0, 10)) if (hecSay(line, { fan: p, relax: true })) return true;
+  return hecSay(line, { relax: true });
 }
 function lgParDiff() { let d = 0; for (let i = 0; i < holeIdx; i++) if (scores[i]) d += scores[i] - HOLES[i].par; return d; }
 function lgPreList() {
@@ -7826,7 +7845,7 @@ function lgPose(p, pose) {   // per-fan override + hype mood
 }
 function lgFanAt(pt) {   // screen point -> nearest visible fan under the finger (generous: tiny pixel people)
   let best = null, bd = 1e9; const Z = worldZoom();
-  for (const p of crowdSpots(hole)) { const hh = p.f.legH + p.f.torH + p.f.headH + 3, gy = BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row], a = w2s(p.x - camX, gy), b = w2s(p.x - camX, gy - hh);
+  for (const p of crowdSpots(hole)) { const hh = p.f.legH + p.f.torH + p.f.headH + 3, gy = BASE - groundH(hole, Math.max(0, p.x)) - (FAN_DEPTH[p.row] + (p.lift || 0)), a = w2s(p.x - camX, gy), b = w2s(p.x - camX, gy - hh);
     const dx = Math.abs(pt.x - a.x), w = (p.f.hw + 4) * Z; if (dx > w || pt.y > a.y + 4 || pt.y < b.y - 6) continue; const d = dx + Math.abs(pt.y - (a.y + b.y) / 2) * 0.3; if (d < bd) { bd = d; best = p; } }
   return best;
 }
@@ -8008,6 +8027,18 @@ function v93Ducks(cam) {
   return true;
 }
 /* ---- gallery: grandstand behind the green + seated fans ---- */
+function crowdStands(hl, cam) {   // v8.99.8 simple pixel bleachers / dock deck (decoration only)
+  if (!hl._stands || !hl._stands.length) return; const night = themeOf(hl).stars ? 0.72 : 1, S = c => shadeHex(c, night), K = '#000';
+  for (const st of hl._stands) { const s0 = Math.round(st.x0 - cam), s1 = Math.round(st.x1 - cam); if (s1 < -2 || s0 > W + 2) continue;
+    const plank = S(st.dock ? '#a8743c' : '#e8e8ec'), face = S(st.dock ? '#6c4420' : '#9c9ca8'), post = S(st.dock ? '#5c3818' : '#5c5c64');
+    const by = Math.round(BASE - st.Hm);
+    for (let x = s0 + 1; x <= s1 - 1; x += 8) { const gy = Math.round(BASE - groundH(hl, clamp(x + cam, 0, hl.len))); rect(x, by - FAN_DEPTH[3] - 10, 1, gy - (by - FAN_DEPTH[3] - 10) + 1, post); }
+    for (let k = 1; k >= 0; k--) { const [row, L] = st.tiers[k], y = by - FAN_DEPTH[row] - L, a = s0 + k * 3, b = s1 - k * 3;
+      rect(a - 1, y - 1, b - a + 3, 5, K); rect(a, y, b - a + 1, 1, plank); rect(a, y + 1, b - a + 1, 2, face);
+      if (st.dock) for (let x = a + 3; x < b; x += 6) rect(x, y, 1, 1, face); }
+    if (!st.dock) { const y = by - FAN_DEPTH[3] - 10 - 9; rect(s0 + 2, y, 1, 9, post); rect(s1 - 2, y, 1, 9, post); }   // rail posts
+  }
+}
 function v93Stand(hl, cam, sp, t, cheer) {
   const back = sp.filter(p => p.z === 'g' && p.row < 2 && p.x > hl.cup); if (back.length < 5) return;
   let x0 = 1e9, x1 = -1e9; back.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }); x0 -= 4; x1 += 4; if (x1 - x0 < 28) return;
@@ -10222,7 +10253,7 @@ const ADMIN_VIEWS = {
     '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
     '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>' +
     '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>' +
-    '<button class="btn alt" data-a="labLiveGal">' + (liveGal ? 'LIVE GALLERY: ON (TAP TO TURN OFF)' : 'LIVE GALLERY: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">FANS REACT, TRASH TALK, ANSWER WHEN TAPPED + HYPE METER. NO SCORE EFFECTS. ONLY YOU, ONLY ON THIS DEVICE.</p>',
+    '<button class="btn alt" data-a="labLiveGal">' + (liveGal ? 'LIVE GALLERY: ON (TAP TO TURN OFF)' : 'LIVE GALLERY: OFF (TAP TO TURN ON)') + '</button><p class="sub" style="margin-top:4px">FANS REACT, TRASH TALK, ANSWER WHEN TAPPED + HYPE METER. NO SCORE EFFECTS. LIVE FOR ALL PLAYERS. THIS SWITCH ONLY AFFECTS THIS DEVICE.</p>',
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
@@ -10827,7 +10858,7 @@ if (acctEl) {
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
     if (a === 'labHybrid' || a === 'labGreens' || a === 'labClubs') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : a === 'labClubs' ? 'clubs' : 'greens'); return; }   // v8.74
-    if (a === 'labLiveGal') { if (!admin.is) return; liveGal = !liveGal; try { localStorage.setItem('dlg_live_gal', liveGal ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: liveGal ? 'LIVE GALLERY ON (ONLY YOU)' : 'LIVE GALLERY OFF', ok: true }); return; }
+    if (a === 'labLiveGal') { if (!admin.is) return; liveGal = !liveGal; try { localStorage.setItem('dlg_live_gal', liveGal ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: liveGal ? 'LIVE GALLERY ON' : 'LIVE GALLERY OFF (THIS DEVICE)', ok: true }); return; }
     if (a === 'labDuck') { if (!admin.is) return; duckLab = !duckLab; try { localStorage.setItem('dlg_duck_lab', duckLab ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: duckLab ? 'DUCK ON (ONLY YOU)' : 'DUCK HIDDEN', ok: true }); return; }   // v8.95
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'hidemine') { try { localStorage.setItem('dlg_adm_hide_mine', admHideMine() ? '0' : '1'); } catch (e) {} showAcct('admin'); return; }   // v8.98
