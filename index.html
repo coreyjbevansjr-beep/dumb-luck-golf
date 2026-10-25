@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.6';
+const GAME_VERSION = 'v8.99.7';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6019,7 +6019,8 @@ function launch() {
   lv.flyer = flyer; ball.why = shotWhyAtLaunch(lie, lv); ball.rollSteps = 0; ball.overCup = false; ball.hitTree = false; ball.lucky = false; ball.noWind = false; ball.luckUsed = false; ball.wallHit = false; ball.moverHit = false; ball.padHits = 0; ball.pinTried = false;
   ball.luck = forceLuck || (clubIdx !== PUTT_I && !shotSweet && Math.random() < (courseKind === 'lbi' ? LBI_LUCK_MISHIT : LUCK_MISHIT)); forceLuck = false;   // rare DUMB LUCK on a mishit
   trail = []; trailT = 0; rpBuf = [[0, ball.x, ball.h]]; rpT = 0; replay = null;   // v8.76
-  try { ghostRecShot(); ghostOnPlayerSwing(); } catch (e) {}   // career v2: ghost
+  try { ghostRecShot(); ghostOnPlayerSwing(); } catch (e) {}
+  try { if (lgOn()) LG.plan = null; } catch (e) {}   // career v2: ghost
   try { hlRecStart(); } catch (e) {}   // v8.42 highlight record (last shot only)
   if (clubIdx === PUTT_I) SFX.putt(); else SFX.hit(); hap(clubIdx === PUTT_I ? 12 : [8, 30, 18]);
   if (clubIdx !== PUTT_I) {
@@ -6130,6 +6131,7 @@ function resolveBall(r) {
     else if (clubIdx !== PUTT_I) celebrateHoleOut();
     galZ = null; if (clubIdx !== PUTT_I && !SIM) { try { galArm(Math.abs(ball.x - (ball.shotFrom || lastSpot))); } catch (e) {} }   // v8.87
     if (clubIdx !== PUTT_I && !SIM) replayArm(galZ ? Math.max(strokes === 1 ? 2.3 : 1.5, galZ.at + galZ.dur + 0.1) : (strokes === 1 ? 2.3 : 1.5));   // v8.76 instant replay
+    try { lgHoled(); } catch (e) {}   // v8.99.7 live gallery
     setState('holed'); return;
   }
   if (r === 'water' || r === 'ob') {
@@ -6138,7 +6140,7 @@ function resolveBall(r) {
     if (!SIM && courseKind !== 'lab') { try { careerNoteLost(); } catch (e) {} }   // v8.65 (v8.74: never in the LAB)
     penaltySpot = null;
     if (r === 'water' && hole.drop != null && Math.abs(hole.cup - hole.drop) < Math.abs(hole.cup - lastSpot)) penaltySpot = hole.drop;   // v8.20: island holes use the DROP ZONE
-    try { crowdReactTo('groan'); hecEvent(r); } catch (e) {}   // v8.91 (v8.99: + the odd heckle)
+    try { crowdReactTo('groan'); if (lgOn()) lgPenalty(r); else hecEvent(r); } catch (e) {}   // v8.91 (v8.99: + the odd heckle)
     if (r === 'water') { SFX.splash(); splashFx(clamp(ball.x, 0, hole.len)); showMsg(penaltySpot != null ? 'WATER +1  TO DROP ZONE' : 'WATER  +1 STROKE', COL.blue, 2.0); announce(penaltySpot != null ? 'water, plus one stroke. ball moved to the drop zone' : 'water, plus one stroke'); }
     else { SFX.sad(); showMsg('OUT OF BOUNDS  +1', COL.orange, 2.0); announce('out of bounds, plus one stroke'); }
     dogPop = { x: clamp(ball.x - camX - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.4 };
@@ -6148,6 +6150,7 @@ function resolveBall(r) {
   ball.mode = 'stop';
   try { const dc = Math.abs(hole.cup - ball.x), on = surfAt(hole, ball.x) === 'green';   // v8.91 gallery reactions (decoration only)
     if (clubIdx === PUTT_I ? dc <= 2 : (on && dc <= 2.5)) crowdReactTo('ooh'); else if (clubIdx !== PUTT_I && on && dc <= 10) crowdReactTo('clap'); } catch (e) {}
+  try { lgShotEnd(); } catch (e) {}   // v8.99.7 live gallery
   ball.divot = !SIM && clubIdx !== PUTT_I && surfAt(hole, ball.x) === 'fair' && Math.abs(ball.x - (ball.shotFrom != null ? ball.shotFrom : lastSpot)) > 60 && Math.random() < GPV.DIVOT_P;   // v8.78
   {
     const carry = Math.abs((ball.carryX != null ? ball.carryX : ball.x) - (ball.shotFrom || lastSpot));
@@ -6174,6 +6177,7 @@ function finishHole() {
   try { if (courseKind === 'lbi') lbiHoleHook(scores[holeIdx]); } catch (e) {}   // v8.63: every hole goes to the server as it's played
   try { careerNoteHole(scores[holeIdx] - hole.par, scores[holeIdx]); ghostRecHole(scores[holeIdx]); ghostOnPlayerHoled(); } catch (e) {}
   const d = scores[holeIdx] - hole.par;
+  try { lgHoleDone(d); } catch (e) {}
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
   if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1); } catch (e) {} }   // v8.78
   holeSave = false;
@@ -6443,6 +6447,7 @@ cv.addEventListener('pointerdown', e => {
   if (ov) { ovPointerDown(p, e); touchDown = null; return; }
   // UI buttons: arm on down, fire on up inside the same padded hit area
   // In-round chrome: pause / club pads eat the event so a fat finger never starts a swing
+  try { if (state === 'aim' && lgOn() && !(hitBtn(p, PAUSE_BTN) || hit(p, PAUSE_PAD)) && lgTap(p)) { e.preventDefault && e.preventDefault(); return; } } catch (err) {}   // v8.99.7 tap a fan
   if (GAME_STATES.includes(state) && (hitBtn(p, PAUSE_BTN) || hit(p, PAUSE_PAD))) {
     try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
     if (hitBtn(p, PAUSE_BTN)) armUiTap('pause', () => pauseGame(), (up) => hitBtn(toLogical(up), PAUSE_BTN), e);
@@ -7359,6 +7364,7 @@ function fanPoseNow(p, t, cheer) {
   else if (rk === 'clap') pose = f.pose === 'shoulders' ? 'shoulders' : 'clap';
   else if (rk === 'ooh') pose = hash(p.i * 3 + 2) < 0.6 ? 'ooh' : f.pose;
   else if (!hush && !still && Math.floor(t / 2.3 + p.ph) % 13 === 0 && hash(p.i * 9 + 4) < 0.4) pose = 'clap';
+  if (liveGal && lgOn()) pose = lgPose(p, pose);   // v8.99.7
   if (f.pose === 'phone' && (cheer || (state === 'flight' && ball && ball.mode === 'air'))) pose = cheer && hash(p.i) < 0.5 ? 'up' : 'film';
   if (pose === 'up' || pose === 'clap') fb = still ? 0 : (Math.sin(beat * (pose === 'clap' ? 2.2 : 1.6)) > 0 ? 1 : 0);
   if (pose === 'shoulders' && (cheer || rk === 'clap')) fb = 2 + (still ? 0 : (Math.sin(beat * 1.6) > 0 ? 1 : 0));
@@ -7367,7 +7373,7 @@ function fanPoseNow(p, t, cheer) {
   // eyes on the ball (golfer before the hit), the odd chatty glance at a neighbour when nothing is happening
   const tx = ball ? ball.x : TEE_X, dx = tx - p.x; let look = Math.abs(dx) < 5 ? 0 : Math.sign(dx);
   if (f.chat && !hush && !still && state !== 'flight' && !cheer && !rk && Math.floor(t / 3.7 + p.ph) % 4 === 0) look = -look || 1;
-  const hop = (pose === 'up' && !still) ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (f.far ? 2 : 3)) : 0;
+  const hop = pose === 'duck' ? -2 : (pose === 'up' && !still) ? Math.round(Math.max(0, Math.sin(beat * 1.2)) * (f.far ? 2 : 3)) : 0;
   const shift = (pose === f.pose && !hush && !still && Math.floor(t / 3.1 + p.ph * 2) % 3 === 0) ? (hash(p.i * 11 + 10) < 0.5 ? -1 : 1) : 0;
   const breathe = !still && !hush && Math.sin(t * 1.7 * f.tempo + p.ph) > 0.6 ? 1 : 0;
   const lean = (pose === 'ooh' || (v93PuttLean() && !f.far && pose === f.pose)) ? (dx > 0 ? 1 : -1) : 0;
@@ -7426,7 +7432,7 @@ function fanDraw(x, gy, f, s) {   // draws one fan at ctx, feet at (x, gy)
       const ex = hx + (look > 0 ? 1 : look < 0 ? -1 : 0);
       if (f.hat === 'helmet') {} else if (f.shades) rect(ex - 2, headY + 2, 5, 1, '#101010'); else if (!s.blink) { rect(ex - 1, headY + 2, 1, 1, '#1c1c1c'); rect(ex + 1, headY + 2, 1, 1, '#1c1c1c'); }
       if (f.beard) { rect(hx - hwH + 1, headY + headH - 1, hwH * 2 - 1, 1, f.hair); rect(hx - hwH + 1, headY + headH - 2, 1, 1, f.hair); rect(hx + hwH - 1, headY + headH - 2, 1, 1, f.hair); }
-      if (s.pose === 'up' || s.pose === 'ooh' || s.pose === 'shout') rect(ex, headY + 3, 1, f.beard ? 1 : 1, '#6c1c1c'); else if (s.pose === 'head') rect(ex - 1, headY + 4, 3, 1, '#6c1c1c');
+      if (s.pose === 'up' || s.pose === 'ooh' || s.pose === 'shout' || s.pose === 'duck') rect(ex, headY + 3, 1, f.beard ? 1 : 1, '#6c1c1c'); else if (s.pose === 'head') rect(ex - 1, headY + 4, 3, 1, '#6c1c1c');
     }
     // hats
     const hc = f.hatC, hcD = shadeHex(hc, 0.75), bf = f.back ? -1 : 1, dir = look >= 0 ? 1 : -1;
@@ -7446,7 +7452,8 @@ function fanDraw(x, gy, f, s) {   // draws one fan at ctx, feet at (x, gy)
   const L = ux - hw - 1 - (f.belly && look < 0 ? 1 : 0), Rr = ux + hw + 1 + (f.belly && look >= 0 ? 1 : 0), pose = s.pose;
   if (pose === 'up') { A(L - 1, headY - 3 - fb, 1, torH); A(Rr + 1, headY - 3 - (1 - fb), 1, torH);
     if (f.prop === 'foam') { rect(Rr, headY - 9 - (1 - fb), 3, 6, K); rect(Rr + 1, headY - 8 - (1 - fb), 1, 4, f.hatC === '#fc7c1c' ? '#fc7c1c' : '#3c8cfc'); } }
-  else if (pose === 'head') { A(L - 1, headY - 1, 1, torH - 1); A(Rr + 1, headY - 1, 1, torH - 1); rect(hx - hw + 1, headY - 1, hw * 2 - 1, 1, skin); }
+  else if (pose === 'point') { const dr = look || 1; side(dr > 0 ? L : Rr); const ax = dr > 0 ? Rr : L - 4; rect(ax, torY + 1, 5, 1, sleeve === skin ? skin : sd); rect(dr > 0 ? ax + 5 : ax - 1, torY + 1, 1, 1, skin); }
+  else if (pose === 'head' || pose === 'duck') { A(L - 1, headY - 1, 1, torH - 1); A(Rr + 1, headY - 1, 1, torH - 1); rect(hx - hw + 1, headY - 1, hw * 2 - 1, 1, skin); }
   else if (pose === 'ooh') { A(L, headY, 1, torH - 2); A(Rr, headY, 1, torH - 2); }
   else if (pose === 'clap') { const c = fb; rect(L, torY + 1, 1, 3, sd); rect(Rr, torY + 1, 1, 3, sd); rect(ux - (c ? 1 : 2), torY + 2, 1, 2, skin); rect(ux + (c ? 1 : 2), torY + 2, 1, 2, skin); }
   else if (pose === 'film') { side(L); A(Rr + 1, headY - 2, 1, torH - 1); rect(Rr, headY - 6, 3, 4, K); rect(Rr + 1, headY - 5, 1, 2, '#bcf0fc'); }
@@ -7557,7 +7564,7 @@ function caTick() {
   const live = !muted && !paused && !document.hidden && !SIM;
   let v = 0;
   if (live && hole && crowdOn() && GAME_STATES.includes(state) && state !== 'done') {
-    v = v93Hush() ? 0.04 : state === 'flight' ? 0.5 : 0.38; if (crowdEvent()) v = Math.min(1, v * 1.3); if (crowdT > 0) v = 0.6;
+    v = v93Hush() ? 0.04 : state === 'flight' ? 0.5 : 0.38; if (crowdEvent()) v = Math.min(1, v * 1.3); if (crowdT > 0) v = 0.6; if (lgOn()) v = Math.min(0.75, v * lgHyp());
     if (!CA.g) caReady();
   }
   if (!CA.mur) return;
@@ -7574,7 +7581,7 @@ function caPlay(key, vol) {   // two layers: L/R, ~20 ms apart, slightly differe
 function caVoices(kind, k) {   // recorded gallery reactions: ooh / groan / cheer (a golf-crowd roar with applause)
   if (!caReady()) return false;
   const ev = crowdEvent() ? 1.15 : 1, kk = Math.min(1.6, k || 1);
-  if (kind === 'cheer') caPlay('roar', Math.min(1, 0.62 * kk * ev)); else caPlay(kind === 'groan' ? 'groan' : 'ooh', Math.min(1, 0.5 * kk * ev));
+  if (kind === 'cheer') caPlay('roar', Math.min(1, 0.62 * kk * ev)); else { if (kind === 'ooh' && lgOn() && lgT() - LG.oohAt < 3) return true; const g = kind === 'groan' ? (lgOn() && CA.buf.aww ? 'aww' : 'groan') : 'ooh'; caPlay(g, Math.min(1, 0.5 * kk * ev * (lgOn() ? lgHyp() : 1))); }
   return true;
 }
 function caClap(k) { if (!caReady()) return false; caPlay('clap', Math.min(1, 0.55 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.15 : 1))); return true; }   // polite golf applause
@@ -7612,6 +7619,7 @@ function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear o
   const cand = [];
   for (const p of sp) {
     if (p.f.costume === 'ghost' || p.f.costume === 'pumpkin') continue;
+    if (opts && opts.fan && p !== opts.fan) continue;
     if (opts && opts.near != null && Math.abs(p.x - opts.near) > 140) continue;
     const hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3, q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row] - hh);
     if (q.x < 6 || q.x > W - 6) continue;
@@ -7638,8 +7646,9 @@ function hecEvent(kind) {   // 'hit' | 'water' | 'ob'
   if ((kind === 'water' || kind === 'ob') && Math.random() < 0.6) { hecPlan = { at: 'penalty', delay: 0.55, list: HEC[kind], near: null, done: false }; }
 }
 function crowdTick(dt) {
-  if (hec) { hec.t += dt; if (hec.t > hec.dur || !['aim', 'power', 'accuracy', 'swing', 'flight', 'penalty'].includes(state)) hec = null; }
+  if (hec) { hec.t += dt; if (hec.t > hec.dur || !(['aim', 'power', 'accuracy', 'swing', 'flight', 'penalty'].includes(state) || (state === 'holed' && hec.lg))) hec = null; }
   if (!crowdOn() || SIM || !hole || !ball) { hecPlan = null; return; }
+  if (lgOn()) { hecPlan = null; lgTick(dt); return; }   // v8.99.7 live gallery runs its own (context-aware) talk
   const key = holeIdx + '|' + strokes;
   if (state === 'aim' && key !== hecKey) { hecKey = key; hecShotN++;
     const putt = clubIdx === PUTT_I, p = (crowdEvent() ? 0.5 : 0.4) * (putt ? 0.7 : 1);
@@ -7666,6 +7675,178 @@ function hecDraw() {
   if (hec.lift) for (let k = 4; k < hec.lift + 2; k += 3) rect(tx, y + r.h + k, 1, 2, '#fcfcfc');   // a dotted 'voice line' down to the fan
   hec.lines.forEach((l, i) => drawText(l, Math.round(x + (r.w - textW(l)) / 2), y + 3 + i * 9, '#1c1c2c'));
   ctx.globalAlpha = 1;
+}
+/* ---- v8.99.7 LIVE GALLERY (admin LAB preview, only on this device; decoration + sound only, never touches scores / stats) ----
+   Fans react (lean / point / arms up / hands on head / duck), trash-talk in context, answer when tapped (tap a heckler for a comeback),
+   and a hype meter (tiny bar under pause) makes the crowd louder, busier and chattier after good holes, and turns on you after blowups.
+   Extra CC0 audio (Red Library, archive.org, CC0 1.0), loaded only when LIVE GALLERY is on:
+   audio/crowd-hush.mp3  'R28-29-Large Crowd Quiet, Then Big Reaction' (quiet section)  https://archive.org/details/Red_Library_Crowds_Outdoor
+   audio/crowd-aww.mp3   'R07-02-Large Crowd Booing and Cheering' (stadium, outdoor; pitched down, low-passed into a groan)  https://archive.org/details/Red_Library_Crowds_Sports
+   audio/crowd-jeer.mp3  'R07-02-Large Crowd Booing and Cheering' (boos)  https://archive.org/details/Red_Library_Crowds_Sports
+   audio/crowd-laugh.mp3 'R16-02-Very Large Group Laughing' (de-roomed: low cut, gated)  https://archive.org/details/Red_Library_Crowds_Indoor_2
+   audio/crowd-shout.mp3 'R29-46-Men Yell and Cheer at Sporting Event'  https://archive.org/details/Red_Library_Sports */
+let liveGal = false; try { liveGal = localStorage.getItem('dlg_live_gal') === '1'; } catch (e) {}
+function lgOn() { return liveGal && !!(admin && admin.is) && courseKind !== 'lab' && !SIM && crowdOn(); }
+const LG_FILES = { hush: 'audio/crowd-hush.mp3?v=186', aww: 'audio/crowd-aww.mp3?v=186', jeer: 'audio/crowd-jeer.mp3?v=186', laugh: 'audio/crowd-laugh.mp3?v=186', shout: 'audio/crowd-shout.mp3?v=186' };
+const LG = { hype: 50, r: new Map(), sayT: -99, blipT: -99, tapT: -99, key: '', shotN: 0, plan: null, minD: 1e9, startD: 0, oohAt: -99, hushKey: '', loaded: false, streak: 0, cold: 0, prevD: 0, me: null, comeT: -99, ducked: new Set(), round: '' };
+const lgT = () => performance.now() / 1000;
+const LGL = {
+  tee: ['FAIRWAYS AND GREENS!', 'SMASH IT!', 'DONT SLICE IT!', 'NICE STANCE... I GUESS', 'GRIP IT AND RIP IT!', 'SHOW US SOMETHING!', 'WAKE ME UP WHEN YOU SWING', 'MY GRANDMA HITS IT FARTHER', 'IS THAT A RENTAL?', 'BOMBS AWAY!', 'DONT WHIFF IT!', 'BIG DOG TIME!'],
+  fair: ['STICK IT CLOSE!', 'FLAG HUNTING?', 'YOU GOT THIS... MAYBE', 'PICK A CLUB ALREADY!', 'AIM FOR THE GREEN, NOT US!', 'THE GREEN IS THAT WAY!', 'NO PRESSURE!', 'EVERYONE IS WATCHING!', 'HIT IT TO ME!', 'NOT IN THE CROWD AGAIN!'],
+  puttShort: ['DONT CHOKE!', 'TAP IN... RIGHT?', 'EVEN I MAKE THESE!', 'DONT LIP IT!', 'GIMME? NOPE!', 'HANDS ARE SHAKING!'],
+  puttLong: ['NEVER UP, NEVER IN!', 'READ THE BREAK!', 'LAG IT!', 'THREE PUTT INCOMING', 'DRAIN IT!', 'GET IT TO THE HOLE!'],
+  clutch: ['THIS ONE COUNTS!', 'FOR THE SAVE!', 'CLUTCH TIME!', 'BIG PUTT, BIG MOMENT!', 'ICE IN THE VEINS?', 'WHOLE GALLERY IS QUIET...'],
+  wind: ['FEEL THAT WIND?', 'WIND CHECK!', 'ITS BREEZY, GENIUS!', 'THROW SOME GRASS UP!', 'WIND SAYS NO!', 'PLAY THE WIND!'],
+  driverPar3: ['DRIVER? ON A PAR 3?', 'BOLD CLUB CHOICE!', 'THATS TOO MUCH CLUB!'],
+  puttFar: ['PUTTING FROM THERE?', 'TEXAS WEDGE!', 'BRAVE. VERY BRAVE.'],
+  wedgeFar: ['A WEDGE? FROM HERE?', 'YOU NEED MORE CLUB!', 'LAYING UP AGAIN?'],
+  hot: ['YOURE ON FIRE!', 'CANT MISS TODAY!', 'SOMEBODY STOP THEM!', 'ROLLING NOW!', 'HEATER!', 'PRO LEVEL STUFF!'],
+  cold: ['ROUGH DAY, HUH?', 'TRY BOWLING?', 'IS THIS YOUR FIRST TIME?', 'REFUND PLEASE!', 'MY KID IS BETTER', 'WE PAID FOR THIS?'],
+  badHole: ['SHAKE IT OFF!', 'FORGET THE LAST ONE', 'THAT LAST HOLE THOUGH...', 'NEW HOLE, NEW YOU?', 'WE SAW THAT LAST ONE'],
+  under: ['UNDER PAR! KEEP IT UP!', 'LEADERBOARD WATCH!', 'TOUR CARD INCOMING!'],
+  over: ['WAY OVER PAR, BUDDY', 'COUNTING STROKES?', 'NEED A CALCULATOR?'],
+  ghost: ['GHOST IS BEATING YOU!', 'CATCH THE GHOST!', 'SPOOKED BY A GHOST?', 'THE GHOST HAS NO NERVES!', 'BEAT THE GHOST!'],
+  good: ['GOT A GOOD BOUNCE!', 'WHAT A SHOT!', 'PURE!', 'DID YOU SEE THAT?!', 'FLAG ATTACK!', 'OK, NOT BAD!'],
+  great: ['STIFFED IT!', 'GET IN THE HOLE!', 'DART!', 'KISS THE FLAG!', 'UNREAL!', 'TAP IN CITY!'],
+  bad: ['YIKES!', 'THATS A LONG WAY OUT', 'OOF!', 'WHERE WAS THAT GOING?', 'HIT IT FAT!', 'NOT THE LINE!', 'SKULLED IT!'],
+  sand: ['BEACH DAY!', 'BRING A RAKE!', 'BUILD A SANDCASTLE!', 'SAND SAVE? SURE...', 'ENJOY THE BEACH!'],
+  water: ['GLUG GLUG!', 'FISH FOOD!', 'SPLASH!', 'HOPE IT FLOATS!', 'NEED A SNORKEL?', 'CANNONBALL!'],
+  ob: ['THAT IS GONE!', 'RELOAD!', 'FORE!!', 'SEE YA!', 'IN THE PARKING LOT!', 'CALL A CAB FOR THAT ONE'],
+  lip: ['NOOO! LIPPED OUT!', 'HOW DID THAT STAY OUT?!', 'ROBBED!', 'GOLF IS CRUEL!', 'THE CUP SPIT IT OUT!'],
+  missShort: ['YOU MISSED THAT?!', 'CHOKED IT!', 'I COULD MAKE THAT!', 'OH NO...', 'YIPS!'],
+  holeOut: ['GET IN THE HOLE!!', 'ARE YOU KIDDING?!', 'NO WAY!!', 'CALL THE NEWS!', 'WE ARE NOT WORTHY!'],
+  clutchIn: ['CLUTCH!', 'ICE COLD!', 'DRAINED IT!', 'THATS HOW ITS DONE!', 'WHAT A PUTT!'],
+  birdie: ['BIRDIE!', 'TWEET TWEET!', 'BIRDIE TIME!'],
+  blowup: ['BOOO!', 'GO HOME!', 'THAT HOLE WAS A CRIME', 'WE WANT A REFUND!', 'SNOWMAN!', 'PAINFUL TO WATCH'],
+  duck: ['WHOA!', 'HEADS UP!', 'FORE!!', 'WATCH IT!', 'INCOMING!'],
+  tapNice: ['GO GET EM!', 'BIG FAN!', 'CAN I GET AN AUTOGRAPH?', 'WE BELIEVE!', 'NICE HAT!', 'BIRDIE THIS ONE!', 'HI MOM!', 'LOVE THE SWING!', 'IM YOUR BIGGEST FAN', 'FREE DRINKS IF YOU BIRDIE'],
+  tapMean: ['DONT POKE ME!', 'WHAT DO YOU WANT?', 'JUST SWING!', 'BACK OFF, HACKER!', 'IM HERE FOR THE HOT DOGS', 'STOP STALLING!', 'YOU OWE ME TICKETS', 'NOT TALKING TO YOU'],
+};
+const LG_COME = [['WATCH THIS.', 'OK... SHOW ME!'], ['I GOT THIS.', 'DOUBT IT!'], ['TAKE NOTES.', 'NOTE: YOU STINK!'], ['QUIET PLEASE!', 'MAKE ME!'], ['YOU TRY IT!', 'NOT FOR FREE!'], ['SIGN UP THEN!', 'I CANT AFFORD CLUBS'], ['THIS ONE IS FOR YOU.', 'AWW... STILL BOO!'], ['NICE SHIRT.', 'HEY! THATS LOW.']];
+function lgPick(list) { return hecPickLine(list); }
+function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot: two close layers around 'pan', optional slice + fade, optional rising gain
+  const b = CA.buf[key]; if (!b || !caReady()) return false;
+  try { const t = AC.currentTime, o = off || 0, d = Math.min(dur || b.duration, b.duration - o), r = (rate || 1) * (0.97 + Math.random() * 0.06);
+    [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]].forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
+      const v = vol * 0.6; if (rise) { g.gain.setValueAtTime(v * 0.15, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + rise); } else g.gain.setValueAtTime(v, t + dl);
+      g.gain.setValueAtTime(rise ? v : v, t + dl + Math.max(0.05, d / r - 0.18)); g.gain.linearRampToValueAtTime(0, t + dl + d / r);
+      s.connect(g).connect(caPan(clamp(pan + dp, -0.95, 0.95), CA.bus)); s.start(t + dl, o, d + 0.02); });
+    return true; } catch (e) { return false; }
+}
+const lgHyp = () => 0.7 + LG.hype / 170;   // hype -> loudness (0.7 .. ~1.29)
+const lgPanX = wx => clamp((wx - camX - W / 2) / (W / 2), -0.85, 0.85);
+function lgLoad() { if (LG.loaded || !CA.g || !AC) return; LG.loaded = true;
+  for (const k in LG_FILES) fetch(LG_FILES[k]).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
+function lgBlip(p, hostile) {   // a short voice-y murmur under a bubble: random source + slice, cooled down so it never machine-guns
+  const T = lgT(); if (T - LG.blipT < 1.1) return; LG.blipT = T;
+  const pool = hostile ? ['jeer', 'laugh', 'murmur'] : ['shout', 'murmur', 'murmur'], k = pool[Math.floor(Math.random() * pool.length)], b = CA.buf[k]; if (!b) return;
+  const d = 0.45 + Math.random() * 0.35; lgCaAt(k, (k === 'murmur' ? 0.55 : 0.32) * lgHyp(), lgPanX(p.x), Math.random() * Math.max(0, b.duration - d), d, 0.95 + Math.random() * 0.12);
+}
+function lgReact(filter, pose, dur, spread) {   // staggered per-fan poses (a ripple, not a synchronized robot crowd)
+  if (!hole) return; const T = lgT();
+  for (const p of crowdSpots(hole)) { if (!filter(p)) continue; const ps = typeof pose === 'function' ? pose(p) : pose; if (!ps) continue;
+    const at = T + Math.random() * (spread == null ? 0.3 : spread); LG.r.set(p.i, { pose: ps, at, until: at + dur * (0.7 + Math.random() * 0.6) }); }
+}
+const lgNear = (x, r) => p => Math.abs(p.x - x) < r;
+function lgSay(list, opts) {   // bubble + blip, rate-limited by hype (chattier when the crowd is up OR when it turns on you)
+  const T = lgT(), gap = 2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50); if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
+  if (hec && opts && opts.force) hec = null;
+  const line = lgPick(list); if (!hecSay(line, opts) && !(opts && (opts.near != null || opts.fan) && hecSay(line, { near: opts.fan ? opts.fan.x : null }))) return false; LG.sayT = T; hec.lg = true; hec.heck = !!(opts && opts.heck); try { lgBlip(hec.p, LG.hype < 30 || (opts && opts.heck)); } catch (e) {} return true;
+}
+function lgParDiff() { let d = 0; for (let i = 0; i < holeIdx; i++) if (scores[i]) d += scores[i] - HOLES[i].par; return d; }
+function lgPreList() {
+  const putt = clubIdx === PUTT_I, from = ball ? ball.x : TEE_X, toCup = Math.abs(hole.cup - from), r = Math.random(), pd = lgParDiff();
+  if (LG.hype < 25 && r < 0.6) return [LGL.cold, true];
+  if (ghostPlay && ghostPlay.hole && r < 0.3) return [LGL.ghost, true];
+  if (putt) { if (strokes >= hole.par - 1 && toCup > 2.5 && r < 0.5) return [LGL.clutch, false]; if (toCup > 60) return [LGL.puttFar, true]; return [toCup < 6 ? LGL.puttShort : LGL.puttLong, true]; }
+  if (strokes === 0 && hole.par === 3 && clubIdx === 0 && r < 0.7) return [LGL.driverPar3, true];
+  if (toCup > 150 && clubIdx >= PUTT_I - 2 && r < 0.6) return [LGL.wedgeFar, true];
+  if (Math.abs(wind) >= 8 && r < 0.35) return [LGL.wind, true];
+  if (LG.prevD >= 2 && strokes === 0 && r < 0.6) return [LGL.badHole, true];
+  if (LG.streak >= 3 && r < 0.5) return [LGL.hot, false];
+  if (pd <= -2 && r < 0.3) return [LGL.under, false];
+  if (pd >= 4 && r < 0.4) return [LGL.over, true];
+  const th = crowdTheme(hole); if (th !== 'club' && HEC[th] && r > 0.8) return [HEC[th], false];
+  return [strokes === 0 ? LGL.tee : LGL.fair, r < 0.5];
+}
+function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
+  const T = lgT(); lgLoad();
+  if (LG.me) { LG.me.t += dt; if (LG.me.t > LG.me.dur) LG.me = null; }
+  const rk = (typeof courseKind === 'string' ? courseKind : '') + '|' + (HOLES[0] && HOLES[0].name);
+  if (holeIdx === 0 && strokes === 0 && LG.round !== rk) { LG.round = rk; LG.hype = 50; LG.streak = 0; LG.cold = 0; LG.prevD = 0; }
+  const key = holeIdx + '|' + strokes;
+  if (state === 'aim' && key !== LG.key) { LG.key = key; LG.shotN++; LG.ducked.clear(); LG.minD = 1e9; LG.startD = Math.abs(hole.cup - ball.x);
+    const putt = clubIdx === PUTT_I, p = 0.45 + Math.abs(LG.hype - 50) / 120;
+    LG.plan = Math.random() < p ? { at: putt || Math.random() < 0.55 ? 'aim' : 'power', delay: putt ? 0.7 + Math.random() * 1.0 : 0.25 + Math.random() * 0.5, done: false } : null; }
+  if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
+  // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
+  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }
+  if (state === 'flight' && ball) {
+    const d = Math.abs(hole.cup - ball.x); LG.minD = Math.min(LG.minD, d);
+    // rising ooh as a rolling ball tracks at the cup
+    if (ball.mode !== 'air' && d < 7 && d > 0.6 && T - LG.oohAt > 3 && LG.startD > 3) { LG.oohAt = T; lgCaAt('ooh', 0.55 * lgHyp(), lgPanX(hole.cup), 0, 2.2, 1, 0.8); lgReact(lgNear(hole.cup, 90), p => hash(p.i * 3 + 2) < 0.7 ? 'lean' : 'ooh', 1.6, 0.25); }
+    // a low ball screaming at the gallery: those fans duck (once per shot), the odd yelp
+    if (ball.mode === 'air' && ball.h < 40) for (const p of crowdSpots(hole)) { if (LG.ducked.has(p.i) || Math.abs(p.x - ball.x) > 9) continue; LG.ducked.add(p.i); LG.r.set(p.i, { pose: 'duck', at: T, until: T + 0.9 }); if (LG.ducked.size === 1 && Math.random() < 0.5) { lgSay(LGL.duck, { near: p.x, force: !hec }); lgCaAt('shout', 0.3, lgPanX(p.x), Math.random() * 2, 0.5); } }
+  }
+}
+function lgShotEnd() {   // ball stopped (not holed, not a penalty)
+  if (!lgOn() || !hole || !ball) return; const dc = Math.abs(hole.cup - ball.x), s = surfAt(hole, ball.x), putt = clubIdx === PUTT_I, near = lgNear(ball.x, 120), pan = lgPanX(ball.x), hostile = LG.hype < 35;
+  if (LG.minD <= 1.1 && dc > 0.5 && (putt || s === 'green')) {   // lip-out
+    lgReact(lgNear(hole.cup, 160), p => hash(p.i * 7) < 0.65 ? 'head' : 'ooh', 2.2); lgCaAt('aww', 0.75 * lgHyp(), lgPanX(hole.cup)); LG.hype = clamp(LG.hype - 2, 0, 100); lgSay(LGL.lip, { near: hole.cup, force: true }); return; }
+  if (putt && LG.startD < 5 && dc > 0.5) { lgReact(near, p => hash(p.i * 5) < 0.5 ? 'head' : 'hips', 2); lgCaAt(hostile ? 'laugh' : 'aww', 0.55 * lgHyp(), pan); lgSay(LGL.missShort, { near: ball.x, heck: true, force: true }); LG.hype = clamp(LG.hype - 3, 0, 100); return; }
+  if (!putt && s === 'green' && dc <= 3) { lgReact(lgNear(hole.cup, 150), p => hash(p.i * 2 + 1) < 0.3 ? 'point' : 'up', 1.8); lgCaAt('shout', 0.35 * lgHyp(), lgPanX(hole.cup), Math.random() * 1.5, 1.2); LG.hype = clamp(LG.hype + 4, 0, 100); lgSay(LGL.great, { near: hole.cup }); return; }
+  if (!putt && s === 'green') { lgReact(lgNear(hole.cup, 150), p => hash(p.i * 9) < 0.5 ? 'clap' : null, 1.5); lgCaAt('clap', 0.22 * lgHyp(), lgPanX(hole.cup), Math.random() * 2, 1.6); if (Math.random() < 0.4) lgSay(LGL.good, { near: ball.x }); return; }
+  if (s === 'sand') { lgReact(near, p => hash(p.i * 4) < 0.5 ? 'point' : 'ooh', 1.6); lgCaAt(hostile ? 'laugh' : 'ooh', 0.3, pan, 0, 1.0); lgSay(LGL.sand, { near: ball.x, heck: true }); return; }
+  if (!putt && LG.startD > 40 && Math.abs(hole.cup - ball.x) > LG.startD * 0.7) { lgReact(near, p => hash(p.i * 6) < 0.4 ? 'hips' : 'lean', 1.6); if (hostile) lgCaAt('laugh', 0.35, pan, 0, 1.2); lgSay(LGL.bad, { near: ball.x, heck: true }); }
+}
+function lgPenalty(kind) {
+  if (!lgOn() || !ball) return; const x = clamp(ball.x, 0, hole.len), pan = lgPanX(x);
+  lgReact(lgNear(x, 160), p => hash(p.i * 8) < 0.45 ? 'point' : 'head', 2.2); LG.hype = clamp(LG.hype - 8, 0, 100);
+  if (LG.hype < 40) setTimeout(() => { try { lgCaAt(Math.random() < 0.5 ? 'laugh' : 'jeer', 0.5 * lgHyp(), pan); } catch (e) {} }, 450);
+  lgSay(kind === 'water' ? LGL.water : LGL.ob, { force: true, heck: true });
+}
+function lgHoled() {   // hole-outs, clutch putts, eagles: roar (existing) + layered yells by hype, everybody up, staggered
+  if (!lgOn() || !hole) return; const putt = clubIdx === PUTT_I, big = !putt || strokes <= hole.par - 2, clutch = putt && (LG.startD >= 6 || strokes >= hole.par);
+  if (!putt || clutch || big) { lgReact(() => true, p => hash(p.i * 3) < 0.15 ? 'point' : 'up', big ? 3 : 2.2, 0.4); lgCaAt('shout', (big ? 0.6 : 0.45) * lgHyp(), lgPanX(hole.cup) * 0.5, Math.random() * 1.2, 2.3); if (big && LG.hype > 60) setTimeout(() => { try { lgCaAt('shout', 0.4, -lgPanX(hole.cup) * 0.5, 0.5 + Math.random(), 1.8); } catch (e) {} }, 380); if (!crowdT) crowdCheer(big ? 1.3 : 1); }
+  else lgReact(lgNear(hole.cup, 150), p => hash(p.i * 9) < 0.6 ? 'clap' : null, 1.4);
+  lgSay(!putt ? LGL.holeOut : clutch ? LGL.clutchIn : strokes < hole.par ? LGL.birdie : LGL.good, { near: hole.cup, force: true });
+}
+function lgHoleDone(d) {
+  if (!lgOn()) return; LG.prevD = d; LG.hype = clamp(LG.hype + (d <= -2 ? 30 : d === -1 ? 16 : d === 0 ? 5 : d === 1 ? -8 : d === 2 ? -16 : -24), 0, 100);
+  if (d <= 0) { LG.streak++; LG.cold = 0; } else { LG.streak = 0; LG.cold++; }
+  if (d >= 2) { lgReact(() => true, p => hash(p.i * 13) < 0.5 ? 'cross' : 'hips', 3, 0.5); lgCaAt(Math.random() < 0.5 ? 'jeer' : 'laugh', 0.5 * lgHyp(), 0); }
+}
+function lgPose(p, pose) {   // per-fan override + hype mood
+  if (LG.r.size) { const q = LG.r.get(p.i); if (q) { const T = lgT(); if (T > q.until) LG.r.delete(p.i); else if (T >= q.at) return q.pose; } }
+  if (hec && hec.p === p) return pose; if (v93Hush() || REDUCED_MOTION) return pose;
+  const t = lgT();
+  if (LG.hype >= 75 && pose === p.f.pose && Math.floor(t / 1.7 + p.ph) % 5 === 0 && hash(p.i * 17 + 3) < (LG.hype - 60) / 60) return Math.floor(t / 1.7 + p.ph) % 2 ? 'up' : 'clap';
+  if (LG.hype <= 25 && pose === p.f.pose && hash(p.i * 19 + 5) < (30 - LG.hype) / 40) return hash(p.i * 23) < 0.5 ? 'cross' : 'hips';
+  return pose;
+}
+function lgFanAt(pt) {   // screen point -> nearest visible fan under the finger (generous: tiny pixel people)
+  let best = null, bd = 1e9; const Z = worldZoom();
+  for (const p of crowdSpots(hole)) { const hh = p.f.legH + p.f.torH + p.f.headH + 3, gy = BASE - groundH(hole, Math.max(0, p.x)) - FAN_DEPTH[p.row], a = w2s(p.x - camX, gy), b = w2s(p.x - camX, gy - hh);
+    const dx = Math.abs(pt.x - a.x), w = (p.f.hw + 4) * Z; if (dx > w || pt.y > a.y + 4 || pt.y < b.y - 6) continue; const d = dx + Math.abs(pt.y - (a.y + b.y) / 2) * 0.3; if (d < bd) { bd = d; best = p; } }
+  return best;
+}
+function lgTap(pt) {   // tap a fan: they answer; tap the heckler (or their bubble): your comeback, then their retort
+  if (!lgOn() || state !== 'aim' || !hole || !ball) return false;
+  const T = lgT(), onBub = hec && hec.lg && pt.x >= hec.r.x - 4 && pt.x <= hec.r.x + hec.r.w + 4 && pt.y >= hec.r.y - 4 && pt.y <= hec.r.y + hec.r.h + 6, p = onBub ? hec.p : lgFanAt(pt);
+  if (!p) return false; if (T - LG.tapT < 0.8) return true; LG.tapT = T;
+  if (hec && hec.p === p && hec.heck && T - LG.comeT > 3) { LG.comeT = T; const c = LG_COME[Math.floor(Math.random() * LG_COME.length)]; LG.me = { text: c[0], t: 0, dur: 1.5 };
+    hec = null; setTimeout(() => { try { if (lgOn() && hole) { (hecSay(c[1], { fan: p }) || hecSay(c[1], { near: p.x })) && (hec.lg = true); lgBlip(p, true); LG.hype = clamp(LG.hype + 2, 0, 100); } } catch (e) {} }, 1100); SFX.click(); return true; }
+  const mean = LG.hype < 40 || hash(p.i * 29 + LG.shotN) < 0.25; LG.r.set(p.i, { pose: mean ? 'cross' : 'up', at: T, until: T + 1.2 });
+  hec = null; const tl = lgPick(mean ? LGL.tapMean : LGL.tapNice); if (hecSay(tl, { fan: p }) || hecSay(tl, { near: p.x })) { hec.lg = true; hec.heck = mean; lgBlip(p, mean); }
+  return true;
+}
+function lgDraw() {   // hype bar (tiny, under the pause button) + your comeback bubble above the golfer
+  if (!lgOn() || !hole || !GAME_STATES.includes(state)) return;
+  const x = PAUSE_BTN.x, y = PAUSE_BTN.y + PAUSE_BTN.h + 4, w = PAUSE_BTN.w, f = Math.round((w - 2) * LG.hype / 100), c = LG.hype >= 75 ? '#f8d878' : LG.hype <= 25 ? '#f83800' : '#fcfcfc';
+  ctx.globalAlpha = 0.85; rect(x, y, w, 4, '#000'); rect(x + 1, y + 1, f, 2, c); ctx.globalAlpha = 1;
+  if (LG.me && ball) { const lines = hecWrap(LG.me.text), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5, gx = lastSpotForGolfer() - camX - facingForGolfer() * 7, q = w2s(gx, BASE - groundH(hole, Math.max(0, lastSpotForGolfer())) - 46);
+    const rx = Math.round(clamp(q.x - bw / 2, 2, W - bw - 2)), ry = Math.round(Math.max(Math.max(36, (SAFE.t || 0) + 6) + 17, q.y - bh)), a = Math.min(1, LG.me.t / 0.1, (LG.me.dur - LG.me.t) / 0.2); if (a <= 0) return;
+    ctx.globalAlpha = a; rect(rx - 1, ry, bw + 2, bh, '#000'); rect(rx, ry - 1, bw, bh + 2, '#000'); rect(rx, ry, bw, bh, '#f8d878'); lines.forEach((l, i) => drawText(l, Math.round(rx + (bw - textW(l)) / 2), ry + 3 + i * 9, '#1c1c2c')); ctx.globalAlpha = 1; }
 }
 /* v8.87 gallery zoom: on a long hole-out (ace, or a non-putt holed from 20+ yd) at a gallery event, a short push-in on the cheering crowd, then back. Tap skips. Screen-space post zoom (one drawImage). */
 let galZ = null, galCv = null;
@@ -10040,7 +10221,8 @@ const ADMIN_VIEWS = {
     '<button class="btn alt" data-a="labClubs">PRO CLUB SET (DLCC 9)</button><p class="sub" style="margin-top:4px">14-CLUB BAG: DRIVER TO LOB WEDGE WITH REAL LOFTS AND GAPPING. SAME REACH, POWER AND WIND. NORMAL PUTTING.</p>' +
     '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
     '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>' +
-    '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>',
+    '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>' +
+    '<button class="btn alt" data-a="labLiveGal">' + (liveGal ? 'LIVE GALLERY: ON (TAP TO TURN OFF)' : 'LIVE GALLERY: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">FANS REACT, TRASH TALK, ANSWER WHEN TAPPED + HYPE METER. NO SCORE EFFECTS. ONLY YOU, ONLY ON THIS DEVICE.</p>',
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
@@ -10645,6 +10827,7 @@ if (acctEl) {
     if (a === 'mdecline') { await respondMatch(id, 'decline'); showAcct('matches'); return; }
     if (a === 'mplay' || a === 'mwatch') { const m = social.matches.find(x => x.id === id) || (matchCtx && matchCtx.match); if (!m) return; acctBusy(true); const s = await startMatchRound(m, a === 'mwatch'); acctBusy(false); if (!s.ok) acctMsg(s.msg); return; }
     if (a === 'labHybrid' || a === 'labGreens' || a === 'labClubs') { if (!admin.is || !isSignedIn()) return; labStart(a === 'labHybrid' ? 'hybrid' : a === 'labClubs' ? 'clubs' : 'greens'); return; }   // v8.74
+    if (a === 'labLiveGal') { if (!admin.is) return; liveGal = !liveGal; try { localStorage.setItem('dlg_live_gal', liveGal ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: liveGal ? 'LIVE GALLERY ON (ONLY YOU)' : 'LIVE GALLERY OFF', ok: true }); return; }
     if (a === 'labDuck') { if (!admin.is) return; duckLab = !duckLab; try { localStorage.setItem('dlg_duck_lab', duckLab ? '1' : '0'); } catch (e) {} showAcct('adminLab', { msg: duckLab ? 'DUCK ON (ONLY YOU)' : 'DUCK HIDDEN', ok: true }); return; }   // v8.95
     if (a === 'adminUnlock') { if (!admin.is) return; admin.unlock = !admin.unlock; showAcct('admin', { msg: admin.unlock ? 'ALL RANKS + ITEMS UNLOCKED (THIS SESSION)' : 'UNLOCK ALL OFF', ok: true }); return; }
     if (a === 'hidemine') { try { localStorage.setItem('dlg_adm_hide_mine', admHideMine() ? '0' : '1'); } catch (e) {} showAcct('admin'); return; }   // v8.98
@@ -10791,7 +10974,7 @@ function renderScene() {
   drawRain();
   if (zoomed) ctx.restore();   // HUD + scorecard stay screen-space
   try { galDraw(); } catch (e) {}   // v8.87 gallery zoom (world only, under the HUD)
-  try { hecDraw(); } catch (e) {}   // v8.99 heckle bubble (screen space, kept clear of ball / aim / HUD)
+  try { hecDraw(); lgDraw(); } catch (e) {}   // v8.99 heckle bubble (screen space, kept clear of ball / aim / HUD)
   flushAimDots();   // v8.70
   try { drawHidden(); } catch (e) {}   // v8.77 flyover highlights
   try { drawYardage(); } catch (e) {}   // v8.70 pin distance + carry / roll
