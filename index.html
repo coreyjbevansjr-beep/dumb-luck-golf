@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.17';
+const GAME_VERSION = 'v8.99.19';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -518,6 +518,7 @@ const lookOfV1 = p => ({ skin: SKINS[p.skin], shirt: SHIRTS[p.shirt][0], shirtD:
    and the UI shows "NOT SET UP YET" instead of breaking. #test runs with no network unless the test harness
    installs window.__DLG_MOCK_SUPABASE (a fetch-level mock of the same endpoints). */
 const AUTH_TEST = /^#test/.test(location.hash);
+// v8.99.19 STAGED: Rush Hour tunnel street (variant D) behind #test&rh. No flag = shipped look.
 const AUTH_STORE = AUTH_TEST ? 'dlg_auth_test_v2' : 'dlg_auth_v2';
 const AUTH_REDIRECT = (location.origin && location.origin !== 'null') ? (location.origin + location.pathname) : 'https://dumbluckgolf.com/';
 const USERNAME_RE = /^[A-Za-z][A-Za-z0-9_]{2,11}$/;
@@ -3433,7 +3434,13 @@ function drawYardage() {
     const g = w2s(ball.x - camX, BASE - groundH(hole, ball.x)), yd = Math.abs(hole.cup - ball.x);
     const onGreen = surfAt(hole, ball.x) === 'green', t = onGreen ? Math.max(1, Math.round(yd * 3)) + ' FT' : Math.round(yd) + 'Y';
     const y = Math.round(Math.min(g.y + 5 * Z, PLAY_H - 13));
-    yardRects.pin = yChip([['flag', 0], [t, COL.white]], g.x, y, 1);
+    let cx = g.x;
+    if (hole.rh) {   // v8.99.19: keep the pin chip off the Rush Hour tunnel headwalls
+      const cw = (textW(t) + 18) * 0.5, lo = w2s(hole.rh.x0 - RH_TUN - 7 - camX, 0).x, ro = w2s(hole.rh.x1 + RH_TUN + 7 - camX, 0).x;
+      if (ball.x < hole.rh.x0 + 4 && cx + cw > lo) cx = Math.round(lo - cw - 2);
+      else if (ball.x > hole.rh.x1 - 4 && cx - cw < ro) cx = Math.round(ro + cw + 2);
+    }
+    yardRects.pin = yChip([['flag', 0], [t, COL.white]], cx, y, 1);
   }
   if (state === 'aim' && touchDown && touchDown.drag && clubIdx !== PUTT_I && aimTip) {   // loft readout at the tip of the line while the thumb drags
     const t = String(Math.round(angle)), q = aimTip;
@@ -3561,6 +3568,7 @@ function compileHole(def) {
   hl.pads = (def.pads || []).map(([x0, x1]) => ({ x0, x1 }));
   hl.ramps = (def.ramps || []).map(([x, kick, minV]) => ({ x, kick: kick || 0.5, minV: minV || 30 }));   // v8.69: kicker lips (HIGH ROLLER)
   hl.movers = (def.movers || []).map(m => { const o = Object.assign({ kind: 'slide', x: 0, w: 14, hBot: 0, hTop: 28, period: 2.5, phase: 0, amp: 40 }, m); o.g0 = groundH(hl, o.x); return o; });
+  if (def.id === 'city') rushHourVariant(hl);   // v8.99.19 RUSH HOUR street: two one-way lanes between tunnels
   hl.drop = def.drop != null ? def.drop : null;
   hl.grav = def.grav || 1;   // v8.39: low-gravity Daily (moon); every other hole stays 1
   return hl;
@@ -3576,6 +3584,7 @@ function moverBlockX(m, t) {
     const ang = (t / Math.max(0.4, m.period) + (m.phase || 0)) * Math.PI * 2;
     return Math.cos(ang) > 0.25;   // ~half the time the lane is open
   }
+  if (m.loop) return rhLoopX(m, t);   // v8.99.19: one-way tunnel cars (null = in a tunnel)
   // sliding barrier oscillates along x
   const u = (t / Math.max(0.4, m.period) + (m.phase || 0)) % 1;
   const osc = Math.sin(u * Math.PI * 2);
@@ -3589,7 +3598,7 @@ function hitMover(hl, b, t) {
       const rh = b.h - (m.g0 || 0);
       if (b.x > m.x - m.w / 2 && b.x < m.x + m.w / 2 && rh < (m.hTop || 28) && rh > (m.hBot || 0) - 2) return m;
     } else {
-      const mx = moverBlockX(m, t);
+      const mx = moverBlockX(m, t); if (mx == null) continue;
       const rh = b.h - (m.g0 || 0);
       if (b.x > mx - m.w / 2 && b.x < mx + m.w / 2 && rh < (m.hTop || 28) && rh > (m.hBot || 0) - 2) return m;
     }
@@ -3991,6 +4000,7 @@ function hwDecoList(hl) {
   for (let x = 30, i = 0; x < hl.len - 10; x += 34 + Math.floor(hash(seed + i * 7) * 40), i++) {
     const s = surfAt(hl, x), s2 = surfAt(hl, x + 14);
     if (s === 'water' || s === 'green' || s2 === 'water' || s2 === 'green' || Math.abs(x - hl.cup) < 24) continue;
+    if (hl.rh && x + 16 > hl.rh.x0 - 22 && x < hl.rh.x1 + 22) continue;   // v8.99.19: nothing seasonal in the street / portals
     const r = hash(seed + i * 13);
     out.push([r < 0.45 ? 'pumpkin' : r < 0.8 ? 'grave' : 'dead', x]);
   }
@@ -7359,6 +7369,7 @@ function crowdKeepOut(hl) {   // v8.99.5: world-x spans no spectator may overlap
   if (halloweenOn() && !/^(hr|nyc)/.test(hl.theme || '')) for (const [k, dx] of hwDecoList(hl)) { const img = k === 'pumpkin' ? HW.pumpkin : k === 'grave' ? HW.grave : HW.dead; soft(dx, dx + ((img && img.width) || 16)); }
   for (const w of hl.walls || []) add(w.x - (w.ww || 0) - 4, w.x + (w.ww || 0) + 4);
   for (const p of hl.pads || []) add(p.x0, p.x1);
+  if (hl.rh) add(hl.rh.x0 - 26, hl.rh.x1 + 26);   // v8.99.19: no fans in the street / portals
   for (const r of hl.ramps || []) add(r.x - 10, r.x + 6);
   for (const m of hl.movers || []) { const hw = (m.w || 14) / 2; if (m.kind === 'windmill') { const r = Math.max(hw, (m.hTop || 28) * 0.75); add(m.x - r, m.x + r); } else add(m.x - (m.amp || 40) - hw, m.x + (m.amp || 40) + hw); }   // full motion path
   let s0 = null; for (let x = 0; x <= hl.len + 1; x++) { const s = x <= hl.len ? surfAt(hl, x) : 'end', hz = s === 'sand' || s === 'water'; if (hz && s0 == null) s0 = x; else if (!hz && s0 != null) { add(s0, x - 1); s0 = null; } }
@@ -8490,6 +8501,7 @@ function drawCourse(hl, cam) {
     if (sx > -12 && sx < W + 12) { for (const dx of [-4, 4]) { rect(sx + dx, gy - 6, 1, 6, '#000'); rect(sx + dx, gy - 6, 1, 4, '#fcfcfc'); } rect(sx - 4, gy - 1, 9, 1, '#fcfcfc'); drawText('DROP', sx - 11, gy - 15, '#fcfcfc'); }
   }
   if (hl.movers) for (const m of hl.movers) {
+    if (m.rh) continue;   // v8.99.19: drawn by drawRushStreet
     if (m.kind === 'windmill') {
       const sx = Math.round(m.x - cam);
       if (sx > -30 && sx < W + 30) {
@@ -8558,6 +8570,7 @@ function drawCourse(hl, cam) {
       if (wx % 2 === 0) { rect(sx, gy - 1 - bh, 1, bh, C.grassD); rect(sx, gy - 2 - bh, 1, 1, '#000'); if (bh > 2) rect(sx, gy - bh, 1, 1, C.grass); }
     }
   }
+  if (hl.rh) drawRushStreet(hl, cam, performance.now() / 1000);   // v8.99.19: street over the ground strip
   // tee sign: DLG + hole number
   { const sx = Math.round(-20 - cam), gy = Math.round(BASE - groundH(hl, 0));
     if (sx > -18 && sx < W) { rect(sx + 6, gy - 8, 3, 8, '#000'); rect(sx + 7, gy - 8, 1, 8, COL.trunk); rect(sx, gy - 23, 15, 16, '#000'); rect(sx + 1, gy - 22, 13, 14, COL.white);
@@ -8583,6 +8596,99 @@ function drawCourse(hl, cam) {
   if (hwHole) hwTint(th);   // v8.41 dusk tint
   todTint(hl);   // v8.76
   if (th.dim) { ctx.fillStyle = th.dim; ctx.fillRect(0, 0, W, PLAY_H); }   // night: everything dims; golfer + ball are drawn after, so they pop
+}
+// v8.99.19 STAGED: RUSH HOUR "D" (#test&rh): two-lane street between two tunnel portals. Far lane drives left->right,
+// near lane right->left; cars come out of one tunnel and drive into the other (no ping-pong). Hit boxes = A's blocking
+// (same speeds, same share of time blocked per spot); a car only blocks while it is out on the street.
+const RH_TUN = 16;   // tunnel depth on screen (px) each side
+function rushHourVariant(hl) {
+  const x0 = 110, x1 = 250;
+  hl.rh = { x0, x1 };
+  const mk = (skin, w, hTop, dir, L, period, phase) => ({ slow: RH_SLOW, mid: RH_MID, kind: 'slide', loop: true, rh: true, skin, w, hBot: 0, hTop, dir, L, period, phase, rx0: x0, rx1: x1, x: (x0 + x1) / 2, amp: (x1 - x0) / 2, g0: groundH(hl, 180), lane: dir > 0 ? 0 : 1 });
+  hl.movers = [
+    mk('taxi', 18, 10, 1, 316, 5.6, 0), mk('sedan', 18, 10, 1, 316, 5.6, 0.43),       // far lane ->  (A taxi speed 56 px/s)
+    mk('truck', 26, 16, -1, 281, 10.85, 0.1), mk('sedan', 18, 10, -1, 281, 10.85, 0.36), mk('taxi', 18, 10, -1, 281, 10.85, 0.66) // near lane <-
+  ];
+}
+const RH_SLOW = 1.75, RH_MID = 180;   // v8.99.19: keeps the far half as hard as the old street (~40% blocked)
+function rhLoopPos(m, t) {   // world x of the car centre and whether it is still on screen (incl. tunnel mouths)
+  const R = { x0: m.rx0, x1: m.rx1 };
+  const u = (((t / m.period + (m.phase || 0)) % 1) + 1) % 1, V = (R.x1 - R.x0) + 2 * RH_TUN + m.w;
+  // traffic crawls on the far (green) half: time density m.slow past m.mid; same profile for every car in a lane = no overtaking
+  const xs = R.x0 - RH_TUN - m.w / 2, xe = R.x1 + RH_TUN + m.w / 2, cut = m.dir > 0 ? m.mid - xs : xe - m.mid, g = m.slow || 1;
+  const S = m.dir > 0 ? [[0, cut, 1], [cut, V, g], [V, m.L, 1]] : [[0, cut, g], [cut, V, 1], [V, m.L, 1]];
+  let tau = u * S.reduce((s, q) => s + (q[1] - q[0]) * q[2], 0), p = m.L;
+  for (const [a0, b0, gg] of S) { if (tau <= (b0 - a0) * gg) { p = a0 + tau / gg; break; } tau -= (b0 - a0) * gg; }
+  const x = m.dir > 0 ? (R.x0 - RH_TUN - m.w / 2) + p : (R.x1 + RH_TUN + m.w / 2) - p;
+  return { x, vis: p <= V };
+}
+function rhLoopX(m, t) { const P = rhLoopPos(m, t); return (P.vis && P.x > m.rx0 - m.w / 2 && P.x < m.rx1 + m.w / 2) ? P.x : null; }
+function rhCar(sx, by, m, dark) {   // side view, front faces direction of travel; by = wheel bottom
+  const w = m.w, d = m.dir, x0 = Math.round(sx - w / 2), fx = d > 0 ? x0 + w - 1 : x0;   // fx = front column
+  const P = m.skin === 'taxi' ? ['#f8b800', '#b88400'] : m.skin === 'sedan' ? ['#d8dce8', '#8c94a8'] : ['#e8e8e0', '#9c9c94'];
+  const wheel = x => { rect(x - 2, by - 3, 5, 3, '#000'); rect(x - 1, by - 2, 3, 1, '#5c5c5c'); };
+  if (m.skin === 'truck') {
+    const cab = d > 0 ? x0 + w - 8 : x0, box = d > 0 ? x0 : x0 + 8;
+    rect(box - 1, by - 17, 19, 15, '#000'); rect(box, by - 16, 17, 13, P[0]); rect(box, by - 4, 17, 1, P[1]);
+    rect(box + 2, by - 13, 13, 1, '#c8c8c0');
+    rect(cab - 1, by - 12, 9, 10, '#000'); rect(cab, by - 11, 7, 8, '#3c64b4'); rect(d > 0 ? cab + 3 : cab, by - 10, 4, 3, '#9cdcfc');
+    wheel(x0 + 4); wheel(x0 + w - 5);
+  } else {
+    rect(x0 - 1, by - 7, w + 2, 5, '#000'); rect(x0, by - 6, w, 3, P[0]); rect(x0, by - 3, w, 1, P[1]);
+    const cx = d > 0 ? x0 + 4 : x0 + 5; rect(cx - 1, by - 10, 11, 4, '#000'); rect(cx, by - 9, 9, 3, P[0]); rect(cx + 1, by - 9, 3, 2, '#9cdcfc'); rect(cx + 5, by - 9, 3, 2, '#9cdcfc');
+    if (m.skin === 'taxi') { rect(cx + 3, by - 12, 3, 2, '#000'); rect(cx + 4, by - 11, 1, 1, '#fcfcfc'); for (let k = 1; k < w - 1; k += 4) rect(x0 + k, by - 5, 2, 1, '#000'); }
+    wheel(x0 + 4); wheel(x0 + w - 5);
+  }
+  rect(fx, by - 6, 1, 2, '#fff4c0');                 // headlight
+  rect(d > 0 ? x0 : x0 + w - 1, by - 6, 1, 2, '#f83800');   // tail light
+  if (dark) { ctx.globalAlpha = dark; rect(x0 - 1, by - 18, w + 2, 18, '#000'); ctx.globalAlpha = 1; }
+}
+function drawRushStreet(hl, cam, t) {
+  const R = hl.rh, gy = Math.round(BASE - groundH(hl, 180)), a = Math.round(R.x0 - cam), b = Math.round(R.x1 - cam);
+  if (b + 40 < 0 || a - 40 > W) return;
+  const T = RH_TUN, top = gy - 9, bot = gy + 8;   // far lane sits on gy (= its hitbox floor), near lane in front   // road band (far curb .. near curb)
+  // inner tunnel rooms (behind everything): deep dark with a little falloff
+  for (const [mx, s] of [[a, -1], [b, 1]]) for (let k = 0; k < T; k++) { const x = s < 0 ? mx - 1 - k : mx + k, f = k / T; rect(x, gy - 21, 1, bot - gy + 21, f < 0.35 ? '#1c1c22' : f < 0.7 ? '#121216' : '#08080a'); }
+  // asphalt + curbs + centre dashes (street only)
+  rect(a, top, b - a, bot - top, '#2c2c34'); rect(a, top - 1, b - a, 1, '#9c9c98'); rect(a, top, b - a, 1, '#5c5c60'); rect(a, bot, b - a, 1, '#7c7c78');
+  for (let x = a + 2; x < b - 3; x += 8) rect(x, gy + 2, 4, 1, '#d8a820');
+  // headlight wash on the road ahead of cars coming out (drawn under the cars)
+  const cars = hl.movers.filter(m => m.rh).map(m => ({ m, P: rhLoopPos(m, t) })).filter(c => c.P.vis);
+  for (const { m, P } of cars) {
+    const sx = P.x - cam, fx = sx + m.dir * m.w / 2, by = m.lane ? gy + 7 : gy;
+    const out = m.dir > 0 ? fx - a : b - fx;   // px of nose past the mouth
+    if (out > -T && out < 22) { const k = Math.max(0, Math.min(1, (out + T) / T)) * (1 - Math.max(0, out) / 22);
+      ctx.globalAlpha = 0.22 * k; for (let i = 0; i < 3; i++) rect(m.dir > 0 ? fx + 1 : fx - 12 + i * 2, by - 6 + i, 12 - i * 2, 4 - i * 2 > 0 ? 4 - i * 2 : 1, '#fce4a0'); ctx.globalAlpha = 1; }
+  }
+  // cars: clipped to street + tunnel rooms; far lane first. In the tunnel they fade into the dark.
+  ctx.save(); ctx.beginPath(); ctx.rect(a - T, gy - 22, b - a + 2 * T, 31); ctx.clip();
+  for (const lane of [0, 1]) for (const { m, P } of cars) if (m.lane === lane) {
+    const sx = Math.round(P.x - cam), by = lane ? gy + 7 : gy;
+    rhCar(sx, by, m, lane ? 0 : 0.12);
+  }
+  // depth falloff over whatever is inside the tunnels (incl. car halves)
+  for (const [mx, s] of [[a, -1], [b, 1]]) for (let k = 0; k < T; k++) { const x = s < 0 ? mx - 1 - k : mx + k; ctx.globalAlpha = Math.min(0.96, 0.25 + 0.75 * (k / T)); rect(x, gy - 21, 1, 31, '#050507'); }
+  ctx.globalAlpha = 1; ctx.restore();
+  // tunnel light strip (amber, fading with depth) + portal headwalls (concrete, bevelled arch, cast shadow)
+  for (const [mx, s] of [[a, -1], [b, 1]]) {
+    for (let k = 1; k < T; k += 3) { ctx.globalAlpha = 0.9 * (1 - k / T); rect(s < 0 ? mx - 1 - k : mx + k, gy - 19, 1, 1, '#f8d878'); }
+    ctx.globalAlpha = 0.28; rect(s < 0 ? mx : mx - 8, top, 8, bot - top, '#000'); ctx.globalAlpha = 1;   // shadow on the road at the mouth
+    const L = s < 0 ? mx - T - 6 : mx - 2, Wd = T + 8, ht = gy - 28;   // headwall block (mouth side jamb = 2px)
+    const wall = '#8c8a84', lit = '#b8b6ae', drk = '#5c5a56';
+    rect(L - 1, ht - 1, Wd + 2, gy - ht + 6, '#000');
+    // fill headwall except the arched opening
+    for (let x = L; x < L + Wd; x++) for (let y = ht; y < bot + 1; y++) {
+      const ox = s < 0 ? x - (mx - T) : (mx + T - 1) - x;   // 0 at back wall .. T at mouth
+      const inOpen = ox >= 0 && x >= (s < 0 ? mx - T : mx) && x < (s < 0 ? mx : mx + T) && y >= gy - 21 + (ox < 2 || ox > T - 3 ? 2 : ox < 4 || ox > T - 5 ? 1 : 0);
+      if (!inOpen) rect(x, y, 1, 1, wall);
+    }
+    // bevel: light on the arch top + outer top edge, dark on the lower jamb side; coping strip
+    rect(L, ht, Wd, 1, lit); rect(L, ht + 1, Wd, 1, '#a4a29a'); rect(L, ht + 3, Wd, 1, drk);
+    const o0 = s < 0 ? mx - T : mx; rect(o0 + 2, gy - 22, T - 4, 1, lit); rect(o0 + 1, gy - 21, 1, 1, lit); rect(o0 + T - 2, gy - 21, 1, 1, drk);
+    const jb = s < 0 ? mx : mx - 2;   // street-side jamb (2px) with a lit face
+    rect(jb, gy - 20, 2, bot - gy + 21, wall); rect(s < 0 ? jb + 1 : jb, gy - 20, 1, bot - gy + 21, s < 0 ? drk : lit);
+    rect(L + 2, ht + 5, Wd - 4, 1, drk); ctx.globalAlpha = 0.5; for (let x = L + 3; x < L + Wd - 3; x += 5) rect(x, ht + 6, 1, gy - ht - 26, drk); ctx.globalAlpha = 1;   // panel joints
+  }
 }
 function drawMoverSkin(m, sx, top, bot, t) {
   const w = m.w, x0 = sx - Math.round(w / 2), h = Math.max(6, bot - top), wheel = (x) => { rect(x - 2, bot - 3, 5, 4, '#000'); rect(x - 1, bot - 2, 3, 2, '#7c7c7c'); };
