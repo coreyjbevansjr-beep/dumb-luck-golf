@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.20';
+const GAME_VERSION = 'v8.99.21';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3659,7 +3659,7 @@ const CLUBS_PRO = [
   ['L WEDGE', 'LW', 60, 74.1, 63, 44, 80, .56, .72, 1, 4],         ['PUTTER', 'PT', 0, 66, 0, 0, 0, 0, 1, 1, 5]
 ].map(([name, sn, loft, v, def, min, max, spin, wk, rk, lg]) => ({ name, sn, loft, v, def, min, max, spin, wk, rk, lg, splash: sn === 'SW' || sn === 'LW' }));
 let CLUB_SET = 'std';
-const G = 60, WIND_K = 1.35;   // v8.13: wind 1.5x (was 0.9)
+const G = 60, WIND_K = 0.62;   // v8.99.21 staged: ~+-5% carry at 4 MPH, ~+-12% at 12 MPH (was 1.35: ~+-20-35% at 12 MPH); the yardage is now still-air
 const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;
 // v8.27: the cup scales with putt distance: full 'near' forgiveness inside 8Y, easing to the v8.24 strictness by 10.1Y
 const PUTT_NEAR = { capV: 5, stopR: 0.8, lip: 0.7, d0: 8, d1: 10.1 };
@@ -3722,7 +3722,7 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   if (lie === 'rough') spin *= 0.3; else if (lie === 'sand' && !splash) spin *= 0.6;
   let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3) * (c.rk || 1);   // v8.99.2 rk: per-club rollout (pro set only)
   if (splash) { rollK *= 0.45; spin = Math.max(spin, 0.5); }
-  let windK = clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1);
+  let windK = clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1) * (chip ? 0.45 : 1);   // v8.99.21 staged: chips barely feel it
   if (kind === 'punch') { windK *= 0.7; rollK = Math.min(1.45, rollK * 1.2); spin *= 0.5; }   // under the wind, runs out
   else if (kind === 'flop') { windK *= 1.1; rollK *= 0.6; spin += 0.25; }                       // up and soft, the wind gets it
   else if (kind === 'bump') { windK *= 0.6; rollK = Math.min(1.45, Math.max(rollK, 1.12) * 1.25); spin = 0; }   // low chip that rolls
@@ -5045,10 +5045,10 @@ function clubYards() {
   if (!hole || !ball) return '';
   if (clubIdx === PUTT_I) return puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y';
   if (state !== 'aim' && clubYdCache && clubYdCache.c === clubIdx) return clubYdCache.t;
-  const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, wind, shotKind, !!ball.divot].join(':');
+  const ang = Math.round(angle), key = [holeIdx, clubIdx, ball.x.toFixed(1), ang, facing, 0, shotKind, !!ball.divot].join(':');
   if (!clubYdCache || clubYdCache.key !== key) {
     let reach = 0;
-    try { const r = simulateShot(hole, wind, ball.x, clubIdx, ang, 1, 0, facing, shotKindValid(), { divot: ball.divot }); reach = Math.abs((CLUB_SET === 'pro' ? r.carry : r.x) - ball.x); } catch (e) {}   // v8.99.2: pro set shows CARRY
+    try { const r = simulateShot(hole, 0, ball.x, clubIdx, ang, 1, 0, facing, shotKindValid(), { divot: ball.divot }); reach = Math.abs((CLUB_SET === 'pro' ? r.carry : r.x) - ball.x); } catch (e) {}   // v8.99.2: pro set shows CARRY
     clubYdCache = { key, c: clubIdx, t: Math.round(reach) + 'Y' };
   }
   return clubYdCache.t;
@@ -5772,7 +5772,7 @@ function autoClub() {
     let pick = -1, best = PUTT_I - 1, bestReach = -1e9;
     for (let c = PUTT_I - 1; c >= 0; c--) {
       let reach = 0;
-      try { reach = (simulateShot(hole, wind, ball.x, c, CLUBS[c].def, 1, 0, dir).x - ball.x) * dir; } catch (e) {}
+      try { reach = (simulateShot(hole, 0, ball.x, c, CLUBS[c].def, 1, 0, dir).x - ball.x) * dir; } catch (e) {}
       if (reach >= d - 2) { pick = c; break; }
       if (reach > bestReach + 3) { bestReach = reach; best = c; }   // a longer club only if it clearly goes further
     }
@@ -5825,6 +5825,23 @@ function camYTarget() {
   const botKeep = BASE - 12;          // stay above ground a bit when very high
   if (raw >= topKeep) return 0;
   return Math.min(botKeep - raw, Math.round(PLAY_H * 0.35));   // shift world down
+}
+/* v8.99.21 staged WIND WARNING: once per hole, at the first shot when the wind is 4+ MPH, a small strip under the wind readout
+   ('WIND 9 MPH - PLAYS LONGER' + arrow) that fades after ~2 s. First time ever: a second line explains the yardage is still-air. */
+const WW = { key: '', t: -1, tip: false };
+function drawWindWarn() {
+  if (!hole || !ball || state !== 'aim' || paused || msg || roundTip || LAB.on || Math.abs(wind) < 4 || clubIdx === PUTT_I) { if (WW.t >= 0 && state !== 'aim') WW.t = 99; return; }
+  const k = holeIdx + '|' + (hole.name || '') + '|' + scores.length;
+  if (WW.key !== k) { WW.key = k; WW.t = 0; WW.tip = false; try { if (!localStorage.getItem('dlg_windtip_v1')) { WW.tip = true; localStorage.setItem('dlg_windtip_v1', '1'); } } catch (e) {} }
+  const dur = WW.tip ? 4 : 2.2; if (WW.t < 0 || WW.t > dur) return; WW.t += 1 / 60;
+  const a = Math.min(1, WW.t * 5, (dur - WW.t) / 0.5); if (a <= 0) return;
+  const long = wind * facing > 0, t1 = 'WIND ' + Math.abs(wind) + ' MPH - PLAYS ' + (long ? 'LONGER' : 'SHORTER'), t2 = 'YARDAGE SHOWN IS STILL AIR';
+  const w = Math.max(textW(t1) + 22, WW.tip ? textW(t2) + 12 : 0), h = WW.tip ? 22 : 13, x = Math.round((W - w) / 2), y = Math.round(Math.max((SAFE.t || 0) + 4, MC.y + MC.h + 5) + 18);
+  ctx.save(); ctx.globalAlpha = a; rect(x, y, w, h, '#000'); rect(x, y, w, 1, '#ffffff55'); const col = long ? '#58d854' : '#f8b800';
+  drawText(t1, x + 6, y + 3, col); const ax = x + 8 + textW(t1) + 3, ay = y + 6, d = wind > 0 ? 1 : -1;   // arrow points the way the wind blows
+  rect(ax, ay, 7, 1, col); rect(ax + (d > 0 ? 5 : 1), ay - 1, 1, 3, col); rect(ax + (d > 0 ? 4 : 2), ay - 2, 1, 5, col);
+  if (WW.tip) drawText(t2, x + Math.round((w - textW(t2)) / 2), y + 13, '#bcbcbc');
+  ctx.restore();
 }
 function showMsg(text, col = COL.white, dur = 1.4) { msg = { text, col, t: 0, dur }; }
 
@@ -8875,9 +8892,9 @@ function flushAimDots() {
 let sgCache = null;
 function shortTarget() {
   if (!shortGameNow() && !(meter.short && state !== 'aim')) return null;
-  const key = [holeIdx, clubIdx, ball.x.toFixed(2), Math.round(angle), facing, wind, shotKind, !!ball.divot].join(':');
+  const key = [holeIdx, clubIdx, ball.x.toFixed(2), Math.round(angle), facing, 0, shotKind, !!ball.divot].join(':');
   if (sgCache && sgCache.key === key) return sgCache;
-  const sim = p => simulateShot(hole, wind, ball.x, clubIdx, angle, p, 0, facing, shotKindValid(), { divot: ball.divot });
+  const sim = p => simulateShot(hole, 0, ball.x, clubIdx, angle, p, 0, facing, shotKindValid(), { divot: ball.divot });   // v8.99.21 staged: still-air (wind is the player's read)
   const cost = r => r.res === 'cup' ? -1 : (r.res === 'water' || r.res === 'ob') ? 1e6 : Math.abs(r.x - hole.cup);
   let best = null, cups = [];
   for (let p = 0.02; p <= 1.0001; p += 0.02) { const c = cost(sim(p)); if (c < 0) cups.push(p); if (!best || c < best.c) best = { p, c }; }
@@ -11446,6 +11463,7 @@ function renderScene() {
     msgBox(lines, 36, cols);
   }
   if (roundTip) drawRoundTip();
+  try { drawWindWarn(); } catch (e) {}
   if (msg) { const w = textW(msg.text) + 12, x = Math.round((W - w) / 2), my = Math.max(36, (SAFE.t || 0) + 6); rect(x, my, w, 13, COL.white); rect(x + 1, my + 1, w - 2, 11, '#000'); drawText(msg.text, x + 6, my + 3, msg.col); }
   else drawWildCaption();
   drawBanner();
