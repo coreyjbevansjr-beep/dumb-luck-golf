@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.19';
+const GAME_VERSION = 'v8.99.20';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -2435,6 +2435,24 @@ const FONT3 = { D:['##.','#.#','#.#','#.#','##.'], L:['#..','#..','#..','#..','#
   '0':['###','#.#','#.#','#.#','###'], '1':['.#.','##.','.#.','.#.','###'], '2':['##.','..#','.#.','#..','###'], '3':['##.','..#','.#.','..#','##.'],
   '4':['#.#','#.#','###','..#','..#'], '5':['###','#..','##.','..#','##.'], '6':['.##','#..','###','#.#','###'], '7':['###','..#','.#.','.#.','.#.'],
   '8':['###','#.#','###','#.#','###'], '9':['###','#.#','###','..#','##.'], ' ':['...','...','...','...','...'] };
+/* v8.99.20: official D15 crest (horseshoe + nail holes + 4-point star) for the pin flag. Simplified to 9x8 so it reads at flag size;
+   pre-rendered once to an 11x10 sprite (cream fill + dark-red outline), drawn 1:1 with smoothing off and clipped to the red cloth. */
+const FLAG_CREST = ['##.....##', '##.....##', '##..#..##', '.#.###.#.', '##..#..##', '##.....##', '.##...##.', '..#####..'];
+let flagCrestSpr = null;
+function flagCrestSprite() {
+  if (flagCrestSpr) return flagCrestSpr;
+  const c = document.createElement('canvas'); c.width = 11; c.height = 10; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const on = (x, y) => y >= 0 && y < FLAG_CREST.length && x >= 0 && x < 9 && FLAG_CREST[y][x] === '#';
+  g.fillStyle = '#7a1414';
+  for (let y = -1; y <= 8; y++) for (let x = -1; x <= 9; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
+  g.fillStyle = '#f8f0d8';
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 9; x++) if (on(x, y)) g.fillRect(x + 1, y + 1, 1, 1);
+  return (flagCrestSpr = c);
+}
+function drawFlagCrest(x0, y0) {   // x0,y0 = top-left of the 17x9 red cloth
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, 17, 9); ctx.clip(); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(flagCrestSprite(), x0 + 3, y0 - 0); ctx.restore();
+}
 function text3(g, str, x, y, col) { g.fillStyle = col; let cx = Math.round(x); for (const ch of String(str)) { const f = FONT3[ch]; if (f) for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (f[r][c] === '#') g.fillRect(cx + c, Math.round(y) + r, 1, 1); cx += 4; } }
 const text3W = str => String(str).length * 4 - 1;
 function textW(str, sx = 1) { return String(str).length * 6 * sx - sx; }
@@ -7672,7 +7690,7 @@ function caTick() {
   if (!CA.mur) return;
   const m = live ? 1 : 0;   // master: cuts one-shots and the bed too when muted / paused / hidden
   if (m !== CA.mtgt) { CA.mtgt = m; try { CA.g.gain.setTargetAtTime(m, AC.currentTime, 0.05); } catch (e) {} }
-  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { const t = AC.currentTime, tc = v < 0.1 ? 0.35 : 0.5; CA.mur.gain.setTargetAtTime(v * 0.72, t, tc); CA.air.gain.setTargetAtTime(v > 0 ? 0.32 : 0, t, 0.8); } catch (e) {} }   // 0.72: two layers; bed stays steady (even during the hush) and fades out with the crowd
+  if (Math.abs(v - CA.tgt) > 1e-4) { CA.tgt = v; try { const t = AC.currentTime, mg = CA.mur.gain, cur = mg.value; mg.cancelScheduledValues(t); mg.setValueAtTime(cur, t); mg.linearRampToValueAtTime(v * 0.72, t + (v < 0.1 ? 0.6 : 0.9));   /* v8.99.20: smooth linear gain ramp for the swing duck (no filter) */ CA.air.gain.setTargetAtTime(v > 0 ? 0.32 : 0, t, 0.8); } catch (e) {} }   // 0.72: two layers; bed stays steady (even during the hush) and fades out with the crowd
 }
 let caEnds = []; const CA_MAX_IOS = 6;   // v8.99.9: one-shot voice cap on iPhone (single mono layer, no comb/chorus on the phone speaker)
 function caVoiceOk() { if (!isIOS) return true; const t = AC.currentTime; caEnds = caEnds.filter(e => e > t); return caEnds.length < CA_MAX_IOS; }
@@ -7858,6 +7876,7 @@ function lgLoad() { if (LG.loaded || !CA.g || !AC) return; LG.loaded = true;
   for (const k in F) fetch(isIOS && LG_IOS_FILES[k] ? LG_IOS_FILES[k] : caUrl(F[k])).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(ab => new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); })).then(b => { CA.buf[k] = b; }).catch(() => {}); }
 function lgBlip(p, hostile) {   // a short voice-y murmur under a bubble: random source + slice, cooled down so it never machine-guns
   const T = lgT(); if (T - LG.blipT < 1.1) return; LG.blipT = T;
+  if (!isIOS && v93Hush()) return;   // v8.99.20 desktop: no random clip slices layered over the swing meter (the bubble still shows)
   if (isIOS) {   // v8.99.17 iPhone: a whole clean reaction (cheer / ooh / chuckle), never a random mid-clip slice; pitch only +-3%
     if (!CA.buf.voices) return; const P = hostile ? ['chuckle1', 'chuckle2', 'ooh2'] : ['cheer1', 'cheer2', 'ooh1', 'ooh3'], c = LG_VOX[P[Math.floor(Math.random() * P.length)]];
     lgCaAt('voices', 0.4 * lgHyp(), lgPanX(p.x), c[0], c[1], 1); return; }
@@ -8054,7 +8073,7 @@ function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
     else if (!(Math.random() < 0.45 && lgCastSay('swing', { low: true, dur: 1.4 }))) { const line = hecPickLine(LG_SWING); if ((hecSay(line, { low: true, relax: true, dur: 1.4 }) || lgSayAny(line, {})) && hec) { hec.lg = true; hec.heck = true; hec.dur = Math.min(hec.dur, 1.6); LG.sayT = T; } } }
   if (LG.plan && !LG.plan.done && state === LG.plan.at && st >= LG.plan.delay) { LG.plan.done = true; const [list, heck] = lgPreList(); lgSay(list, { heck }); }
   // anticipation hush at address: murmur already ducks (v93Hush); a soft settle layer on top, once per shot, bigger for clutch putts
-  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; if (isIOS) {} /* v8.99.13 iPhone: no hush clip during the meter (it buzzed on the phone speaker); the crowd bed already dips (v93Hush) */ else lgCaAt('hush', (cl ? 0.5 : 0.3) * lgHyp(), 0, 0, 2.6); }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
+  if ((state === 'power' || (state === 'aim' && clubIdx === PUTT_I && st > 0.6)) && LG.hushKey !== key) { LG.hushKey = key; const cl = clubIdx === PUTT_I && strokes >= hole.par - 1; void cl; /* v8.99.13 iPhone, v8.99.20 desktop too: no hush clip during the meter (it sounded bad once the swing started); the crowd bed already dips (v93Hush) */ }   // v8.99.11 iPhone: the swing-start 'shhh' was the crackle (hiss + sparkle EQ on a phone speaker): softer, slow fade-in, cleaned file
   if (state === 'flight' && ball) {
     const d = Math.abs(hole.cup - ball.x); LG.minD = Math.min(LG.minD, d);
     // rising ooh as a rolling ball tracks at the cup
@@ -8590,7 +8609,7 @@ function drawCourse(hl, cam) {
     const wave = Math.floor(t * 4) % 2;                          // DLG flag, gently waving
     rect(fx + 2, fgy - 29, 18, 11, '#000'); rect(fx + 2, fgy - 28, 17, 9, COL.red);
     if (wave) { rect(fx + 18, fgy - 28, 1, 2, '#000'); rect(fx + 19, fgy - 23, 1, 4, th.dim ? th.sky : th.sky); }
-    text3(ctx, 'DLG', fx + 5, fgy - 26, COL.white);
+    drawFlagCrest(fx + 2, fgy - 28);   // v8.99.20: official D15 crest replaces the DLG text
     if (rt) ctx.restore();
   }
   if (hwHole) hwTint(th);   // v8.41 dusk tint
