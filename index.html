@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.21';
+const GAME_VERSION = 'v8.99.22';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -7855,7 +7855,7 @@ const LGL = {
   under: ['UNDER PAR! KEEP IT UP!', 'LEADERBOARD WATCH!', 'TOUR CARD INCOMING!'],
   over: ['WAY OVER PAR, BUDDY', 'COUNTING STROKES?', 'NEED A CALCULATOR?'],
   ghost: ['GHOST IS BEATING YOU!', 'CATCH THE GHOST!', 'SPOOKED BY A GHOST?', 'THE GHOST HAS NO NERVES!', 'BEAT THE GHOST!'],
-  good: ['GOT A GOOD BOUNCE!', 'WHAT A SHOT!', 'PURE!', 'DID YOU SEE THAT?!', 'FLAG ATTACK!', 'OK, NOT BAD!'],
+  good: ['GOT A GOOD BOUNCE!', 'WHAT A SHOT!', 'PURE!', 'DID YOU SEE THAT?!', 'FLAG ATTACK!', 'OK, NOT BAD!', "YOU'RE AN ABSOLUTE FLUSHER!"],
   great: ['STIFFED IT!', 'GET IN THE HOLE!', 'DART!', 'KISS THE FLAG!', 'UNREAL!', 'TAP IN CITY!'],
   bad: ['YIKES!', 'THATS A LONG WAY OUT', 'OOF!', 'WHERE WAS THAT GOING?', 'HIT IT FAT!', 'NOT THE LINE!', 'SKULLED IT!'],
   sand: ['BEACH DAY!', 'BRING A RAKE!', 'BUILD A SANDCASTLE!', 'SAND SAVE? SURE...', 'ENJOY THE BEACH!'],
