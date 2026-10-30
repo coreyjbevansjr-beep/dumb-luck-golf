@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.22';
+const GAME_VERSION = 'v8.99.23';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1134,6 +1134,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   r(3, -24, 2, 1, look.skinD);                                                   // mouth
   // ---- hair
   const hc = look.hairC, hs = look.hair | 0, pk = !!GA && GA.head === 'pumpkin_head', hst = GA && GA.head === 'camo_hat' ? 0 : GA && GA.head === 'underpar_visor' ? 1 : look.hatStyle | 0;
+  if (GA && GA.face === 'dlg_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#14462d'); r(1, -28, 4, 1, '#101018'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
   else if (hs) {
@@ -1213,7 +1214,7 @@ function playGearLook(look, GA) {
   return o;
 }
 function lookPlay(look, g) {   // attach equipped gear (own by default) to an in-game look
-  g = g === undefined ? (isSignedIn() ? gearEquipped() : null) : g;
+  g = g === undefined ? gearEquipped() : g;
   if (g && PLAY_GEAR_SLOTS.some(s => g[s])) look.gear = g;
   return look;
 }
@@ -1420,12 +1421,13 @@ function lookPreviewGolfer(cx, feetY, look, gear) {   // EDIT LOOK preview: same
 }
 /* ================= v8.64: GEAR. Server catalog (rarity + seasonal windows), locker room, redeem codes, show-off busts.
    Gear is cosmetic and only shows on the detailed golfer (EDIT LOOK, locker, friends, boards, share card) - never on the in-game sprite. ================= */
-const GEAR_TIERS = { common: { col: '#a8b8d0', name: 'COMMON' }, rare: { col: '#3cbcfc', name: 'RARE' }, legendary: { col: '#f8d878', name: 'LEGENDARY' } };
+const GEAR_TIERS = { common: { col: '#a8b8d0', name: 'COMMON' }, rare: { col: '#3cbcfc', name: 'RARE' }, legendary: { col: '#f8d878', name: 'LEGENDARY' }, exclusive: { col: '#58d854', name: 'MEMBERS ONLY' } };
 const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins when it loads (admin can edit names, tiers, windows). v8.65: Corey's approved list
   { id: 'ace_chain', name: 'ACE CHAIN', slot: 'neck', tier: 'legendary', req: 'FIRST HOLE-IN-ONE', rule: { stat: 'aces', min: 1 }, sort: 10 },
   { id: 'birdie_glove', name: 'BIRDIE GLOVE', slot: 'hands', tier: 'common', req: '3 BIRDIES IN ONE ROUND', rule: { stat: 'bRound', min: 3 }, sort: 20 },
   { id: 'underpar_visor', name: 'UNDER-PAR VISOR', slot: 'head', tier: 'rare', req: 'FINISH 18 HOLES UNDER PAR', rule: { stat: 'u18', min: 1 }, sort: 30 },
   { id: 'streak_shades', name: 'STREAK SHADES', slot: 'face', tier: 'common', req: 'PLAY THE DAILY 7 DAYS IN A ROW', rule: { stat: 'daily.top', min: 7 }, sort: 40 },
+  { id: 'dlg_shades', name: 'DLG SHADES', slot: 'face', tier: 'exclusive', req: 'MEMBERS ONLY - THANKS FOR PLAYING', rule: { gift: true }, sort: 41 },   // v8.99.23: gifted to every player, on-device (no server row needed)
   { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 50 },
   { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 60 },
   { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
@@ -1435,6 +1437,11 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
   { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
 ];
+/* v8.99.23 GIFT GEAR: owned by everyone (guests too); worn state lives on this device, never sent to the server */
+const GEAR_GIFT = ['dlg_shades'], GIFT_EQ_KEY = 'dlg_gift_wear_v1';
+const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
+function giftWorn() { try { const v = localStorage.getItem(GIFT_EQ_KEY) || ''; return gearIsGift(v) ? v : ''; } catch (e) { return ''; } }
+function giftWear(id) { try { if (id) localStorage.setItem(GIFT_EQ_KEY, id); else localStorage.removeItem(GIFT_EQ_KEY); } catch (e) {} gear.rev++; }
 const GEAR_HIDES_HAIR = { pumpkin_head: 1 };
 // ---- art (sprite units, same grid as drawGolferHD; R = outlined part, D = flat detail)
 const G_GOLD = '#f8d878', G_GOLD_D = '#c88800', G_GOLD_L = '#fcf0b8', G_GREEN = '#14462d';
@@ -1513,6 +1520,11 @@ GEAR_ART.streak_shades = (R, D, look, sl, o) => {   // v8.65: wraparound shades 
   F(-4.5, -47, 0.5, 0.5, '#fcfcfc'); F(2.5, -47, 0.5, 0.5, '#fcfcfc'); F(-5, -45.5, 4, 0.5, '#c83c00'); F(2, -45.5, 4, 0.5, '#c83c00');   // glint + lower rim
   F(-1, -46.5, 3, 0.5, '#101018'); F(-7, -47.5, 1, 0.5, '#3c3c48'); F(7, -47.5, 1, 0.5, '#3c3c48');
 };
+GEAR_ART.dlg_shades = (R, D, look, sl, o) => {   // v8.99.23: flat-top black wayfarers, DLG green lenses, gold brow bar
+  const F = gF(o);
+  D(-6, -48, 13, 1, '#101018'); D(-5, -47, 4, 2, '#14462d'); D(2, -47, 4, 2, '#14462d'); D(-6, -47, 1, 2, '#101018'); D(-1, -47, 3, 1, '#101018'); D(6, -47, 1, 2, '#101018'); D(-7, -48, 1, 1, '#101018'); D(7, -48, 1, 1, '#101018');
+  F(-5, -48, 4, 0.5, '#f8d878'); F(2, -48, 4, 0.5, '#f8d878'); F(-4.5, -47, 1, 0.5, '#58d854'); F(2.5, -47, 1, 0.5, '#58d854'); F(-5, -45.5, 4, 0.5, '#0c2c1c'); F(2, -45.5, 4, 0.5, '#0c2c1c');
+};
 GEAR_ART.aviators = (R, D) => {   // legacy art (kept so an admin can still pick it under LOOKS LIKE)
   D(-5, -48, 4, 3, '#d4af37'); D(-4, -47, 2, 2, '#203040'); D(2, -48, 4, 3, '#d4af37'); D(3, -47, 2, 2, '#203040');
   D(-1, -48, 3, 1, '#d4af37'); D(-6, -48, 1, 1, '#d4af37'); D(6, -48, 1, 1, '#d4af37'); D(-4, -47, 1, 1, '#5c7c9c'); D(3, -47, 1, 1, '#5c7c9c');
@@ -1526,10 +1538,11 @@ function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
 function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
 function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
 function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
-function gearOwned(id) { return !!gear.owned[id]; }
+function gearOwned(id) { return gearIsGift(id) || !!gear.owned[id]; }
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
-  const o = {}; for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
+  const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
+  const gw = giftWorn(), gg = gw && gearItem(gw); if (gg) o[gg.slot] = gw;   // v8.99.23 gift gear
   gear.eqMemo = { rev: gear.rev, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
@@ -1538,7 +1551,7 @@ function gearSetOwned(list) { const o = {}; (Array.isArray(list) ? list : []).fo
 async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ earn anything newly qualified) when signed in
   gearLoadLocal();
   const c = await sb('/rest/v1/gear_catalog?select=*&order=sort.asc,id.asc', isSignedIn() ? {} : { noAuth: true }, 'gear');
-  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); gear.rev++; }
+  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => gearIsGift(g.id) && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
   if (isSignedIn() && hasUsername()) {
     if (claim) { const r = await sb('/rest/v1/rpc/claim_gear', { method: 'POST', body: {} }, 'gear'); if (r.ok && Array.isArray(r.data) && r.data.length) r.data.forEach(id => { if (gear.fresh.indexOf(id) < 0) gear.fresh.push(id); }); }
     const m = await sb('/rest/v1/rpc/my_gear', { method: 'POST', body: {} }, 'gear'); if (m.ok) gearSetOwned(m.data);
@@ -1547,6 +1560,9 @@ async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ ea
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
   const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
+  if (gearIsGift(id)) { if (!on) { giftWear(''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; giftWear(id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
+  if (on && giftWorn() && (gearItem(giftWorn()) || {}).slot === g.slot) giftWear('');
+  if (!isSignedIn()) return { ok: false };
   const before = JSON.stringify(gear.owned);
   for (const k in gear.owned) { const o = gearItem(k); if (o && o.slot === g.slot) gear.owned[k].equipped = false; }
   if (on) gear.owned[id].equipped = true;
@@ -1655,11 +1671,11 @@ const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
 const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
-function gearCanWear(id) { return !id || (isSignedIn() && gearOwned(id)); }
+function gearCanWear(id) { return !id || gearIsGift(id) || (isSignedIn() && gearOwned(id)); }
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy, gear: {slot: item} (what Save will equip), gshow: {slot: item} (row cursor, may be locked), scroll }
 let lookDrag = null;
-function lookGearInit() { const eq = isSignedIn() ? gearEquipped() : {}; lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
-function lookGearDraft() { return lookEd && lookEd.gear ? lookEd.gear : (isSignedIn() ? gearEquipped() : {}); }   // v8.66: the draft (Save/Cancel), not the saved set
+function lookGearInit() { const eq = gearEquipped(); lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
+function lookGearDraft() { return lookEd && lookEd.gear ? lookEd.gear : gearEquipped(); }   // v8.66: the draft (Save/Cancel), not the saved set
 function openLookEditor() {
   const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false, scroll: 0 }; lookGearInit();
   if (!gear.loaded || isSignedIn()) gearLoad(true).then(() => { if (lookEd && !lookEd.gdirty) lookGearInit(); }).catch(() => {});
@@ -1780,7 +1796,7 @@ async function lookSave() {
   try { const c = careerLoad(); c.look = { skin: player.skin, shirt: player.shirt, hat: player.hat, pants: player.pants }; careerSave(c); } catch (e) {}
   E.busy = true; const r = await saveAppearance();
   let gearBad = false;   // v8.66: gear follows Save like the rest of the look -> equip_gear for every slot that changed
-  if (isSignedIn()) { const eq = gearEquipped(), want = E.gear || {};
+  { const eq = gearEquipped(), want = E.gear || {};   // v8.99.23: guests can wear gift gear
     for (const [, slot] of GEAR_ROWS) { const a = eq[slot] || null, b = want[slot] || null; if (a === b) continue;
       const res = b ? await gearEquip(b, true) : await gearEquip(a, false); if (!res.ok) gearBad = true; else { try { trackEvent(b ? 'gear_equip' : 'gear_unequip', { item: b || a }); } catch (e) {} } } }
   E.busy = false;
@@ -2357,7 +2373,8 @@ function rateAllowed() { return !!(HOLES && HOLES.length) && courseKind !== 'mat
 function rateCourseKey() { return courseKind === 'daily' ? (dailyMeta && dailyMeta.date ? 'daily-' + dailyMeta.date : 'daily') : String(courseKind || 'front'); }
 function rateHoleKey(i) {
   const n = displayHoleNum(i) | 0, k = courseKind;
-  if (k === 'front' || k === 'back' || k === 'full' || k === 'quick3') return n > 9 ? ['back', n - 9] : ['front', n];
+  if (k === 'quick3') { const q = QUICK3_SRC[i]; return q ? (q[0] === 'daily' ? ['daily-pool', q[1]] : q) : ['quick3', n]; }
+  if (k === 'front' || k === 'back' || k === 'full') return n > 9 ? ['back', n - 9] : ['front', n];
   if (k === 'nycf' || k === 'nycb' || k === 'nyc18') return n > 9 ? ['nycb', n - 9] : ['nycf', n];
   return [rateCourseKey(), Math.max(1, Math.min(18, n))];
 }
@@ -3542,12 +3559,12 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
    are that course's play options. DUMB LUCK COUNTRY CLUB is the original Front 9 + Back 9 (same kinds, modes, best keys and
    leaderboards as before - display names only). */
 const CS_GROUPS = [
-  { name: 'DUMB LUCK COUNTRY CLUB', opts: ['front', 'back', 'full', 'quick3'] },
-  { name: 'BIG APPLE LINKS', opts: ['nycf', 'nycb', 'nyc18'] },
-  { name: 'CORAL CLIFFS', opts: ['coral'], gate: 'career' },
-  { name: 'HIGH ROLLER', opts: ['roller'], gate: 'members' }
+  { name: 'DUMB LUCK COUNTRY CLUB', opts: ['daily', 'front', 'back', 'full', 'quick3'] },
+  { name: 'BIG APPLE LINKS', opts: ['daily', 'nycf', 'nycb', 'nyc18'] },
+  { name: 'CORAL CLIFFS', opts: ['daily', 'coral'], gate: 'career' },
+  { name: 'HIGH ROLLER', opts: ['daily', 'roller'], gate: 'members' }
 ];
-const CS_KIND_LABEL = { front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', quick3: 'QUICK 3', nycf: 'FRONT 9', nycb: 'BACK 9', nyc18: 'FULL 18', coral: 'PLAY 9 HOLES', roller: 'PLAY 9 HOLES' };
+const CS_KIND_LABEL = { daily: 'DAILY', front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', quick3: 'QUICK 3', nycf: 'FRONT 9', nycb: 'BACK 9', nyc18: 'FULL 18', coral: 'PLAY 9 HOLES', roller: 'PLAY 9 HOLES' };
 const CS_NMAX = Math.max(...CS_GROUPS.map(g => g.opts.length));
 let csGroup = 0, COURSE_ITEMS = [], CS_N = 0, CS_BACK_I = 0;
 const csKind = i => (CS_GROUPS[csGroup].opts[i] || null);
@@ -3560,10 +3577,22 @@ function coralUnlocked() { try { return !!isSignedIn(); } catch (e) { return fal
 let courseSel = 0;
 /* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
 const COURSE_BEST_KEY = { spooky: 'dlg_golf_best_spooky', front: 'dlg_golf_best9', back: 'dlg_golf_best_back9', full: 'dlg_golf_best_full18', coral: 'dlg_golf_best_coral9', roller: 'dlg_golf_best_roller9', nycf: 'dlg_golf_best_nyc_front9', nycb: 'dlg_golf_best_nyc_back9', nyc18: 'dlg_golf_best_nyc18' };
-function kindHoles(k) { return k === 'front' ? FRONT_HOLES : k === 'back' ? BACK_HOLES : k === 'coral' ? CORAL_HOLES : k === 'roller' ? ROLLER_HOLES : k === 'nycf' ? NYC_FRONT : k === 'nycb' ? NYC_BACK : k === 'nyc18' ? NYC_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
+function dailyTodaySrc() { try { let i = dailyForceIndex(); if (i == null) i = dailyCycleIndex(nyDateStr()); return [DAILY_HOLES[i] || DAILY_HOLES[0]]; } catch (e) { return [DAILY_HOLES[0]]; } }   // v8.99.23: no side effects (preview only)
+function kindHoles(k) { return k === 'daily' ? dailyTodaySrc() : k === 'front' ? FRONT_HOLES : k === 'back' ? BACK_HOLES : k === 'coral' ? CORAL_HOLES : k === 'roller' ? ROLLER_HOLES : k === 'nycf' ? NYC_FRONT : k === 'nycb' ? NYC_BACK : k === 'nyc18' ? NYC_HOLES : FRONT_HOLES.concat(BACK_HOLES); }
 function courseHoleList(i) { return kindHoles(csKind(i)); }
 let QUICK3_NUMS = [];   // v8.57: real hole numbers (1-18) of the current QUICK 3 set
-function quick3Pick() { const all = FRONT_HOLES.concat(BACK_HOLES), idx = []; while (idx.length < 3 && idx.length < all.length) { const k = Math.floor(Math.random() * all.length); if (!idx.includes(k)) idx.push(k); } idx.sort((a, b) => a - b); QUICK3_NUMS = idx.map(k => k + 1); const th = quick3Theme(); return idx.map(k => all[k].theme === 'day' ? Object.assign({}, all[k], { theme: th }) : all[k]); }
+let QUICK3_SRC = [];   // v8.99.23: [course key, real hole no] per QUICK 3 hole (ratings go to the native course)
+function quick3Pick() {   // v8.99.23: 3 random holes from ANY course + the Daily pool, each in its own native look (no seasonal Spooky)
+  const pool = [];
+  const add = (list, key, off) => list.forEach((h, k) => pool.push({ h, key, n: k + 1 + off }));
+  add(FRONT_HOLES, 'front', 0); add(BACK_HOLES, 'back', 0); add(NYC_FRONT, 'nycf', 0); add(NYC_BACK, 'nycb', 0);
+  add(CORAL_HOLES, 'coral', 0); add(ROLLER_HOLES, 'roller', 0); add(DAILY_HOLES, 'daily', 0);
+  const pick = [];
+  const keys = [...new Set(pool.map(e => e.key))];   // course first, then a hole, so the big Daily pool doesn't crowd out the courses
+  while (pick.length < 3) { const ky = keys[Math.floor(Math.random() * keys.length)], sub = pool.filter(e => e.key === ky), e = sub[Math.floor(Math.random() * sub.length)]; if (!pick.includes(e)) pick.push(e); }
+  QUICK3_NUMS = pick.map((e, i) => i + 1); QUICK3_SRC = pick.map(e => [e.key, e.n]);
+  return pick.map(e => { if (e.key !== 'daily') return e.h; const d = JSON.parse(JSON.stringify(e.h)); d.wind = e.h.calm ? 0 : Math.round(Math.random() * 16 - 8); return d; });
+}
 function courseBest(kind) { try { const v = localStorage.getItem(COURSE_BEST_KEY[kind]); if (v === null) return null; const n = parseInt(v, 10); return isNaN(n) ? null : n; } catch (e) { return null; } }
 
 function compileHole(def) {
@@ -4681,7 +4710,7 @@ function layoutChrome() {
       bw = Math.min(240, W - 16); bx = Math.round((W - bw) / 2);
       CS_HEAD = { x: Math.round(W / 2), y: top + 28 };
       CS_FAIR = H - Math.max(36, 28 + (SAFE.b || 0) + 4);          // same grass strip as the title screen
-      const boardBot = CS_FAIR - 8, stageTop = CS_HEAD.y + 50;   // v8.75: course name header (2 lines) + sub line
+      const boardBot = CS_FAIR - 8, stageTop = CS_HEAD.y + 60;   // v8.75: course name header (2 lines) + sub line
       ch = Math.max(cardMin, 44);
       while (ch > Math.max(cardMin, 32) && boardBot - boardH(ch) - 10 - stageTop < 70) ch--;
       by = boardBot - boardH(ch);
@@ -4693,7 +4722,7 @@ function layoutChrome() {
       const cw = Math.min(W - 16, 440), x0 = Math.round((W - cw) / 2), leftW = Math.round(cw * 0.42);
       bw = Math.min(240, cw - leftW - 6); bx = x0 + leftW + 6 + Math.round((cw - leftW - 6 - bw) / 2);
       CS_HEAD = { x: bx + Math.round(bw / 2), y: top + 6 };
-      by = top + 56;
+      by = top + 66;
       const fairMax = Math.min(H - 22, bot - 18);
       ch = Math.max(cardMin, 40);
       while (ch > Math.max(cardMin, 26) && by + boardH(ch) + 10 > fairMax) ch--;
@@ -5200,6 +5229,32 @@ function drawToast() {
   const w = Math.max(...toast.lines.map(l => textW(l))) + 16, h = toast.lines.length * 10 + 8, x = Math.round((W - w) / 2), y = CEL.playing ? Math.min(CEL.y, H - h - (SAFE.b || 0) - 4) : 92;
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   toast.lines.forEach((l, i) => drawTextC(l, y + 5 + i * 10, i ? COL.white : '#f8d878'));
+}
+/* v8.99.23 one-time THANK YOU card: free DLG SHADES + a promo line (edit GIFT_PROMO to change the hat-drop wording) */
+const GIFT_PROMO = 'NEW HAT DROP 11.22';
+const GIFT_SEEN_KEY = 'dlg_gift_shades_seen_v1';
+function giftCardMaybe() {
+  try { if (localStorage.getItem(GIFT_SEEN_KEY)) return; } catch (e) { return; }
+  if (state !== 'title' || document.getElementById('giftCard')) return;
+  try { localStorage.setItem(GIFT_SEEN_KEY, '1'); } catch (e) {}
+  let icon = ''; try { icon = gearIcon('dlg_shades', false); } catch (e) {}
+  const d = document.createElement('div'); d.id = 'giftCard';
+  d.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:16px;box-sizing:border-box;touch-action:manipulation';
+  const B = 'flex:1;font:700 14px ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;padding:11px 6px;border:2px solid #fcfcfc;color:#fcfcfc;-webkit-appearance:none;border-radius:0;';
+  d.innerHTML = '<div style="max-width:320px;width:100%;background:#000;border:3px solid #f8d878;padding:14px 12px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;text-align:center">' +
+    '<div style="color:#f8d878;font-size:15px;letter-spacing:2px;font-weight:700">THANKS FOR PLAYING!</div>' +
+    (icon ? '<img alt="" src="' + icon + '" style="width:96px;image-rendering:pixelated;margin:10px auto 4px;display:block">' : '') +
+    '<div style="font-size:13px;letter-spacing:1px;color:#58d854;font-weight:700">DLG SHADES - MEMBERS ONLY</div>' +
+    '<div style="font-size:12px;letter-spacing:1px;color:#a8b8d8;margin-top:10px">' + esc(GIFT_PROMO) + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px"><button data-g="shop" style="' + B + 'background:#183848">SHOP</button><button data-g="ok" style="' + B + 'background:#00a800;border-color:#58d854">OK</button></div></div>';
+  document.body.appendChild(d);
+  try { trackEvent('gift_card', { item: 'dlg_shades' }); } catch (e) {}
+  d.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
+    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click();
+    if (k === 'eq') { gearEquip('dlg_shades', true); showToast(['DLG SHADES ON', 'CHANGE IT IN EDIT LOOK'], 2600); try { trackEvent('gift_equip', { item: 'dlg_shades' }); } catch (e) {} }
+    else if (k === 'shop' && state === 'title') { try { trackEvent('shop_tap', { mode: 'gift' }); } catch (e) {} if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} } else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); } }
+  });
 }
 function closePopup() { if (menuPopup && menuPopup.kind === 'shop') { psEscKey(); return; }   // v8.50: the DOM PRO SHOP handles its own taps
   if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
@@ -5741,6 +5796,7 @@ function startHole() {
   if (courseKind === 'daily' || courseKind === 'match') wind = applyWeatherToWind(hole.wind);   // career v2: matches use the seeded wind
   else if (lr) wind = applyWeatherToWind(src.windR ? Math.round(src.windR[0] + lr() * (src.windR[1] - src.windR[0])) : hole.wind + Math.round(lr() * 4 - 2));   // v8.63
   else if (src.windR) wind = applyWeatherToWind(Math.round(rnd(src.windR[0], src.windR[1])));
+  else if (hole.def && hole.def.calm) wind = 0;   // v8.99.23: QUICK 3 can draw calm Daily holes (moon / deep sea)
   else wind = applyWeatherToWind(hole.wind + Math.round(rnd(-2, 2)));
   holeWind = wind; if (cond.gust) wind = GPV.windFor(holeWind, holeIdx, 0);   // v8.79
   placeBall(TEE_X);
@@ -6383,6 +6439,7 @@ function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   setState('title');
+  setTimeout(giftCardMaybe, 400);   // v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
@@ -10251,7 +10308,7 @@ function renderCourseSelect() {
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
   {   // v8.75: course name header; < > switch courses
-    const g = CS_GROUPS[csGroup], all = kindHoles(g.opts[g.opts.length - 1] === 'quick3' ? 'full' : g.opts[g.opts.length - 1]), par = all.reduce((a, h) => a + h.par, 0);
+    const g = CS_GROUPS[csGroup], all = kindHoles(g.opts.includes('quick3') ? 'full' : g.opts[g.opts.length - 1]), par = all.reduce((a, h) => a + h.par, 0);
     const words = g.name.split(' '); let lines = [g.name];
     if (textW(g.name, 2) > (CS_ARW_R.x - CS_ARW_L.x - CS_ARW_L.w - 8)) { let best = null; for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), m = Math.max(textW(a, 2), textW(b, 2)); if (!best || m < best.m) best = { m, l: [a, b] }; } if (best) lines = best.l; }
     const y0 = lines.length > 1 ? CS_HEAD.y - 4 : CS_HEAD.y + 4;
@@ -10260,7 +10317,9 @@ function renderCourseSelect() {
     const sub = all.length + ' HOLES  PAR ' + par + (g.gate === 'members' ? '  MEMBERS' : g.gate === 'career' ? '  CAREER' : '');
     drawText(sub, Math.round(CS_HEAD.x - textW(sub) / 2), y0 + lines.length * 16 + 2, lock ? COL.orange : COL.white);
     const dw = CS_GROUPS.length * 6 - 2; for (let k = 0; k < CS_GROUPS.length; k++) rect(Math.round(CS_HEAD.x - dw / 2) + k * 6, y0 + lines.length * 16 + 12, 4, 2, k === csGroup ? YEL : '#5c6c8c');
+    { const cn = 'COURSE ' + (csGroup + 1) + ' OF ' + CS_GROUPS.length; drawText(cn, Math.round(CS_HEAD.x - textW(cn) / 2), y0 + lines.length * 16 + 18, '#a8b8d8'); }   // v8.99.23: make the course switcher obvious
     for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) { const on = hoverOk && hitBtn(mouse, r), cx = r.x + Math.round(r.w / 2), cy = r.y + Math.round(r.h / 2), col = on ? YEL : COL.white;
+      ctx.globalAlpha = 0.45; rect(r.x + 1, r.y + 3, r.w - 2, r.h - 6, '#000'); ctx.globalAlpha = 1; czRing(r.x + 1, r.y + 3, r.w - 2, r.h - 6, YEL);
       for (let k = 0; k <= 8; k++) rect(cx + d * (4 - k) - 1, cy - k - 1, 3, 2 * k + 3, '#000'); for (let k = 0; k < 8; k++) rect(cx + d * (4 - k), cy - k, 1, 2 * k + 1, col); }
   }
   // preview follows the highlighted course (keeps the last one while BACK is focused)
@@ -10280,13 +10339,16 @@ function renderCourseSelect() {
     if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
     const lockC = (kd === 'coral' || kd === 'roller') && !coralUnlocked();
     outlined(COURSE_ITEMS[i], lx, nameY, lockC ? COL.gray : sel || hov ? YEL : COL.white, 2);
-    const sub = kd === 'quick3' ? '3 RANDOM HOLES' : kd === 'coral' ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER COURSE  PAR ' + par) : kd === 'roller' ? (lockC ? 'MEMBERS - SIGN IN TO PLAY' : 'MEMBERS COURSE  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
+    const sub = kd === 'daily' ? '1 HOLE - NEW EVERY DAY' : kd === 'quick3' ? '3 RANDOM HOLES - ANY COURSE' : kd === 'coral' ? (lockC ? 'CAREER - SIGN IN TO PLAY' : 'CAREER COURSE  PAR ' + par) : kd === 'roller' ? (lockC ? 'MEMBERS - SIGN IN TO PLAY' : 'MEMBERS COURSE  PAR ' + par) : list.length + ' HOLES  PAR ' + par;
     if (lockC) { czPadlock(r.x + r.w - 14, r.y + Math.round(r.h / 2), COL.orange); if (!twoLine) drawText('SIGN IN', r.x + r.w - 26 - textW('SIGN IN'), nameY + 4, COL.orange); }
     if (twoLine) drawText(sub, lx, nameY + 18, sel ? COL.white : COL.gray);
     // personal best (right side): small BEST label over the score
     const val = pb === null ? '--' : fmtRel(pb), vcol = pb === null ? COL.grayD : pb <= 0 ? COL.lime : COL.orange;
     const vw = textW(val, 2), rx = r.x + r.w - 8;
-    if (lockC || kd === 'quick3') {}
+    if (kd === 'daily') { let sk = 0, done = false; try { sk = careerStreakNow(careerLoad()); done = dailyAlreadyScored(nyDateStr()); } catch (e) {}
+      const dv = done ? 'DONE' : sk > 0 ? String(sk) : 'NEW', dl = done ? 'TODAY' : sk > 0 ? 'STREAK' : 'TODAY', dc = done ? COL.lime : YEL;
+      if (twoLine) { drawText(dl, rx - textW(dl), nameY, sel ? COL.white : COL.gray); outlined(dv, rx - textW(dv, 2), nameY + 11, dc, 2); } else outlined(dv, rx - textW(dv, 2), nameY, dc, 2); }
+    else if (lockC || kd === 'quick3') {}
     else if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
     else outlined(val, rx - vw, nameY, vcol, 2);
   });
@@ -10296,6 +10358,7 @@ function courseActivate(i) {
   SFX.click();
   if (i === CS_BACK_I) { setState('title'); return; }
   const k = csKind(i);
+  if (k === 'daily') { try { trackEvent('daily_from_course', {}); } catch (e) {} startDailyFlow(); return; }   // v8.99.23: Daily first in every course list
   if (k === 'roller') { if (!coralUnlocked()) { showToast(['HIGH ROLLER IS A MEMBERS COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('roller'); return; }
   if (k === 'coral') { if (!coralUnlocked()) { showToast(['CORAL CLIFFS IS A CAREER COURSE', 'SIGN IN ON THE CAREER SCREEN', 'TO PLAY IT'], 3200); return; } startCourse('coral'); return; }
   startCourse(k);
@@ -11317,7 +11380,7 @@ if (acctEl) {
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, lookSaveT: () => lookSave(), get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, c.gear ? lookPlay(lookOf(Object.assign({}, player, c.lk || {})), c.gear) : lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
@@ -12132,7 +12195,7 @@ if (/test/.test(location.hash)) {
         hb = null; forcePin = false;
       }
       setState('aim'); return out;
-    }, startQuick3() { startCourse('quick3'); return { kind: courseKind, nums: QUICK3_NUMS.slice(), par: TOTAL_PAR, n: HOLES.length }; }, finishT(arr) { scores = arr.slice(); finishRound(); return { saveWhere, kind: courseKind, mode: scoreModeForSave() }; }, shareCanvasT() { return makeShareCanvas().toDataURL('image/png'); }, careerT() { return careerLoad(); }, spooky() { return { live: cupLive(), shown: cupBoardShown(), left: cupLeft(), banner: Object.assign({}, SPOOKY_BANNER), follow: Object.assign({}, FOLLOW_BTN), logoY: LOGO_Y, menuY: MENU_Y0, tlb: Object.assign({}, TLB_R), hig: Object.assign({}, HIG_BTN), W, H, kind: courseKind, holes: HOLES.map(h => h.id), par: TOTAL_PAR, deep: DEEP_CUP, myIg: cupMyIg, igs: cupIgs }; }, hlShareText(r) { return hlShareText(r); }, get hlLast() { return hl.last && { spooky: hl.last.spooky, cup: hl.last.cup, name: hl.last.name, label: hl.last.label }; }, startSpooky() { startCourse('spooky'); }, adminSpooky() { return adminLoadSpooky().then(() => ({ ok: admin.spookyOk, rows: admin.spooky })); },  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(ps.open && shopChipEl) }; }, get psGal() { return ps.gal; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
+    }, startQuick3() { startCourse('quick3'); return { kind: courseKind, nums: QUICK3_NUMS.slice(), src: QUICK3_SRC.map(q => q.slice()), holes: HOLES.map(h => [h.name, h.par, h.theme, h.wind]), par: TOTAL_PAR, n: HOLES.length }; }, finishT(arr) { scores = arr.slice(); finishRound(); return { saveWhere, kind: courseKind, mode: scoreModeForSave() }; }, shareCanvasT() { return makeShareCanvas().toDataURL('image/png'); }, careerT() { return careerLoad(); }, spooky() { return { live: cupLive(), shown: cupBoardShown(), left: cupLeft(), banner: Object.assign({}, SPOOKY_BANNER), follow: Object.assign({}, FOLLOW_BTN), logoY: LOGO_Y, menuY: MENU_Y0, tlb: Object.assign({}, TLB_R), hig: Object.assign({}, HIG_BTN), W, H, kind: courseKind, holes: HOLES.map(h => h.id), par: TOTAL_PAR, deep: DEEP_CUP, myIg: cupMyIg, igs: cupIgs }; }, hlShareText(r) { return hlShareText(r); }, get hlLast() { return hl.last && { spooky: hl.last.spooky, cup: hl.last.cup, name: hl.last.name, label: hl.last.label }; }, startSpooky() { startCourse('spooky'); }, adminSpooky() { return adminLoadSpooky().then(() => ({ ok: admin.spookyOk, rows: admin.spooky })); },  shopItems() { return shopVisibleItems().map(i => i.id); }, get shopState() { return shopState; }, loadShopItems(f) { return loadShopItems(f); }, shopPre() { return shopPreBox; }, openPreorder() { openPreorder(); }, shopChip() { return { box: shopChipBox, flip: shopChipFlip, shown: !!(ps.open && shopChipEl) }; }, get psGal() { return ps.gal; }, get shopHatBox() { return shopHatBox; }, dailyMC(ids, N, seed0) {   // v8.47 test probe: Monte Carlo par check with the real physics
       let seed = seed0 || 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return u - 3; };
       const plan = (hl, w, x) => { const dir = hl.cup >= x ? 1 : -1, clubs = surfAt(hl, x) === 'green' ? [PUTT_I] : CLUBS.map((_, i) => i); let b = null;
         for (const c of clubs) for (const a of (c === PUTT_I ? [0] : [CLUBS[c].def - 8, CLUBS[c].def, CLUBS[c].def + 8])) for (let p = 0.05; p <= 1.0001; p += 0.04) { const r = simulateShot(hl, w, x, c, a, p, 0, dir);
