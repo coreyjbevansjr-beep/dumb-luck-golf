@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.23';
+const GAME_VERSION = 'v8.99.26';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1135,6 +1135,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   // ---- hair
   const hc = look.hairC, hs = look.hair | 0, pk = !!GA && GA.head === 'pumpkin_head', hst = GA && GA.head === 'camo_hat' ? 0 : GA && GA.head === 'underpar_visor' ? 1 : look.hatStyle | 0;
   if (GA && GA.face === 'dlg_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#14462d'); r(1, -28, 4, 1, '#101018'); }
+  if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
   else if (hs) {
@@ -1433,6 +1434,15 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
   { id: 'camo_hat', name: 'DLG CAMO HAT', slot: 'head', tier: 'rare', req: 'TOP 6 IN A DLG TOURNAMENT OR MERCH CODE', rule: { grant: true, code: true }, sort: 80 },
   { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 },
+  { id: 'skeleton_mask', name: 'SKELETON MASK', slot: 'face', tier: 'legendary', req: 'SPOOKY CUP CHAMPION', rule: { grant: true }, sort: 42 },   // cust1: granted server-side to the Spooky Cup winner (supabase/skeleton_mask.sql)
+  { id: 'ball_dlg', name: 'DLG GREEN BALL', slot: 'ball', tier: 'common', req: 'PLAY 1 ROUND', rule: { local: 'rounds', min: 1 }, sort: 91 },   // cust1 balls: unlocked on this device from career stats
+  { id: 'ball_pumpkin', name: 'PUMPKIN BALL', slot: 'ball', tier: 'common', req: 'PLAY 27 HOLES', rule: { local: 'holes', min: 27 }, sort: 92 },
+  { id: 'ball_tennis', name: 'TENNIS BALL', slot: 'ball', tier: 'common', req: 'PLAY 5 ROUNDS', rule: { local: 'rounds', min: 5 }, sort: 93 },
+  { id: 'ball_baseball', name: 'BASEBALL', slot: 'ball', tier: 'rare', req: 'PLAY 54 HOLES', rule: { local: 'holes', min: 54 }, sort: 94 },
+  { id: 'ball_gold', name: 'GOLD BALL', slot: 'ball', tier: 'rare', req: '10 CAREER BIRDIES', rule: { local: 'birdies', min: 10 }, sort: 95 },
+  { id: 'ball_tumble', name: 'TUMBLEWEED', slot: 'ball', tier: 'rare', req: 'PLAY 100 HOLES', rule: { local: 'holes', min: 100 }, sort: 96 },
+  { id: 'ball_black', name: 'BLACKOUT BALL', slot: 'ball', tier: 'legendary', req: 'MAKE AN EAGLE', rule: { local: 'eagles', min: 1 }, sort: 97 },
+  { id: 'ball_8', name: '8 BALL', slot: 'ball', tier: 'legendary', req: 'MAKE A HOLE-IN-ONE', rule: { local: 'aces', min: 1 }, sort: 98 },
   { id: 'trail_ember', name: 'EMBER TRAIL', slot: 'trail', tier: 'common', req: '10 CAREER BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 100 },   // v8.80 ball trails
   { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
   { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
@@ -1440,8 +1450,16 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
 /* v8.99.23 GIFT GEAR: owned by everyone (guests too); worn state lives on this device, never sent to the server */
 const GEAR_GIFT = ['dlg_shades'], GIFT_EQ_KEY = 'dlg_gift_wear_v1';
 const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
-function giftWorn() { try { const v = localStorage.getItem(GIFT_EQ_KEY) || ''; return gearIsGift(v) ? v : ''; } catch (e) { return ''; } }
-function giftWear(id) { try { if (id) localStorage.setItem(GIFT_EQ_KEY, id); else localStorage.removeItem(GIFT_EQ_KEY); } catch (e) {} gear.rev++; }
+/* cust1 LOCAL GEAR: gift items + balls unlocked from this device's career stats; worn per slot on this device (never sent to the server) */
+const LOCAL_EQ_KEY = 'dlg_local_wear_v2', LSTAT = { t: -1e9, c: null };
+function gearLocalRule(id) { const g = typeof gearItem === 'function' ? gearItem(id) : null; return g && g.rule && g.rule.local ? g.rule : null; }
+const gearIsLocal = id => !!id && (gearIsGift(id) || !!gearLocalRule(id));
+function gearLocalStat(k) { const now = performance.now(); if (!LSTAT.c || now - LSTAT.t > 1500) { try { LSTAT.c = careerLoad(); } catch (e) { LSTAT.c = {}; } LSTAT.t = now; } return +(LSTAT.c || {})[k] || 0; }
+function gearLocalOwned(id) { const r = gearLocalRule(id); return !!r && gearLocalStat(r.local) >= (r.min || 1); }
+function localWornMap() { try { let m = JSON.parse(localStorage.getItem(LOCAL_EQ_KEY) || 'null'); if (!m || typeof m !== 'object') { m = {}; const v = localStorage.getItem(GIFT_EQ_KEY) || ''; if (gearIsGift(v)) m.face = v; } return m; } catch (e) { return {}; } }
+function localWear(slot, id) { try { const m = localWornMap(); if (id) m[slot] = id; else delete m[slot]; localStorage.setItem(LOCAL_EQ_KEY, JSON.stringify(m)); if (slot === 'face') { if (id && gearIsGift(id)) localStorage.setItem(GIFT_EQ_KEY, id); else localStorage.removeItem(GIFT_EQ_KEY); } } catch (e) {} gear.rev++; }
+function giftWorn() { const v = localWornMap().face || ''; return gearIsGift(v) ? v : ''; }
+function giftWear(id) { localWear('face', id); }
 const GEAR_HIDES_HAIR = { pumpkin_head: 1 };
 // ---- art (sprite units, same grid as drawGolferHD; R = outlined part, D = flat detail)
 const G_GOLD = '#f8d878', G_GOLD_D = '#c88800', G_GOLD_L = '#fcf0b8', G_GREEN = '#14462d';
@@ -1525,6 +1543,13 @@ GEAR_ART.dlg_shades = (R, D, look, sl, o) => {   // v8.99.23: flat-top black way
   D(-6, -48, 13, 1, '#101018'); D(-5, -47, 4, 2, '#14462d'); D(2, -47, 4, 2, '#14462d'); D(-6, -47, 1, 2, '#101018'); D(-1, -47, 3, 1, '#101018'); D(6, -47, 1, 2, '#101018'); D(-7, -48, 1, 1, '#101018'); D(7, -48, 1, 1, '#101018');
   F(-5, -48, 4, 0.5, '#f8d878'); F(2, -48, 4, 0.5, '#f8d878'); F(-4.5, -47, 1, 0.5, '#58d854'); F(2.5, -47, 1, 0.5, '#58d854'); F(-5, -45.5, 4, 0.5, '#0c2c1c'); F(2, -45.5, 4, 0.5, '#0c2c1c');
 };
+GEAR_ART.skeleton_mask = (R, D, look, sl, o) => {   // cust1: bone face plate, dark sockets, stitched teeth (Spooky Cup champion)
+  const F = gF(o), B = '#ecead8', S = '#b4b09c', K2 = '#141418';
+  D(-6, -50, 13, 6, B); D(-5, -44, 11, 2, B); D(-4, -42, 9, 1, B); D(-6, -44, 1, 1, S); D(6, -44, 1, 1, S);
+  D(-5, -48, 4, 3, K2); D(2, -48, 4, 3, K2); D(0, -45, 1, 2, K2);
+  D(-3, -43, 7, 1, K2); D(-2, -43, 1, 1, B); D(0, -43, 1, 1, B); D(2, -43, 1, 1, B);
+  F(-6, -50, 13, 0.5, '#fcfcf0'); F(-4, -47, 1, 1, '#c80000'); F(3, -47, 1, 1, '#c80000'); F(-5, -45, 1, 0.5, S); F(5, -45, 1, 0.5, S); F(-4, -42, 9, 0.5, S);
+};
 GEAR_ART.aviators = (R, D) => {   // legacy art (kept so an admin can still pick it under LOOKS LIKE)
   D(-5, -48, 4, 3, '#d4af37'); D(-4, -47, 2, 2, '#203040'); D(2, -48, 4, 3, '#d4af37'); D(3, -47, 2, 2, '#203040');
   D(-1, -48, 3, 1, '#d4af37'); D(-6, -48, 1, 1, '#d4af37'); D(6, -48, 1, 1, '#d4af37'); D(-4, -47, 1, 1, '#5c7c9c'); D(3, -47, 1, 1, '#5c7c9c');
@@ -1538,11 +1563,11 @@ function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
 function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
 function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
 function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
-function gearOwned(id) { return gearIsGift(id) || !!gear.owned[id]; }
+function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id]; }
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
-  const gw = giftWorn(), gg = gw && gearItem(gw); if (gg) o[gg.slot] = gw;   // v8.99.23 gift gear
+  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && gearIsLocal(id) && gearOwned(id)) o[sl] = id; } }   // gift + local gear (cust1)
   gear.eqMemo = { rev: gear.rev, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
@@ -1551,7 +1576,7 @@ function gearSetOwned(list) { const o = {}; (Array.isArray(list) ? list : []).fo
 async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ earn anything newly qualified) when signed in
   gearLoadLocal();
   const c = await sb('/rest/v1/gear_catalog?select=*&order=sort.asc,id.asc', isSignedIn() ? {} : { noAuth: true }, 'gear');
-  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => gearIsGift(g.id) && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
+  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => (gearIsGift(g.id) || (g.rule && g.rule.local) || g.id === 'skeleton_mask') && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
   if (isSignedIn() && hasUsername()) {
     if (claim) { const r = await sb('/rest/v1/rpc/claim_gear', { method: 'POST', body: {} }, 'gear'); if (r.ok && Array.isArray(r.data) && r.data.length) r.data.forEach(id => { if (gear.fresh.indexOf(id) < 0) gear.fresh.push(id); }); }
     const m = await sb('/rest/v1/rpc/my_gear', { method: 'POST', body: {} }, 'gear'); if (m.ok) gearSetOwned(m.data);
@@ -1560,8 +1585,8 @@ async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ ea
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
   const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
-  if (gearIsGift(id)) { if (!on) { giftWear(''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; giftWear(id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
-  if (on && giftWorn() && (gearItem(giftWorn()) || {}).slot === g.slot) giftWear('');
+  if (gearIsLocal(id)) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
+  if (on && localWornMap()[g.slot]) localWear(g.slot, '');
   if (!isSignedIn()) return { ok: false };
   const before = JSON.stringify(gear.owned);
   for (const k in gear.owned) { const o = gearItem(k); if (o && o.slot === g.slot) gear.owned[k].equipped = false; }
@@ -1632,8 +1657,29 @@ async function gearFetchLoadouts() {
 }
 // ---- in-play ball skin (only when the player equips LUCKY MARKER)
 let LUCKY_BALL = null;
+const BALL_SKINS = {   // cust1: 5x5 in-play ball skins (k outline, a/b/c/d palette)
+  ball_dlg: [[' kkk ', 'kcaak', 'kaaak', 'kaabk', ' kkk '], { a: '#00a800', b: '#006c18', c: '#80f080' }],
+  ball_pumpkin: [[' kgk ', 'kcaak', 'kaaak', 'kaabk', ' kkk '], { a: '#fc7c18', b: '#c84c0c', c: '#fcc888', g: '#3c7c18' }],
+  ball_tennis: [[' kkk ', 'kdaak', 'kadak', 'kaadk', ' kkk '], { a: '#c8e830', d: '#fcfcfc' }],
+  ball_baseball: [[' kkk ', 'kawak', 'kawak', 'kawak', ' kkk '], { a: '#e83c3c', w: '#fcfcfc' }],
+  ball_gold: [[' kkk ', 'kcaak', 'kaaak', 'kaabk', ' kkk '], { a: '#f8d878', b: '#c88800', c: '#fcf0b8' }],
+  ball_black: [[' kkk ', 'kcaak', 'kaaak', 'kaaak', ' kkk '], { a: '#202028', c: '#7c7c8c', k: '#000' }],
+  ball_8: [[' kkk ', 'kaaak', 'kawak', 'kaaak', ' kkk '], { a: '#18181c', w: '#fcfcfc' }],
+  ball_tumble: [[' a b ', 'babab', ' bab ', 'babab', ' b a '], { a: '#c8a060', b: '#7c5c30' }, [' b a ', 'babab', ' bab ', 'babab', ' a b ']]
+};
+const BALL_SPR = new Map();
+function ballSkinSprite(id, frame) {
+  const sk = BALL_SKINS[id]; if (!sk) return null; const rows = frame && sk[2] ? sk[2] : sk[0], key = id + (frame && sk[2] ? '|1' : '');
+  if (BALL_SPR.has(key)) return BALL_SPR.get(key);
+  const c = mk(5, 5), g = c.getContext('2d'), pal = Object.assign({ k: '#000' }, sk[1]);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { const col = pal[ch]; if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); } }));
+  BALL_SPR.set(key, c); return c;
+}
+for (const id in BALL_SKINS) GEAR_ART[id] = (R, D) => { const sk = BALL_SKINS[id], pal = Object.assign({ k: '#000' }, sk[1]); sk[0].forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) D(x - 2, y - 5, 1, 1, pal[ch]); })); };
 function gearBallSprite() {
-  if (!isSignedIn() || gearEquipped().ball !== 'lucky_marker') return null;
+  const bid = gearEquipped().ball;
+  if (BALL_SKINS[bid]) return ballSkinSprite(bid, bid === 'ball_tumble' && Math.floor(performance.now() / 140) % 2);   // tumbleweed rolls
+  if (!isSignedIn() || bid !== 'lucky_marker') return null;
   if (!LUCKY_BALL) { LUCKY_BALL = mk(5, 5); const g = LUCKY_BALL.getContext('2d'); const px = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
     [' kkk ', 'kyyyk', 'kygyk', 'kyydk', ' kkk '].forEach((r, y) => [...r].forEach((ch, x) => { const c = { k: '#000', y: G_GOLD, g: '#00a800', d: G_GOLD_D }[ch]; if (c) px(x, y, c); })); }
   return LUCKY_BALL;
@@ -1668,42 +1714,66 @@ const LOOK_ROWS = [
 ];
 const GEAR_ROWS = [['HEAD GEAR', 'head'], ['FACE', 'face'], ['NECK', 'neck'], ['HANDS', 'hands'], ['TORSO', 'torso'], ['CLUB', 'held'], ['BALL', 'ball'], ['TRAIL', 'trail']];   // v8.66 (v8.80: + TRAIL)
 const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
-const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA' };
+const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', skeleton_mask: 'SKULL', dlg_shades: 'DLG', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
-function gearCanWear(id) { return !id || gearIsGift(id) || (isSignedIn() && gearOwned(id)); }
+function gearCanWear(id) { return !id || (gearIsLocal(id) ? gearOwned(id) : (isSignedIn() && gearOwned(id))); }
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy, gear: {slot: item} (what Save will equip), gshow: {slot: item} (row cursor, may be locked), scroll }
 let lookDrag = null;
 function lookGearInit() { const eq = gearEquipped(); lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
 function lookGearDraft() { return lookEd && lookEd.gear ? lookEd.gear : gearEquipped(); }   // v8.66: the draft (Save/Cancel), not the saved set
 function openLookEditor() {
-  const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false, scroll: 0 }; lookGearInit();
+  const d = cleanLook(player); lookEd = { draft: d, orig: Object.assign({}, d), row: 0, msg: '', msgT: 0, busy: false, scroll: 0, tab: 'look', gsel: null }; lookGearInit();
   if (!gear.loaded || isSignedIn()) gearLoad(true).then(() => { if (lookEd && !lookEd.gdirty) lookGearInit(); }).catch(() => {});
 }
 function lookLayout() {
-  const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide }, n = LOOK_N();
+  const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide }, gtab = !!(lookEd && lookEd.tab === 'gear'), n = gtab ? 0 : LOOK_ROWS.length, nL = LOOK_ROWS.length;
   let rowsTop, rh, rx, rw;
   if (wide) {
-    const colL = 120, colR = Math.min(220, W - colL - 24), gx = Math.round((W - colL - colR - 8) / 2), top = st0 + 26; rh = 19;
+    const colL = 120, colR = Math.min(240, W - colL - 24), gx = Math.round((W - colL - colR - 8) / 2), top = st0 + 26; rh = 19;
     L.prev = { x: gx, y: top, w: colL, h: 150 }; L.gfeet = top + 140; L.gs = 3;
-    L.rand = { x: gx, y: top + 155, w: 64, h: 20 }; L.locker = { x: gx + 68, y: top + 155, w: colL - 68, h: 20 };
+    L.act = { x: gx, y: top + 155, w: colL, h: 20 };
     L.cancel = { x: gx, y: top + 179, w: 58, h: 22 }; L.save = { x: gx + 62, y: top + 179, w: colL - 62, h: 22 };
-    rx = gx + colL + 8; rw = colR; rowsTop = top;
-    L.view = { x: rx, y: top, w: rw, h: Math.max(rh * 4, H - sb0 - 6 - top) };
+    rx = gx + colL + 8; rw = colR;
+    L.tabs = { look: { x: rx, y: top, w: Math.floor(rw / 2) - 2, h: 18 }, gear: { x: rx + Math.floor(rw / 2) + 2, y: top, w: rw - Math.floor(rw / 2) - 2, h: 18 } };
+    rowsTop = top + 22;
+    L.view = { x: rx, y: rowsTop, w: rw, h: Math.max(rh * 4, H - sb0 - 6 - rowsTop) };
   } else {
     const w = Math.min(244, W - 12), x = Math.round((W - w) / 2), PH = 142; rh = 22;
-    const need = PH + 6 + n * rh + 6 + 26 + 30, room = H - sb0 - 8 - (st0 + 28);
+    const need = PH + 4 + 20 + 4 + nL * rh + 6 + 26 + 30, room = H - sb0 - 8 - (st0 + 28);
     const top = need <= room ? Math.max(st0 + 28, Math.round((H - sb0 - need) / 2)) : st0 + 28;
     L.prev = { x, y: top, w, h: PH }; L.gfeet = top + PH - 9; L.gs = 3;
-    rowsTop = top + PH + 6; rx = x; rw = w;
-    const by = need <= room ? rowsTop + n * rh + 4 : H - sb0 - 8 - 56;
+    const hw0 = Math.floor((w - 4) / 2);
+    L.tabs = { look: { x, y: top + PH + 4, w: hw0, h: 20 }, gear: { x: x + hw0 + 4, y: top + PH + 4, w: w - hw0 - 4, h: 20 } };
+    rowsTop = top + PH + 28; rx = x; rw = w;
+    const by = need <= room ? rowsTop + nL * rh + 4 : H - sb0 - 8 - 56;
     L.view = { x, y: rowsTop, w, h: by - 4 - rowsTop };
-    const rw2 = Math.floor((w - 6) / 2); L.rand = { x, y: by, w: rw2, h: 24 }; L.locker = { x: x + rw2 + 6, y: by, w: w - rw2 - 6, h: 24 };
+    L.act = { x, y: by, w, h: 24 };
     const hw = Math.floor((w - 6) / 2);
     L.cancel = { x, y: by + 30, w: hw, h: 26 }; L.save = { x: x + hw + 6, y: by + 30, w: w - hw - 6, h: 26 };
   }
-  L.rh = rh; L.smax = Math.max(0, n * rh - L.view.h);   // v8.66: the option rows scroll when they don't fit
+  // the one action button under the list: RANDOMIZE (LOOK) or SHOP [+ REDEEM CODE when signed in] (GEAR)
+  const A = L.act; L.rand = A;
+  if (isSignedIn()) { const h2 = Math.floor((A.w - 4) / 2); L.shop = { x: A.x, y: A.y, w: h2, h: A.h }; L.code = { x: A.x + h2 + 4, y: A.y, w: A.w - h2 - 4, h: A.h }; } else L.shop = A;
+  L.rh = rh;
+  let content = n * rh;
+  L.tiles = []; L.heads = [];
+  if (gtab) {   // GEAR: one tile grid, grouped by slot
+    const V = L.view, cols = Math.max(3, Math.floor((V.w + 4) / 48)), pitch = Math.floor((V.w + 4) / cols), ts = pitch - 4;
+    let y = 0;
+    for (const [gname, slot] of GEAR_ROWS) {
+      const ids = gearOpts(slot).slice(1); if (slot === 'ball') ids.unshift('__white');
+      if (!ids.length) continue;
+      L.heads.push({ name: gname, slot, y }); y += 12;
+      ids.forEach((id, k) => { L.tiles.push({ id, slot, x: V.x + (k % cols) * pitch, y: y + Math.floor(k / cols) * pitch, w: ts, h: ts }); });
+      y += Math.ceil(ids.length / cols) * pitch + 4;
+    }
+    content = y;
+  }
+  L.smax = Math.max(0, content - L.view.h);
   const s = lookEd ? clamp(lookEd.scroll || 0, 0, L.smax) : 0; if (lookEd) lookEd.scroll = s; L.scroll = s;
+  L.tiles.forEach(T => { T.y += L.view.y - s; T.vis = T.y + T.h > L.view.y && T.y < L.view.y + L.view.h; });
+  L.heads.forEach(Hd => { Hd.y += L.view.y - s; });
   L.rows = []; for (let i = 0; i < n; i++) L.rows.push({ x: rx, y: rowsTop + i * rh - s, w: rw, h: rh - 2 });
   L.rows.forEach(R => { R.l = { x: R.x + R.w - 92, y: R.y, w: 20, h: R.h }; R.r = { x: R.x + R.w - 20, y: R.y, w: 20, h: R.h }; R.vis = R.y + R.h > L.view.y && R.y < L.view.y + L.view.h; });
   return L;
@@ -1714,69 +1784,96 @@ function lookArrow(R, left, on) {
   const cx = R.x + Math.round(R.w / 2), cy = R.y + Math.round(R.h / 2), c = on ? '#102860' : COL.white;
   for (let k = 0; k < 4; k++) rect(left ? cx - 2 + k : cx + 1 - k, cy - k, 1, k * 2 + 1, c);
 }
+function lookTileState(id, slot) {   // 'on' | 'own' | 'lock'
+  const want = lookGearDraft(); if (id === '__white') return want.ball ? 'own' : 'on';
+  if (!gearCanWear(id)) return 'lock';
+  return want[slot] === id ? 'on' : 'own';
+}
+function lookItemName(id) { if (id === '__white') return 'CLASSIC WHITE'; const g = gearItem(id); return String(g ? g.name : id).toUpperCase(); }
+function lookTileIcon(id, locked) {
+  if (id === '__white') return SPR.golfball;
+  if (BALL_SKINS[id]) return ballSkinSprite(id, id === 'ball_tumble' && Math.floor(performance.now() / 300) % 2);
+  const key = id + (locked ? '|L' : ''); let im = LOOK_ICON_IMG.get(key);
+  if (!im) { let url = ''; try { url = gearIcon(id, locked); } catch (e) {} im = url ? new Image() : null; if (im) im.src = url; LOOK_ICON_IMG.set(key, im); }
+  return im && im.complete && im.naturalWidth ? im : null;   // gearIcon hands back a data URL (DOM locker); tiles draw it as an image
+}
+const LOOK_ICON_IMG = new Map();
+function renderLookTab(L, E) {
+  for (const k of ['look', 'gear']) { const T = L.tabs[k], on = (E.tab || 'look') === k;
+    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, on ? CAREER_YEL : '#183848');
+    careerSoftC(k.toUpperCase(), T.x + T.w / 2, T.y + Math.round((T.h - 7) / 2), on ? '#102860' : COL.white); }
+}
 function renderLookEditor() {
   drawSkyScene(careerFair(), true);
-  const L = lookLayout(), E = lookEd, d = E.draft;
+  const L = lookLayout(), E = lookEd, d = E.draft, gtab = E.tab === 'gear';
   careerDrawBack('lookBack');
   outlined('EDIT LOOK', Math.round((W - textW('EDIT LOOK', 2)) / 2), (SAFE.t || 0) + 8, CAREER_YEL, 2);
   const P = L.prev; czBoard(P.x, P.y, P.w, P.h, 0.9, false);
-  // v8.66: a locked gear item under the cursor is previewed (try-on only) with its requirement along the bottom of the preview
-  const gr = E.row - LOOK_ROWS.length, gs = gr >= 0 ? GEAR_ROWS[gr][1] : null, gid = gs ? E.gshow[gs] : null, gLock = !!(gid && !gearCanWear(gid));
-  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet, lookOf(d), gLock ? Object.assign({}, lookGearDraft(), { [gs]: gid }) : lookGearDraft());   // v8.62: detailed golfer (EDIT LOOK only)
-  if (lookLocked(d)) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 6, COL.orange); }
-  if (gLock) { const g = gearItem(gid) || {}, tx = (isSignedIn() ? (g.req || 'LOCKED') : 'SIGN IN TO EARN GEAR').toUpperCase().slice(0, 40);
-    ctx.globalAlpha = 0.75; rect(P.x + 2, P.y + P.h - 15, P.w - 4, 13, '#000'); ctx.globalAlpha = 1;
-    czPadlock(P.x + 9, P.y + P.h - 8, COL.orange); careerSoft(tx, P.x + 16, P.y + P.h - 12, COL.orange);
-    careerSoft('PREVIEW', P.x + 6, P.y + 6, COL.orange); czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); }
+  // cust1: a locked gear tile you tapped is tried on in the preview (not saved), with how to unlock it along the bottom
+  const sel = gtab ? E.gsel : null, sg = sel && sel !== '__white' ? gearItem(sel) : null, gLock = !!(sg && !gearCanWear(sel)), gs = sg ? sg.slot : null;
+  const wear = gLock ? Object.assign({}, lookGearDraft(), { [gs]: sel }) : lookGearDraft();
+  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet, lookOf(d), wear);
+  { const bid = sel && (sel === '__white' || gs === 'ball') ? sel : wear.ball, bs = bid && bid !== '__white' ? lookTileIcon(bid, false) : SPR.golfball;   // the ball, by the golfer's feet
+    if (bs) { ctx.imageSmoothingEnabled = false; const z = BALL_SKINS[bid] || !bid || bid === '__white' ? 3 : 1; ctx.drawImage(bs, P.x + Math.round(P.w / 2) + 26, L.gfeet - bs.height * z, bs.width * z, bs.height * z); } }
+  if (lookLocked(d) && !gtab) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 6, COL.orange); }
+  if (sel) { const st = lookTileState(sel, gs), g = sg || {}; let nm = lookItemName(sel);
+    let tx = st === 'lock' ? (g.req || 'LOCKED') + (isSignedIn() || gearIsLocal(sel) ? '' : ' - SIGN IN').toUpperCase().slice(0, 30) : st === 'on' ? 'EQUIPPED' : 'OWNED - TAP TO WEAR';
+    const fit = (t, w) => { while (t.length > 1 && textW(t, 1) > w) t = t.slice(0, -1); return t; }; tx = fit(tx, P.w - 22); nm = fit(nm, P.w - 10);
+    ctx.globalAlpha = 0.78; rect(P.x + 2, P.y + P.h - 25, P.w - 4, 23, '#000'); ctx.globalAlpha = 1;
+    careerSoft(nm, P.x + 6, P.y + P.h - 23, sg ? (GEAR_TIERS[sg.tier] || GEAR_TIERS.common).col : COL.white);
+    if (st === 'lock') { czPadlock(P.x + 9, P.y + P.h - 8, COL.orange); careerSoft(tx, P.x + 16, P.y + P.h - 12, COL.orange); careerSoft('TRY-ON', P.x + 6, P.y + 6, COL.orange); }
+    else careerSoft(tx, P.x + 6, P.y + P.h - 12, st === 'on' ? CAREER_YEL : COL.lime); }
+  renderLookTab(L, E);
   const V = L.view; ctx.save(); ctx.beginPath(); ctx.rect(V.x - 1, V.y, V.w + 2, V.h); ctx.clip();
   for (let i = 0; i < L.rows.length; i++) {
     const R = L.rows[i]; if (!R.vis) continue;
-    const sel = i === E.row, gearRow = i >= LOOK_ROWS.length;
-    let name, sw = null, lab, locked = false, dim = false;
-    if (!gearRow) {
-      const row = LOOK_ROWS[i], v = d[row[1]]; name = row[0]; [sw, lab] = row[2](v);
-      dim = (row[1] === 'hat' && d.hatStyle === 2) || (row[1] === 'hairColor' && d.hair === 0);
-      locked = row[1] === 'hat' && !hatUnlocked(v);
-    } else {
-      const [gname, slot] = GEAR_ROWS[i - LOOK_ROWS.length], id = E.gshow[slot] || null; name = gname;
-      lab = gearShort(id); locked = !gearCanWear(id); if (id) { const g = gearItem(id); sw = g ? (GEAR_TIERS[g.tier] || GEAR_TIERS.common).col : null; }
-    }
-    rect(R.x, R.y, R.w, R.h, '#000'); ctx.globalAlpha = sel ? 0.85 : 0.55; rect(R.x + 1, R.y + 1, R.w - 2, R.h - 2, sel ? '#24406c' : '#183848'); ctx.globalAlpha = 1;
-    if (sel) { rect(R.x, R.y, 2, R.h, CAREER_YEL); }
-    careerSoft(name, R.x + 6, R.y + Math.round((R.h - 7) / 2), dim ? COL.gray : (sel ? CAREER_YEL : COL.white));
+    const isSel = i === E.row, row = LOOK_ROWS[i], v = d[row[1]], name = row[0]; let [sw, lab] = row[2](v);
+    const dim = (row[1] === 'hat' && d.hatStyle === 2) || (row[1] === 'hairColor' && d.hair === 0), locked = row[1] === 'hat' && !hatUnlocked(v);
+    rect(R.x, R.y, R.w, R.h, '#000'); ctx.globalAlpha = isSel ? 0.85 : 0.55; rect(R.x + 1, R.y + 1, R.w - 2, R.h - 2, isSel ? '#24406c' : '#183848'); ctx.globalAlpha = 1;
+    if (isSel) rect(R.x, R.y, 2, R.h, CAREER_YEL);
+    careerSoft(name, R.x + 6, R.y + Math.round((R.h - 7) / 2), dim ? COL.gray : (isSel ? CAREER_YEL : COL.white));
     const mid = R.l.x + R.l.w + 3;
-    if (gearRow && locked) { czPadlock(mid + 4, R.y + Math.round(R.h / 2), COL.gray); sw = sw || '#000'; }   // locked gear: padlock where the swatch goes
-    else if (sw) { rect(mid, R.y + 4, 9, R.h - 8, '#000'); rect(mid + 1, R.y + 5, 7, R.h - 10, sw); }
-    const tx = mid + (sw ? 12 : 2), lc = gearRow ? (locked ? COL.gray : COL.white) : (locked ? COL.orange : (dim ? COL.gray : COL.white));
-    careerSoft(lab.slice(0, sw ? 6 : 8), tx, R.y + Math.round((R.h - 7) / 2), lc);
-    if (locked && !gearRow) czPadlock(R.r.x - 6, R.y + Math.round(R.h / 2), COL.orange);
+    if (sw) { rect(mid, R.y + 4, 9, R.h - 8, '#000'); rect(mid + 1, R.y + 5, 7, R.h - 10, sw); }
+    careerSoft(lab.slice(0, sw ? 6 : 8), mid + (sw ? 12 : 2), R.y + Math.round((R.h - 7) / 2), locked ? COL.orange : (dim ? COL.gray : COL.white));
+    if (locked) czPadlock(R.r.x - 6, R.y + Math.round(R.h / 2), COL.orange);
     lookArrow(R.l, true, pressDim('lookL' + i)); lookArrow(R.r, false, pressDim('lookR' + i));
-    if (i === LOOK_ROWS.length) rect(R.x + 4, R.y - 2, R.w - 8, 1, CAREER_YEL);   // gear rows start here
   }
+  for (const Hd of L.heads) if (Hd.y + 10 > V.y && Hd.y < V.y + V.h) careerSoft(Hd.name, V.x + 1, Hd.y + 2, COL.gray);
+  for (const T of L.tiles) { if (!T.vis) continue;
+    const st = lookTileState(T.id, T.slot), g = T.id === '__white' ? null : gearItem(T.id), tc = g ? (GEAR_TIERS[g.tier] || GEAR_TIERS.common).col : '#bcbcbc', isSel = E.gsel === T.id;
+    rect(T.x, T.y, T.w, T.h, st === 'on' ? CAREER_YEL : st === 'lock' ? '#3c3c44' : tc);
+    rect(T.x + 2, T.y + 2, T.w - 4, T.h - 4, st === 'lock' ? '#101820' : isSel ? '#24406c' : '#183848');
+    const ic = lookTileIcon(T.id, st === 'lock');
+    if (ic) { const iw = ic.naturalWidth || ic.width, ih = ic.naturalHeight || ic.height, f = Math.min((T.w - 8) / iw, (T.h - 13) / ih), z = f >= 1 ? Math.floor(f) : f; ctx.imageSmoothingEnabled = false;
+      if (st === 'lock') ctx.globalAlpha = 0.35; ctx.drawImage(ic, T.x + Math.round((T.w - iw * z) / 2), T.y + 3 + Math.round((T.h - 12 - ih * z) / 2), Math.round(iw * z), Math.round(ih * z)); ctx.globalAlpha = 1; }
+    if (st === 'lock') czPadlock(T.x + T.w - 8, T.y + 8, COL.gray);
+    if (st === 'on') { rect(T.x + 2, T.y + T.h - 10, T.w - 4, 8, CAREER_YEL); careerSoftC('ON', T.x + T.w / 2, T.y + T.h - 9, '#102860'); }
+    if (isSel) { rect(T.x - 1, T.y - 1, T.w + 2, 1, COL.white); rect(T.x - 1, T.y + T.h, T.w + 2, 1, COL.white); rect(T.x - 1, T.y, 1, T.h, COL.white); rect(T.x + T.w, T.y, 1, T.h, COL.white); } }
   ctx.restore();
-  if (L.smax > 0) {   // scroll hint: a thin bar at the right edge of the rows
+  if (L.smax > 0) {
     const th = Math.max(14, Math.round(V.h * V.h / (V.h + L.smax))), ty = V.y + Math.round((V.h - th) * L.scroll / L.smax);
     rect(V.x + V.w + 2, V.y, 2, V.h, 'rgba(0,0,0,0.45)'); rect(V.x + V.w + 2, ty, 2, th, CAREER_YEL);
   }
-  careerButton(L.rand, 'RANDOMIZE', false, 'lookRand');
-  careerButton(L.locker, 'LOCKER', false, 'lookLocker');   // v8.64
+  if (gtab) { careerButton(L.shop, 'SHOP', false, 'lookShop'); if (L.code) careerButton(L.code, 'REDEEM CODE', false, 'lookCode'); }
+  else careerButton(L.rand, 'RANDOMIZE', false, 'lookRand');
   careerButton(L.cancel, 'CANCEL', false, 'lookCancel');
   careerButton(L.save, E.busy ? 'SAVING' : 'SAVE', false, 'lookSave');
   if (E.msg) { E.msgT += 1 / 60; if (E.msgT > 2.4) E.msg = ''; else careerSoftC(E.msg, W / 2, (SAFE.t || 0) + 20, E.msgBad ? COL.orange : COL.lime); }
 }
-function lookShowRow(i) {   // keep the selected row inside the scrolling area
-  const L = lookLayout(), R = L.rows[i]; if (!R) return;
-  if (R.y < L.view.y) lookEd.scroll -= L.view.y - R.y; else if (R.y + L.rh > L.view.y + L.view.h) lookEd.scroll += R.y + L.rh - (L.view.y + L.view.h);
+function lookShowRow(i) {
+  const L = lookLayout(), R = lookEd.tab === 'gear' ? L.tiles[i] : L.rows[i]; if (!R) return;
+  const h = R.h + 2; if (R.y < L.view.y) lookEd.scroll -= L.view.y - R.y + (lookEd.tab === 'gear' ? 12 : 0); else if (R.y + h > L.view.y + L.view.h) lookEd.scroll += R.y + h - (L.view.y + L.view.h);
   lookEd.scroll = clamp(lookEd.scroll, 0, L.smax);
+}
+function lookSetTab(t) { if (lookEd.tab === t) return; lookEd.tab = t; lookEd.scroll = 0; lookEd.gsel = null; SFX.click(); }
+function lookTileTap(T) {   // owned: wear / take off in place (draft; SAVE keeps it). locked: try it on + show how to unlock
+  const E = lookEd, { id, slot } = T; E.gsel = id;
+  if (id === '__white') { delete E.gear.ball; E.gshow.ball = null; }
+  else if (gearCanWear(id)) { if (E.gear[slot] === id) delete E.gear[slot]; else E.gear[slot] = id; E.gshow[slot] = E.gear[slot] || null; }
+  E.gdirty = true; SFX.click();
 }
 function lookCycle(i, dir) {
   lookEd.row = i;
-  if (i >= LOOK_ROWS.length) {   // v8.66 gear row: NONE + every item for the slot (locked ones show greyed, can't be worn)
-    const slot = GEAR_ROWS[i - LOOK_ROWS.length][1], opts = gearOpts(slot), cur = opts.indexOf(lookEd.gshow[slot] || null);
-    const id = opts[(Math.max(0, cur) + dir + opts.length) % opts.length];
-    lookEd.gshow[slot] = id; if (gearCanWear(id)) { lookEd.gear[slot] = id; if (!id) delete lookEd.gear[slot]; }
-    lookEd.gdirty = true; SFX.click(); return;
-  }
   const k = LOOK_ROWS[i][1], n = LOOK_KEYS[k];
   lookEd.draft[k] = (lookEd.draft[k] + dir + n) % n;
   SFX.click();
@@ -1807,33 +1904,47 @@ function lookCancel() { lookEd = null; lookDrag = null; SFX.click(); }
 function lookPointerDown(p, e) {
   const L = lookLayout();
   if (hitBack(p, careerBackR())) { armUiTap('lookBack', lookCancel, up => hitBack(toLogical(up), careerBackR()), e); return true; }
+  for (const k of ['look', 'gear']) if (hitBtn(p, L.tabs[k])) { armUiTap('lookTab' + k, () => lookSetTab(k), up => hitBtn(toLogical(up), lookLayout().tabs[k]), e); return true; }
   if (hit(p, { x: L.view.x - 4, y: L.view.y, w: L.view.w + 10, h: L.view.h })) {
     for (let i = 0; i < L.rows.length; i++) {
       const R = L.rows[i]; if (!R.vis) continue;
       if (hitBtn(p, R.l)) { armUiTap('lookL' + i, () => lookCycle(i, -1), up => hitBtn(toLogical(up), lookLayout().rows[i].l), e); return true; }
       if (hitBtn(p, R.r)) { armUiTap('lookR' + i, () => lookCycle(i, 1), up => hitBtn(toLogical(up), lookLayout().rows[i].r), e); return true; }
     }
-    const row = L.rows.findIndex(R => R.vis && hit(p, R));   // a tap on the row cycles it; a drag scrolls the rows
-    lookDrag = { y: p.y, s: L.scroll, moved: false, row };
+    const row = lookEd.tab === 'gear' ? L.tiles.findIndex(T => T.vis && hit(p, T)) : L.rows.findIndex(R => R.vis && hit(p, R));   // tap = cycle row / toggle tile; drag = scroll
+    lookDrag = { y: p.y, s: L.scroll, moved: false, row, tab: lookEd.tab };
     return true;
   }
-  if (hitBtn(p, L.rand)) { armUiTap('lookRand', lookRandomize, up => hitBtn(toLogical(up), lookLayout().rand), e); return true; }
-  if (hitBtn(p, L.locker)) { armUiTap('lookLocker', () => { SFX.click(); showAcct('locker', {}); }, up => hitBtn(toLogical(up), lookLayout().locker), e); return true; }
+  if (lookEd.tab === 'gear') {
+    if (hitBtn(p, L.shop)) { armUiTap('lookShop', () => { SFX.click(); lookEd = null; lookDrag = null; setState('title'); try { trackEvent('shop_tap', { mode: 'look' }); } catch (er) {} if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (er) {} } else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); } }, up => hitBtn(toLogical(up), lookLayout().shop), e); return true; }
+    if (L.code && hitBtn(p, L.code)) { armUiTap('lookCode', () => { SFX.click(); showAcct('locker', {}); }, up => hitBtn(toLogical(up), lookLayout().code), e); return true; }
+  } else if (hitBtn(p, L.rand)) { armUiTap('lookRand', lookRandomize, up => hitBtn(toLogical(up), lookLayout().rand), e); return true; }
   if (hitBtn(p, L.cancel)) { armUiTap('lookCancel', lookCancel, up => hitBtn(toLogical(up), lookLayout().cancel), e); return true; }
   if (hitBtn(p, L.save)) { armUiTap('lookSave', () => { SFX.click(); lookSave(); }, up => hitBtn(toLogical(up), lookLayout().save), e); return true; }
   return true;
 }
 function lookDragMove(p) { if (!lookDrag || !lookEd) return false; const dy = p.y - lookDrag.y; if (Math.abs(dy) > 4) lookDrag.moved = true; if (lookDrag.moved) { lookEd.scroll = lookDrag.s - dy; lookLayout(); } return true; }
-function lookDragEnd() { const d = lookDrag; lookDrag = null; if (!d || !lookEd) return false; if (!d.moved && d.row >= 0) lookCycle(d.row, 1); return true; }
+function lookDragEnd() { const d = lookDrag; lookDrag = null; if (!d || !lookEd) return false; if (!d.moved && d.row >= 0) { if (d.tab === 'gear') { const T = lookLayout().tiles[d.row]; if (T) lookTileTap(T); } else lookCycle(d.row, 1); } return true; }
 function lookKey(e) {
-  const k = e.key, E = lookEd, n = LOOK_N();
-  if (k === 'Escape') lookCancel();
-  else if (k === 'ArrowUp') { E.row = (E.row + n - 1) % n; lookShowRow(E.row); }
+  const k = e.key, E = lookEd;
+  if (k === 'Escape') { lookCancel(); return true; }
+  if (k === 'Tab' || k === 'g' || k === 'G') { lookSetTab(E.tab === 'gear' ? 'look' : 'gear'); e.preventDefault && e.preventDefault(); return true; }
+  if (k === 'Enter' && !e.repeat) { lookSave(); return true; }
+  if (E.tab === 'gear') {   // arrows walk the tiles, space wears / tries on
+    const T = lookLayout().tiles; if (!T.length) return true; let i = Math.max(0, T.findIndex(t => t.id === E.gsel));
+    const cols = Math.max(1, T.filter(t => t.y === T[0].y).length);
+    if (k === 'ArrowLeft') i = (i + T.length - 1) % T.length; else if (k === 'ArrowRight') i = (i + 1) % T.length;
+    else if (k === 'ArrowUp') i = Math.max(0, i - cols); else if (k === 'ArrowDown') i = Math.min(T.length - 1, i + cols);
+    else if (k === ' ' && !e.repeat) { if (E.gsel) lookTileTap(T[i]); else lookTileTap(T[0]); return true; } else return true;
+    E.gsel = T[i].id; lookShowRow(i); return true;
+  }
+  const n = LOOK_ROWS.length;
+  if (k === 'ArrowUp') { E.row = (E.row + n - 1) % n; lookShowRow(E.row); }
   else if (k === 'ArrowDown') { E.row = (E.row + 1) % n; lookShowRow(E.row); }
   else if (k === 'ArrowLeft') lookCycle(E.row, -1);
   else if (k === 'ArrowRight') lookCycle(E.row, 1);
   else if (k === 'r' || k === 'R') lookRandomize();
-  else if ((k === 'Enter' || k === ' ') && !e.repeat) lookSave();
+  else if (k === ' ' && !e.repeat) lookSave();
   return true;
 }
 
@@ -9436,7 +9547,7 @@ function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, 
 /* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
   { id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK', short: 'CAMO SNAPBACK', price: '', badge: '', spec: '', fallback: 'soon' },
-  { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$10', badge: 'NEW', spec: '40MM CLAY CHIP', fallback: 'preorder' }];
+  { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$10', badge: 'NEW', spec: '40MM CLAY CHIP', stock: 'IN STOCK', url: () => STRIPE_MARKER_URL }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
   if (!force && shopState.at && performance.now() - shopState.at < 60000) return shopState;
@@ -9455,12 +9566,14 @@ function shopVisibleItems() { const st = shopState.status; return SHOP_ITEMS.fil
    green #14462D + gold #D4AF37 (orange still used where it was). Shopify-ready: an item can map to a Shopify product handle,
    variant id or buy link (public.store_links, set in admin STORE). With no mapping the item keeps its fallback:
    PREORDER request form (Supabase + email) or RESTOCKING SOON. ---- */
+const STRIPE_MARKER_URL = 'https://buy.stripe.com/eVq6oG1DJdtj9AJ0oH7Re00';   // v8.99.26: Stripe Payment Link for the LUCKY BALL MARKER (TEST link - swap for the live one before launch)
 const SHOPIFY = { domain: '' };   // e.g. 'dumb-luck-golf.myshopify.com'. With a handle / variant id set in admin STORE, BUY goes to that store
 const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
 const SHOP_GALLERY = { camo_snapback: [SHOP_HAT_SRC[0], SHOP_HAT_SRC[1], SHOP_HAT_SRC[2]], lucky_marker: ['shop/lucky-marker-front-720.webp?v=850', 'shop/lucky-marker-back-720.webp?v=850'] };
 let shopPreBox = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false;
 const psUrlOk = u => /^https:\/\/[^\s"'<>\\]{4,500}$/.test(String(u || ''));
 function shopLink(id) {
+  { const it = (typeof SHOP_ITEMS !== 'undefined' ? SHOP_ITEMS : []).find(i => i.id === id), u = it && typeof it.url === 'function' ? it.url() : ''; if (psUrlOk(u)) return u; }   // v8.99.26: a fixed buy link wins
   const l = (shopState.links || {})[id] || {};
   if (psUrlOk(l.buy_url)) return l.buy_url;
   const d = String(SHOPIFY.domain || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
@@ -9469,7 +9582,7 @@ function shopLink(id) {
   return '';
 }
 function shopCta(it) {
-  const u = shopLink(it.id); if (u) return { kind: 'buy', label: 'BUY' + (it.price ? ' · ' + it.price : ''), url: u };
+  const u = shopLink(it.id); if (u) return { kind: 'buy', label: it.url ? 'BUY NOW' : 'BUY' + (it.price ? ' · ' + it.price : ''), url: u };
   return it.fallback === 'preorder' ? { kind: 'preorder', label: 'PREORDER' } : { kind: 'soon', label: 'RESTOCKING SOON' };
 }
 const ps = { el: null, open: false, at: 0, detail: null, gal: 0, down: null };
@@ -9589,7 +9702,7 @@ function psRender() {
   } else {
     const it = items.find(i => i.id === ps.detail), g = SHOP_GALLERY[it.id] || [], c = shopCta(it);
     ps.gal = Math.max(0, Math.min(g.length - 1, ps.gal));
-    const tags = [it.badge ? '<span>' + it.badge + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : ''].join('');
+    const tags = [it.badge ? '<span>' + it.badge + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : c.kind === 'buy' && it.stock ? '<span class="g">' + psEsc(it.stock) + '</span>' : ''].join('');
     body.innerHTML = '<div class="ps-detail"><button class="ps-back" data-ps="back">‹ SHOP</button>' +
       '<div class="ps-gal"><div class="ps-main" data-ps="next"><div class="ps-track" style="transform:translateX(' + (-100 * ps.gal) + '%)">' + g.map(s => '<img alt="" src="' + s + '">').join('') + '</div>' +
       (g.length > 1 ? '<button class="ps-arw l" data-ps="prev" aria-label="Previous photo">‹</button><button class="ps-arw r" data-ps="next" aria-label="Next photo">›</button>' : '') + '</div>' +
@@ -9617,7 +9730,7 @@ function psAct(t, e) {
   if (a === 'g') { psGalGo(Number(t.getAttribute('data-n')) || 0); SFX.tick(); return; }
   if (a === 'next' || a === 'prev') { psGalGo(ps.gal + (a === 'next' ? 1 : -1)); SFX.tick(); return; }
   if (a === 'pre') { SFX.click(); openPreorder(id); return; }
-  if (a === 'buy') { const u = shopLink(id); SFX.click(); try { trackEvent('shop_tap', { mode: 'buy', course: String(id || '').slice(0, 40) }); } catch (e) {} if (u) { try { window.open(u, '_blank', 'noopener'); } catch (err) {} } }
+  if (a === 'buy') { const u = shopLink(id); SFX.click(); try { trackEvent('shop_tap', { mode: (SHOP_ITEMS.find(i => i.id === id) || {}).url ? 'stripe_buy' : 'buy', course: String(id || '').slice(0, 40) }); } catch (e) {} if (u) { try { window.open(u, '_blank', 'noopener'); } catch (err) {} } }
 }
 function psBuild() {
   const st = document.createElement('style'); st.textContent = PS_CSS; document.head.appendChild(st);
@@ -11380,7 +11493,7 @@ if (acctEl) {
 }
 if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
-  get lookEd() { return lookEd; }, openLookEditor, lookLayout, lookSaveT: () => lookSave(), get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, get h2h() { return social.h2h; },
+  get lookEd() { return lookEd; }, openLookEditor, lookLayout, lookSaveT: () => lookSave(), get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, openShop: () => { setState('title'); menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); }, setStats: o => { const c = careerLoad(); Object.assign(c, o); careerSave(c); LSTAT.c = null; }, lookTab: t => lookSetTab(t), lookTile: id => { const T = lookLayout().tiles.find(t => t.id === id); if (T) lookTileTap(T); return !!T; }, gearEq: () => gearEquipped(), ballSkin: () => { const b = gearBallSprite(); return b ? b.toDataURL() : null; }, gearOwnedT: id => gearOwned(id), gearCanWearT: id => gearCanWear(id), get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
   sheet(cells, cols, cw, ch) { const cv2 = document.createElement("canvas"); cv2.width = cols * cw; cv2.height = Math.ceil(cells.length / cols) * ch; const old = ctx; ctx = cv2.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.fillStyle = "#88c070"; ctx.fillRect(0, 0, cv2.width, cv2.height);
     try { cells.forEach((c, i) => { const x = (i % cols) * cw + Math.round(cw / 2) - 2, y = Math.floor(i / cols) * ch + ch - 4; drawGolfer(x, y, c.dir || 1, c.ang, c.gear ? lookPlay(lookOf(Object.assign({}, player, c.lk || {})), c.gear) : lookOf(Object.assign({}, player, c.lk || {})), c.pose || {}); }); } finally { ctx = old; } return cv2.toDataURL(); } };   // #test only
