@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.26';
+const GAME_VERSION = 'v8.99.27';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4566,7 +4566,7 @@ const MENU = GALLERY_ITEMS.length ? ['PLAY', 'CAREER', 'DAILY', 'GALLERY', 'SHOP
    CAREER is a locked placeholder (muted + padlock); tapping it only shows a COMING SOON toast. PLAY stays instant. */
 const MENU_SUB = {};          // v8.19: subheadings removed (too cluttered) — labels only
 const MENU_SUB_NARROW = {};
-const MENU_LOCKED = SHOP_URL ? {} : { SHOP: 1 };   // career v2: CAREER unlocked   // v8.20: unfinished items render muted + padlock (SHOP still opens its preview)
+const MENU_LOCKED = {};   // v8.99.27: SHOP unlocked (real BUY NOW items) - no padlock;   // career v2: CAREER unlocked   // v8.20: unfinished items render muted + padlock (SHOP still opens its preview)
 let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
 function menuLayoutCalc() {
