@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.29';
+const GAME_VERSION = 'v8.99.30';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1730,14 +1730,16 @@ function lookLayout() {
   const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide }, gtab = !!(lookEd && lookEd.tab === 'gear'), n = gtab ? 0 : LOOK_ROWS.length, nL = LOOK_ROWS.length;
   let rowsTop, rh, rx, rw;
   if (wide) {
-    const colL = 120, colR = Math.min(240, W - colL - 24), gx = Math.round((W - colL - colR - 8) / 2), top = st0 + 26; rh = 19;
-    L.prev = { x: gx, y: top, w: colL, h: 150 }; L.gfeet = top + 140; L.gs = 3;
-    L.act = { x: gx, y: top + 155, w: colL, h: 20 };
-    L.cancel = { x: gx, y: top + 179, w: 58, h: 22 }; L.save = { x: gx + 62, y: top + 179, w: colL - 62, h: 22 };
-    rx = gx + colL + 8; rw = colR;
+    // v8.99.30: everything fits the screen height - preview + action on the left, list + CANCEL/SAVE on the right
+    const colL = 124, colR = Math.min(244, W - colL - 24), gx = Math.round((W - colL - colR - 10) / 2), top = st0 + 28, bot = H - sb0 - 6, BH = 20; rh = 19;
+    L.prev = { x: gx, y: top, w: colL, h: bot - BH - 4 - top }; L.gfeet = L.prev.y + L.prev.h - 9; L.gs = 3;
+    L.act = { x: gx, y: bot - BH, w: colL, h: BH };
+    rx = gx + colL + 10; rw = colR;
     L.tabs = { look: { x: rx, y: top, w: Math.floor(rw / 2) - 2, h: 18 }, gear: { x: rx + Math.floor(rw / 2) + 2, y: top, w: rw - Math.floor(rw / 2) - 2, h: 18 } };
+    const hw = Math.floor((rw - 4) / 2);
+    L.cancel = { x: rx, y: bot - BH, w: hw, h: BH }; L.save = { x: rx + hw + 4, y: bot - BH, w: rw - hw - 4, h: BH };
     rowsTop = top + 22;
-    L.view = { x: rx, y: rowsTop, w: rw, h: Math.max(rh * 4, H - sb0 - 6 - rowsTop) };
+    L.view = { x: rx, y: rowsTop, w: rw, h: Math.max(rh * 3, bot - BH - 4 - rowsTop) };
   } else {
     const w = Math.min(244, W - 12), x = Math.round((W - w) / 2), PH = 142; rh = 22;
     const need = PH + 4 + 20 + 4 + nL * rh + 6 + 26 + 30, room = H - sb0 - 8 - (st0 + 28);
@@ -1772,7 +1774,7 @@ function lookLayout() {
   }
   L.smax = Math.max(0, content - L.view.h);
   const s = lookEd ? clamp(lookEd.scroll || 0, 0, L.smax) : 0; if (lookEd) lookEd.scroll = s; L.scroll = s;
-  L.tiles.forEach(T => { T.y += L.view.y - s; T.vis = T.y + T.h > L.view.y && T.y < L.view.y + L.view.h; });
+  L.tiles.forEach(T => { T.y += L.view.y - s; T.vis = T.y + T.h / 2 > L.view.y && T.y + T.h / 2 < L.view.y + L.view.h; });   // v8.99.30: no thin slivers at the edges
   L.heads.forEach(Hd => { Hd.y += L.view.y - s; });
   L.rows = []; for (let i = 0; i < n; i++) L.rows.push({ x: rx, y: rowsTop + i * rh - s, w: rw, h: rh - 2 });
   L.rows.forEach(R => { R.l = { x: R.x + R.w - 92, y: R.y, w: 20, h: R.h }; R.r = { x: R.x + R.w - 20, y: R.y, w: 20, h: R.h }; R.vis = R.y + R.h > L.view.y && R.y < L.view.y + L.view.h; });
@@ -1805,21 +1807,23 @@ function renderLookTab(L, E) {
 }
 function renderLookEditor() {
   drawSkyScene(careerFair(), true);
+  rect(0, 0, W, H, '#0c1830');   // v8.99.30: solid backdrop - no busy scenery behind the editor
   const L = lookLayout(), E = lookEd, d = E.draft, gtab = E.tab === 'gear';
   careerDrawBack('lookBack');
   outlined('EDIT LOOK', Math.round((W - textW('EDIT LOOK', 2)) / 2), (SAFE.t || 0) + 8, CAREER_YEL, 2);
   const P = L.prev; czBoard(P.x, P.y, P.w, P.h, 0.9, false);
+  const strip = gtab && E.gsel ? 24 : 0;   // v8.99.30: item name/status get their own strip; the golfer stands above it
   // cust1: a locked gear tile you tapped is tried on in the preview (not saved), with how to unlock it along the bottom
   const sel = gtab ? E.gsel : null, sg = sel && sel !== '__white' ? gearItem(sel) : null, gLock = !!(sg && !gearCanWear(sel)), gs = sg ? sg.slot : null;
   const wear = gLock ? Object.assign({}, lookGearDraft(), { [gs]: sel }) : lookGearDraft();
-  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet, lookOf(d), wear);
+  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet - strip, lookOf(d), wear);
   { const bid = sel && (sel === '__white' || gs === 'ball') ? sel : wear.ball, bs = bid && bid !== '__white' ? lookTileIcon(bid, false) : SPR.golfball;   // the ball, by the golfer's feet
-    if (bs) { ctx.imageSmoothingEnabled = false; const z = BALL_SKINS[bid] || !bid || bid === '__white' ? 3 : 1; ctx.drawImage(bs, P.x + Math.round(P.w / 2) + 26, L.gfeet - bs.height * z, bs.width * z, bs.height * z); } }
+    if (bs) { ctx.imageSmoothingEnabled = false; const z = BALL_SKINS[bid] || !bid || bid === '__white' ? 3 : 1; ctx.drawImage(bs, Math.min(P.x + Math.round(P.w / 2) + 26, P.x + P.w - 3 - Math.round(bs.width * z)), L.gfeet - strip - bs.height * z, bs.width * z, bs.height * z); } }
   if (lookLocked(d) && !gtab) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 6, COL.orange); }
   if (sel) { const st = lookTileState(sel, gs), g = sg || {}; let nm = lookItemName(sel);
     let tx = st === 'lock' ? (g.req || 'LOCKED') + (isSignedIn() || gearIsLocal(sel) ? '' : ' - SIGN IN').toUpperCase().slice(0, 30) : st === 'on' ? 'EQUIPPED' : 'OWNED - TAP TO WEAR';
     const fit = (t, w) => { while (t.length > 1 && textW(t, 1) > w) t = t.slice(0, -1); return t; }; tx = fit(tx, P.w - 22); nm = fit(nm, P.w - 10);
-    ctx.globalAlpha = 0.78; rect(P.x + 2, P.y + P.h - 25, P.w - 4, 23, '#000'); ctx.globalAlpha = 1;
+    rect(P.x + 2, P.y + P.h - 25, P.w - 4, 23, '#081020'); rect(P.x + 2, P.y + P.h - 26, P.w - 4, 1, '#000');
     careerSoft(nm, P.x + 6, P.y + P.h - 23, sg ? (GEAR_TIERS[sg.tier] || GEAR_TIERS.common).col : COL.white);
     if (st === 'lock') { czPadlock(P.x + 9, P.y + P.h - 8, COL.orange); careerSoft(tx, P.x + 16, P.y + P.h - 12, COL.orange); careerSoft('TRY-ON', P.x + 6, P.y + 6, COL.orange); }
     else careerSoft(tx, P.x + 6, P.y + P.h - 12, st === 'on' ? CAREER_YEL : COL.lime); }
@@ -1838,26 +1842,30 @@ function renderLookEditor() {
     if (locked) czPadlock(R.r.x - 6, R.y + Math.round(R.h / 2), COL.orange);
     lookArrow(R.l, true, pressDim('lookL' + i)); lookArrow(R.r, false, pressDim('lookR' + i));
   }
-  for (const Hd of L.heads) if (Hd.y + 10 > V.y && Hd.y < V.y + V.h) careerSoft(Hd.name, V.x + 1, Hd.y + 2, COL.gray);
+  for (const Hd of L.heads) if (Hd.y >= V.y && Hd.y + 10 <= V.y + V.h) careerSoft(Hd.name, V.x + 1, Hd.y + 2, COL.gray);
   for (const T of L.tiles) { if (!T.vis) continue;
     const st = lookTileState(T.id, T.slot), g = T.id === '__white' ? null : gearItem(T.id), tc = g ? (GEAR_TIERS[g.tier] || GEAR_TIERS.common).col : '#bcbcbc', isSel = E.gsel === T.id;
-    rect(T.x, T.y, T.w, T.h, st === 'on' ? CAREER_YEL : st === 'lock' ? '#3c3c44' : tc);
-    rect(T.x + 2, T.y + 2, T.w - 4, T.h - 4, st === 'lock' ? '#101820' : isSel ? '#24406c' : '#183848');
+    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, st === 'on' ? CAREER_YEL : st === 'lock' ? '#2c3440' : tc);   // v8.99.30: same frame for every state
+    rect(T.x + 2, T.y + 2, T.w - 4, T.h - 4, isSel ? '#24406c' : '#183848');
     const ic = lookTileIcon(T.id, st === 'lock');
     if (ic) { const iw = ic.naturalWidth || ic.width, ih = ic.naturalHeight || ic.height, f = Math.min((T.w - 8) / iw, (T.h - 13) / ih), z = f >= 1 ? Math.floor(f) : f; ctx.imageSmoothingEnabled = false;
       if (st === 'lock') ctx.globalAlpha = 0.35; ctx.drawImage(ic, T.x + Math.round((T.w - iw * z) / 2), T.y + 3 + Math.round((T.h - 12 - ih * z) / 2), Math.round(iw * z), Math.round(ih * z)); ctx.globalAlpha = 1; }
     if (st === 'lock') czPadlock(T.x + T.w - 8, T.y + 8, COL.gray);
-    if (st === 'on') { rect(T.x + 2, T.y + T.h - 10, T.w - 4, 8, CAREER_YEL); careerSoftC('ON', T.x + T.w / 2, T.y + T.h - 9, '#102860'); }
+    if (st === 'on') { rect(T.x + 2, T.y + T.h - 10, T.w - 4, 8, CAREER_YEL); careerSoftC('ON', T.x + T.w / 2, T.y + T.h - 9, '#102860'); }   // same ON strip on every equipped tile
     if (isSel) { rect(T.x - 1, T.y - 1, T.w + 2, 1, COL.white); rect(T.x - 1, T.y + T.h, T.w + 2, 1, COL.white); rect(T.x - 1, T.y, 1, T.h, COL.white); rect(T.x + T.w, T.y, 1, T.h, COL.white); } }
   ctx.restore();
   if (L.smax > 0) {
     const th = Math.max(14, Math.round(V.h * V.h / (V.h + L.smax))), ty = V.y + Math.round((V.h - th) * L.scroll / L.smax);
-    rect(V.x + V.w + 2, V.y, 2, V.h, 'rgba(0,0,0,0.45)'); rect(V.x + V.w + 2, ty, 2, th, CAREER_YEL);
+    rect(V.x + V.w + 3, V.y, 1, V.h, '#1c2c48'); rect(V.x + V.w + 2, ty, 3, th, '#5c7cb0');   // v8.99.30: quiet scroll thumb
   }
-  if (gtab) { careerButton(L.shop, 'SHOP', false, 'lookShop'); if (L.code) careerButton(L.code, 'REDEEM CODE', false, 'lookCode'); }
-  else careerButton(L.rand, 'RANDOMIZE', false, 'lookRand');
-  careerButton(L.cancel, 'CANCEL', false, 'lookCancel');
-  careerButton(L.save, E.busy ? 'SAVING' : 'SAVE', false, 'lookSave');
+  {   // v8.99.30: every button in the editor uses the same text size (2x only if all of them fit at 2x)
+    const B = [];
+    if (gtab) { B.push([L.shop, 'SHOP', 'lookShop']); if (L.code) B.push([L.code, textW('REDEEM CODE', 1) <= L.code.w - 8 ? 'REDEEM CODE' : 'CODE', 'lookCode']); }
+    else B.push([L.rand, 'RANDOMIZE', 'lookRand']);
+    B.push([L.cancel, 'CANCEL', 'lookCancel'], [L.save, E.busy ? 'SAVING' : 'SAVE', 'lookSave']);
+    const sc = B.every(([r, t]) => textW(t, 2) <= r.w - 12 && r.h >= 22) ? 2 : 1;
+    for (const [r, t, k] of B) careerButton(r, t, false, k, sc);
+  }
   if (E.msg) { E.msgT += 1 / 60; if (E.msgT > 2.4) E.msg = ''; else careerSoftC(E.msg, W / 2, (SAFE.t || 0) + 20, E.msgBad ? COL.orange : COL.lime); }
 }
 function lookShowRow(i) {
@@ -10543,12 +10551,12 @@ function careerGolfer(cx, feetY, s, look) {   // the player's own golfer on a mo
   drawGolfer(0, 0, 1, 76 + 6 * Math.sin(st * 2.2), look || lookOf(player));
   ctx.restore();
 }
-function careerButton(r, label, lit, key) {   // gold CTA in the same frame language as the boards
+function careerButton(r, label, lit, key, fsc) {   // gold CTA in the same frame language as the boards
   const on = lit || pressDim(key) || (mouse.seen && !isTouchUi() && hitBtn(mouse, r));
   rect(r.x, r.y, r.w, r.h, '#000');
   rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#fce4a0' : CAREER_YEL);
   rect(r.x + 2, r.y + r.h - 3, r.w - 4, 1, '#d8a000');
-  const sc = textW(label, 2) <= r.w - 12 ? 2 : 1;
+  const sc = fsc || (textW(label, 2) <= r.w - 12 ? 2 : 1);
   drawText(label, Math.round(r.x + (r.w - textW(label, sc)) / 2), Math.round(r.y + (r.h - 7 * sc) / 2), '#102860', sc);
 }
 /* ---- layout (logical px). Phone portrait stacks; desktop/landscape uses two columns. ---- */
