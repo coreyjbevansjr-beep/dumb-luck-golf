@@ -264,7 +264,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.28';
+const GAME_VERSION = 'v8.99.29';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3748,6 +3748,18 @@ function moverBlockX(m, t) {
   const osc = Math.sin(u * Math.PI * 2);
   return m.x + osc * (m.amp || 40);
 }
+// v8.99.29: same blade geometry drawWorld paints (hub at poleH-6, 22px blades), in ground-relative height
+function windmillBladeHit(m, t, dx0, rh) {
+  const poleH = Math.max(44, (m.hTop || 52) + 4), hub = poleH - 6, bl = 22;
+  const ang = (t / Math.max(0.4, m.period) + (m.phase || 0)) * Math.PI * 2;
+  for (const a of [ang, ang + Math.PI / 2, ang + Math.PI, ang + 3 * Math.PI / 2]) {
+    const dx = Math.round(Math.cos(a) * bl), dy = Math.round(Math.sin(a) * bl);
+    const x0 = Math.min(0, dx) - 2, x1 = Math.min(0, dx) + (Math.abs(dx) || 1) + 2;
+    const y0 = Math.min(0, dy) - 2, y1 = Math.min(0, dy) + (Math.abs(dy) || 1) + 2;   // screen y (down)
+    if (dx0 > x0 && dx0 < x1 && hub - rh > y0 && hub - rh < y1) return true;
+  }
+  return false;
+}
 function hitMover(hl, b, t) {
   if (!hl.movers || !hl.movers.length) return null;
   for (const m of hl.movers) {
@@ -3755,6 +3767,7 @@ function hitMover(hl, b, t) {
       if (!moverBlockX(m, t)) continue;
       const rh = b.h - (m.g0 || 0);
       if (b.x > m.x - m.w / 2 && b.x < m.x + m.w / 2 && rh < (m.hTop || 28) && rh > (m.hBot || 0) - 2) return m;
+      if (windmillBladeHit(m, t, b.x - m.x, rh)) return m;   // v8.99.29: the red blades you can see block too (they reach above hTop)
     } else {
       const mx = moverBlockX(m, t); if (mx == null) continue;
       const rh = b.h - (m.g0 || 0);
