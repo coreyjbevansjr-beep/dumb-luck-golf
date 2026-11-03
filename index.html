@@ -270,7 +270,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.33';
+const GAME_VERSION = 'v8.99.34';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4686,8 +4686,10 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
   const tert = items.filter(it => it.kind === 't'), tW = tert.reduce((a, it) => a + it.w, 0) + 14 * Math.max(0, tert.length - 1);
   if (landscape) {   // one row: [PLAY] [SHOP] CAREER, vertically centered on the PLAY button
     const ft = 0, fw = 0;   // v8.99.32: IG + YT moved to the top icon row
-    const rowW = items.reduce((a, it) => a + it.w, 0) + 14 * items.length + fw; let mx = Math.round((W - rowW) / 2);
-    items.forEach(it => { it.bx = mx; it.by = Math.round((PH - it.h) / 2); mx += it.w + 14; });
+    const shortL = H < 300, LG = shortL ? 8 : 14;   // v8.99.34: short iPhone landscape = slimmer planks, centred in the left column
+    if (shortL) items.forEach(it => { if (it.kind !== 't') it.w = 96; });
+    const rowW = items.reduce((a, it) => a + it.w, 0) + LG * (items.length - 1) + fw; let mx = Math.round((shortL ? MENU_CX : W / 2) - rowW / 2);
+    items.forEach(it => { it.bx = mx; it.by = Math.round((PH - it.h) / 2); mx += it.w + LG; });
     MENU_ROWS = [items.map((_, i) => i)];
     MENU_L = { grid: false, items, blockH: PH, itemH: PH, fx: mx, fy: Math.round((PH - ft) / 2), fw, fh: ft };
   } else {           // stacked: PLAY, SHOP, then the small text row
@@ -4767,7 +4769,7 @@ const SPOOKY_BANNER = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.52   // v
 const IG_URL = 'https://www.instagram.com/dumbluckgolfing/', HIG_BTN = { x: 160, y: 0, w: 20, h: 22 }, FOLLOW_BTN = { x: 0, y: -99, w: 0, h: 0, on: false }, CARD_FOLLOW = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.43 Instagram
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
-let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18;
+let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18, MENU_CX = 128;
 const TLB_R = { x: 10, y: 142, w: 236, h: 66 };
 let LOGO_DRAW = { w: 160, h: 111, x: 48 };
 let TITLE_FAIR = 214, TITLE_RIDGE = 188, CZ_FAIR = 214, HUD_Y0 = 186;
@@ -4854,6 +4856,27 @@ function layoutChrome() {
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
     const cupB = cupLive() ? 30 : lbiBannerOn() ? 18 : 0;   // v8.52 / v8.99.32
     LOGO_Y = Math.max(iconBot + 2 + cupB, Math.max(3, Math.round(H * 0.012)));
+    MENU_CX = Math.round(W / 2);
+    if (H < 300) {   // v8.99.34: short iPhone landscape - leaderboard as a right side panel, logo + menu centred in the left column
+      const bW = Math.min(176, Math.round(W * 0.34)), bX = W - sr - bW - 10, bY = iconBot + 4;
+      const leftL = sl + 8, cx = Math.round((leftL + bX - 8) / 2), colW = bX - 8 - leftL;
+      MENU_CX = cx;
+      const grassWant = Math.max(30, Math.round(H * 0.125)), safeB = SAFE.b || 0;
+      TITLE_FAIR = Math.min(H - grassWant, H - 22 - safeB); TITLE_RIDGE = Math.max(8, TITLE_FAIR - 26);
+      SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(colW, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round(cx - SPOOKY_BANNER.w / 2); SPOOKY_BANNER.y = Math.max(st + 4, iconBot - (cupB > 20 ? 26 : 15) + 2); }
+      LOGO_Y = cupB ? SPOOKY_BANNER.y + SPOOKY_BANNER.h + 4 : Math.max(st + 6, 8);
+      const menuH = 30, gapLogo = 10;
+      ldW = lw0; ldH = lh0; const room = TITLE_FAIR - 12 - menuH - gapLogo - LOGO_Y;
+      if (ldH > room) { ldH = Math.max(56, room); ldW = Math.round(lw0 * ldH / lh0); }
+      if (ldW > Math.min(colW, 170)) { ldW = Math.min(colW, 170); ldH = Math.round(lh0 * ldW / lw0); }
+      LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round(cx - ldW / 2);
+      MENU_Y0 = LOGO_Y + ldH + gapLogo + 2;   // +2: room for the SHOP sign's hanger
+      menuLayoutCalc();
+      const nRows = tlbRowCount(), nList = Math.max(0, Math.min(4, nRows - 1));
+      TLB_R.w = bW; TLB_R.x = bX; TLB_R.y = bY; TLB_R.tall = true; TLB_R.rows = nRows;
+      TLB_R.h = Math.min(26 + 44 + 4 + 4 * 16 + 6, TITLE_FAIR - 4 - bY);   // champion + 4 rows, always above the grass
+      FOLLOW_BTN.on = false;
+    } else {
     SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 2; }
     const boardH = 52, boardW = Math.min(236, W - 24), menuH = Math.max(MENU_DY, menuLayoutCalc().blockH) + 2;   // v8.19: single row = pre-v8.18 MENU_DY + 2
     const gapLogo = 14, gapMenu = 6;   // v8.19: back to the pre-v8.18 14/6 (14px clears the "Luck" descenders)
@@ -4877,6 +4900,7 @@ function layoutChrome() {
     {   // v8.43: landscape/desktop FOLLOW sits in the grass under the board, only if it fits cleanly
       const ML = MENU_L;   // v8.99.32: IG + YT sit at the end of the menu row (always visible)
       FOLLOW_BTN.on = !!ML.fw; FOLLOW_BTN.w = ML.fw; FOLLOW_BTN.h = ML.fh; FOLLOW_BTN.x = ML.fx; FOLLOW_BTN.y = MENU_Y0 + ML.fy;
+    }
     }
   }
 
@@ -5922,9 +5946,23 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
     [...str].forEach((ch0, i) => {
       let ch = ch0; const jy = ((seed * 7 + i * 13) % 5 === 0) ? 1 : 0, cx = tx + i * cw;
       rect(cx, ty + jy, cw - 1, th, '#fffffa'); rect(cx, ty + jy + th, cw - 1, 1, '#9c9886'); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, '#dedac8');
-      const k = flipK++, until = tlbFlipAt + 0.12 + Math.min(0.6, k * 0.014);
-      if (!REDUCED_MOTION && st < until && st - tlbFlipAt < 1) { ch = FLAP[Math.floor(hash(k * 131 + Math.floor(st * 24)) * FLAP.length)]; rect(cx, ty + jy + Math.round(th / 2), cw - 1, 1, '#d8d4c4'); }
-      if (ch !== ' ') { drawText(ch, cx + 1, ty + jy + 2, col, sc); drawText(ch, cx + 1 + (sc > 1 ? 1 : 0), ty + jy + 2, col, sc); }
+      const k = flipK++, y0 = ty + jy, mid = Math.round(th / 2);
+      const glyph = c => { if (c !== ' ') { drawText(c, cx + 1, y0 + 2, col, sc); drawText(c, cx + 1 + (sc > 1 ? 1 : 0), y0 + 2, col, sc); } };
+      // v8.99.34: real split-flap - left-to-right stagger, ~50ms per character, top flap folds down with easing, ease-out settle
+      const rel = Math.max(0, Math.min(1, (cx - TLB_R.x) / Math.max(1, TLB_R.w))), stopAt = 0.2 + 0.5 * (1 - (1 - rel) * (1 - rel)) + (k % 3) * 0.02;
+      const t = st - tlbFlipAt;
+      if (REDUCED_MOTION || t >= stopAt || t < 0 || t > 1.2) { glyph(ch0); return; }
+      const nSteps = Math.max(1, Math.round(stopAt / 0.05)), left = stopAt - t, stepLen = 0.05 + 0.04 * Math.max(0, 1 - left / 0.2);   // last flips slow down
+      const idx = Math.floor(t / 0.05), frac = Math.min(1, (t - idx * 0.05) / stepLen), e = 1 - (1 - frac) * (1 - frac);
+      const chAt = j => j >= nSteps ? ch0 : FLAP[Math.floor(hash(k * 131 + j * 17) * FLAP.length)];
+      const nw = chAt(idx + 1), od = chAt(idx);
+      const half = (c, top, sy) => { ctx.save(); ctx.beginPath(); ctx.rect(cx, top ? y0 : y0 + mid, cw - 1, top ? mid : th - mid); ctx.clip();
+        if (sy !== 1) { ctx.translate(0, y0 + mid); ctx.scale(1, Math.max(0.02, sy)); ctx.translate(0, -(y0 + mid)); } glyph(c); ctx.restore(); };
+      half(nw, true, 1);                                    // new char waits under the flap (top)
+      half(od, false, 1);                                   // old char still on the bottom
+      if (e < 0.5) { const sy = Math.cos(e * Math.PI); ctx.save(); ctx.beginPath(); ctx.rect(cx, y0, cw - 1, mid); ctx.clip(); rect(cx, y0 + mid - Math.ceil(mid * sy), cw - 1, Math.ceil(mid * sy), '#fffffa'); ctx.restore(); half(od, true, sy); }
+      else { const sy = -Math.cos(e * Math.PI); rect(cx, y0 + mid, cw - 1, Math.ceil((th - mid) * sy), '#f4f2e8'); half(nw, false, sy); }
+      rect(cx, y0 + mid, cw - 1, 1, '#d8d4c4');             // hinge line
     });
     return str.length * cw;
   };
@@ -9565,14 +9603,14 @@ function renderTitle() {
       if (sel && it.w >= 100) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
     } else if (it.kind === 's') {   // hanging country-club sign
       const hot = sel || dim;
-      rect(x + 10, y - 7, it.w - 20, 2, '#2a1608'); rect(x + 10, y - 7, it.w - 20, 1, '#5c3c24');
-      for (const cx0 of [x + 18, x + it.w - 20]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
+      rect(x + 14, y - 7, it.w - 28, 2, '#2a1608'); rect(x + 14, y - 7, it.w - 28, 1, '#5c3c24');   // v8.99.34: bar ends right at the chains
+      for (const cx0 of [x + 15, x + it.w - 17]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
       woodPlank(x, y, it.w, it.h, hot, hot ? '#fffaf0' : '#f0e4c0', 3);
       const pw = 11, px = Math.round(x + (it.w - pw) / 2); rect(px - 1, y + 3, pw + 3, 7, '#3a2210'); text3(ctx, 'PRO', px, y + 4, '#f0c850');
       rect(px - 14, y + 6, 11, 1, '#f0c850'); rect(px + pw + 4, y + 6, 11, 1, '#f0c850');
       const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 11;
       blockText(label, lx, ly, hot ? '#fffaf0' : '#f4ead0', 2);
-      if (sel) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);
+      if (sel && lx - 22 >= x + 4) blockText('>', lx - 20 + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);   // v8.99.34: clear of the S
     } else if (it.kind === 'c') {   // CAREER: slimmer wood plank, cream trim + block text
       woodPlank(x, y, it.w, it.h, sel || dim, '#f0e4c0', 11);
       const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 7;
