@@ -272,7 +272,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.35';
+const GAME_VERSION = 'v8.99.36';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -307,7 +307,18 @@ function viewportCssSize() {
   const vh = vv ? Math.round(vv.height) : ih;
   // When Safari chrome shrinks visualViewport, still paint the full dvh body so no blue gap shows below the canvas.
   const aw = Math.max(1, iw, vw);
-  const ah = Math.max(1, ih, vh);
+  let ah = Math.max(1, ih, vh), grow = false;
+  // v8.99.36: Home Screen app - iOS can hand us a viewport ~34px shorter than the screen (home-indicator inset), leaving the
+  // page background visible under the grass. Grow to the physical screen height so the canvas (grass) reaches the bottom edge.
+  try {
+    const sa = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    if (sa && screen && screen.width && screen.height) {
+      const portrait = aw <= Math.max(iw, vw) && iw < ih, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      const sw0 = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+      if (Math.abs(sw0 - aw) <= 2 && sh > ah && sh - ah <= 80) { ah = sh; grow = true; }
+    }
+  } catch (e) {}
+  if (document.body) document.body.style.height = grow ? ah + 'px' : '';
   return { aw, ah };
 }
 function safeCssInsets() {
@@ -5799,7 +5810,7 @@ const TITLE_BOARDS0 = [
 ];
 const TITLE_SPOOKY = { id: 'spooky', label: 'SPOOKY CUP' };
 let titleBoardTouched = false;
-function titleBoards() { const L = lbPopOrder(TITLE_BOARDS0); return cupBoardShown() ? [TITLE_SPOOKY].concat(L) : L; }   // v8.52   // v8.99.16: most popular first
+function titleBoards() { const L = lbPopOrder(TITLE_BOARDS0); return L; }   // v8.52 (v8.99.36: SPOOKY CUP no longer in the home rotation; its board/data are untouched)   // v8.99.16: most popular first
 function titlePopApply() {   // v8.99.16: counts arrived - keep the board you picked, else show the most popular
   const prev = titleLB.mode, L = titleBoards();
   if (!titleBoardTouched) titleBoardI = 0;
@@ -5946,10 +5957,10 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   const tiles = (str, tx, ty, sc, col, seed) => {
     const cw = sc * 6 + 1, th = sc * 7 + 3;
     [...str].forEach((ch0, i) => {
-      let ch = ch0; const jy = ((seed * 7 + i * 13) % 5 === 0) ? 1 : 0, cx = tx + i * cw;
+      let ch = ch0; const jy = 0, cx = tx + i * cw;   // v8.99.36: no random 1px tile jitter
       rect(cx, ty + jy, cw - 1, th, '#fffffa'); rect(cx, ty + jy + th, cw - 1, 1, '#9c9886'); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, '#dedac8');
       const k = flipK++, y0 = ty + jy, mid = Math.round(th / 2);
-      const glyph = c => { if (c !== ' ') { drawText(c, cx + 1, y0 + 2, col, sc); drawText(c, cx + 1 + (sc > 1 ? 1 : 0), y0 + 2, col, sc); } };
+      const glyph = c => { if (c !== ' ') drawText(c, cx + Math.floor(sc / 2) + (sc > 1 ? 0 : 0), y0 + 2, col, sc); };   // v8.99.36: one crisp integer-scaled pass (no faux-bold double draw)
       // v8.99.34: real split-flap - left-to-right stagger, ~50ms per character, top flap folds down with easing, ease-out settle
       const rel = Math.max(0, Math.min(1, (cx - TLB_R.x) / Math.max(1, TLB_R.w))), stopAt = 0.2 + 0.5 * (1 - (1 - rel) * (1 - rel)) + (k % 3) * 0.02;
       const t = st - tlbFlipAt;
