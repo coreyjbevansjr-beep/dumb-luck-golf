@@ -36,6 +36,11 @@
 <style>
   html,body{margin:0;width:100%;height:100%;background:#63adff;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  /* v8.99.32: top stays sky blue (theme-color + html top half); everything below the canvas (Safari toolbar, home-indicator
+     safe area, iOS 26 translucent-bar sampling at the bottom edge) is the grass colour. --gb is synced to the canvas bottom row by JS. */
+  html{background:linear-gradient(to bottom,#63adff 0,#63adff 50%,var(--gb,#80d010) 50%,var(--gb,#80d010) 100%) #63adff}
+  body{background:transparent}
+  #gbot{position:fixed;left:0;right:0;top:calc(100dvh - 2px);height:calc(100lvh - 100dvh + env(safe-area-inset-bottom,0px) + 240px);background:var(--gb,#80d010);pointer-events:none}
   /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
   body{position:fixed;inset:0;width:100%;height:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:0;
     --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
@@ -214,6 +219,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
 <body>
+<div id="gbot" aria-hidden="true"></div>
 <div id="groundFill" aria-hidden="true"></div>
 <section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p><p>Follow Dumb Luck Golf on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" target="_blank">@dumbluckgolfing</a> · <a href="https://www.youtube.com/@dumbluckgolf" rel="me noopener" target="_blank">YouTube @dumbluckgolf</a></p></section>
 <noscript><p style="font:14px/1.5 sans-serif;color:#fff;background:#1c3a1c;padding:16px;margin:0">Dumb Luck Golf is a free retro pixel golf game: Front 9, Back 9, Full 18, a Daily hole and leaderboards. Please turn on JavaScript to play. Follow us on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" style="color:#f8d878">@dumbluckgolfing</a></p></noscript>
@@ -264,7 +270,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.31';
+const GAME_VERSION = 'v8.99.32';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -279,7 +285,12 @@ const GW = 256, GH = 240, PLAY0 = 186, BASE0 = 172;   // design frame; BASE0 = g
 let W = GW, H = GH, PLAY_H = PLAY0, BASE = BASE0;
 let flyZm = 1;   // v8.78 hole-flyover zoom multiplier (only applied in the intro flyover)
 const cv = document.getElementById('c');
-let ctx = cv.getContext('2d');   // swapped briefly when drawing the share card
+let ctx = cv.getContext('2d');
+setInterval(() => {   // v8.99.32: keep the under-toolbar strip the same green as the bottom row of the game
+  try { const d = cv.getContext('2d').getImageData(Math.floor(cv.width / 2), cv.height - 1, 1, 1).data;
+    const c = '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+    if (d[3] > 200 && c !== document.documentElement.style.getPropertyValue('--gb')) document.documentElement.style.setProperty('--gb', c); } catch (e) {}
+}, 500);   // swapped briefly when drawing the share card
 ctx.imageSmoothingEnabled = false;
 // Fill the safe-area viewport edge-to-edge (no black letterbox). Grow the logical canvas to match
 // the aspect ratio so we extend sky/grass (portrait) or the course sideways (wide), keeping crisp nearest-neighbor pixels. Integer device-pixel snap when it costs <8%.
@@ -2565,7 +2576,7 @@ const FONT = { '\u00b7':['.....','.....','.....','..#..','.....','.....','.....'
 if (!FONT['\u00b0']) FONT['\u00b0'] = ['.##..', '#..#.', '.##..', '.....', '.....', '.....', '.....'];   // v8.99.2 loft degrees
 if (!FONT['@']) FONT['@'] = [' ### ', '#   #', '# ###', '# # #', '# ###', '#    ', ' ####'];   // career v2: @username
 if (!FONT['_']) FONT['_'] = ['     ', '     ', '     ', '     ', '     ', '     ', '#####'];
-const FONT3 = { D:['##.','#.#','#.#','#.#','##.'], L:['#..','#..','#..','#..','###'], G:['.##','#..','#.#','#.#','.##'], U:['#.#','#.#','#.#','#.#','###'],
+const FONT3 = { N:['#.#','###','###','#.#','#.#'], W:['#.#','#.#','###','###','#.#'], Y:['#.#','#.#','.#.','.#.','.#.'], A:['.#.','#.#','###','#.#','#.#'], R:['##.','#.#','##.','#.#','#.#'],P:['##.','#.#','##.','#..','#..'], ':':['...','.#.','...','.#.','...'], D:['##.','#.#','#.#','#.#','##.'], L:['#..','#..','#..','#..','###'], G:['.##','#..','#.#','#.#','.##'], U:['#.#','#.#','#.#','#.#','###'],
   M:['#.#','###','###','#.#','#.#'], B:['##.','#.#','##.','#.#','##.'], C:['.##','#..','#..','#..','.##'], K:['#.#','#.#','##.','#.#','#.#'],
   O:['.#.','#.#','#.#','#.#','.#.'], F:['###','#..','##.','#..','#..'], H:['#.#','#.#','###','#.#','#.#'], E:['###','#..','##.','#..','###'], '.':['...','...','...','...','.#.'],
   '0':['###','#.#','#.#','#.#','###'], '1':['.#.','##.','.#.','.#.','###'], '2':['##.','..#','.#.','#..','###'], '3':['##.','..#','.#.','..#','##.'],
@@ -4661,7 +4672,7 @@ const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y +
    Tap the board itself to open the full LEADERBOARD screen for the selected one.
    SETTINGS is the gear icon. CUSTOMIZE opens as a pre-round step from PLAY.
    GALLERY stays in the menu only when GALLERY_ITEMS is non-empty (hook kept for later). */
-const MENU = GALLERY_ITEMS.length ? ['PLAY', 'CAREER', 'DAILY', 'GALLERY', 'SHOP'] : ['PLAY', 'CAREER', 'DAILY', 'SHOP'];
+const MENU = GALLERY_ITEMS.length ? ['SHOP', 'PLAY', 'GALLERY', 'CAREER'] : ['SHOP', 'PLAY', 'CAREER'];   // v8.99.32: SHOP above PLAY   // v8.99.32: DAILY lives inside PLAY (first in the course list)
 /* v8.18: small pixel subheading under each menu item (two short lines, split where the copy has its dash).
    CAREER is a locked placeholder (muted + padlock); tapping it only shows a COMING SOON toast. PLAY stays instant. */
 const MENU_SUB = {};          // v8.19: subheadings removed (too cluttered) — labels only
@@ -4669,24 +4680,58 @@ const MENU_SUB_NARROW = {};
 const MENU_LOCKED = {};   // v8.99.27: SHOP unlocked (real BUY NOW items) - no padlock;   // career v2: CAREER unlocked   // v8.20: unfinished items render muted + padlock (SHOP still opens its preview)
 let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
-function menuLayoutCalc() {
-  const SUB_DY = 4, LINE = 9, ROW_GAP = 12, landscape = H <= W * 1.15;
-  const build = subs => MENU.map(l => { const lines = subs[l] || []; return { l, lines, w: Math.max(textW(l, 2) + (MENU_LOCKED[l] ? 11 : 0), ...lines.map(s => textW(s))) }; });
-  const fitGap = its => { const sum = its.reduce((a, it) => a + it.w, 0); return Math.min(22, Math.floor((W - 16 - sum) / Math.max(1, its.length - 1))); };   // v8.19: 22 = pre-v8.18 gap (room for the '>' cursor)
-  let items = build(MENU_SUB), GAP = fitGap(items);
-  // narrow landscape (4:3 / 5:4 screens): wrap the long DAILY line once more so a single row still fits under the logo
-  if (GAP < 18 && landscape) { const n = build(MENU_SUB_NARROW); if (fitGap(n) >= 18) { items = n; GAP = fitGap(n); } }
-  const grid = GAP < 18 && items.length > 2;   // v8.19: a row needs >= 18px gaps so the '>' never touches the previous label
-  if (grid) GAP = 22;
-  const maxLines = Math.max(0, ...items.map(it => it.lines.length));
-  const itemH = 14 + (maxLines ? SUB_DY + (maxLines - 1) * LINE + 7 : 0);
-  const rowW = items.reduce((a, it) => a + it.w, 0) + GAP * Math.max(0, items.length - 1);
-  if (grid) { const per = Math.ceil(items.length / 2); MENU_ROWS = [items.slice(0, per).map((_, i) => i), items.slice(per).map((_, i) => i + per)]; }
-  else MENU_ROWS = [items.map((_, i) => i)];
-  MENU_L = { grid, itemH, subDy: SUB_DY, line: LINE, gap: GAP, rowGap: ROW_GAP, items, rowW, blockH: grid ? itemH * 2 + ROW_GAP : itemH };
+function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = secondary button, CAREER (+GALLERY) = small text
+  const landscape = H <= W * 1.15, PW = 132, PH = 28, SW = 132, SH = 28, TH = 9, G = 6;
+  const items = MENU.map(l => l === 'PLAY' ? { l, kind: 'p', w: PW, h: PH } : l === 'SHOP' ? { l, kind: 's', w: SW, h: SH } : l === 'CAREER' ? { l, kind: 'c', w: landscape ? 96 : SW, h: 19 } : { l, kind: 't', w: textW(l) + 8, h: TH });   // v8.99.32: CAREER = navy secondary button
+  const tert = items.filter(it => it.kind === 't'), tW = tert.reduce((a, it) => a + it.w, 0) + 14 * Math.max(0, tert.length - 1);
+  if (landscape) {   // one row: [PLAY] [SHOP] CAREER, vertically centered on the PLAY button
+    const ft = 0, fw = 0;   // v8.99.32: IG + YT moved to the top icon row
+    const rowW = items.reduce((a, it) => a + it.w, 0) + 14 * items.length + fw; let mx = Math.round((W - rowW) / 2);
+    items.forEach(it => { it.bx = mx; it.by = Math.round((PH - it.h) / 2); mx += it.w + 14; });
+    MENU_ROWS = [items.map((_, i) => i)];
+    MENU_L = { grid: false, items, blockH: PH, itemH: PH, fx: mx, fy: Math.round((PH - ft) / 2), fw, fh: ft };
+  } else {           // stacked: PLAY, SHOP, then the small text row
+    const ft = 0, fw = 0, rowH = 0, withF = false;   // v8.99.32: IG + YT moved to the top icon row
+    const tW2 = tW + (withF ? (tW ? 10 : 0) + fw : 0);
+    let yy = 0, tx = Math.round((W - tW2) / 2); MENU_ROWS = [];
+    items.forEach((it, i) => { if (it.kind !== 't') { if (it.kind === 's') yy += 7;   /* room for the sign's hanging bar + chains */ it.bx = Math.round((W - it.w) / 2); it.by = yy; yy += it.h + G; MENU_ROWS.push([i]); } });
+    yy -= G;
+    const tr = []; items.forEach((it, i) => { if (it.kind === 't') { it.bx = tx; it.by = yy + Math.round((rowH - TH) / 2) + 1; tx += it.w + 14; tr.push(i); } });
+    if (tr.length) MENU_ROWS.push(tr);
+    MENU_L = { grid: true, items, blockH: yy + rowH, itemH: PH, fx: tr.length ? tx - 4 : Math.round((W - fw) / 2), fy: yy, fw, fh: ft };   // v8.99.32: SHOP, PLAY, CAREER buttons, then a small centered IG + YT row
+  }
   return MENU_L;
 }
-let titleSel = 0, menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
+const MENU_MARKER = new Image(); MENU_MARKER.decoding = 'async'; MENU_MARKER.src = 'shop/lucky-marker-front.webp?v=848';
+function woodPlank(x, y, w, h, hot, edge, seed = 1) {   // v8.99.32: clubhouse wood plank - boards, grain, nail heads, inset trim
+  const L = hot ? ['#a8744a', '#8c5c36', '#764a2a', '#5c3820'] : ['#8c5a34', '#744828', '#603a1e', '#4a2c16'];
+  rect(x + 1, y + h, w - 1, 2, 'rgba(0,0,0,0.35)');                       // drop shadow
+  rect(x + 1, y, w - 2, h, '#000'); rect(x, y + 1, w, h - 2, '#000');
+  const ix = x + 1, iy = y + 1, iw = w - 2, ih = h - 2, boards = h >= 24 ? 2 : 1, bh = Math.floor(ih / boards);
+  for (let b = 0; b < boards; b++) {
+    const by = iy + b * bh, hh = b === boards - 1 ? ih - b * bh : bh;
+    rect(ix, by, iw, hh, L[1]); rect(ix, by, iw, 1, L[0]); rect(ix, by + hh - 1, iw, 1, L[3]);
+    let r = (seed * 9301 + b * 4973) % 233280;
+    for (let k = 0; k < Math.round(iw / 7); k++) {                       // grain streaks
+      r = (r * 9301 + 49297) % 233280; const gx = ix + 3 + (r % (iw - 18)); r = (r * 9301 + 49297) % 233280;
+      const gy = by + 2 + (r % Math.max(1, hh - 4)), gl = 6 + (r % 14); rect(gx, gy, Math.min(gl, ix + iw - 3 - gx), 1, k % 3 ? L[2] : L[0]);
+    }
+    if (b > 0) { rect(ix, by - 1, iw, 1, '#2a1608'); }
+    for (const nx of [ix + 5, ix + iw - 7]) { const ny = by + Math.round(hh / 2) - 1; rect(nx, ny, 2, 2, '#2a1a10'); rect(nx, ny, 1, 1, '#b8a890'); }
+  }
+  rect(x + 3, y + 2, w - 6, 1, edge); rect(x + 3, y + h - 3, w - 6, 1, edge); rect(x + 2, y + 3, 1, h - 6, edge); rect(x + w - 3, y + 3, 1, h - 6, edge);
+}
+function blockText(str, x, y, col, sc = 1, sh = '#1a0c04') {   // v8.99.32: chunky bold block lettering (double-struck + hard shadow)
+  x = Math.round(x); y = Math.round(y);
+  for (const [dx, dy] of [[-1, 0], [sc + 1, 0], [0, -1], [0, sc * 7], [1, sc * 7], [sc + 1, sc]]) drawText(str, x + dx, y + dy - (dy === sc * 7 ? sc * 7 - sc : 0), sh, sc);
+  drawText(str, x, y, col, sc); drawText(str, x + 1, y, col, sc);
+}
+const blockW = (str, sc = 1) => textW(str, sc) + 1;
+function menuBtnBox(x, y, w, h, top, mid, bot, edge) {   // pixel button: dark outline, light top lip, darker bottom lip
+  rect(x + 1, y, w - 2, h, edge); rect(x, y + 1, w, h - 2, edge);
+  rect(x + 1, y + 1, w - 2, h - 2, mid); rect(x + 2, y + 1, w - 4, 2, top); rect(x + 1, y + h - 4, w - 2, 3, bot);
+}
+let titleSel = Math.max(0, MENU.indexOf('PLAY')), menuRects = [], menuPopup = null;          // menuPopup: { kind: 'shop' | 'gallery', t }
 const menuRowOf = i => MENU_ROWS.findIndex(r => r.includes(i));
 function menuMove(dr, dc) {
   if (dc) { const row = MENU_ROWS[menuRowOf(titleSel)]; if (row.length < 2) return; titleSel = row[(row.indexOf(titleSel) + dc + row.length) % row.length]; SFX.tick(); return; }
@@ -4733,6 +4778,7 @@ let CS_ARW_L = { x: 0, y: 0, w: 0, h: 0 }, CS_ARW_R = { x: 0, y: 0, w: 0, h: 0 }
 let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
+var TLB_MAX_LIST = 6;   // v8.99.32 (var: layoutChrome runs before the board code is reached)
 function layoutChrome() {
   // chrome hugs the safe content box (canvas itself is full-bleed so grass reaches the home indicator)
   const st = SAFE.t || 0, sl = SAFE.l || 0, sr = SAFE.r || 0;
@@ -4748,6 +4794,10 @@ function layoutChrome() {
   HSHARE_BTN.w = tap; HSHARE_BTN.h = tap; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; HSHARE_BTN.y = FS_BTN.y;
   HIG_BTN.w = tap; HIG_BTN.h = tap; HIG_BTN.x = HSHARE_BTN.x - tap - gap; HIG_BTN.y = FS_BTN.y;   // v8.43
   HYT_BTN.w = tap; HYT_BTN.h = tap; HYT_BTN.x = HIG_BTN.x - tap - gap; HYT_BTN.y = FS_BTN.y;   // v8.51
+  // v8.99.32 decluttered icon row: share + settings only (IG/YT live in the big FOLLOW bar); no fullscreen on the Home Screen app
+  // v8.99.32: IG + YT back in the top icon row (beside share/settings); the menu FOLLOW row is gone
+  if (isStandalone()) { GEAR_BTN.x = FS_BTN.x; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; FS_BTN.x = -999; FS_BTN.w = 0; }
+  HIG_BTN.x = HSHARE_BTN.x - tap - gap; HYT_BTN.x = HIG_BTN.x - tap - gap;   // v8.99.32: keep IG/YT snug beside share
   FOLLOW_TAP = tap;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
@@ -4765,44 +4815,30 @@ function layoutChrome() {
     // the logo just to force more rows.
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
-    const cupB = (cupLive() || lbiBannerOn()) ? 30 : 0;   // v8.52 SPOOKY CUP banner strip under the icon row
-    const skyTop = iconBot + bobPad + cupB;
-    SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = 26; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 3; }
+    const cupB = cupLive() ? 30 : lbiBannerOn() ? 18 : 0;   // v8.52 SPOOKY CUP banner strip under the icon row; v8.99.32 slim tournament strip
+    const skyTop = iconBot + bobPad + cupB + (cupB ? 6 : 0);
+    SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 7; }   // v8.99.32: a little more room under share/settings
     const menuH = menuLayoutCalc().blockH; // v8.18: labels + subheadings (2x2 grid on narrow phones)
-    const minGap = 10; // equal logo↔menu and menu↔board padding
-    const safeBot = (SAFE.b || 0) + 4;
-    const dogStrip = Math.max(36, 28 + safeBot);
-    TITLE_FAIR = H - dogStrip;
-    // Logo near v8.3 size — do NOT shrink for leaderboard row count
-    ldW = Math.min(W - 40, Math.round(W * 0.78));
+    const ML = MENU_L;
+    ldW = Math.min(W - 40, Math.round(W * 0.78));   // logo size unchanged
     ldH = Math.round(lh0 * ldW / lw0);
     LOGO_Y = skyTop;
-    const sidePad = 8;
-    const boardW = W - sidePad * 2;
-    const minBoardH = 26 + 40 + 4 + 4 * 14 + 6; // head + champ + 4 list rows
-    let logoBot = LOGO_Y + ldH;
-    // Reserve equal gaps + menu; board takes the rest and sits on the fairway (low)
-    const fbH = Math.max(22, FOLLOW_TAP), fbR = fbH + 6;   // v8.43 FOLLOW strip under the menu
-    let maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap - fbR;
-    if (maxBoardH < minBoardH && ldH > 80) {
-      const cut = Math.min(minBoardH - maxBoardH, ldH - 80);
-      if (cut > 0) {
-        ldH -= cut;
-        ldW = Math.min(W - 40, Math.round(lw0 * ldH / lh0));
-        logoBot = LOGO_Y + ldH;
-        maxBoardH = TITLE_FAIR - logoBot - menuH - 2 * minGap - fbR;
-      }
-    }
-    let boardH = Math.max(minBoardH, maxBoardH);
-    let boardY = TITLE_FAIR - boardH;
-    const menuFloor = boardY - fbR;
-    // Center PLAY/DAILY/SHOP between logo bottom and the FOLLOW strip
-    MENU_Y0 = logoBot + Math.round((menuFloor - logoBot - menuH) / 2);
-    if (MENU_Y0 < logoBot + minGap) MENU_Y0 = logoBot + minGap;
-    if (MENU_Y0 + menuH + minGap > menuFloor) MENU_Y0 = Math.max(logoBot + 4, menuFloor - menuH - minGap);
-    { const fw = Math.min(W - 40, 184); FOLLOW_BTN.w = fw; FOLLOW_BTN.h = fbH; FOLLOW_BTN.x = Math.round((W - fw) / 2); FOLLOW_BTN.y = boardY - fbH - 4; FOLLOW_BTN.on = true; }
+    const logoBot = LOGO_Y + ldH, sidePad = 8, boardW = W - sidePad * 2;
+    // v8.99.32: board height fits the rows it actually has (champion + up to TLB_MAX_LIST more)
+    const nRows = tlbRowCount(), nList = Math.max(0, Math.min(TLB_MAX_LIST, nRows - 1));
+    let boardH = 26 + 44 + (nList ? 4 + nList * 16 : 0) + 6;
+    const safeBot = (SAFE.b || 0) + 4, dogMin = Math.max(36, 28 + safeBot);
+    // spread the spare height evenly: logo->menu, menu->board, and extra grass under the board
+    let spare = H - dogMin - logoBot - menuH - boardH;
+    if (spare < 20) { boardH = Math.max(26 + 44 + 6, boardH + spare - 20); spare = 20; }
+    let g1 = Math.min(28, Math.round(spare / 3)), g2 = Math.round((spare - g1) / 2);
+    g2 = Math.max(10, g2);
+    MENU_Y0 = logoBot + g1;
+    const boardY = MENU_Y0 + menuH + g2;
+    TITLE_FAIR = Math.min(H - dogMin, boardY + boardH);
+    FOLLOW_BTN.on = !!ML.fw; FOLLOW_BTN.w = ML.fw; FOLLOW_BTN.h = ML.fh; FOLLOW_BTN.x = ML.fx; FOLLOW_BTN.y = MENU_Y0 + ML.fy;
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    TLB_R.w = boardW; TLB_R.h = Math.max(minBoardH, boardH);
+    TLB_R.w = boardW; TLB_R.h = TITLE_FAIR - boardY; TLB_R.tall = true; TLB_R.rows = nRows;
     TLB_R.x = sidePad;
     TLB_R.y = boardY;
     TITLE_RIDGE = Math.max(MENU_Y0 + menuH + 8, TLB_R.y + Math.round(TLB_R.h * 0.35));
@@ -4812,14 +4848,14 @@ function layoutChrome() {
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
-    const cupB = (cupLive() || lbiBannerOn()) ? 30 : 0;   // v8.52
+    const cupB = cupLive() ? 30 : lbiBannerOn() ? 18 : 0;   // v8.52 / v8.99.32
     LOGO_Y = Math.max(iconBot + 2 + cupB, Math.max(3, Math.round(H * 0.012)));
-    SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = 26; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 2; }
+    SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 2; }
     const boardH = 52, boardW = Math.min(236, W - 24), menuH = Math.max(MENU_DY, menuLayoutCalc().blockH) + 2;   // v8.19: single row = pre-v8.18 MENU_DY + 2
     const gapLogo = 14, gapMenu = 6;   // v8.19: back to the pre-v8.18 14/6 (14px clears the "Luck" descenders)
     {   // v8.18: trim the logo just enough that logo + menu + board fit above the bottom edge
-      const over = LOGO_Y + ldH + gapLogo + menuH + gapMenu + boardH - H;   // v8.19: only when the board would actually run off-screen
-      if (over > 0) { ldH = Math.max(80, ldH - over); ldW = Math.round(lw0 * ldH / lh0); }
+      const over = LOGO_Y + ldH + gapLogo + menuH + gapMenu + boardH + Math.max(26, (SAFE.b || 0) + 24) - H;   // v8.99.32: also leave a grass strip for the dog
+      if (over > 0) { ldH = Math.max(56, ldH - over); ldW = Math.round(lw0 * ldH / lh0); }
     }
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
     const grassWant = Math.max(30, Math.round(H * 0.125));
@@ -4835,9 +4871,8 @@ function layoutChrome() {
     TLB_R.x = Math.round((W - boardW) / 2);
     TLB_R.y = boardY;
     {   // v8.43: landscape/desktop FOLLOW sits in the grass under the board, only if it fits cleanly
-      const fbH = 18, fw = 170, room = H - (SAFE.b || 0) - (boardY + boardH) - 4;
-      FOLLOW_BTN.on = room >= fbH + 4; FOLLOW_BTN.w = fw; FOLLOW_BTN.h = fbH; FOLLOW_BTN.x = Math.round((W - fw) / 2);
-      FOLLOW_BTN.y = Math.round(boardY + boardH + 2 + (room - fbH) / 2);
+      const ML = MENU_L;   // v8.99.32: IG + YT sit at the end of the menu row (always visible)
+      FOLLOW_BTN.on = !!ML.fw; FOLLOW_BTN.w = ML.fw; FOLLOW_BTN.h = ML.fh; FOLLOW_BTN.x = ML.fx; FOLLOW_BTN.y = MENU_Y0 + ML.fy;
     }
   }
 
@@ -5321,15 +5356,19 @@ function ytGlyph(x, y, body, play) {   // v8.51: 11x8 rounded play button
   rect(x + 1, y, 9, 8, body); rect(x, y + 1, 11, 6, body);
   rect(x + 4, y + 2, 1, 4, play); rect(x + 5, y + 2, 1, 4, play); rect(x + 6, y + 3, 1, 2, play);
 }
-function drawHomeYtButton() {
+function drawHomeYtButton() {   // v8.99.32: brand red tile + white play triangle
+  if (!HYT_BTN.w) return;
   const x = HYT_BTN.x + Math.floor((HYT_BTN.w - 14) / 2), y = HYT_BTN.y + Math.floor((HYT_BTN.h - 14) / 2);
-  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
-  ytGlyph(x + 1, y + 3, COL.white, '#000');
+  rect(x + 1, y + 14, 14, 1, 'rgba(0,0,0,0.35)');
+  rect(x + 1, y + 2, 12, 10, '#ff0000'); rect(x, y + 3, 14, 8, '#ff0000'); rect(x + 1, y + 2, 12, 1, '#ff5050');
+  rect(x + 5, y + 4, 1, 6, '#fff'); rect(x + 6, y + 4, 1, 6, '#fff'); rect(x + 7, y + 5, 1, 4, '#fff'); rect(x + 8, y + 6, 1, 2, '#fff');
 }
-function drawHomeIgButton() {
+function drawHomeIgButton() {   // v8.99.32: brand gradient tile + white camera glyph
+  if (!HIG_BTN.w) return;
   const x = HIG_BTN.x + Math.floor((HIG_BTN.w - 14) / 2), y = HIG_BTN.y + Math.floor((HIG_BTN.h - 14) / 2);
-  ctx.globalAlpha = 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
-  igGlyph(x + 2, y + 2, 1, COL.white);
+  rect(x + 1, y + 14, 14, 1, 'rgba(0,0,0,0.35)');
+  const g = igGrad(x, y, 14, 14); rect(x + 1, y, 12, 14, g); rect(x, y + 1, 14, 12, g);
+  igGlyph(x + 2, y + 2, 1, '#fff');
 }
 function drawFollowPill(r, key, label) {
   const pulse = REDUCED_MOTION ? 0 : (Math.sin(st * Math.PI * 1.4) + 1) / 2, dim = pressDim(key), on = mouse.seen && hit(mouse, r);
@@ -5355,20 +5394,14 @@ function drawSpookyBanner() {   // v8.52: two short lines, tap = straight into t
   drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2) + 1, b.y + 5, '#000'); drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2), b.y + 4, '#fc9838');
   drawText(l2, Math.round(b.x + (b.w - textW(l2)) / 2), b.y + 15, REDUCED_MOTION || Math.floor(st * 1.5) % 2 ? COL.white : '#f8d878');
 }
-function drawFollowButton() {   // v8.51: split bar, Instagram | YouTube
+function drawFollowButton() {   // v8.99.32: two small tidy icon buttons (Instagram, YouTube) instead of the big two-colour bar
   if (!FOLLOW_BTN.on || menuPopup) return;
-  const r = FOLLOW_BTN, [a, b] = followHalves(), pulse = REDUCED_MOTION ? 0 : (Math.sin(st * Math.PI * 1.4) + 1) / 2;
-  if (!REDUCED_MOTION && pulse > 0.6) { ctx.globalAlpha = (pulse - 0.6) * 1.2; rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, '#f8a0d8'); ctx.globalAlpha = 1; }
-  rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2, '#000');
-  ctx.fillStyle = igGrad(a.x, a.y, a.w, a.h); ctx.fillRect(a.x, a.y, a.w, a.h); rect(b.x, b.y, b.w, b.h, '#e01818');
-  rect(r.x, r.y, r.w, 1, 'rgba(255,255,255,0.45)'); rect(b.x, b.y, 1, b.h, '#000');
   const hot = (k, h) => pressDim(k) || (mouse.seen && hit(mouse, h));
-  if (hot('follow', a)) { ctx.globalAlpha = 0.25; rect(a.x, a.y, a.w, a.h, '#000'); ctx.globalAlpha = 1; }
-  if (hot('followyt', b)) { ctx.globalAlpha = 0.25; rect(b.x, b.y, b.w, b.h, '#000'); ctx.globalAlpha = 1; }
-  const lab = (h, gw, txt, glyph) => { const t = textW(txt) + gw + 5 <= h.w - 4 ? txt : '', tw = gw + (t ? 5 + textW(t) : 0), gx = Math.round(h.x + (h.w - tw) / 2);
-    glyph(gx); if (t) { const ty = Math.round(h.y + (h.h - 7) / 2); drawText(t, gx + gw + 5 + 1, ty + 1, '#000'); drawText(t, gx + gw + 5, ty, COL.white); } };
-  lab(a, 11, 'INSTAGRAM', gx => { const gy = Math.round(a.y + (a.h - 11) / 2); igGlyph(gx + 1, gy + 1, 1, '#000'); igGlyph(gx, gy, 1, COL.white); });
-  lab(b, 11, 'YOUTUBE', gx => { const gy = Math.round(b.y + (b.h - 8) / 2); ytGlyph(gx + 1, gy + 1, '#000', '#000'); ytGlyph(gx, gy, COL.white, '#e01818'); });
+  followHalves().forEach((h, i) => {
+    const bx = Math.round(h.x + (h.w - 14) / 2), by = Math.round(h.y + (h.h - 14) / 2), on = hot(i ? 'followyt' : 'follow', h);
+    ctx.globalAlpha = on ? 0.75 : 0.5; rect(bx, by, 14, 14, '#000'); ctx.globalAlpha = 1;
+    if (i) ytGlyph(bx + 1, by + 3, '#e01818', COL.white); else igGlyph(bx + 2, by + 2, 1, COL.white);
+  });
 }
 let ytOpenCount = 0;
 function openYouTube() {   // v8.51: never starts the game; new tab (or the YouTube app via universal link)
@@ -5756,7 +5789,7 @@ function titleBoardMode() {
 function titleBoardLabel() { return titleBoardSpec().label; }
 function tlbHeaderLayout() {
   const { x, y, w, h } = TLB_R;
-  const headH = h >= 100 ? 26 : 19;
+  const headH = (h >= 100 || TLB_R.tall) ? 26 : 19;
   const divY = y + headH - 2;
   const innerTop = y + 4;
   const innerBot = divY - 1;
@@ -5841,178 +5874,82 @@ const CROWN = pixArt([
   'kkkkkkkkkkkkkkk'], GOLD);
 const TLB_TONES = [null, ['#fcfcfc', '#bcbcbc', '#7c7c7c'], ['#f0b080', '#c87c3c', '#7c3c00'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#a8b8d0', '#6c7c94', '#3c4c64'], ['#98a8c0', '#5c6c84', '#2c3c54'], ['#98a8c0', '#5c6c84', '#2c3c54']];
 function drawSpark(x, y, r, col) { rect(x - r, y, 2 * r + 1, 1, col); rect(x, y - r, 1, 2 * r + 1, col); }
-function drawTitleBoard() {
+function tlbRowCount() { let r; try { r = titleLB.rows; } catch (e) { return 0; } return r ? r.filter(x => x && !isAdminUser(x.name)).length : 0; }
+let tlbFlipRows = null, tlbFlipAt = -9;
+function drawTitleBoard() {   // v8.99.32: old-school major-championship manual scoreboard
+  if (H > W * 1.15 && TLB_R.rows !== tlbRowCount()) layoutChrome();   // refit the board to its rows
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
-  const G1 = pulse ? '#fce4a0' : '#f8d878', G2 = pulse ? '#f8b800' : '#d8a000';
-  const PANEL_A = 0.48;
-  const tlbText = (str, tx, ty, col, sc = 1) => {
-    drawText(str, tx + sc, ty + sc, '#000', sc);
-    drawText(str, tx, ty, col, sc);
-  };
+  const GRN = '#0e4a2c', GRN2 = '#16603a', CREAM = '#f4ead0', BOARD = '#f2f0e6', SLOT = '#cdc9b6', INK = '#141414', RED = '#c41a1a';
   const ring = (rx, ry, rw, rh, c) => { rect(rx, ry, rw, 1, c); rect(rx, ry + rh - 1, rw, 1, c); rect(rx, ry, 1, rh, c); rect(rx + rw - 1, ry, 1, rh, c); };
+  rect(x + 2, y + h, w - 2, 2, 'rgba(0,0,0,0.3)');
   if (lit) ring(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878');
-  ring(x, y, w, h, '#000'); ring(x + 1, y + 1, w - 2, h - 2, G2); rect(x + 1, y + 1, w - 3, 1, G1); rect(x + 1, y + 1, 1, h - 3, G1);
-  ring(x + 2, y + 2, w - 4, h - 4, G1); ring(x + 3, y + 3, w - 6, h - 6, '#000');
-  ctx.globalAlpha = PANEL_A; rect(x + 4, y + 4, w - 8, h - 8, '#102860'); ctx.globalAlpha = 1;
-  for (const [cx, cy] of [[x + 2, y + 2], [x + w - 3, y + 2], [x + 2, y + h - 3], [x + w - 3, y + h - 3]]) rect(cx, cy, 1, 1, COL.white);
-
-  const tall = h >= 100;   // portrait prominent board
-  // Header: board name + < > to cycle FRONT 9 / BACK 9 / FULL 18 / DAILY. Glyphs stay above the divider.
-  const hd = tlbHeaderLayout();
-  const headH = hd.headH, title = hd.label, tSc = 1, divY = hd.divY, tY = hd.tY, tX = hd.tX;
+  ring(x, y, w, h, '#000'); rect(x + 1, y + 1, w - 2, h - 2, GRN); rect(x + 1, y + 1, w - 2, 1, GRN2);
+  const tall = h >= 100 || !!TLB_R.tall;
+  const hd = tlbHeaderLayout(), headH = hd.headH, divY = hd.divY;
+  // header bar
   ctx.drawImage(TROPHY, hd.trophyX, hd.trophyY);
-  const band = (st * 9) % (title.length + 14);
-  [...title].forEach((ch, i) => tlbText(ch, tX + i * 6 * tSc, tY, Math.abs(i - band) < 1.2 ? COL.white : G1, tSc));
-  for (let i = 0; i < titleBoards().length; i++) rect(hd.dotX + i * 4, hd.dotY, 2, 2, i === titleBoardI ? COL.white : '#8c9cb4');
+  if (tall) {
+    const lw = blockW('LEADERS'); blockText('LEADERS', x + Math.round((w - lw) / 2), y + 4, CREAM, 1, '#03160c');
+    const tw = textW(hd.label); drawText(hd.label, x + Math.round((w - tw) / 2), y + 14, '#e8c870');
+    const n = titleBoards().length, dw = n * 4 - 2; for (let i = 0; i < n; i++) rect(x + Math.round((w - dw) / 2) + i * 4, y + 22, 2, 1, i === titleBoardI ? COL.white : '#4c8c64');
+  } else {
+    const tx = hd.trophyX + 14; blockText('LEADERS', tx, y + 5, CREAM, 1, '#03160c');
+    const tw = textW(hd.label), lx = hd.next.x - 4 - tw; drawText(hd.label, lx, y + 5, '#e8c870');
+    const n = titleBoards().length; for (let i = 0; i < n; i++) rect(lx + tw - (n * 4 - 2) + i * 4, y + 14, 2, 1, i === titleBoardI ? COL.white : '#4c8c64');
+  }
   const drawArrow = (r, dir) => {
-    const hot = tlbArrow === (dir < 0 ? 'prev' : 'next');
-    const nudge = hot && Math.floor(st * 6) % 2 === 0 ? dir : 0;
-    const ch = dir < 0 ? '<' : '>';
-    tlbText(ch, r.x + Math.round((r.w - textW(ch)) / 2) + nudge, r.y + Math.max(0, Math.round((r.h - 7) / 2)), hot ? COL.white : G1, 1);
+    const hot = tlbArrow === (dir < 0 ? 'prev' : 'next'), nudge = hot && Math.floor(st * 6) % 2 === 0 ? dir : 0, ch = dir < 0 ? '<' : '>';
+    blockText(ch, r.x + Math.round((r.w - 6) / 2) + nudge, r.y + Math.max(0, Math.round((r.h - 7) / 2)), hot ? COL.white : CREAM, 1, '#03160c');
   };
   drawArrow(hd.prev, -1); drawArrow(hd.next, 1);
-  rect(x + 5, divY, w - 10, 1, '#a87000');
-
-  const rows = titleLB.rows, bodyY = y + headH, bodyH = Math.max(8, h - headH - 5);
-  if (!rows) {
-    if (Math.floor(st * 3) % 2 === 0) tlbText('LOADING...', x + Math.round((w - textW('LOADING...', tSc)) / 2), y + Math.round(h / 2) - 4, COL.gray, tSc);
+  // white board face
+  const fx = x + 4, fy = divY + 1, fw = w - 8, fh = y + h - 4 - fy;
+  rect(fx - 1, fy - 1, fw + 2, fh + 2, '#062a16'); rect(fx, fy, fw, fh, BOARD); rect(fx, fy, fw, 1, '#c8c4b0');
+  const rows = titleLB.rows && titleLB.rows.filter(r => r && !isAdminUser(r.name));
+  const say = (str, col) => { const t = blockW(str); blockText(str, fx + Math.round((fw - t) / 2), fy + Math.round((fh - 7) / 2), col, 1, '#b8b4a0'); };
+  if (!rows) { if (Math.floor(st * 3) % 2 === 0) say('LOADING...', '#6c6c60'); return; }
+  if (!rows.length) { say(titleLB.pendingMode ? 'COMING SOON' : 'BE THE FIRST!', INK); return; }
+  // v8.99.32: split-flap shuffle whenever the shown rows change (board switch, refresh, first load)
+  if (titleLB.rows !== tlbFlipRows) { tlbFlipRows = titleLB.rows; tlbFlipAt = st; }
+  let flipK = 0; const FLAP = 'ABCDEFGHJKLMNPRSTUWXYZ0123456789-+';
+  // hand-placed tiles
+  const tiles = (str, tx, ty, sc, col, seed) => {
+    const cw = sc * 6 + 1, th = sc * 7 + 3;
+    [...str].forEach((ch0, i) => {
+      let ch = ch0; const jy = ((seed * 7 + i * 13) % 5 === 0) ? 1 : 0, cx = tx + i * cw;
+      rect(cx, ty + jy, cw - 1, th, '#fffffa'); rect(cx, ty + jy + th, cw - 1, 1, '#9c9886'); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, '#dedac8');
+      const k = flipK++, until = tlbFlipAt + 0.12 + Math.min(0.6, k * 0.014);
+      if (!REDUCED_MOTION && st < until && st - tlbFlipAt < 1) { ch = FLAP[Math.floor(hash(k * 131 + Math.floor(st * 24)) * FLAP.length)]; rect(cx, ty + jy + Math.round(th / 2), cw - 1, 1, '#d8d4c4'); }
+      if (ch !== ' ') { drawText(ch, cx + 1, ty + jy + 2, col, sc); drawText(ch, cx + 1 + (sc > 1 ? 1 : 0), ty + jy + 2, col, sc); }
+    });
+    return str.length * cw;
+  };
+  const slot = (sx, sy, sw, sh) => { rect(sx, sy, sw, sh, SLOT); rect(sx, sy, sw, 1, '#a8a490'); };
+  const MED = ['#e0b020', '#a8b0b8', '#c07840'];
+  const row = (r, i, rx, ry, rw, sc) => {
+    const cw = sc * 6 + 1, th = sc * 7 + 3, s2 = fmtRel(r.to_par), sl = Math.max(2, s2.length);
+    const scX = rx + rw - sl * cw - 1, nX = rx + cw + 4, nMax = Math.max(1, Math.floor((scX - 4 - nX) / cw));
+    slot(rx - 1, ry - 1, cw + 1, th + 3); slot(nX - 1, ry - 1, nMax * cw + 1, th + 3); slot(scX - 1, ry - 1, sl * cw + 1, th + 3);
+    tiles(String(i + 1), rx, ry, sc, INK, 0);
+    if (i < 3) rect(rx, ry + th - 1, cw - 1, 1, MED[i]), rect(rx, ry, cw - 1, 1, MED[i]);   // subtle medal edge on top-3 rank tiles
+    tiles(r.name.slice(0, nMax).toUpperCase(), nX, ry, sc, INK, i + 3);
+    tiles(s2.padStart(sl, ' '), scX, ry, sc, r.to_par < 0 ? RED : INK, i + 9);
+  };
+  if (!tall) {   // compact: 2 columns x 2 rows
+    const colW = Math.floor((fw - 12) / 2), pitch = Math.floor((fh - 4) / 2);
+    for (let i = 0; i < 4 && i < rows.length; i++) row(rows[i], i, fx + 4 + (i % 2) * (colW + 4), fy + 3 + Math.floor(i / 2) * pitch, colW, 1);
     return;
   }
-
-  if (!tall) {
-    // Desktop / compact: left champion + only the right-column ranks that fit inside the frame
-    const leftW = Math.min(124, Math.round(w * 0.55)), top = rows[0];
-    ring(x + 5, bodyY, leftW, bodyH, '#000');
-    ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, leftW - 2, bodyH - 2, '#2c2040'); ctx.globalAlpha = 1;
-    rect(x + 6, bodyY + 1, leftW - 2, 1, '#7c5800');
-    ctx.drawImage(CROWN, x + 10, bodyY + 3);
-    tlbText('1ST', x + 9, bodyY + 15, '#d8a000');
-    if (top) {
-      const nm = top.name, nb = (st * 7) % (nm.length + 10);
-      [...nm].forEach((ch, i) => tlbText(ch, x + 30 + i * 6, bodyY + 4, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878'));
-      const sc = fmtRel(top.to_par);
-      tlbText(sc, x + 30, bodyY + Math.min(bodyH - 16, 16), '#f8d878', 2);
-    } else if (titleLB.pendingMode) {
-      tlbText('SOON', x + 30, bodyY + 5, COL.orange);
-    } else {
-      tlbText('---', x + 30, bodyY + 5, '#3c4c64');
-    }
-    // Single spark by the crown tip — never near the score digits at x+30
-    drawSpark(x + 9, bodyY + 2, 1 + (Math.floor(st * 8) % 2), COL.white);
-    const rx = x + 5 + leftW + 4;
-    // Fit ranks 2–4 (or 2–5) inside the v8.3 52px board — never draw past the frame
-    const glyphH = 8;
-    const fitN = Math.max(1, Math.min(4, Math.floor(bodyH / glyphH)));
-    const rowH = Math.floor(bodyH / fitN);
-    for (let i = 1; i <= fitN; i++) {
-      const r = rows[i], ry = bodyY + (i - 1) * rowH;
-      if (ry + glyphH > bodyY + bodyH) break;
-      const tone = TLB_TONES[Math.min(i, TLB_TONES.length - 1)] || TLB_TONES[3];
-      const [c1, c2, c3] = tone;
-      rect(rx, ry, 7, 7, c3); rect(rx + 1, ry, 5, 7, c2); rect(rx, ry + 1, 7, 5, c2); rect(rx + 1, ry + 1, 2, 1, c1);
-      text3(ctx, String(i + 1), rx + 2, ry + 1, '#000');
-      if (!r) { tlbText('---', rx + 10, ry, '#3c4c64'); continue; }
-      const s2 = fmtRel(r.to_par), sw = textW(s2), room = (x + w - 6) - (rx + 10) - sw - 2;
-      let n = r.name; while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
-      tlbText(n, rx + 10, ry, c1); tlbText(s2, x + w - 6 - sw, ry, c1);
-    }
-    return;
-  }
-
-  // Portrait tall board: adaptive list length. Prefer champ+4 .. top 10 from available height.
-  // Drop rows before looking cramped; only show "---" when a drawn slot has no data.
-  const listPad0 = 4;
-  const minChamp = 40, maxChamp = 56;
-  const minPitch = 14, maxPitch = 20;
-  const minList = 4, maxList = 9; // champion + 4 .. champion + 9 (= top 10)
-  let nList = maxList;
-  while (nList > minList) {
-    const pitchTry = Math.min(maxPitch, Math.max(minPitch, Math.floor((bodyH - listPad0 - minChamp) / nList)));
-    if (listPad0 + minChamp + nList * pitchTry <= bodyH) break;
-    nList--;
-  }
-  let listPad = listPad0;
-  let pitch = Math.floor((bodyH - listPad - minChamp) / nList);
-  pitch = Math.max(minPitch, Math.min(maxPitch, pitch));
-  let champH = bodyH - listPad - nList * pitch;
-  if (champH > maxChamp) {
-    champH = maxChamp;
-    pitch = Math.min(maxPitch, Math.floor((bodyH - listPad - champH) / nList));
-  }
-  if (champH < minChamp) champH = minChamp;
-  while (nList * pitch + listPad + champH > bodyH && pitch > minPitch) pitch--;
-  if (listPad + nList * pitch + champH > bodyH) champH = Math.max(36, bodyH - listPad - nList * pitch);
-  while (nList > minList && listPad + nList * pitch + champH > bodyH) {
-    nList--;
-    pitch = Math.max(minPitch, Math.min(maxPitch, Math.floor((bodyH - listPad - minChamp) / nList)));
-    champH = Math.min(maxChamp, Math.max(minChamp, bodyH - listPad - nList * pitch));
-  }
-  // Spend leftover height so the board never shows a dead empty glass band under the last row
-  let left = bodyH - listPad - champH - nList * pitch;
-  while (left >= minPitch && nList < maxList) {
-    nList++;
-    left -= minPitch;
-  }
-  if (left > 0 && pitch < maxPitch) {
-    const bump = Math.min(maxPitch - pitch, Math.floor(left / nList));
-    pitch += bump;
-    left -= bump * nList;
-  }
-  if (left > 0 && champH < maxChamp) {
-    const bump = Math.min(maxChamp - champH, left);
-    champH += bump;
-    left -= bump;
-  }
-  if (left > 0) listPad += left; // absorb remainder between champ and list
-  const SLOTS = nList + 1;
-
-  const top = rows[0];
-  ring(x + 5, bodyY, w - 10, champH, '#000');
-  ctx.globalAlpha = PANEL_A; rect(x + 6, bodyY + 1, w - 12, champH - 2, '#2c2040'); ctx.globalAlpha = 1;
-  rect(x + 6, bodyY + 1, w - 12, 1, '#7c5800');
-  const crownY = bodyY + Math.max(4, Math.round((champH - 24) / 2));
-  ctx.drawImage(CROWN, x + 10, crownY);
-  tlbText('1ST', x + 10, Math.min(crownY + 18, bodyY + champH - 10), '#d8a000', 1);
-  {
-    const nameSc = 2;
-    const nameY = bodyY + Math.max(5, Math.round((champH - 14 * nameSc) / 2) - 2);
-    if (top) {
-      const nm = top.name, nb = (st * 7) % (nm.length + 10);
-      let shown = nm;
-      while (shown.length > 1 && textW(shown, nameSc) > w - 110) shown = shown.slice(0, -1);
-      [...shown].forEach((ch, i) => tlbText(ch, x + 32 + i * 6 * nameSc, nameY, Math.abs(i - nb) < 1.2 ? COL.white : '#f8d878', nameSc));
-      const sc = fmtRel(top.to_par);
-      const scY = Math.min(nameY, bodyY + champH - 16);
-      tlbText(sc, x + w - 12 - textW(sc, 2), scY, '#f8d878', 2);
-    } else if (titleLB.pendingMode) {
-      tlbText('COMING SOON', x + 32, nameY + 4, COL.orange, 1);
-    } else {
-      tlbText('BE THE FIRST!', x + 32, nameY + 4, COL.white, 1);
-    }
-  }
-  drawSpark(x + 12, bodyY + 3, 1 + (Math.floor(st * 8) % 2), COL.white);
-
-  const listTop = bodyY + champH + listPad;
-  for (let i = 1; i < SLOTS; i++) {
-    const r = rows[i], ry = listTop + (i - 1) * pitch;
+  const champH = 44, pitch = 16, nList = Math.max(0, Math.min(TLB_MAX_LIST, Math.floor((h - headH - 5 - 44 - 4) / 16)));
+  row(rows[0], 0, fx + 5, fy + Math.round((champH - 20) / 2) + 1, fw - 10, 2);
+  ctx.drawImage(CROWN, fx + 3, fy + 1);
+  for (let i = 1; i <= nList && i < rows.length; i++) {
+    const ry = fy + champH + 2 + (i - 1) * pitch;
     if (ry + 12 > y + h - 4) break;
-    const tone = TLB_TONES[Math.min(i, TLB_TONES.length - 1)] || ['#a8b8d0', '#6c7c94', '#3c4c64'];
-    const [c1, c2, c3] = tone;
-    const badge = Math.min(10, Math.max(8, pitch - 6));
-    const by = ry + Math.max(0, Math.round((Math.min(14, pitch) - badge) / 2));
-    rect(x + 8, by, badge, badge, c3); rect(x + 9, by, badge - 2, badge, c2); rect(x + 8, by + 1, badge, badge - 2, c2); rect(x + 9, by + 1, 2, 1, c1);
-    text3(ctx, String(i + 1), x + 10, by + 2, '#000');
-    const ty = by + Math.max(0, Math.round((badge - 7) / 2));
-    if (!r) { tlbText('---', x + 22, ty, '#3c4c64'); continue; }
-    const s2 = fmtRel(r.to_par), sw = textW(s2, 1);
-    let n = r.name;
-    const room = (x + w - 8 - sw - 4) - (x + 22);
-    while (n.length > 1 && textW(n) > room) n = n.slice(0, -1);
-    tlbText(n, x + 22, ty, c1, 1);
-    tlbText(s2, x + w - 8 - sw, ty, r.to_par < 0 ? COL.lime : (r.to_par === 0 ? COL.white : c1), 1);
+    rect(fx + 3, ry - 3, fw - 6, 1, '#dcd8c8');
+    row(rows[i], i, fx + 5, ry, fw - 10, 1);
   }
 }
-
 function fmtDate(s) { const d = new Date(s); if (!s || isNaN(d)) return '--'; const p = n => String(n).padStart(2, '0'); return p(d.getMonth() + 1) + '/' + p(d.getDate()) + '/' + p(d.getFullYear() % 100); }
 const fmtRel = d => d === 0 ? 'E' : (d > 0 ? '+' + d : String(d));
 function scoreName(strk, par) {
@@ -9549,8 +9486,26 @@ function outlined(str, x, y, col, s = 1) {
 function drawTextR(str, xr, y, col) { drawText(str, xr - textW(str), y, col); }
 
 /* Title fairway scenery — pixel props on the striped grass (cosmetic; desktop + portrait). */
-function drawTitleFairwayScenery() {
-  /* Title fairway: dog only (no props). Kept as a hook so layout stays simple. */
+function drawTitleFairwayScenery() {   // v8.99.32: layered title ground - rough lip, slanted mowing stripes, distant green + flag (dog only, no props)
+  if (halloweenOn()) return;
+  const f = TITLE_FAIR, gh = H - f + 2, A = '#6cc83c', B = '#58b030';
+  for (let yy = 0; yy < gh; yy++) {                       // mowing stripes that lean outward as they come toward you
+    const off = Math.round(yy * 0.6);
+    for (let sx = -40; sx < W + 40; sx += 24) {
+      const lean = Math.round((sx - W / 2) * yy / 220);
+      rect(sx + lean - off % 2, f + yy, 12, 1, A);
+    }
+  }
+  ctx.globalAlpha = 0.35; for (let sx = 0; sx < W; sx += 24) rect(sx + 12 + Math.round((sx - W / 2) * 0 / 220), f, 12, gh, B); ctx.globalAlpha = 1;
+  rect(0, f, W, 3, '#3c8c28');                           // rough lip along the horizon
+  for (let sx = 0; sx < W; sx += 3) if ((sx * 13) % 7 < 3) rect(sx, f - 1, 1, 2, '#3c8c28');
+  rect(0, f + 3, W, 1, '#2c6c20');
+  const gx = Math.round(W * 0.8), gy = f + 5;             // distant green with a flag
+  if (gy + 4 < H - 18) {
+    rect(gx - 9, gy, 18, 1, '#8ce060'); rect(gx - 12, gy + 1, 24, 2, '#8ce060'); rect(gx - 9, gy + 3, 18, 1, '#8ce060');
+    rect(gx, gy - 9, 1, 10, '#f0f0f0'); rect(gx + 1, gy - 9, 5, 2, '#e02020'); rect(gx + 1, gy - 7, 3, 1, '#e02020');
+    rect(gx - 1, gy + 1, 2, 1, '#103010');
+  }
 }
 
 const TITLE_CLOUDS = [[8, 8], [210, 14], [20, 168], [200, 160]];
@@ -9592,31 +9547,40 @@ function renderTitle() {
   // v8.18: PLAY / CAREER / DAILY / SHOP — label + small subheading; one row on desktop, 2x2 grid on narrow phones
   menuRects = [];
   const ML = MENU_L.items.length === MENU.length ? MENU_L : menuLayoutCalc();
-  const centers = [];
-  if (ML.grid) {
-    MENU_ROWS.forEach((row, ri) => row.forEach((i, ci) => centers[i] = { cx: Math.round(W * (ci * 2 + 1) / (row.length * 2)), y: MENU_Y0 + ri * (ML.itemH + ML.rowGap) }));
-  } else {
-    let mx = Math.round((W - ML.rowW) / 2);
-    ML.items.forEach((it, i) => { centers[i] = { cx: Math.round(mx + it.w / 2), y: MENU_Y0 }; mx += it.w + ML.gap; });
-  }
   ML.items.forEach((it, i) => {
-    const label = it.l, locked = !!MENU_LOCKED[label], { cx, y } = centers[i];
-    const sel = i === titleSel && !menuPopup && !ov, lw = textW(label, 2) + (locked ? 11 : 0), x = Math.round(cx - lw / 2) + (locked ? 11 : 0);
-    const key = 'menu' + i, dim = pressDim(key);
-    const sc = pressScale(key);
+    const label = it.l, x = it.bx, y = MENU_Y0 + it.by, key = 'menu' + i, dim = pressDim(key), sc = pressScale(key);
+    const sel = i === titleSel && !menuPopup && !ov, cx = x + it.w / 2, cy = y + it.h / 2;
     ctx.save();
-    if (sc !== 1) { const cy = y + 7; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
-    const lc = locked ? (sel || dim ? '#d8d8d8' : '#a4a4a4') : (dim || sel ? '#f8d878' : COL.white);
-    outlined(label, x, y, lc, 2);
-    if (locked) czPadlock(x - 7, y + 7, sel ? '#d8d8d8' : '#a4a4a4');
-    if (sel) outlined('>', Math.round(cx - lw / 2) - 15 + (Math.floor(st * 4) % 2), y, locked ? '#d8d8d8' : '#f8d878', 2);
-    it.lines.forEach((s, k) => {
-      const sx = Math.round(cx - textW(s) / 2), sy = y + 14 + ML.subDy + k * ML.line;
-      drawText(s, sx + 1, sy + 1, '#000'); drawText(s, sx - 1, sy, '#000'); drawText(s, sx + 1, sy, '#000'); drawText(s, sx, sy - 1, '#000');
-      drawText(s, sx, sy, locked ? '#bcbcbc' : (sel ? '#fce4a0' : COL.white));
-    });
+    if (sc !== 1) { ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
+    if (it.kind === 'p') {          // PLAY: full-size wood plank, gold trim + gold block text (primary)
+      const hot = sel || dim;
+      woodPlank(x, y, it.w, it.h, hot, hot ? '#fff0a0' : '#f0c850', 7);
+      rect(x + 4, y + 4, it.w - 8, 1, '#a87820'); rect(x + 4, y + it.h - 5, it.w - 8, 1, '#a87820');
+      const lw = blockW(label, 2), lx = Math.round(cx - lw / 2), ly = y + 7;
+      blockText(label, lx, ly, hot ? '#fff4c0' : '#f8d050', 2);
+      if (sel) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
+    } else if (it.kind === 's') {   // hanging country-club sign
+      const hot = sel || dim;
+      rect(x + 10, y - 7, it.w - 20, 2, '#2a1608'); rect(x + 10, y - 7, it.w - 20, 1, '#5c3c24');
+      for (const cx0 of [x + 18, x + it.w - 20]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
+      woodPlank(x, y, it.w, it.h, hot, hot ? '#fffaf0' : '#f0e4c0', 3);
+      const pw = 11, px = Math.round(x + (it.w - pw) / 2); rect(px - 1, y + 3, pw + 3, 7, '#3a2210'); text3(ctx, 'PRO', px, y + 4, '#f0c850');
+      rect(px - 14, y + 6, 11, 1, '#f0c850'); rect(px + pw + 4, y + 6, 11, 1, '#f0c850');
+      const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 11;
+      blockText(label, lx, ly, hot ? '#fffaf0' : '#f4ead0', 2);
+      if (sel) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);
+    } else if (it.kind === 'c') {   // CAREER: slimmer wood plank, cream trim + block text
+      woodPlank(x, y, it.w, it.h, sel || dim, '#f0e4c0', 11);
+      const lw = blockW(label), lx = Math.round(x + (it.w - lw) / 2), ly = y + Math.round((it.h - 7) / 2) - 1;
+      blockText(label, lx, ly, sel || dim ? '#fffaf0' : '#f0e4c0');
+      if (sel) blockText('>', lx - 10 + (Math.floor(st * 4) % 2), ly, '#f0e4c0');
+    } else {                        // GALLERY: small tertiary text
+      const c = sel || dim ? '#f8d878' : '#e8f0ff';
+      drawText(label, x + 5, y + 1, '#000'); drawText(label, x + 4, y, c);
+      if (sel) rect(x + 4, y + 9, textW(label), 1, c);
+    }
     ctx.restore();
-    menuRects.push({ x: Math.round(cx - it.w / 2) - 8, y: y - 3, w: it.w + 16, h: ML.itemH + 6, i });
+    menuRects.push({ x: x - 2, y: y - (it.kind === 't' ? 4 : it.kind === 's' ? 8 : 2), w: it.w + 4, h: it.h + (it.kind === 't' ? 8 : it.kind === 's' ? 10 : 4), i });
   });
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
@@ -10425,7 +10389,7 @@ function syncWindInd() {   // v8.99: bigger bold number + arrow, streaks flowing
 function render() {
   windHud = false;
   renderScene();
-  if (state === 'title') { drawSpookyBanner(); drawHomeYtButton(); drawHomeIgButton(); drawFollowButton(); drawHomeShareButton(); drawGearButton(); drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
+  if (state === 'title') { drawSpookyBanner(); drawFollowButton(); drawHomeYtButton(); drawHomeIgButton(); drawHomeShareButton(); drawGearButton(); if (FS_BTN.w) drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
   drawShotPill();   // v8.78
@@ -11204,13 +11168,15 @@ function drawLbiBanner() {
   const dim = pressDim('lbi') || (mouse.seen && hit(mouse, b));
   rect(b.x - 1, b.y - 1, b.w + 2, b.h + 2, '#000'); rect(b.x, b.y, b.w, b.h, dim ? '#0c2c1c' : '#14462D');
   rect(b.x, b.y, b.w, 1, '#D4AF37'); rect(b.x, b.y + b.h - 1, b.w, 1, '#D4AF37');
-  drawLbiFlag(b.x + 7, b.y + 8); drawLbiFlag(b.x + b.w - 14, b.y + 8);
-  const l1 = lbiName(true), me = LBI.info && LBI.info.me, p = lbiPhase();
-  let l2 = lbiStatusLine();
-  if (p.k === 'pre') l2 = (me && me.registered ? "YOU'RE IN · " : 'REGISTER · ') + l2;
-  if (textW(l2) > b.w - 34) l2 = l2.replace(' LEFT', '');
-  drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2) + 1, b.y + 5, '#000'); drawText(l1, Math.round(b.x + (b.w - textW(l1)) / 2), b.y + 4, '#D4AF37');
-  drawText(l2, Math.round(b.x + (b.w - textW(l2)) / 2), b.y + 15, COL.white);
+  drawLbiFlag(b.x + 6, b.y + 3); drawLbiFlag(b.x + b.w - 13, b.y + 3);   // v8.99.32: one slim line  NAME · STATUS
+  const me = LBI.info && LBI.info.me, p = lbiPhase(), room = b.w - 34, st0 = lbiStatusLine().replace(' LEFT', '');
+  const tag = p.k === 'pre' ? (me && me.registered ? "YOU'RE IN" : 'REGISTER') : '', full = tag ? tag + ' · ' + st0 : st0;
+  const n0 = lbiName(false), n1 = n0.replace(/^THE /, ''), n2 = n1.replace(/ INVITATIONAL$/, '');
+  let l1 = n2, l2 = '';
+  for (const [a1, a2] of [[n0, full], [n1, full], [n2, full], [n1, tag || st0], [n2, tag || st0], [n2, '']]) { if (textW(a1 + (a2 ? ' · ' + a2 : '')) <= room) { l1 = a1; l2 = a2; break; } }
+  const sep = l2 ? ' · ' : '', tw = textW(l1 + sep + l2), tx = Math.round(b.x + (b.w - tw) / 2), ty = b.y + Math.round((b.h - 7) / 2);
+  drawText(l1, tx + 1, ty + 1, '#000'); drawText(l1, tx, ty, '#D4AF37');
+  if (l2) drawText(sep + l2, tx + textW(l1), ty, COL.white);
 }
 function lbiOpen(tab) {
   try { trackEvent('lbi_open', {}); } catch (e) {}
