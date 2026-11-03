@@ -270,7 +270,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.32';
+const GAME_VERSION = 'v8.99.33';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4682,7 +4682,7 @@ let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or 
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
 function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = secondary button, CAREER (+GALLERY) = small text
   const landscape = H <= W * 1.15, PW = 132, PH = 28, SW = 132, SH = 28, TH = 9, G = 6;
-  const items = MENU.map(l => l === 'PLAY' ? { l, kind: 'p', w: PW, h: PH } : l === 'SHOP' ? { l, kind: 's', w: SW, h: SH } : l === 'CAREER' ? { l, kind: 'c', w: landscape ? 96 : SW, h: 19 } : { l, kind: 't', w: textW(l) + 8, h: TH });   // v8.99.32: CAREER = navy secondary button
+  const items = MENU.map(l => l === 'PLAY' ? { l, kind: 'p', w: PW, h: PH } : l === 'SHOP' ? { l, kind: 's', w: SW, h: SH } : l === 'CAREER' ? { l, kind: 'c', w: SW, h: SH } : { l, kind: 't', w: textW(l) + 8, h: TH });   // v8.99.32: CAREER = navy secondary button
   const tert = items.filter(it => it.kind === 't'), tW = tert.reduce((a, it) => a + it.w, 0) + 14 * Math.max(0, tert.length - 1);
   if (landscape) {   // one row: [PLAY] [SHOP] CAREER, vertically centered on the PLAY button
     const ft = 0, fw = 0;   // v8.99.32: IG + YT moved to the top icon row
@@ -4694,7 +4694,11 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     const ft = 0, fw = 0, rowH = 0, withF = false;   // v8.99.32: IG + YT moved to the top icon row
     const tW2 = tW + (withF ? (tW ? 10 : 0) + fw : 0);
     let yy = 0, tx = Math.round((W - tW2) / 2); MENU_ROWS = [];
-    items.forEach((it, i) => { if (it.kind !== 't') { if (it.kind === 's') yy += 7;   /* room for the sign's hanging bar + chains */ it.bx = Math.round((W - it.w) / 2); it.by = yy; yy += it.h + G; MENU_ROWS.push([i]); } });
+    const HW = 84, HG = 4; let pRow = null, pIt = null;   // v8.99.33: PLAY | CAREER = two equal planks on one row under the SHOP sign
+    items.forEach((it, i) => { if (it.kind === 't') return;
+      if ((it.kind === 'p' || it.kind === 'c') && pIt) { it.w = HW; it.h = 28; it.bx = pIt.bx + HW + HG; it.by = pIt.by; pRow.push(i); return; }
+      if (it.kind === 'p' || it.kind === 'c') { it.w = HW; it.h = 28; it.bx = Math.round((W - (HW * 2 + HG)) / 2); it.by = yy; pIt = it; pRow = [i]; MENU_ROWS.push(pRow); yy += it.h + G; return; }
+      if (it.kind === 's') yy += 7;   /* room for the sign's hanging bar + chains */ it.bx = Math.round((W - it.w) / 2); it.by = yy; yy += it.h + G; MENU_ROWS.push([i]); });
     yy -= G;
     const tr = []; items.forEach((it, i) => { if (it.kind === 't') { it.bx = tx; it.by = yy + Math.round((rowH - TH) / 2) + 1; tx += it.w + 14; tr.push(i); } });
     if (tr.length) MENU_ROWS.push(tr);
@@ -4778,7 +4782,7 @@ let CS_ARW_L = { x: 0, y: 0, w: 0, h: 0 }, CS_ARW_R = { x: 0, y: 0, w: 0, h: 0 }
 let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
 const KB_CW = 20, KB_CH = 15;
-var TLB_MAX_LIST = 6;   // v8.99.32 (var: layoutChrome runs before the board code is reached)
+var TLB_MAX_LIST = 8;   // v8.99.32 (var: layoutChrome runs before the board code is reached)
 function layoutChrome() {
   // chrome hugs the safe content box (canvas itself is full-bleed so grass reaches the home indicator)
   const st = SAFE.t || 0, sl = SAFE.l || 0, sr = SAFE.r || 0;
@@ -4830,7 +4834,7 @@ function layoutChrome() {
     const safeBot = (SAFE.b || 0) + 4, dogMin = Math.max(36, 28 + safeBot);
     // spread the spare height evenly: logo->menu, menu->board, and extra grass under the board
     let spare = H - dogMin - logoBot - menuH - boardH;
-    if (spare < 20) { boardH = Math.max(26 + 44 + 6, boardH + spare - 20); spare = 20; }
+    if (spare < 20) { boardH = Math.max(26 + 44 + 6, boardH + spare - 20); const fitN = Math.max(0, Math.floor((boardH - 80) / 16)); const snapH = 26 + 44 + (fitN ? 4 + fitN * 16 : 0) + 6; spare += boardH - snapH + (boardH + spare - 20 - boardH); boardH = snapH; spare = Math.max(20, H - dogMin - logoBot - menuH - boardH); }   // v8.99.33: snap to whole rows
     let g1 = Math.min(28, Math.round(spare / 3)), g2 = Math.round((spare - g1) / 2);
     g2 = Math.max(10, g2);
     MENU_Y0 = logoBot + g1;
@@ -9558,7 +9562,7 @@ function renderTitle() {
       rect(x + 4, y + 4, it.w - 8, 1, '#a87820'); rect(x + 4, y + it.h - 5, it.w - 8, 1, '#a87820');
       const lw = blockW(label, 2), lx = Math.round(cx - lw / 2), ly = y + 7;
       blockText(label, lx, ly, hot ? '#fff4c0' : '#f8d050', 2);
-      if (sel) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
+      if (sel && it.w >= 100) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
     } else if (it.kind === 's') {   // hanging country-club sign
       const hot = sel || dim;
       rect(x + 10, y - 7, it.w - 20, 2, '#2a1608'); rect(x + 10, y - 7, it.w - 20, 1, '#5c3c24');
@@ -9571,16 +9575,16 @@ function renderTitle() {
       if (sel) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);
     } else if (it.kind === 'c') {   // CAREER: slimmer wood plank, cream trim + block text
       woodPlank(x, y, it.w, it.h, sel || dim, '#f0e4c0', 11);
-      const lw = blockW(label), lx = Math.round(x + (it.w - lw) / 2), ly = y + Math.round((it.h - 7) / 2) - 1;
-      blockText(label, lx, ly, sel || dim ? '#fffaf0' : '#f0e4c0');
-      if (sel) blockText('>', lx - 10 + (Math.floor(st * 4) % 2), ly, '#f0e4c0');
+      const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 7;
+      blockText(label, lx, ly, sel || dim ? '#fffaf0' : '#f0e4c0', 2);
+      if (sel && it.w >= 100) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f0e4c0', 2);
     } else {                        // GALLERY: small tertiary text
       const c = sel || dim ? '#f8d878' : '#e8f0ff';
       drawText(label, x + 5, y + 1, '#000'); drawText(label, x + 4, y, c);
       if (sel) rect(x + 4, y + 9, textW(label), 1, c);
     }
     ctx.restore();
-    menuRects.push({ x: x - 2, y: y - (it.kind === 't' ? 4 : it.kind === 's' ? 8 : 2), w: it.w + 4, h: it.h + (it.kind === 't' ? 8 : it.kind === 's' ? 10 : 4), i });
+    menuRects.push({ x: x - (it.kind === 'p' || it.kind === 'c' ? 1 : 2), y: y - (it.kind === 't' ? 4 : it.kind === 's' ? 8 : 2), w: it.w + (it.kind === 'p' || it.kind === 'c' ? 2 : 4), h: it.h + (it.kind === 't' ? 8 : it.kind === 's' ? 10 : 4), i });
   });
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
