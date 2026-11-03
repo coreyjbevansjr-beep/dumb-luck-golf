@@ -38,7 +38,9 @@
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   /* v8.99.32: top stays sky blue (theme-color + html top half); everything below the canvas (Safari toolbar, home-indicator
      safe area, iOS 26 translucent-bar sampling at the bottom edge) is the grass colour. --gb is synced to the canvas bottom row by JS. */
-  html{background:linear-gradient(to bottom,#63adff 0,#63adff 50%,var(--gb,#80d010) 50%,var(--gb,#80d010) 100%) #63adff}
+  /* v8.99.35: the gradient no longer repeats - it used to tile and paint a sky band under the grass on iPhone (home-indicator strip).
+     Sized 100% + 600px tall from the top, so the top half stays sky and everything below the canvas, however far iOS paints, is grass. */
+  html{background-color:#63adff;background-image:linear-gradient(to bottom,#63adff 0,#63adff 50vh,var(--gb,#80d010) 50vh,var(--gb,#80d010) 100%);background-repeat:no-repeat;background-position:0 0;background-size:100% calc(100% + 600px)}
   body{background:transparent}
   #gbot{position:fixed;left:0;right:0;top:calc(100dvh - 2px);height:calc(100lvh - 100dvh + env(safe-area-inset-bottom,0px) + 240px);background:var(--gb,#80d010);pointer-events:none}
   /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
@@ -270,7 +272,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.34';
+const GAME_VERSION = 'v8.99.35';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -10177,40 +10179,42 @@ function renderBoard() {
   try { renderBoardPanel(); } finally { W = W0; ctx.restore(); }
 }
 function renderBoardPanel() {
-  rect(8, 6, 240, 226, COL.white); rect(9, 7, 238, 224, '#000');
+  // v8.99.35: same colours as the home-screen tournament scoreboard (green frame, cream tile area, ink + red)
+  const GRN = '#0e4a2c', GRN2 = '#16603a', GDK = '#062a16', CRM = '#f2f0e6', INK = '#141414', RED = '#c41a1a', GOLD = '#e8c870', CTX = '#f4ead0', MUT = '#6c6c60', MUTG = '#9cc8a8';
+  rect(9, 8, 240, 226, 'rgba(0,0,0,0.3)'); rect(8, 6, 240, 226, '#000'); rect(9, 7, 238, 224, GRN); rect(9, 7, 238, 1, GRN2);
+  rect(13, 69, 230, 127, GDK); rect(14, 70, 228, 125, CRM); rect(14, 70, 228, 1, '#c8c4b0');
   const cup = board.modeId === 'spooky';
   if (cup) {   // v8.52 SPOOKY CUP header: title, prize line, countdown
     drawPumpkin(16, 12); drawTextC('SPOOKY CUP', 12, COL.orange, 2);
     drawTextC(SPOOKY_CUP.prize, 31, '#f8d878');
     drawText(cupLive() ? 'ENDS IN ' + cupLeft() : cupNow() < SPOOKY_CUP.start ? 'STARTS OCT 14' : 'CUP OVER', 14, 47, cupLive() ? COL.orange : COL.gray);
-  } else drawTextC('LEADERBOARD', 12, COL.orange, 2);
+  } else drawTextC('LEADERBOARD', 12, CTX, 2);
   for (const t of boardTabRects0()) {
     const on = boardTabOn(t);
     if (t.center) {   // v8.99.16: course name + player count; the most popular course comes first
       const n = lbPop.n[board.modeId];
       const nm = LB_NAMES[board.modeId] || board.modeId.toUpperCase(), sub = n > 0 ? '  ' + n + (n === 1 ? ' PLAYER' : ' PLAYERS') : '';
       const tw = textW(nm) + textW(sub), x0 = t.x + Math.round((t.w - tw) / 2);
-      drawText(nm, x0, t.y + 3, '#f8d878'); if (sub) drawText(sub, x0 + textW(nm), t.y + 3, COL.gray);
+      drawText(nm, x0, t.y + 3, GOLD); if (sub) drawText(sub, x0 + textW(nm), t.y + 3, MUTG);
       continue; }
-    if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828'); drawText(t.label, t.x + 4, t.y + 2, on ? '#000' : COL.gray); continue; }   // v8.61 IG chip (pink)
-    rect(t.x, t.y, t.w, t.h, on ? '#f8d878' : '#3c3c3c'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, '#101828');
-    drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? '#000' : COL.gray);
-    if (on) { rect(t.x, t.y + t.h - 1, t.w, 1, '#c89838'); rect(t.x + 1, t.y, t.w - 2, 1, '#fcf0b8'); }   // v8.90: lit top edge + shaded base
+    if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#4c8c64'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, GDK); drawText(t.label, t.x + 4, t.y + 2, on ? INK : CTX); continue; }   // v8.61 IG chip (pink)
+    rect(t.x, t.y, t.w, t.h, on ? GOLD : '#4c8c64'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, GDK);
+    drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? INK : CTX);
+    if (on) { rect(t.x, t.y + t.h - 1, t.w, 1, '#b08c38'); rect(t.x + 1, t.y, t.w - 2, 1, '#fcf0c8'); }   // v8.90: lit top edge + shaded base
   }
   const hy = 60;
   const sx = cup ? 214 : 162, px = cup ? 240 : 189;   // v8.61: SPOOKY CUP has no date column - IG gets its own line
-  drawTextR('#', 24, hy, COL.lime); drawText('PLAYER', 40, hy, COL.lime); drawTextR('STRK', sx, hy, COL.lime);
-  drawTextR('PAR', px, hy, COL.lime); if (!cup) drawText('DATE', 195, hy, COL.lime);
-  rect(14, hy + 9, 228, 1, '#3c3c3c');
+  drawTextR('#', 24, hy, GOLD); drawText('PLAYER', 40, hy, GOLD); drawTextR('STRK', sx, hy, GOLD);
+  drawTextR('PAR', px, hy, GOLD); if (!cup) drawText('DATE', 195, hy, GOLD);
   const rows = board.rows;
-  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawTextC('LOADING...', 120, COL.white); }
-  else if (board.needSignIn) { drawTextC('FRIENDS BOARD', 104, COL.white); drawTextC('SIGN IN ON THE CAREER SCREEN', 118, COL.gray); drawTextC('TO SEE YOUR FRIENDS', 128, COL.gray); }
-  else if (board.modeId === 'coral' && !rows.length && !isSignedIn() && boardScope === 'all') { drawTextC('NO CORAL SCORES YET', 104, COL.white); drawTextC('CORAL CLIFFS IS A CAREER COURSE', 118, COL.gray); drawTextC('SIGN IN TO PLAY IT', 128, COL.gray); }
-  else if (cup && !rows.length && boardScope === 'all') { drawTextC(board.src === 'error' ? 'COULD NOT LOAD' : 'NO SCORES YET', 104, COL.white); drawTextC(isSignedIn() ? 'PLAY THE SPOOKY CUP TO' : 'SIGN IN ON THE CAREER SCREEN', 118, COL.gray); drawTextC(isSignedIn() ? 'GET ON THE BOARD' : 'TO ENTER', 128, COL.gray); }
+  if (!rows) { if (Math.floor(st * 3) % 2 === 0) drawTextC('LOADING...', 120, INK); }
+  else if (board.needSignIn) { drawTextC('FRIENDS BOARD', 104, INK); drawTextC('SIGN IN ON THE CAREER SCREEN', 118, MUT); drawTextC('TO SEE YOUR FRIENDS', 128, MUT); }
+  else if (board.modeId === 'coral' && !rows.length && !isSignedIn() && boardScope === 'all') { drawTextC('NO CORAL SCORES YET', 104, INK); drawTextC('CORAL CLIFFS IS A CAREER COURSE', 118, MUT); drawTextC('SIGN IN TO PLAY IT', 128, MUT); }
+  else if (cup && !rows.length && boardScope === 'all') { drawTextC(board.src === 'error' ? 'COULD NOT LOAD' : 'NO SCORES YET', 104, INK); drawTextC(isSignedIn() ? 'PLAY THE SPOOKY CUP TO' : 'SIGN IN ON THE CAREER SCREEN', 118, MUT); drawTextC(isSignedIn() ? 'GET ON THE BOARD' : 'TO ENTER', 128, MUT); }
   else if (!rows.length) {
-    drawTextC(board.src === 'error' ? 'COULD NOT LOAD' : 'NO SCORES YET', 104, COL.white);
-    drawTextC(boardScope === 'friends' ? 'ADD FRIENDS ON THE CAREER SCREEN' : boardPeriod === 'weekly' ? 'NEW WEEK EVERY MONDAY' : 'FINISH A ROUND TO', 118, COL.gray);
-    if (boardScope !== 'friends') drawTextC('GET ON THE BOARD', 128, COL.gray);
+    drawTextC(board.src === 'error' ? 'COULD NOT LOAD' : 'NO SCORES YET', 104, INK);
+    drawTextC(boardScope === 'friends' ? 'ADD FRIENDS ON THE CAREER SCREEN' : boardPeriod === 'weekly' ? 'NEW WEEK EVERY MONDAY' : 'FINISH A ROUND TO', 118, MUT);
+    if (boardScope !== 'friends') drawTextC('GET ON THE BOARD', 128, MUT);
   }
   else { board.igRects = []; board.rowRects = []; let yy = 73; const nowMs = performance.now(), tIn = (nowMs - (board.t0 || 0)) / 1000; rows.forEach((r, i) => {
     const me = i === board.hi || r.me, own = r.verified && isSignedIn() && hasUsername() && String(r.name).toUpperCase() === myName();
@@ -10220,47 +10224,46 @@ function renderBoardPanel() {
     // v8.90: rows ease in one after another (alpha + a short slide), once per load
     const ain = REDUCED_MOTION ? 1 : clamp((tIn - i * 0.045) / 0.22, 0, 1); if (ain <= 0) return;
     ctx.save(); if (ain < 1) { ctx.globalAlpha = ain; ctx.translate(Math.round(10 * (1 - ain) * (1 - ain)), 0); }
-    if (me) rect(12, y - 2, 232, rh - 1, COL.blueD);
+    if (me) rect(14, y - 2, 228, rh - 1, '#f4e0a0');
     else if (i < 3) {   // v8.90: gold / silver / bronze band + a slow shine sweep
       const mc = MEDALS[i][0], ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.16; rect(12, y - 2, 232, rh - 1, mc); ctx.globalAlpha = ga * 0.5; rect(12, y - 2, 1, rh - 1, mc);
       if (!REDUCED_MOTION) { const ph = ((nowMs / 1000 + i * 0.35) % 4) / 1.1; if (ph < 1) { const sx0 = Math.round(12 + ph * 232); ctx.globalAlpha = ga * 0.22; rect(sx0, y - 2, 3, rh - 1, '#fcfcfc'); rect(sx0 + 4, y - 2, 1, rh - 1, '#fcfcfc'); } }
       ctx.globalAlpha = ga; }
     if (r.verified) board.rowRects.push({ x: 12, y: y - 2, w: 232, h: rh - 1, name: String(r.name) });
-    const c = me ? '#f8d878' : COL.white;
+    const c = INK;
     if (i < 3) drawMedal(15, y - 1, i); else drawTextR(String(i + 1), 24, y, c);
     let nx = 40;
     if (r.verified) { const g = playerBust(r.appearance, gearFor(r.name), 'sm'); if (g) ctx.drawImage(g, 27, y - 2); }   // v8.64: detailed bust + equipped gear (cached)
     const nm = r.name.length > 14 ? r.name.slice(0, 14) : r.name;
     drawText(nm, nx, y, c); if (r.verified) drawCheck(nx + textW(nm) + 2, y - 1);
     drawTextR(String(r.strokes), sx, y, c);
-    drawTextR(fmtRel(r.to_par), px, y, me ? c : (r.to_par < 0 ? COL.lime : r.to_par > 0 ? COL.orange : COL.white));   // v8.90: even par reads white
-    if (!cup) drawText(fmtDate(r.created_at), 195, y, me ? c : COL.gray);
+    drawTextR(fmtRel(r.to_par), px, y, me ? c : (r.to_par < 0 ? RED : INK));   // v8.90: even par reads white
+    if (!cup) drawText(fmtDate(r.created_at), 195, y, me ? c : MUT);
     else if (two) {   // v8.61: full @handle on its own line, tap = open Instagram (own row without one: + ADD IG)
       const lab = ig ? '@' + ig.toUpperCase() : '+ ADD IG', w = textW(lab);
-      drawText(lab, 40, y + 10, ig ? '#f8a0d8' : COL.gray);
+      drawText(lab, 40, y + 10, ig ? '#a8307c' : MUT);
       if (ig) rect(40, y + 18, w, 1, '#7c3c6c');
       board.igRects.push({ x: 38, y: y + 7, w: w + 4, h: 13, ig: ig || '' });
     }
     ctx.restore();
   }); }
-  rect(14, 195, 228, 1, '#3c3c3c');
   if (rows && !board.needSignIn) {
     const m = board.me, e = board.entry;
-    if (board.hi >= 0 && e) drawTextC('NICE ROUND, ' + e.name + '!', 200, COL.lime);
+    if (board.hi >= 0 && e) drawTextC('NICE ROUND, ' + e.name + '!', 200, GOLD);
     else if (m && m.rank > 0) {   // v8.90: pinned YOU row - your rank, bust, name and best, always on screen
-      const y = 200, sx = cup ? 214 : 162, px = cup ? 240 : 189, c = '#f8d878';
-      rect(12, y - 3, 232, 13, COL.blueD); rect(12, y - 3, 232, 1, '#3cbcfc');
+      const y = 200, sx = cup ? 214 : 162, px = cup ? 240 : 189, c = GOLD;
+      rect(12, y - 3, 232, 13, GDK); rect(12, y - 3, 232, 1, GOLD);
       drawTextR(String(m.rank), 24, y, c);
       try { if (isSignedIn()) { const g = playerBust(lookToJson(player), gearEquipped(), 'sm'); if (g) ctx.drawImage(g, 27, y - 2); } } catch (e) {}
       const nm = (isSignedIn() && hasUsername() ? myName() : 'YOU').slice(0, 14); drawText(nm, 40, y, c);
       drawTextR(String(m.strokes), sx, y, c); drawTextR(fmtRel(m.to_par), px, y, c);
-      if (!cup) drawText('OF ' + m.total, 195, y, COL.gray);
+      if (!cup) drawText('OF ' + m.total, 195, y, MUTG);
     }
-    else if (m) drawTextC('YOUR BEST: ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, '#f8d878');
-    else if (e && lbModeId(e.mode) === board.modeId) drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 200, COL.orange);
-    else drawTextC(cup ? 'BEST SINGLE ROUND COUNTS' : boardPeriod === 'weekly' ? 'WEEK STARTS MONDAY 12AM ET' : 'ALL-TIME BEST SCORES', 200, COL.gray);
+    else if (m) drawTextC('YOUR BEST: ' + m.strokes + ' (' + fmtRel(m.to_par) + ')', 200, GOLD);
+    else if (e && lbModeId(e.mode) === board.modeId) drawTextC('YOU: ' + e.strokes + ' (' + fmtRel(e.to_par) + ')  NOT IN TOP 10', 200, GOLD);
+    else drawTextC(cup ? 'BEST SINGLE ROUND COUNTS' : boardPeriod === 'weekly' ? 'WEEK STARTS MONDAY 12AM ET' : 'ALL-TIME BEST SCORES', 200, MUTG);
   }
-  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > COURSE  UP/DN PERIOD  ENTER = MENU', 215, COL.white);
+  if (st > 0.3 && Math.floor(st * 2) % 2 === 0) drawTextC(usingTouch ? 'TAP BELOW TABS = MENU' : '< > COURSE  UP/DN PERIOD  ENTER = MENU', 215, CTX);
 }
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function shareModeLabel() {
@@ -10462,7 +10465,7 @@ function syncPageBg() {
     if (pageBgCv.width !== w || pageBgCv.height !== 2) { pageBgCv.width = w; pageBgCv.height = 2; }
     pageBgCtx.clearRect(0, 0, w, 2); pageBgCtx.drawImage(cv, 0, 0, w, 1, 0, 0, w, 1); pageBgCtx.drawImage(cv, 0, h - 1, w, 1, 0, 1, w, 1);
     const d = pageBgCtx.getImageData(0, 0, w, 2).data, top = rowMode(d, 0, w), col = rowMode(d, w * 4, w);
-    if (top !== pageTopCol) { pageTopCol = top; document.documentElement.style.backgroundColor = top; document.body.style.backgroundColor = top; }
+    if (top !== pageTopCol) { pageTopCol = top; document.documentElement.style.backgroundColor = top; }   // v8.99.35: body stays transparent so the html sky/grass split shows below the canvas
     if (!groundFillEl) groundFillEl = document.getElementById('groundFill');
     if (col !== pageBgCol) { pageBgCol = col; if (groundFillEl) groundFillEl.style.backgroundColor = col; }
   } catch (e) {}
