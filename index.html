@@ -279,7 +279,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.43';
+const GAME_VERSION = 'v8.99.44';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4725,7 +4725,7 @@ const MENU_LOCKED = {};   // v8.99.27: SHOP unlocked (real BUY NOW items) - no p
 let MENU_ROWS = [MENU.map((_, i) => i)];                // one row (desktop) or a 2x2 grid (phone); see menuLayoutCalc
 let MENU_L = { grid: false, itemH: 14, blockH: 14, rowGap: 0, items: [] };
 function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = secondary button, CAREER (+GALLERY) = small text
-  const landscape = H <= W * 1.15, PW = 132, PH = 28, SW = 132, SH = 28, TH = 9, G = 6;
+  const landscape = H <= W * 1.15, PW = 132, PH = 28, SW = 132, SH = 34, TH = 9, G = 6;
   const items = MENU.map(l => l === 'PLAY' ? { l, kind: 'p', w: PW, h: PH } : l === 'SHOP' ? { l, kind: 's', w: SW, h: SH } : l === 'CAREER' ? { l, kind: 'c', w: SW, h: SH } : { l, kind: 't', w: textW(l) + 8, h: TH });   // v8.99.32: CAREER = navy secondary button
   const tert = items.filter(it => it.kind === 't'), tW = tert.reduce((a, it) => a + it.w, 0) + 14 * Math.max(0, tert.length - 1);
   if (landscape) {   // one row: [PLAY] [SHOP] CAREER, vertically centered on the PLAY button
@@ -4736,7 +4736,7 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     if (shortL && MENU_COLW && rowW > MENU_COLW - 4) {   // v8.99.37: left column too narrow for one row - SHOP sign hanging over PLAY | CAREER (like the phone), centred in the column
       const HW = Math.min(84, Math.floor((MENU_COLW - 8) / 2)), HG = 4; let yy = 7; MENU_ROWS = [];
       const sIt = items.find(it => it.kind === 's'), pc = items.filter(it => it.kind === 'p' || it.kind === 'c');
-      if (sIt) { sIt.w = Math.min(132, MENU_COLW - 4); sIt.h = PH; sIt.bx = Math.round(MENU_CX - sIt.w / 2); sIt.by = yy; MENU_ROWS.push([items.indexOf(sIt)]); yy += PH + G; }
+      if (sIt) { sIt.w = Math.min(132, MENU_COLW - 4); sIt.h = SH; sIt.bx = Math.round(MENU_CX - sIt.w / 2); sIt.by = yy; MENU_ROWS.push([items.indexOf(sIt)]); yy += SH + G; }
       pc.forEach((it, j) => { it.w = HW; it.h = PH; it.bx = Math.round(MENU_CX - (HW * 2 + HG) / 2) + j * (HW + HG); it.by = yy; });
       MENU_ROWS.push(pc.map(it => items.indexOf(it))); yy += PH;
       MENU_L = { grid: true, items, blockH: yy, itemH: PH, fx: 0, fy: 0, fw: 0, fh: 0 };
@@ -9674,11 +9674,14 @@ function renderTitle() {
       if (hang) rect(x + 14, y - 7, it.w - 28, 2, '#2a1608'), rect(x + 14, y - 7, it.w - 28, 1, '#5c3c24');   // v8.99.34: bar ends right at the chains
       if (hang) for (const cx0 of [x + 15, x + it.w - 17]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
       woodPlank(x, y, it.w, it.h, hot, hot ? '#fffaf0' : '#f0e4c0', 3);
-      const pw = 11, px = Math.round(x + (it.w - pw) / 2); rect(px - 1, y + 3, pw + 3, 7, '#3a2210'); text3(ctx, 'PRO', px, y + 4, '#f0c850');
-      rect(px - 14, y + 6, 11, 1, '#f0c850'); rect(px + pw + 4, y + 6, 11, 1, '#f0c850');
-      const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 11;
+      // v8.99.44: PRO tag + SHOP centred as one unit inside the trim (trim rows y+2 / y+h-3): 1px pad, tag 7, gap 2, SHOP 17 (incl. shadow), 1px pad
+      const gh = 7 + 2 + 17, gy = y + 3 + Math.max(0, Math.floor((it.h - 6 - gh) / 2));
+      const pw = 11, px = Math.round(x + (it.w - pw) / 2); rect(px - 1, gy, pw + 3, 7, '#3a2210'); text3(ctx, 'PRO', px, gy + 1, '#f0c850');
+      rect(px - 14, gy + 3, 11, 1, '#f0c850'); rect(px + pw + 4, gy + 3, 11, 1, '#f0c850');
+      const lw = blockW(label, 2), aw = blockW('>', 2), ag = 6, arrow = sel && aw + ag + lw <= it.w - 16;
+      const ux = Math.round(x + (it.w - (arrow ? aw + ag + lw : lw)) / 2), lx = arrow ? ux + aw + ag : ux, ly = gy + 7 + 2 + 1;
       blockText(label, lx, ly, hot ? '#fffaf0' : '#f4ead0', 2);
-      if (sel && lx - 22 >= x + 4) blockText('>', lx - 20 + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);   // v8.99.34: clear of the S
+      if (arrow) blockText('>', ux + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);   // arrow + SHOP centred together
     } else if (it.kind === 'c') {   // CAREER: slimmer wood plank, cream trim + block text
       woodPlank(x, y, it.w, it.h, sel || dim, '#f0e4c0', 11);
       const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 7;
