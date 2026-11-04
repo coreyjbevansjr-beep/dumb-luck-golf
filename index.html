@@ -272,7 +272,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.37';
+const GAME_VERSION = 'v8.99.38';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4600,7 +4600,7 @@ function hlSave() {
 }
 /* ---- v8.95 the Dumb Luck Duck (ADMIN LAB PREVIEW ONLY - players never see it until Corey approves) ---- */
 let duckLab = false; try { duckLab = localStorage.getItem('dlg_duck_lab') === '1'; } catch (e) {}
-function duckOn() { return !!duckLab && ((admin.is && isSignedIn()) || (AUTH_TEST && window.__duckForce)); }
+function duckOn() { return false; }   // v8.99.38: duck removed from the whole game
 const DUCK_MAP = [
   '.....KKKK.......',
   '....KKKKKK......',
@@ -4881,7 +4881,8 @@ function layoutChrome() {
     LOGO_Y = Math.max(iconBot + 2 + cupB, Math.max(3, Math.round(H * 0.012)));
     MENU_CX = Math.round(W / 2);
     if (H < 300) {   // v8.99.34: short iPhone landscape - leaderboard as a right side panel, logo + menu centred in the left column
-      const bW = Math.min(176, Math.round(W * 0.34)), bX = W - sr - bW - 10, bY = iconBot + 4;
+      const bW = Math.max(Math.min(176, Math.round(W * 0.34)), Math.min(200, W - sr - sl - 206)),   // v8.99.38: wider side board when the stacked menu leaves room (full names)
+            bX = W - sr - bW - 10, bY = iconBot + 4;
       const leftL = sl + 8, cx = Math.round((leftL + bX - 8) / 2), colW = bX - 8 - leftL;
       MENU_CX = cx; MENU_COLW = colW;
       const grassWant = Math.max(30, Math.round(H * 0.125)), safeB = SAFE.b || 0;
@@ -5914,7 +5915,7 @@ const TROPHY = pixArt([
   '..kooooook.',
   '..kkkkkkkk.'].map(r => r.padEnd(11, '.')), GOLD);
 const CROWN = pixArt([
-  '.w.....w.....w.',
+  '.d.....d.....d.',   // v8.99.38: dark-gold tips (white vanished on the cream board)
   'kyk...kyk...kyk',
   'kyyk.kyyyk.kyyk',
   'kyyykyyyyykyyyk',
@@ -5965,17 +5966,26 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   if (titleLB.rows !== tlbFlipRows) { tlbFlipRows = titleLB.rows; tlbFlipAt = st; }
   let flipK = 0; const FLAP = 'ABCDEFGHJKLMNPRSTUWXYZ0123456789-+';
   // hand-placed tiles
-  const tiles = (str, tx, ty, sc, col, seed) => {
-    const pd = sc, cw = sc * 6 + 2 + 2 * pd, th = sc * 7 + 2 + 2 * pd;
+  // v8.99.38: biggest name tiles that fit the whole name: [scale, padding] steps, then tight 1x (7px pitch, single stroke)
+  const tlbNameFit = (n, avail, sc) => { for (const [s0, p] of (sc > 1 ? [[2, 2], [2, 1], [2, 0], [1, 1], [1, 0]] : [[1, 1], [1, 0]])) if (n * (s0 * 6 + 2 + 2 * p) <= avail) return { sc: s0, pd: p, tight: false, max: n };
+    return { sc: 1, pd: 0, tight: true, max: Math.max(1, Math.floor(avail / 7)) }; };
+  // v8.99.38: tile face palette (f face, l lower-half shade, b bottom edge, s right edge, m seam, h hinge)
+  const TF0 = { f: '#fffffa', l: null, b: '#9c9886', s: '#dedac8', m: '#eeebdf', h: '#ebe7da' };
+  const TLB_MEDAL = [{ f: '#f6d36a', l: '#ecc455', b: '#8a6a12', s: '#d4a838', m: '#e0b848', h: '#d8b040' },
+                     { f: '#e4e8ec', l: '#d6dbe0', b: '#7c848c', s: '#b8bec6', m: '#ccd2d8', h: '#c4cad0' },
+                     { f: '#e8b07c', l: '#dc9f68', b: '#7a4618', s: '#c08050', m: '#d09460', h: '#c88a58' }];
+  let TF = TF0;
+  const tiles = (str, tx, ty, sc, col, seed, pd = sc, tight = false) => {
+    const cw = tight ? 7 : sc * 6 + 2 + 2 * pd, th = sc * 7 + 2 + 2 * pd;
     [...str].forEach((ch0, i) => {
       let ch = ch0; const jy = 0, cx = tx + i * cw;   // v8.99.36: no random 1px tile jitter
-      rect(cx, ty + jy, cw - 1, th, '#fffffa'); rect(cx, ty + jy + th, cw - 1, 1, '#9c9886'); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, '#dedac8');
+      rect(cx, ty + jy, cw - 1, th, TF.f); if (TF.l) rect(cx, ty + jy + Math.round(th / 2), cw - 1, th - Math.round(th / 2), TF.l); rect(cx, ty + jy + th, cw - 1, 1, TF.b); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, TF.s);
       const k = flipK++, y0 = ty + jy, mid = Math.round(th / 2);
-      const gx = cx + pd, glyph = c => { if (c !== ' ') { drawText(c, gx, y0 + pd + 1, col, sc); drawText(c, gx + 1, y0 + pd + 1, col, sc); } };   // v8.99.37: bold - double-struck 1px right so every vertical stroke is 2px (fits the 7px tile)   // v8.99.36: one crisp integer-scaled pass (no faux-bold double draw)
+      const gx = cx + (tight ? 0 : pd), glyph = c => { if (c !== ' ') { drawText(c, gx, y0 + pd + 1, col, sc); if (!tight) drawText(c, gx + 1, y0 + pd + 1, col, sc); } };   // v8.99.37: bold - double-struck 1px right so every vertical stroke is 2px (fits the 7px tile)   // v8.99.36: one crisp integer-scaled pass (no faux-bold double draw)
       // v8.99.34: real split-flap - left-to-right stagger, ~50ms per character, top flap folds down with easing, ease-out settle
       const rel = Math.max(0, Math.min(1, (cx - TLB_R.x) / Math.max(1, TLB_R.w))), stopAt = 0.2 + 0.5 * (1 - (1 - rel) * (1 - rel)) + (k % 3) * 0.02;
       const t = st - tlbFlipAt;
-      if (REDUCED_MOTION || t >= stopAt || t < 0 || t > 1.2) { rect(cx, y0 + mid, cw - 1, 1, '#eeebdf'); glyph(ch0); return; }   // v8.99.37: faint seam BEHIND the settled letter
+      if (REDUCED_MOTION || t >= stopAt || t < 0 || t > 1.2) { rect(cx, y0 + mid, cw - 1, 1, TF.m); glyph(ch0); return; }   // v8.99.37: faint seam BEHIND the settled letter
       const nSteps = Math.max(1, Math.round(stopAt / 0.05)), left = stopAt - t, stepLen = 0.05 + 0.04 * Math.max(0, 1 - left / 0.2);   // last flips slow down
       const idx = Math.floor(t / 0.05), frac = Math.min(1, (t - idx * 0.05) / stepLen), e = 1 - (1 - frac) * (1 - frac);
       const chAt = j => j >= nSteps ? ch0 : FLAP[Math.floor(hash(k * 131 + j * 17) * FLAP.length)];
@@ -5984,9 +5994,9 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
         if (sy !== 1) { ctx.translate(0, y0 + mid); ctx.scale(1, Math.max(0.02, sy)); ctx.translate(0, -(y0 + mid)); } glyph(c); ctx.restore(); };
       half(nw, true, 1);                                    // new char waits under the flap (top)
       half(od, false, 1);                                   // old char still on the bottom
-      if (e < 0.5) { const sy = Math.cos(e * Math.PI); ctx.save(); ctx.beginPath(); ctx.rect(cx, y0, cw - 1, mid); ctx.clip(); rect(cx, y0 + mid - Math.ceil(mid * sy), cw - 1, Math.ceil(mid * sy), '#fffffa'); ctx.restore(); half(od, true, sy); }
-      else { const sy = -Math.cos(e * Math.PI); rect(cx, y0 + mid, cw - 1, Math.ceil((th - mid) * sy), '#f4f2e8'); half(nw, false, sy); }
-      rect(cx, y0 + mid, cw - 1, 1, '#ebe7da');             // hinge line (v8.99.37: lighter, only while flipping)
+      if (e < 0.5) { const sy = Math.cos(e * Math.PI); ctx.save(); ctx.beginPath(); ctx.rect(cx, y0, cw - 1, mid); ctx.clip(); rect(cx, y0 + mid - Math.ceil(mid * sy), cw - 1, Math.ceil(mid * sy), TF.f); ctx.restore(); half(od, true, sy); }
+      else { const sy = -Math.cos(e * Math.PI); rect(cx, y0 + mid, cw - 1, Math.ceil((th - mid) * sy), (TF.l || '#f4f2e8')); half(nw, false, sy); }
+      rect(cx, y0 + mid, cw - 1, 1, TF.h);             // hinge line (v8.99.37: lighter, only while flipping)
     });
     return str.length * cw;
   };
@@ -5994,11 +6004,11 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   const MED = ['#e0b020', '#a8b0b8', '#c07840'];
   const row = (r, i, rx, ry, rw, sc) => {
     const pd = sc, cw = sc * 6 + 2 + 2 * pd, th = sc * 7 + 2 + 2 * pd, s2 = fmtRel(r.to_par), sl = Math.max(2, s2.length);
-    const scX = rx + rw - sl * cw - 1, nX = rx + cw + 4, nMax = Math.max(1, Math.floor((scX - 4 - nX) / cw));
+    const scX = rx + rw - sl * cw - 1, nX = rx + cw + 4, nMax = Math.max(1, Math.floor((scX - 4 - nX) / cw)), nm = tlbNameFit(r.name.length, scX - 4 - nX, sc);   // v8.99.38: full name - shrink this row's name tiles until it fits
     slot(rx - 1, ry - 1, cw + 1, th + 3); slot(nX - 1, ry - 1, nMax * cw + 1, th + 3); slot(scX - 1, ry - 1, sl * cw + 1, th + 3);
-    tiles(String(i + 1), rx, ry, sc, INK, 0);
-    if (i < 3) rect(rx - 1, ry + th + 1, cw + 1, 1, MED[i]);   // v8.99.37: medal edge moved under the rank tile (no lines touching the digit)
-    tiles(r.name.slice(0, nMax).toUpperCase(), nX, ry, sc, INK, i + 3);
+    TF = i < 3 ? TLB_MEDAL[i] : TF0; tiles(String(i + 1), rx, ry, sc, '#1a1408', 0); TF = TF0;   // v8.99.38: gold / silver / bronze place tiles
+   // v8.99.37: medal edge moved under the rank tile (no lines touching the digit)
+    { const nth = nm.sc * 7 + 2 + 2 * nm.pd; tiles(r.name.slice(0, nm.max).toUpperCase(), nX, ry + Math.floor((th - nth) / 2), nm.sc, INK, i + 3, nm.pd, nm.tight); }
     tiles(s2.padStart(sl, ' '), scX, ry, sc, r.to_par < 0 ? RED : INK, i + 9);
   };
   if (!tall) {   // compact: 2 columns x 2 rows
@@ -6007,9 +6017,10 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
     return;
   }
   const champH = 44, pitch = 16, nList = Math.max(0, Math.min(TLB_MAX_LIST, Math.floor((h - headH - 5 - 44 - 4) / 16)));
-  const csc = (fw - 10 - 3 * 17 - 8) / 17 >= 7 ? 2 : 1;   // v8.99.37: roomier tiles - narrow board (desktop side panel) shows the champ at 1x so the name still fits
-  row(rows[0], 0, fx + 5, fy + Math.round((champH - (csc === 2 ? 20 : 11)) / 2) + 1, fw - 10, csc);
-  ctx.drawImage(CROWN, fx + 3, fy + 1);
+  const csc = tlbNameFit(rows[0].name.length, fw - 10 - 3 * 18 - 27, 2).sc === 2 ? 2 : 1;   // v8.99.38: champ at 2x only when the full name fits at 2x   // v8.99.37: roomier tiles - narrow board (desktop side panel) shows the champ at 1x so the name still fits
+  { const cth = csc === 2 ? 20 : 11, ccw = csc * 6 + 2 + 2 * csc, cy = Math.max(fy + Math.round((champH - cth) / 2) + 1, fy + CROWN.height + 6);   // v8.99.38: crown sits fully inside, centred on the rank tile
+    row(rows[0], 0, fx + 5, cy, fw - 10, csc);
+    ctx.drawImage(CROWN, fx + 5 + Math.round((ccw - CROWN.width) / 2), cy - CROWN.height - 3); }
   for (let i = 1; i <= nList && i < rows.length; i++) {
     const ry = fy + champH + 2 + (i - 1) * pitch;
     if (ry + 12 > y + h - 4) break;
@@ -7378,7 +7389,7 @@ function waterSpan(hl) {
 function pickWildlifeKind(hl) {
   const pool = ['rabbit', 'rabbit', 'bird', 'bird', 'birds', 'squirrel'];
   if (holeTreeXs(hl).length) pool.push('squirrel', 'squirrel');
-  if (holeHasWater(hl)) pool.push('ducks', 'ducks', 'ducks', 'turtle');
+  if (holeHasWater(hl)) pool.push('turtle');   // v8.99.38: no pond ducks
   if (hl.theme === 'desert') return (['rabbit', 'bird', 'birds', 'squirrel'])[Math.floor(Math.random() * 4)];
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -11032,7 +11043,6 @@ const ADMIN_VIEWS = {
     '<button class="btn alt" data-a="labClubs">PRO CLUB SET (DLCC 9)</button><p class="sub" style="margin-top:4px">14-CLUB BAG: DRIVER TO LOB WEDGE WITH REAL LOFTS AND GAPPING. SAME REACH, POWER AND WIND. NORMAL PUTTING.</p>' +
     '<button class="btn alt" data-a="labGreens">PUTTING GREENS</button><p class="sub" style="margin-top:4px">JUST THE BEHIND-THE-BALL PUTTING VIEW, A NEW SLOPED GREEN EVERY HOLE.</p>' +
     '<p class="sub" style="margin-top:8px">DRAG LEFT/RIGHT TO AIM, TAP TO PUTT (SAME POWER METER). READ LIFTS THE CAMERA. X EXIT LEAVES THE LAB.</p>' +
-    '<button class="btn alt" data-a="labDuck">' + (duckLab ? 'DUMB LUCK DUCK: ON (TAP TO HIDE)' : 'DUMB LUCK DUCK: OFF (PREVIEW)') + '</button><p class="sub" style="margin-top:4px">MASCOT PREVIEW ON THE TITLE, AFTER GREAT SHOTS AND ON CLIPS. ONLY YOU SEE IT, ONLY ON THIS DEVICE.</p>' +
     '<button class="btn alt" data-a="labLiveGal">' + (liveGal ? 'LIVE GALLERY: ON (TAP TO TURN OFF)' : 'LIVE GALLERY: OFF (TAP TO TURN ON)') + '</button><p class="sub" style="margin-top:4px">FANS REACT, TRASH TALK, ANSWER WHEN TAPPED + HYPE METER. NO SCORE EFFECTS. LIVE FOR ALL PLAYERS. THIS SWITCH ONLY AFFECTS THIS DEVICE.</p>',
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
