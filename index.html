@@ -292,7 +292,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.47';
+const GAME_VERSION = 'v8.99.48';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4174,6 +4174,26 @@ function synthThump(A, t0, vol, f0, f1) {
   s.connect(lp).connect(ng).connect(sDest(A)); s.start(t0);
   synthTone(A, t0, f0 * 2.2, 0.035, 'triangle', vol * 0.12, f0 * 1.4);
 }
+// v8.99.48 split-flap clack: a 14 ms band-passed noise snap + a tiny wooden tick; a run = quick rattle that slows and settles on one final clack
+function synthFlapClack(A, t0, vol, f) {
+  const n = Math.max(1, Math.floor(A.sampleRate * 0.014)), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 3;
+  const s = A.createBufferSource(), bp = A.createBiquadFilter(), g = A.createGain(); s.buffer = b; bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 1.4; g.gain.value = vol;
+  s.connect(bp).connect(g).connect(sDest(A)); s.start(t0);
+  synthTone(A, t0, f * 0.5, 0.012, 'triangle', vol * 0.22);
+}
+function synthFlapRun(A, t0, dur, seed) {
+  let t = 0, k = 0; const rnd = () => hash((seed || 1) * 97 + (k++) * 13);
+  while (t < dur - 0.03) { const p = t / dur; synthFlapClack(A, t0 + t, 0.05 * (1 - 0.45 * p) * (0.7 + 0.3 * rnd()), 2300 + rnd() * 1500); t += 0.024 + 0.05 * p * p + rnd() * 0.012; }
+  synthFlapClack(A, t0 + dur, 0.075, 1800); synthFlapClack(A, t0 + dur + 0.016, 0.03, 2600);   // the settle: clack + tiny bounce
+}
+let flapLastAt = -9;
+function flapRun(dur) {   // one rattle per board switch (all tiles share it, so it never stacks up loud)
+  const now = performance.now() / 1000; if (now - flapLastAt < dur * 0.8) return; flapLastAt = now;
+  const seed = Math.floor(now * 10) % 997; sndNote('flap', 0, [dur, seed]);
+  if (!AC || muted || AC.state !== 'running') return;   // locked iOS audio / first load before a tap: silent
+  synthFlapRun(AC, AC.currentTime + 0.01, dur, seed);
+}
 let sndLog = null;   // #test only: [{ t (page seconds), fn, a }] for offline re-render
 function sndNote(fn, when, a) { if (sndLog) sndLog.push({ t: performance.now() / 1000 + (when || 0), fn, a }); }
 function tone(f, dur, type = 'square', vol = 0.06, when = 0, slide = null) {
@@ -6020,7 +6040,7 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   if (!rows) { if (Math.floor(st * 3) % 2 === 0) say('LOADING...', '#6c6c60'); return; }
   if (!rows.length) { say(titleLB.pendingMode ? 'COMING SOON' : 'BE THE FIRST!', INK); return; }
   // v8.99.32: split-flap shuffle whenever the shown rows change (board switch, refresh, first load)
-  if (titleLB.rows !== tlbFlipRows) { tlbFlipRows = titleLB.rows; tlbFlipAt = st; }
+  if (titleLB.rows !== tlbFlipRows) { tlbFlipRows = titleLB.rows; tlbFlipAt = st; if (!REDUCED_MOTION && state === 'title') flapRun(0.74); }   // v8.99.48 clack along
   let flipK = 0; const FLAP = 'ABCDEFGHJKLMNPRSTUWXYZ0123456789-+';
   // hand-placed tiles
   // v8.99.38: biggest name tiles that fit the whole name: [scale, padding] steps, then tight 1x (7px pitch, single stroke)
