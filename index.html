@@ -279,7 +279,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.44';
+const GAME_VERSION = 'v8.99.45';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6758,18 +6758,20 @@ function drawFade() {
   if (fade.a > 0) { ctx.globalAlpha = fade.a; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1; }
   else fade.going = null;
 }
-function drawA2HS() {
+function drawA2HS() {   // v8.99.45: first-run modal - centred wooden plank (menu-plank wood/trim/nails), dimmed menu behind, OK only
   if (!a2hs.show) return;
+  ctx.globalAlpha = 0.55; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
   const lines = ['INSTALL THIS APP', 'TAP SHARE, THEN', 'ADD TO HOME SCREEN'];
-  const pw = Math.max(...lines.map(l => textW(l))) + 20, ph = lines.length * 12 + 36;
-  const x = Math.round((W - pw) / 2), y = Math.round(H * 0.62);
-  rect(x, y, pw, ph, COL.white); rect(x + 1, y + 1, pw - 2, ph - 2, '#000');
-  lines.forEach((l, i) => drawTextC(l, y + 8 + i * 12, i ? COL.white : '#f8d878'));
-  const ok = 'GOT IT', ow = textW(ok) + 16;
-  a2hs.okR = { x: Math.round((W - ow) / 2), y: y + ph - 22, w: ow, h: 16 };
-  const dim = pressDim('a2hs');
-  rect(a2hs.okR.x, a2hs.okR.y, a2hs.okR.w, a2hs.okR.h, dim ? '#f8d878' : COL.lime);
-  drawText(ok, a2hs.okR.x + 8, a2hs.okR.y + 4, '#000');
+  const pw = Math.min(W - 8, Math.max(...lines.map(l => textW(l))) + 28), ok = 'OK', ow = textW(ok) + 22, oh = 13;
+  const ph = 6 + lines.length * 11 + 3 + oh + 6, x = Math.round((W - pw) / 2), y = Math.round((H - ph) / 2);
+  woodPlank(x, y, pw, ph, false, '#f0e4c0', 5);
+  lines.forEach((l, i) => { const tx = Math.round(x + (pw - textW(l)) / 2), ty = y + 6 + i * 11; drawText(l, tx + 1, ty + 1, '#1a0c04'); drawText(l, tx, ty, i ? '#f4ead0' : '#f8d878'); });
+  a2hs.okR = { x: Math.round(x + (pw - ow) / 2), y: y + ph - 6 - oh, w: ow, h: oh };
+  const dim = pressDim('a2hs'), r = a2hs.okR;
+  rect(r.x + 1, r.y, r.w - 2, r.h, '#000'); rect(r.x, r.y + 1, r.w, r.h - 2, '#000');
+  rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, dim ? '#a8744a' : '#5c3820'); rect(r.x + 1, r.y + 1, r.w - 2, 1, dim ? '#c89060' : '#8c5a34');
+  rect(r.x + 2, r.y + 2, r.w - 4, 1, '#f0c850'); rect(r.x + 2, r.y + r.h - 3, r.w - 4, 1, '#f0c850');
+  drawText(ok, Math.round(r.x + (r.w - textW(ok)) / 2), r.y + 4, dim ? '#fff4c0' : '#f8d050');
 }
 function canUiTap() { const now = performance.now(); return now >= inputLockUntil && now - lastUiTapAt >= 300; }
 function armUiTap(key, act, still, e) {
@@ -6871,7 +6873,6 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'splash') { armUiTap('splash', () => dismissSplash(), () => true, e); touchDown = null; return; }
   if (a2hs.show) {
     if (a2hs.okR && hitBtn(p, a2hs.okR)) armUiTap('a2hs', () => dismissA2HS(), (up) => hitBtn(toLogical(up), a2hs.okR), e);
-    else armUiTap('a2hsbg', () => dismissA2HS(), () => true, e);
     touchDown = null; return;
   }
   if (roundTip) {
@@ -7038,6 +7039,7 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (state === 'splash') { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissSplash(); } return; }
   if (acctOpen()) return;
+  if (a2hs.show) { if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); dismissA2HS(); } return; }   // v8.99.45: first-run modal blocks the menu until OK
   if (state === 'title' && menuPopup && menuPopup.kind === 'shop') {   // v8.50: DOM shop: Tab / Enter work on its buttons; Esc backs out
     if (k === 'Escape' && !e.repeat) { e.preventDefault(); psEscKey(); } else if (ps.detail && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); psGalGo(ps.gal + (k === 'ArrowRight' ? 1 : -1)); }
     return;
