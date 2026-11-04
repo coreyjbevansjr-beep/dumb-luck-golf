@@ -272,7 +272,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.36';
+const GAME_VERSION = 'v8.99.37';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4701,7 +4701,17 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     const ft = 0, fw = 0;   // v8.99.32: IG + YT moved to the top icon row
     const shortL = H < 300, LG = shortL ? 8 : 14;   // v8.99.34: short iPhone landscape = slimmer planks, centred in the left column
     if (shortL) items.forEach(it => { if (it.kind !== 't') it.w = 96; });
-    const rowW = items.reduce((a, it) => a + it.w, 0) + LG * (items.length - 1) + fw; let mx = Math.round((shortL ? MENU_CX : W / 2) - rowW / 2);
+    const rowW = items.reduce((a, it) => a + it.w, 0) + LG * (items.length - 1) + fw;
+    if (shortL && MENU_COLW && rowW > MENU_COLW - 4) {   // v8.99.37: left column too narrow for one row - SHOP sign hanging over PLAY | CAREER (like the phone), centred in the column
+      const HW = Math.min(84, Math.floor((MENU_COLW - 8) / 2)), HG = 4; let yy = 7; MENU_ROWS = [];
+      const sIt = items.find(it => it.kind === 's'), pc = items.filter(it => it.kind === 'p' || it.kind === 'c');
+      if (sIt) { sIt.w = Math.min(132, MENU_COLW - 4); sIt.h = PH; sIt.bx = Math.round(MENU_CX - sIt.w / 2); sIt.by = yy; MENU_ROWS.push([items.indexOf(sIt)]); yy += PH + G; }
+      pc.forEach((it, j) => { it.w = HW; it.h = PH; it.bx = Math.round(MENU_CX - (HW * 2 + HG) / 2) + j * (HW + HG); it.by = yy; });
+      MENU_ROWS.push(pc.map(it => items.indexOf(it))); yy += PH;
+      MENU_L = { grid: true, items, blockH: yy, itemH: PH, fx: 0, fy: 0, fw: 0, fh: 0 };
+      return MENU_L;
+    }
+    let mx = Math.round((shortL ? MENU_CX : W / 2) - rowW / 2);
     items.forEach(it => { it.bx = mx; it.by = Math.round((PH - it.h) / 2); mx += it.w + LG; });
     MENU_ROWS = [items.map((_, i) => i)];
     MENU_L = { grid: false, items, blockH: PH, itemH: PH, fx: mx, fy: Math.round((PH - ft) / 2), fw, fh: ft };
@@ -4782,7 +4792,7 @@ const SPOOKY_BANNER = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.52   // v
 const IG_URL = 'https://www.instagram.com/dumbluckgolfing/', HIG_BTN = { x: 160, y: 0, w: 20, h: 22 }, FOLLOW_BTN = { x: 0, y: -99, w: 0, h: 0, on: false }, CARD_FOLLOW = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.43 Instagram
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
 const MC = { cw: 8, lw: 8, tw: 19, w: 106, h: 29, x: 148, y: 2 };   // mini scorecard (layoutChrome updates x)
-let LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18, MENU_CX = 128;
+let MENU_COLW = 0, LOGO_Y = 4, MENU_Y0 = 118, MENU_DY = 18, MENU_CX = 128;
 const TLB_R = { x: 10, y: 142, w: 236, h: 66 };
 let LOGO_DRAW = { w: 160, h: 111, x: 48 };
 let TITLE_FAIR = 214, TITLE_RIDGE = 188, CZ_FAIR = 214, HUD_Y0 = 186;
@@ -4873,12 +4883,12 @@ function layoutChrome() {
     if (H < 300) {   // v8.99.34: short iPhone landscape - leaderboard as a right side panel, logo + menu centred in the left column
       const bW = Math.min(176, Math.round(W * 0.34)), bX = W - sr - bW - 10, bY = iconBot + 4;
       const leftL = sl + 8, cx = Math.round((leftL + bX - 8) / 2), colW = bX - 8 - leftL;
-      MENU_CX = cx;
+      MENU_CX = cx; MENU_COLW = colW;
       const grassWant = Math.max(30, Math.round(H * 0.125)), safeB = SAFE.b || 0;
       TITLE_FAIR = Math.min(H - grassWant, H - 22 - safeB); TITLE_RIDGE = Math.max(8, TITLE_FAIR - 26);
       SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(colW, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round(cx - SPOOKY_BANNER.w / 2); SPOOKY_BANNER.y = Math.max(st + 4, iconBot - (cupB > 20 ? 26 : 15) + 2); }
       LOGO_Y = cupB ? SPOOKY_BANNER.y + SPOOKY_BANNER.h + 4 : Math.max(st + 6, 8);
-      const menuH = 30, gapLogo = 10;
+      const menuH = Math.max(30, menuLayoutCalc().blockH), gapLogo = 10;   // v8.99.37: stacked menu when the column is narrow
       ldW = lw0; ldH = lh0; const room = TITLE_FAIR - 12 - menuH - gapLogo - LOGO_Y;
       if (ldH > room) { ldH = Math.max(56, room); ldW = Math.round(lw0 * ldH / lh0); }
       if (ldW > Math.min(colW, 170)) { ldW = Math.min(colW, 170); ldH = Math.round(lh0 * ldW / lw0); }
@@ -5920,7 +5930,8 @@ let tlbFlipRows = null, tlbFlipAt = -9;
 function drawTitleBoard() {   // v8.99.32: old-school major-championship manual scoreboard
   if (H > W * 1.15 && TLB_R.rows !== tlbRowCount()) layoutChrome();   // refit the board to its rows
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
-  const GRN = '#0e4a2c', GRN2 = '#16603a', CREAM = '#f4ead0', BOARD = '#f2f0e6', SLOT = '#cdc9b6', INK = '#141414', RED = '#c41a1a';
+  const lbHead = (lx, ly) => { lx = Math.round(lx); ly = Math.round(ly); [...'LEADERS'].forEach((c, i) => { drawText(c, lx + i * 7, ly, '#f4ead0'); drawText(c, lx + i * 7 + 1, ly, '#f4ead0'); }); };   // v8.99.37: same crisp 1x bitmap glyphs as the names (2px strokes, 7px pitch), no shadow/outline
+  const GRN = '#0e4a2c', GRN2 = '#16603a', CREAM = '#f4ead0', BOARD = '#f2f0e6', SLOT = '#cdc9b6', INK = '#000000', RED = '#b80c0c';   // v8.99.37: max-contrast ink
   const ring = (rx, ry, rw, rh, c) => { rect(rx, ry, rw, 1, c); rect(rx, ry + rh - 1, rw, 1, c); rect(rx, ry, 1, rh, c); rect(rx + rw - 1, ry, 1, rh, c); };
   rect(x + 2, y + h, w - 2, 2, 'rgba(0,0,0,0.3)');
   if (lit) ring(x - 1, y - 1, w + 2, h + 2, pulse ? COL.white : '#f8d878');
@@ -5930,11 +5941,11 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   // header bar
   ctx.drawImage(TROPHY, hd.trophyX, hd.trophyY);
   if (tall) {
-    const lw = blockW('LEADERS'); blockText('LEADERS', x + Math.round((w - lw) / 2), y + 4, CREAM, 1, '#03160c');
+    const lw = 48; lbHead(x + Math.round((w - lw) / 2), y + 4);
     const tw = textW(hd.label); drawText(hd.label, x + Math.round((w - tw) / 2), y + 14, '#e8c870');
     const n = titleBoards().length, dw = n * 4 - 2; for (let i = 0; i < n; i++) rect(x + Math.round((w - dw) / 2) + i * 4, y + 22, 2, 1, i === titleBoardI ? COL.white : '#4c8c64');
   } else {
-    const tx = hd.trophyX + 14; blockText('LEADERS', tx, y + 5, CREAM, 1, '#03160c');
+    const tx = hd.trophyX + 14; lbHead(tx, y + 5);
     const tw = textW(hd.label), lx = hd.next.x - 4 - tw; drawText(hd.label, lx, y + 5, '#e8c870');
     const n = titleBoards().length; for (let i = 0; i < n; i++) rect(lx + tw - (n * 4 - 2) + i * 4, y + 14, 2, 1, i === titleBoardI ? COL.white : '#4c8c64');
   }
@@ -5955,16 +5966,16 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
   let flipK = 0; const FLAP = 'ABCDEFGHJKLMNPRSTUWXYZ0123456789-+';
   // hand-placed tiles
   const tiles = (str, tx, ty, sc, col, seed) => {
-    const cw = sc * 6 + 1, th = sc * 7 + 3;
+    const pd = sc, cw = sc * 6 + 2 + 2 * pd, th = sc * 7 + 2 + 2 * pd;
     [...str].forEach((ch0, i) => {
       let ch = ch0; const jy = 0, cx = tx + i * cw;   // v8.99.36: no random 1px tile jitter
       rect(cx, ty + jy, cw - 1, th, '#fffffa'); rect(cx, ty + jy + th, cw - 1, 1, '#9c9886'); rect(cx + cw - 2, ty + jy + 1, 1, th - 1, '#dedac8');
       const k = flipK++, y0 = ty + jy, mid = Math.round(th / 2);
-      const glyph = c => { if (c !== ' ') drawText(c, cx + Math.floor(sc / 2) + (sc > 1 ? 0 : 0), y0 + 2, col, sc); };   // v8.99.36: one crisp integer-scaled pass (no faux-bold double draw)
+      const gx = cx + pd, glyph = c => { if (c !== ' ') { drawText(c, gx, y0 + pd + 1, col, sc); drawText(c, gx + 1, y0 + pd + 1, col, sc); } };   // v8.99.37: bold - double-struck 1px right so every vertical stroke is 2px (fits the 7px tile)   // v8.99.36: one crisp integer-scaled pass (no faux-bold double draw)
       // v8.99.34: real split-flap - left-to-right stagger, ~50ms per character, top flap folds down with easing, ease-out settle
       const rel = Math.max(0, Math.min(1, (cx - TLB_R.x) / Math.max(1, TLB_R.w))), stopAt = 0.2 + 0.5 * (1 - (1 - rel) * (1 - rel)) + (k % 3) * 0.02;
       const t = st - tlbFlipAt;
-      if (REDUCED_MOTION || t >= stopAt || t < 0 || t > 1.2) { glyph(ch0); return; }
+      if (REDUCED_MOTION || t >= stopAt || t < 0 || t > 1.2) { rect(cx, y0 + mid, cw - 1, 1, '#eeebdf'); glyph(ch0); return; }   // v8.99.37: faint seam BEHIND the settled letter
       const nSteps = Math.max(1, Math.round(stopAt / 0.05)), left = stopAt - t, stepLen = 0.05 + 0.04 * Math.max(0, 1 - left / 0.2);   // last flips slow down
       const idx = Math.floor(t / 0.05), frac = Math.min(1, (t - idx * 0.05) / stepLen), e = 1 - (1 - frac) * (1 - frac);
       const chAt = j => j >= nSteps ? ch0 : FLAP[Math.floor(hash(k * 131 + j * 17) * FLAP.length)];
@@ -5975,18 +5986,18 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
       half(od, false, 1);                                   // old char still on the bottom
       if (e < 0.5) { const sy = Math.cos(e * Math.PI); ctx.save(); ctx.beginPath(); ctx.rect(cx, y0, cw - 1, mid); ctx.clip(); rect(cx, y0 + mid - Math.ceil(mid * sy), cw - 1, Math.ceil(mid * sy), '#fffffa'); ctx.restore(); half(od, true, sy); }
       else { const sy = -Math.cos(e * Math.PI); rect(cx, y0 + mid, cw - 1, Math.ceil((th - mid) * sy), '#f4f2e8'); half(nw, false, sy); }
-      rect(cx, y0 + mid, cw - 1, 1, '#d8d4c4');             // hinge line
+      rect(cx, y0 + mid, cw - 1, 1, '#ebe7da');             // hinge line (v8.99.37: lighter, only while flipping)
     });
     return str.length * cw;
   };
   const slot = (sx, sy, sw, sh) => { rect(sx, sy, sw, sh, SLOT); rect(sx, sy, sw, 1, '#a8a490'); };
   const MED = ['#e0b020', '#a8b0b8', '#c07840'];
   const row = (r, i, rx, ry, rw, sc) => {
-    const cw = sc * 6 + 1, th = sc * 7 + 3, s2 = fmtRel(r.to_par), sl = Math.max(2, s2.length);
+    const pd = sc, cw = sc * 6 + 2 + 2 * pd, th = sc * 7 + 2 + 2 * pd, s2 = fmtRel(r.to_par), sl = Math.max(2, s2.length);
     const scX = rx + rw - sl * cw - 1, nX = rx + cw + 4, nMax = Math.max(1, Math.floor((scX - 4 - nX) / cw));
     slot(rx - 1, ry - 1, cw + 1, th + 3); slot(nX - 1, ry - 1, nMax * cw + 1, th + 3); slot(scX - 1, ry - 1, sl * cw + 1, th + 3);
     tiles(String(i + 1), rx, ry, sc, INK, 0);
-    if (i < 3) rect(rx, ry + th - 1, cw - 1, 1, MED[i]), rect(rx, ry, cw - 1, 1, MED[i]);   // subtle medal edge on top-3 rank tiles
+    if (i < 3) rect(rx - 1, ry + th + 1, cw + 1, 1, MED[i]);   // v8.99.37: medal edge moved under the rank tile (no lines touching the digit)
     tiles(r.name.slice(0, nMax).toUpperCase(), nX, ry, sc, INK, i + 3);
     tiles(s2.padStart(sl, ' '), scX, ry, sc, r.to_par < 0 ? RED : INK, i + 9);
   };
@@ -5996,7 +6007,8 @@ function drawTitleBoard() {   // v8.99.32: old-school major-championship manual 
     return;
   }
   const champH = 44, pitch = 16, nList = Math.max(0, Math.min(TLB_MAX_LIST, Math.floor((h - headH - 5 - 44 - 4) / 16)));
-  row(rows[0], 0, fx + 5, fy + Math.round((champH - 20) / 2) + 1, fw - 10, 2);
+  const csc = (fw - 10 - 3 * 17 - 8) / 17 >= 7 ? 2 : 1;   // v8.99.37: roomier tiles - narrow board (desktop side panel) shows the champ at 1x so the name still fits
+  row(rows[0], 0, fx + 5, fy + Math.round((champH - (csc === 2 ? 20 : 11)) / 2) + 1, fw - 10, csc);
   ctx.drawImage(CROWN, fx + 3, fy + 1);
   for (let i = 1; i <= nList && i < rows.length; i++) {
     const ry = fy + champH + 2 + (i - 1) * pitch;
@@ -9616,8 +9628,9 @@ function renderTitle() {
       if (sel && it.w >= 100) blockText('>', lx - 16 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
     } else if (it.kind === 's') {   // hanging country-club sign
       const hot = sel || dim;
-      rect(x + 14, y - 7, it.w - 28, 2, '#2a1608'); rect(x + 14, y - 7, it.w - 28, 1, '#5c3c24');   // v8.99.34: bar ends right at the chains
-      for (const cx0 of [x + 15, x + it.w - 17]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
+      const hang = !(MENU_L && MENU_L.grid === false);   // v8.99.37: landscape/desktop row = three flat planks side by side, no floating hanger
+      if (hang) rect(x + 14, y - 7, it.w - 28, 2, '#2a1608'), rect(x + 14, y - 7, it.w - 28, 1, '#5c3c24');   // v8.99.34: bar ends right at the chains
+      if (hang) for (const cx0 of [x + 15, x + it.w - 17]) { for (let k = 0; k < 3; k++) { rect(cx0, y - 5 + k * 2, 2, 1, '#d8d8d8'); rect(cx0 + (k % 2), y - 4 + k * 2, 1, 1, '#808080'); } }
       woodPlank(x, y, it.w, it.h, hot, hot ? '#fffaf0' : '#f0e4c0', 3);
       const pw = 11, px = Math.round(x + (it.w - pw) / 2); rect(px - 1, y + 3, pw + 3, 7, '#3a2210'); text3(ctx, 'PRO', px, y + 4, '#f0c850');
       rect(px - 14, y + 6, 11, 1, '#f0c850'); rect(px + pw + 4, y + 6, 11, 1, '#f0c850');
@@ -11154,7 +11167,7 @@ const VIEWS = {
       (m.status === 'complete' ? '<button class="btn" data-a="rematch" data-id="' + esc(m.id) + '">REMATCH</button>' : '') + '<div class="msg"></div>';
   }
 };
-/* ================= v8.63 TOURNAMENT (THE LUCKY BOUNCE INVITATIONAL; name + every date come from the server config row) =================
+/* ================= v8.63 TOURNAMENT (THE DUMB LUCK INVITATIONAL; name + every date come from the server config row) =================
    Hidden until the server says so (lbi_info.visible = reg_open .. show_until). 18 holes, one counted round per window, server validates
    every hole (order, 1-10, shot log, minimum time) and computes positions / ties / the cut / MC / playoff. #test&lbi forces the preview. */
 var LBI = { info: null, at: 0, skew: 0, board: null, field: null, adm: null, loading: null, lastBanner: null };
@@ -11172,7 +11185,8 @@ function lbiBannerOn() { try { return !!LBI && lbiShown() && !cupLive(); } catch
 function lbiFmtDay(iso) { try { return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).format(new Date(iso)).toUpperCase(); } catch (e) { return String(iso).slice(5, 10); } }
 function lbiLeft(ms) { const s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'D ' + h + 'H' : h ? h + 'H ' + m + 'M' : m + 'M ' + (s % 60) + 'S'; }
 function lbiTp(v) { return v == null ? '-' : v === 0 ? 'E' : v > 0 ? '+' + v : String(v); }
-function lbiName(short) { const n = String((lbiCfg() || {}).name || 'THE INVITATIONAL').toUpperCase(); return short && textW(n) > 196 ? n.replace(/^THE /, '') : n; }
+function lbiDispName(n) { return String(n || '').replace(/LUCKY\s+BOUNCE/gi, 'DUMB LUCK'); }   // v8.99.37: renamed for display; server config name untouched
+function lbiName(short) { const n = lbiDispName(String((lbiCfg() || {}).name || 'THE DUMB LUCK INVITATIONAL').toUpperCase()); return short && textW(n) > 196 ? n.replace(/^THE /, '') : n; }
 function lbiMyRound(r) { const me = LBI.info && LBI.info.me; return me && (me.rounds || []).find(x => x.r === r) || null; }
 /* where we are in the week: pre (registration) | live | gap | final (waiting on lock / playoff) | done (locked) */
 function lbiPhase() {
@@ -11282,7 +11296,7 @@ function lbiPageHtml(o) {
   const I = LBI.info, c = lbiCfg();
   if (!I || !c) return head('TOURNAMENT', 'lbiClose') + (I ? '<p class="empty">NOT OPEN YET</p>' : '<p class="empty">LOADING...</p>') + '<div class="msg"></div>';
   const tab = o.tab || 'board', a = lbiAction(), B = LBI.board || {}, F = LBI.field || [];
-  let h = head(esc(c.name), 'lbiClose') + '<p class="sub lbist">' + esc(lbiStatusLine()) + '</p>';
+  let h = head(esc(lbiDispName(c.name)), 'lbiClose') + '<p class="sub lbist">' + esc(lbiStatusLine()) + '</p>';
   if (I.preview) h += '<p class="sub" style="color:#fc9838">ADMIN PREVIEW · PLAYERS SEE THIS ' + lbiFmtDay(c.reg_open) + '</p>';
   if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
   if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
@@ -11290,13 +11304,13 @@ function lbiPageHtml(o) {
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + lbiBust(n) + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
-  else h += '<div class="lbipz"><div><b>1ST</b>CAMO HAT + LUCKY BALL MARKER</div><div><b>2ND-6TH</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
+  else h += '<div class="lbipz"><div><b>1ST</b>GREEN JACKET</div><div><b>2ND-6TH</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
   return h;
 }
-function lbiGateHtml() { return '<div class="top"><span style="width:66px"></span><h2>' + esc((lbiCfg() || {}).name || 'TOURNAMENT') + '</h2><button class="back" data-a="lbiGateX" aria-label="CLOSE">X</button></div>' +
+function lbiGateHtml() { return '<div class="top"><span style="width:66px"></span><h2>' + esc(lbiDispName((lbiCfg() || {}).name) || 'TOURNAMENT') + '</h2><button class="back" data-a="lbiGateX" aria-label="CLOSE">X</button></div>' +
   '<p class="sub">SIGN IN TO ENTER</p><button class="btn" data-a="go:signup">CREATE ACCOUNT</button><button class="btn alt" data-a="go:login">SIGN IN</button>'; }
 
 /* ---- admin ---- */
