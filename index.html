@@ -162,6 +162,7 @@
   #acct .plink .chev{color:#3cbcfc}
   #acct .fprof{display:flex;align-items:center;gap:12px;margin-top:6px}
   #acct .fprof .fgolf{width:80px;height:160px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;padding:4px 16px}
+  #acct .fseen{display:block;font-size:10px;letter-spacing:1px;color:#8c9cb4;margin-top:2px;min-height:12px}#acct .fseen.on{color:#58d854}#acct .fseen i{display:inline-block;width:6px;height:6px;background:#58d854;margin-right:5px;vertical-align:1px}
   #acct img.fbust{width:39px;height:45px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;align-self:center}
   #acct .fprof .big{text-align:left;margin:0 0 4px}
   #acct .fprof .rank{font-size:12px;letter-spacing:1px;margin:0 0 6px;color:#bcc8e0}
@@ -278,7 +279,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.40';
+const GAME_VERSION = 'v8.99.43';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -651,7 +652,7 @@ async function authSetPassword(password) {   // after a recovery link (session f
 function signOut() {
   if (authOnline() && isSignedIn()) { try { fetch(authBase() + '/auth/v1/logout', { method: 'POST', headers: authHeaders() }); } catch (e) {} }
   account.user = null; account.profile = null; account.status = '';
-  social.friends = []; social.matches = []; social.h2h = null; social.looks = {};
+  social.friends = []; social.matches = []; social.h2h = null; social.looks = {}; social.seen = {};
   if (typeof gear !== 'undefined') { gear.owned = {}; gear.rev++; }   // v8.66
   if (typeof admin !== 'undefined') { admin.is = false; admin.unlock = false; admin.names = []; admin.checked = false; }
   saveSession();
@@ -717,8 +718,28 @@ const social = { friends: [], matches: [], loaded: false, busy: false };
 async function loadFriends() {
   const r = await sb('/rest/v1/my_friends?select=id,status,direction,friend_id,friend_username&order=created_at.desc', {}, 'friends');
   social.friends = r.ok && Array.isArray(r.data) ? r.data : [];
-  if (social.friends.some(f => f.status === 'accepted')) loadFriendLooks();
+  if (social.friends.some(f => f.status === 'accepted')) { loadFriendLooks(); loadFriendSeen(); }
   return r;
+}
+/* v8.99.43 LAST ONLINE: a friend's last activity = careers.updated_at (the career row syncs at the end of every round; signed-in read). No new data. */
+async function loadFriendSeen() {
+  const ids = social.friends.filter(f => f.status === 'accepted' && f.friend_id).map(f => f.friend_id).filter(id => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return null;
+  const r = await sb('/rest/v1/careers?select=user_id,updated_at&user_id=in.(' + ids.join(',') + ')', {}, 'fseen');
+  if (!r.ok || !Array.isArray(r.data)) return r;
+  const m = {}; r.data.forEach(x => { if (x && x.user_id && x.updated_at) m[x.user_id] = x.updated_at; });
+  social.seen = m;
+  if (acctView === 'friends' && acctEl) acctEl.querySelectorAll('span.fseen[data-fid]').forEach(el => { el.outerHTML = friendSeenHtml(el.dataset.fid); });
+  return r;
+}
+function friendSeenTxt(iso) {
+  const t = Date.parse(iso || ''); if (!t) return '';
+  const m = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  return m < 5 ? 'ONLINE' : m < 60 ? m + 'M AGO' : m < 1440 ? Math.floor(m / 60) + 'H AGO' : m < 525600 ? Math.floor(m / 1440) + 'D AGO' : '1Y+ AGO';
+}
+function friendSeenHtml(fid) {
+  const s = friendSeenTxt(((social.seen || {})[fid]) || ''), on = s === 'ONLINE';
+  return '<span class="fseen' + (on ? ' on' : '') + '" data-fid="' + esc(fid || '') + '">' + (s ? (on ? '<i></i>' : '') + s : '') + '</span>';
 }
 async function loadFriendLooks() {   // v8.62: accepted friends' looks (server: friend_looks(), look data only)
   const r = await sb('/rest/v1/rpc/friend_looks', { method: 'POST', body: {} }, 'flooks');
@@ -1188,7 +1209,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
     r(-2, -29, 0, 0, K);
     if ((look.hatIdx | 0) === 11) { r(0, -31, 4, 1, look.hatD); r(1, -31, 1, 1, COL.lime); }
     if ((look.hatIdx | 0) === 10) { r(-1, -34, 1, 1, '#f8d878'); r(1, -35, 1, 1, '#f8d878'); r(3, -34, 1, 1, '#f8d878'); }
-    if (GA && GA.head === 'camo_hat') { r(0, -32, 2, 1, '#2c2414'); r(3, -31, 1, 1, '#8c8c50'); r(-1, -30, 2, 1, '#8c8c50'); r(2, -30, 1, 1, '#2c2414'); r(1, -31, 1, 1, '#00a800'); }
+    if (GA && GA.head === 'camo_hat') { r(0, -32, 2, 1, '#2c2414'); r(3, -31, 1, 1, '#8c8c50'); r(-1, -30, 2, 1, '#8c8c50'); r(2, -30, 1, 1, '#2c2414'); r(0, -31, 3, 1, '#fc7c18'); }
   } else {
     // no crown: hair (or a bald outline) on top of the head
     if (hs) {
@@ -1464,7 +1485,7 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'streak_shades', name: 'STREAK SHADES', slot: 'face', tier: 'common', req: 'PLAY THE DAILY 7 DAYS IN A ROW', rule: { stat: 'daily.top', min: 7 }, sort: 40 },
   { id: 'dlg_shades', name: 'DLG SHADES', slot: 'face', tier: 'exclusive', req: 'MEMBERS ONLY - THANKS FOR PLAYING', rule: { gift: true }, sort: 41 },   // v8.99.23: gifted to every player, on-device (no server row needed)
   { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 50 },
-  { id: 'champ_jacket', name: 'CHAMPION JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT', rule: { grant: true }, sort: 60 },
+  { id: 'champ_jacket', name: 'GREEN JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT (IN-GAME ONLY)', rule: { grant: true }, sort: 60 },
   { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
   { id: 'camo_hat', name: 'DLG CAMO HAT', slot: 'head', tier: 'rare', req: 'TOP 6 IN A DLG TOURNAMENT OR MERCH CODE', rule: { grant: true, code: true }, sort: 80 },
   { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 },
@@ -1531,7 +1552,7 @@ GEAR_ART.camo_hat = (R, D, look, sl, o) => {
   R(-5, -57, 11, 1, B); R(-6, -56, 13, 5, B); R(-7, -51, 15, 2, c1);
   D(-4, -56, 2, 1, c1); D(1, -55, 3, 2, c2); D(-5, -54, 2, 2, c3); D(3, -53, 2, 1, c1); D(-2, -53, 2, 1, c3); D(4, -56, 1, 1, c3); D(-1, -57, 2, 1, c2); D(-3, -52, 2, 1, c2); D(5, -54, 1, 2, c2);
   D(-7, -50, 15, 1, '#2c3810'); D(0, -58, 1, 1, c1);
-  F(-1, -55.5, 3, 2, '#14462d'); F(-0.5, -55, 0.5, 1, '#00e800'); F(0.5, -55, 0.5, 1, '#00e800'); F(1.5, -55, 0.5, 1, '#00e800');   // DLG patch
+  F(-2, -54, 0.5, 0.5, '#fc7c18'); F(-1.5, -55, 0.5, 1, '#fc7c18'); F(-1, -55.5, 1, 0.5, '#fc7c18'); F(-0.5, -54.5, 0.5, 0.5, '#fc7c18'); F(0, -55, 1, 0.5, '#fc7c18'); F(0.5, -54.5, 0.5, 0.5, '#fc7c18'); F(1, -55.5, 0.5, 1, '#fc7c18'); F(1.5, -54.5, 1, 0.5, '#fc7c18'); F(2.5, -55, 0.5, 0.5, '#fc7c18'); F(-2, -53.5, 5, 0.5, '#c84c0c');   // orange script logo (orange: camo hat only)
   F(-3.5, -57, 2, 0.5, c2); F(-6, -53.5, 1, 1, c1); F(5.5, -55.5, 1, 1, c3); F(2, -52.5, 1, 0.5, c3);                             // finer camo
   for (let k = -6; k <= 7; k += 1) F(k, -51, 0.5, 0.5, '#7c8c3c');                                                                  // brim stitching
 };
@@ -10683,6 +10704,7 @@ function csSwitch(d) { csApplyGroup(csGroup + d); courseSel = 0; csPrevSel = 0; 
 
 /* ================= CAREER screens (state 'career' + 'auth') ================= */
 const CAREER_YEL = '#f8d878';
+const CAREER_GDX = 1;
 function careerSoft(str, x, y, col, sc = 1) { drawText(str, x + sc, y + sc, '#000', sc); drawText(str, x, y, col, sc); }
 function careerSoftC(str, cx, y, col, sc = 1) { careerSoft(str, Math.round(cx - textW(str, sc) / 2), y, col, sc); }
 function careerBackR() { return { x: 2 + (SAFE.l || 0), y: 2 + (SAFE.t || 0), w: 66, h: 22 }; }
@@ -10691,14 +10713,14 @@ function careerDrawBack(key) {
   const br = careerBackR(), on = mouse.seen && !isTouchUi() && hitBtn(mouse, br);
   outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), pressDim(key) || on ? CAREER_YEL : COL.white);
 }
-function careerGolfer(cx, feetY, s, look) {   // the player's own golfer on a mown tee patch (same look as CUSTOMIZE)
+function careerGolfer(cx, feetY, s, look, gdx) {   // the player's own golfer on a mown tee patch (same look as CUSTOMIZE)
   const px = cx;
   ctx.globalAlpha = 0.08; czEllipse(px, feetY - 14 * s, 16 * s, 17 * s, COL.white); czEllipse(px, feetY - 12 * s, 10 * s, 11 * s, COL.white); ctx.globalAlpha = 1;
   const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
   czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
   for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
   ctx.globalAlpha = 0.28; czEllipse(px - s, feetY, 6 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(px - 3 * s, feetY); ctx.scale(s, s);
+  ctx.save(); ctx.translate(px - (gdx == null ? 3 : gdx) * s, feetY); ctx.scale(s, s);
   drawGolfer(0, 0, 1, 76 + 6 * Math.sin(st * 2.2), look || lookOf(player));
   ctx.restore();
 }
@@ -10716,15 +10738,15 @@ function careerLayout() {
   const L = { wide, back: careerBackR(), headY: st0 + 8 };
   if (isSignedIn()) {
     if (wide) {
-      const colW = Math.min(184, Math.floor((W - 24) / 2)), gx = Math.round((W - colW * 2 - 8) / 2), top = st0 + 28;
+      const colW = Math.min(204, Math.floor((W - 24) / 2)), gx = Math.round((W - colW * 2 - 8) / 2), top = st0 + 28;   // v8.99.41: a little wider for the stat list
       L.card = { x: gx, y: top, w: colW, h: 100 };
       L.tour = { x: gx, y: top + 104, w: colW, h: 62 };
       L.fr = { x: gx + 8, y: top + 122, w: Math.floor((colW - 22) / 2), h: 26 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 26 };
       L.grid = { x: gx + colW + 8, y: top, w: colW, h: 166 };
       L.out = { x: gx + colW * 2 + 8 - 84, y: top + 172, w: 84, h: 18 };
-      L.adm = { x: gx, y: top + 171, w: 72, h: 20 };
-      L.set = { x: gx + (admin.is ? 80 : 0), y: top + 172, w: 66, h: 18 };
-      L.tileH = 26;
+      L.adm = { x: gx, y: top + 172, w: 44, h: 18 };   // v8.99.41: plain text link like SETTINGS
+      L.set = { x: gx + (admin.is ? 52 : 0), y: top + 172, w: 66, h: 18 };
+      L.heroH = 44; L.secH = 22;
     } else {
       const w = Math.min(244, W - 12), x = Math.round((W - w) / 2);
       const total = 100 + 6 + 176 + 6 + 62 + 30;
@@ -10734,9 +10756,9 @@ function careerLayout() {
       L.tour = { x, y: top + 288, w, h: 62 };
       L.fr = { x: x + 8, y: top + 306, w: Math.floor((w - 22) / 2), h: 28 }; L.mt = { x: L.fr.x + L.fr.w + 6, y: L.fr.y, w: L.fr.w, h: 28 };
       L.out = { x: x + w - 74, y: top + 358, w: 74, h: 20 };
-      L.set = admin.is ? { x: x + 84, y: top + 358, w: 66, h: 20 } : { x, y: top + 358, w: 66, h: 20 };
-      L.adm = { x, y: top + 356, w: 76, h: 24 };
-      L.tileH = 30;
+      L.set = admin.is ? { x: x + 52, y: top + 358, w: 66, h: 20 } : { x, y: top + 358, w: 66, h: 20 };
+      L.adm = { x, y: top + 358, w: 44, h: 20 };   // v8.99.41: plain text link
+      L.heroH = 44; L.secH = 26;
     }
   } else {
     if (wide) {
@@ -10800,7 +10822,7 @@ function renderCareer() {
   // career card: golfer + name + DLG Tour rank + XP bar
   const C = L.card;
   czBoard(C.x, C.y, C.w, C.h, 0.9, false);
-  careerGolfer(C.x + 26, C.y + 72, 2);
+  careerGolfer(C.x + 27, C.y + 72, 2, undefined, CAREER_GDX);   // v8.99.41: golfer centred on his patch
   const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
@@ -10816,9 +10838,10 @@ function renderCareer() {
   rect(bx, by, bw, bh, '#000'); rect(bx + 1, by + 1, bw - 2, bh - 2, '#183848');
   const fw = Math.round((bw - 2) * rk.frac);
   if (fw > 0) { rect(bx + 1, by + 1, fw, bh - 2, COL.lime); rect(bx + 1, by + 1, fw, 1, '#b8f818'); }
-  const xpTxt = unl ? 'TEST UNLOCK ON' : rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');
+  const xpTxt = unl ? 'TEST UNLOCK ON' : rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');   // v8.99.41: progress to the next rank, honest MAX at the top
   careerSoft(xpTxt, bx, by + 12, COL.white);
-  careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP RANK', bx, by + 24, '#d0d8e8');
+  const xpR = rk.next ? (rk.to - c.xp) + ' TO GO' : 'MAX RANK'; careerSoft(xpR, bx + bw - textW(xpR), by + 12, rk.next ? '#8fa0bc' : CAREER_YEL);
+  careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP OF THE TOUR', bx, by + 24, '#8fa0bc');
   { const B = L.look, on = pressDim('careerLook') || (mouse.seen && !isTouchUi() && hitBtn(mouse, B));   // v8.32: EDIT LOOK button, own row
     rect(B.x, B.y, B.w, B.h, '#000'); rect(B.x + 1, B.y + 1, B.w - 2, B.h - 2, on ? '#24406c' : '#183848'); rect(B.x + 1, B.y + 1, B.w - 2, 1, '#3c5c8c');
     const el = 'EDIT LOOK'; careerSoftC(el, B.x + B.w / 2, B.y + Math.round((B.h - 7) / 2), on ? CAREER_YEL : COL.white); }
@@ -10828,28 +10851,29 @@ function renderCareer() {
   const best = k => c.best[k] ? fmtRel(c.best[k].rel) : '--';
   const bestN = k => c.best[k] ? '(' + c.best[k].strokes + ')' : '';
   const avg = careerAvg9(c), streak = careerStreakNow(c);
-  const tiles = [
-    ['ROUNDS', String(c.rounds), ''],
-    ['AVG SCORE', avg == null ? '--' : (Math.abs(avg) < 0.05 ? 'E' : (avg > 0 ? '+' : '') + avg.toFixed(1)), avg == null ? '' : '/9'],
-    ['BEST FRONT 9', best('front'), bestN('front')],
-    ['BEST BACK 9', best('back'), bestN('back')],
-    ['BEST 18', best('full'), bestN('full')],
-    ['DAILY STREAK', String(streak), c.daily.top ? 'TOP ' + c.daily.top : ''],
-    ['BIRDIES', String(c.birdies), ''],
-    ['EAGLES', String(c.eagles), ''],
-    ['HOLES-IN-ONE', String(c.aces), ''],
-    ['DUMB LUCK', String(c.luck), 'SHOTS']
-  ];
-  const pad = 6, gap = 3, th = L.tileH, tw2 = Math.floor((G.w - pad * 2 - gap) / 2);
-  tiles.forEach((t, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const x = G.x + pad + col * (tw2 + gap), y = G.y + pad + row * (th + gap);
-    rect(x, y, tw2, th, '#000');
-    ctx.globalAlpha = 0.45; rect(x + 1, y + 1, tw2 - 2, th - 2, '#183848'); ctx.globalAlpha = 1;
-    careerSoft(t[0], x + 4, y + 3, '#d0d8e8');
-    const vs = th >= 28 ? 2 : 2, vy = y + th - 7 * vs - 3;
-    careerSoft(t[1], x + 4, vy, t[1] === '--' ? COL.gray : CAREER_YEL, vs);
-    if (t[2]) careerSoft(t[2], x + tw2 - 4 - textW(t[2]), y + th - 10, '#d0d8e8');
+  // v8.99.41: three hero tiles, then a tighter secondary list
+  const avgS = avg == null ? '--' : (Math.abs(avg) < 0.05 ? 'E' : (avg > 0 ? '+' : '') + avg.toFixed(1));
+  const hero = [['BEST 18', best('full'), bestN('full')], ['AVG SCORE', avgS, avg == null ? '' : 'PER 9'], ['ROUNDS', String(c.rounds), '']];
+  const sec = [['BEST FRONT 9', best('front'), bestN('front')], ['BEST BACK 9', best('back'), bestN('back')], ['BIRDIES', String(c.birdies), ''], ['EAGLES', String(c.eagles), ''],
+    ['HOLES-IN-ONE', String(c.aces), ''], ['DUMB LUCK SHOTS', String(c.luck), ''], ['DAILY STREAK', String(streak), c.daily.top ? 'TOP ' + c.daily.top : '']];
+  const pad = 6, gap = 4, hh = L.heroH, hw = Math.floor((G.w - pad * 2 - gap * 2) / 3), LBL = '#8fa0bc';
+  hero.forEach((t, i) => {
+    const x = G.x + pad + i * (hw + gap), y = G.y + pad;
+    rect(x, y, hw, hh, '#000'); ctx.globalAlpha = 0.45; rect(x + 1, y + 1, hw - 2, hh - 2, '#183848'); ctx.globalAlpha = 1;
+    const ls = textW(t[0]) <= hw - 6 ? t[0] : t[0].replace('SCORE', '').trim();
+    careerSoftC(ls, x + hw / 2, y + 5, LBL);
+    careerSoftC(t[1], x + hw / 2, y + 16, t[1] === '--' ? COL.gray : CAREER_YEL, 2);
+    if (t[2]) careerSoftC(t[2], x + hw / 2, y + hh - 9, LBL);
+  });
+  const sy0 = G.y + pad + hh + 6, cols = 2, sg = 3, sw = Math.floor((G.w - pad * 2 - sg) / cols), sh = L.secH;
+  sec.forEach((t, i) => {
+    const last = i === sec.length - 1 && sec.length % 2 === 1, col = last ? 0 : i % 2, row = Math.floor(i / 2);
+    const x = G.x + pad + col * (sw + sg), y = sy0 + row * (sh + sg), w = last ? sw * 2 + sg : sw;
+    ctx.globalAlpha = 0.3; rect(x, y, w, sh, '#183848'); ctx.globalAlpha = 1; rect(x, y + sh - 1, w, 1, '#000');
+    const vw = textW(t[1], 2), sub0 = t[2] ? textW(t[2]) + 4 : 0, sub = textW(t[0].replace('BEST FRONT 9', 'BEST F9').replace('BEST BACK 9', 'BEST B9')) + vw + sub0 + 16 <= w ? sub0 : 0, lab = textW(t[0]) + vw + sub + 16 <= w ? t[0] : t[0].replace('HOLES-IN-ONE', 'ACES').replace('DUMB LUCK SHOTS', 'DUMB LUCK').replace('BEST FRONT 9', 'BEST F9').replace('BEST BACK 9', 'BEST B9');
+    careerSoft(lab, x + 4, y + Math.round((sh - 7) / 2), LBL);
+    careerSoft(t[1], x + w - 4 - vw, y + Math.round((sh - 14) / 2), t[1] === '--' ? COL.gray : CAREER_YEL, 2);
+    if (t[2] && sub) careerSoft(t[2], x + w - 4 - vw - sub, y + Math.round((sh - 7) / 2), LBL);
   });
   // v2: FRIENDS + MATCHES (replaces the tournament placeholder)
   const T = L.tour;
@@ -10860,12 +10884,12 @@ function renderCareer() {
     const req = social.friends.filter(f => f.status === 'pending' && f.direction === 'in').length;
     careerSoft('HEAD TO HEAD', T.x + 8, T.y + 7, COL.orange);
     const R = social.h2h;   // v8.32: server-computed record (my_h2h)
-    if (R) { const n = R.w + R.l + R.t, rec = R.w + '-' + R.l + '-' + R.t + (n ? '  ' + Math.round(100 * (R.w + R.t / 2) / n) + '%' : '');
+    if (R) { const n = R.w + R.l + R.t, rec = R.w + 'W ' + R.l + 'L ' + R.t + 'T' + (n ? '  ' + Math.round(100 * (R.w + R.t / 2) / n) + '%' : '');   // v8.99.41
       careerSoft(rec, T.x + T.w - 8 - textW(rec), T.y + 7, n ? COL.white : '#bcc8e0'); }
     careerButton(L.fr, req ? 'FRIENDS (' + req + ')' : 'FRIENDS', false, 'careerFr');
     careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
   }
-  if (admin.is && L.adm) careerButton(L.adm, 'ADMIN', false, 'careerAdm');   // v8.30: only when the server says admin
+  if (admin.is && L.adm) { const on = pressDim('careerAdm') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.adm)); careerSoft('ADMIN', L.adm.x + Math.round((L.adm.w - textW('ADMIN')) / 2), L.adm.y + 6, on ? CAREER_YEL : '#e8eef8'); }   // v8.99.41: text link, no box   // v8.30: only when the server says admin
   if (L.set) { const on = pressDim('careerSet') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.set)); careerSoft('SETTINGS', L.set.x + Math.round((L.set.w - textW('SETTINGS')) / 2), L.set.y + 6, on ? CAREER_YEL : '#e8eef8'); }   // v8.33
   // sign out (tap twice)
   const armed = careerSignOutArm > performance.now();
@@ -11125,7 +11149,7 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
   },
@@ -11335,7 +11359,7 @@ function lbiPageHtml(o) {
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + lbiBust(n) + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
-  else h += '<div class="lbipz"><div><b>1ST</b>GREEN JACKET</div><div><b>2ND-6TH</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
+  else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
