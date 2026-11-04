@@ -279,7 +279,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.45';
+const GAME_VERSION = 'v8.99.46';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -328,7 +328,9 @@ function viewportCssSize() {
     }
   } catch (e) {}
   if (document.body) document.body.style.height = grow ? ah + 'px' : '';
-  return { aw, ah };
+  // v8.99.46: when we grow past what iOS actually shows, the bottom (ah - visible) CSS px are off screen; resize() adds it to SAFE.b
+  const vis = Math.max(1, Math.min(ih, vh || ih));
+  return { aw, ah, off: grow ? Math.max(0, ah - vis) : 0 };
 }
 function safeCssInsets() {
   // #test harness can force CSS-px insets (standalone env() is hard to emulate in headless)
@@ -366,7 +368,7 @@ function safeCssInsets() {
 let SAFE = { t: 0, r: 0, b: 0, l: 0 };   // logical-px safe insets (chrome offsets)
 const LOFT_BAND = () => Math.max(26, Math.ceil(44 / Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H)))) + 4;
 function resize() {
-  const { aw, ah } = viewportCssSize();
+  const { aw, ah, off } = viewportCssSize();
   const aspect = aw / ah, design = GW / GH;
   let lw, lh;
   if (aspect >= design) { lh = GH; lw = Math.max(GW, Math.round(GH * aspect)); }
@@ -376,7 +378,7 @@ function resize() {
   let sc = Math.min(aw / lw, ah / lh);
   let dev = sc * dpr; const fl = Math.floor(dev); if (fl >= 1 && fl / dev >= 0.92) { dev = fl; sc = dev / dpr; lw = Math.max(GW, Math.round(aw / sc)); lh = Math.max(GH, Math.round(ah / sc)); }
   const inset = safeCssInsets();
-  SAFE = { t: Math.round(inset.t / sc), r: Math.round(inset.r / sc), b: Math.round(inset.b / sc), l: Math.round(inset.l / sc) };
+  SAFE = { t: Math.round(inset.t / sc), r: Math.round(inset.r / sc), b: Math.round((off ? Math.max(inset.b, off + Math.min(inset.b, 21)) : inset.b) / sc), l: Math.round(inset.l / sc) };
   if (lw === W && lh === H && cv.width === lw && cv.height === lh) {
     // CSS keeps canvas inset:0 / 100% — do not shrink style height below the body
     layoutChrome();
