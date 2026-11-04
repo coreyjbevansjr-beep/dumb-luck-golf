@@ -199,7 +199,16 @@
   #acct .lbit tr.cut td{border:0;border-top:2px dashed #fc9838;color:#fc9838;font-size:10px;letter-spacing:2px;padding:3px 0;text-align:center}
   #acct .lbit td.acts{white-space:nowrap}#acct .lbit td.acts .btn{min-height:30px;padding:0 5px;font-size:10px;letter-spacing:1px;margin:1px}
   #acct img.lbub{width:22px;height:25px;image-rendering:pixelated;vertical-align:middle;margin:-4px 4px -4px 0;background:#183848}
-  #acct .lbif{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:12px;font-size:13px}
+  #acct .lbif{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-top:12px;font-size:13px}
+  #acct .lbif button{display:flex;align-items:center;gap:6px;min-width:0;padding:3px 4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:inherit;font:inherit;text-align:left;cursor:pointer}
+  #acct .lbif .nm{min-width:0;overflow-wrap:anywhere;line-height:1.2}
+  #acct img.lbim{width:24px;height:48px;flex:none;image-rendering:pixelated}
+  #acct .lbic{position:fixed;inset:0;z-index:5;background:rgba(8,16,40,0.78);display:flex;align-items:center;justify-content:center;padding:20px}
+  #acct .lbicb{background:#183848;border:2px solid #D4AF37;padding:16px 14px;text-align:center;max-width:300px;width:100%}
+  #acct .lbicb img{width:96px;height:192px;image-rendering:pixelated;display:block;margin:0 auto 8px}
+  #acct .lbicb .nm{font-size:16px;overflow-wrap:anywhere;margin-bottom:10px}
+  #acct .lbics{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-size:10px;letter-spacing:1px;margin-bottom:12px}
+  #acct .lbics b{display:block;font-size:15px;margin-bottom:2px}
   #acct .lbipz{margin-top:12px;display:grid;gap:8px;text-align:center}
   #acct .lbipz div{border:2px solid #D4AF37;padding:10px 6px;font-size:12px;letter-spacing:1px}
   #acct .lbipz b{display:block;color:#D4AF37;font-size:18px;margin-bottom:4px}
@@ -292,7 +301,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.48';
+const GAME_VERSION = 'v8.99.49';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -11332,6 +11341,15 @@ async function lbiLoad(force) {
 }
 async function lbiLoadBoard() { const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]); if (b.ok && b.data) LBI.board = b.data; if (f.ok && Array.isArray(f.data)) LBI.field = f.data;
   if (l.ok && l.data && typeof l.data === 'object') { const m = {}; for (const k in l.data) m[k.toLowerCase()] = l.data[k] || {}; LBI.looks = m; } }   // v8.64: busts (look + gear)
+function lbiLook(u) { return (LBI.looks || {})[String(u || '').toLowerCase()] || {}; }
+function lbiMini(u) { const L = lbiLook(u); return '<img class="lbim" alt="" src="' + golferHDImg(L.appearance, L.gear, 'full', 1) + '">'; }
+function lbiCard(u) {   // v8.99.49: player card over the field (full-size golfer, name, board stats when they have any)
+  const L = lbiLook(u), r = (((LBI.board || {}).rows) || []).find(x => String(x.u || '').toLowerCase() === String(u || '').toLowerCase());
+  const st = r ? [['POS', esc(r.pos)], ['TOTAL', lbiTp(r.total)], ['TODAY', lbiTp(r.today)], ['THRU', esc(r.thru == null ? '-' : r.thru)]] : null;
+  return '<div class="lbic" data-a="lbiPlX"><div class="lbicb"><img alt="" src="' + golferHDImg(L.appearance, L.gear, 'full', 2) + '"><div class="nm">' + at(u) + '</div>' +
+    (st ? '<div class="lbics">' + st.map(([k, v]) => '<div><b>' + v + '</b>' + k + '</div>').join('') + '</div>' + (r.mc ? '<p class="sub">MISSED CUT</p>' : '') : '<p class="sub">NO SCORES YET</p>') +
+    '<button class="btn alt" data-a="lbiPlX">CLOSE</button></div></div>';
+}
 function lbiBust(u) { const L = (LBI.looks || {})[String(u || '').toLowerCase()] || {}; return '<img class="lbub" alt="" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">'; }
 setTimeout(() => { lbiLoad(true); }, 1500);
 setInterval(() => { if (!document.hidden) lbiLoad(true); }, 10 * 60000);
@@ -11409,7 +11427,7 @@ function lbiPageHtml(o) {
   else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiBoardHtml(B, false);
-  else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<span>' + lbiBust(n) + at(n) + '</span>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';
+  else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
   else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
@@ -11713,6 +11731,8 @@ if (acctEl) {
     if (a.startsWith('lbi')) {   // v8.63 tournament
       if (a === 'lbiClose' || a === 'lbiGateX') { try { sessionStorage.removeItem(LBI_AFTER_KEY); } catch (e) {} hideAcct(); return; }
       if (a === 'lbiOpen') { lbiOpen('board'); return; }
+      if (a === 'lbiPl') { const d = document.createElement('div'); d.innerHTML = lbiCard(id || b.getAttribute('data-id')); acctBox.appendChild(d.firstChild); SFX.click(); return; }   // v8.99.49
+      if (a === 'lbiPlX') { const c = acctBox.querySelector('.lbic'); if (c) c.remove(); return; }
       if (a === 'lbiTab') { acctOpts.tab = b.getAttribute('data-n'); lbiRender(); return; }
       if (a === 'lbiGate') { try { sessionStorage.setItem(LBI_AFTER_KEY, '1'); } catch (e) {} showAcct('lbiGate'); return; }
       if (a === 'lbiReg') { acctBusy(true); const r = await lbiRpc('lbi_register', {}); acctBusy(false); if (!r.ok) { acctMsg(lbiErr(r)); return; } try { trackEvent('lbi_register', {}); } catch (e) {} await lbiRefresh(); lbiRender(); return; }
