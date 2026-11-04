@@ -40,8 +40,13 @@
      safe area, iOS 26 translucent-bar sampling at the bottom edge) is the grass colour. --gb is synced to the canvas bottom row by JS. */
   /* v8.99.35: the gradient no longer repeats - it used to tile and paint a sky band under the grass on iPhone (home-indicator strip).
      Sized 100% + 600px tall from the top, so the top half stays sky and everything below the canvas, however far iOS paints, is grass. */
-  html{background-color:#63adff;background-image:linear-gradient(to bottom,#63adff 0,#63adff 50vh,var(--gb,#80d010) 50vh,var(--gb,#80d010) 100%);background-repeat:no-repeat;background-position:0 0;background-size:100% calc(100% + 600px)}
+  html{background-color:var(--gb,#80d010);background-image:linear-gradient(to bottom,#63adff 0,#63adff 50vh,var(--gb,#80d010) 50vh,var(--gb,#80d010) 100%);background-repeat:no-repeat;background-position:0 0;background-size:100% calc(100% + 600px)}
   body{background:transparent}
+  /* v8.99.39: iOS paints the strip outside the web viewport (home-indicator area of the Home Screen app) with the root's SOLID
+     background-color, ignoring gradients and fixed layers - so html's colour is now the grass green. The top stays sky: theme-color,
+     the gradient's top half and #gtop (a fixed sky layer reaching far above the top edge) all paint sky behind the canvas. */
+  #gtop{position:fixed;left:0;right:0;top:-600px;height:calc(50vh + 600px);background:#63adff;pointer-events:none}
+  @media (display-mode: standalone), (display-mode: fullscreen){ body{height:100lvh !important;min-height:100lvh} }
   #gbot{position:fixed;left:0;right:0;top:calc(100dvh - 2px);height:calc(100lvh - 100dvh + env(safe-area-inset-bottom,0px) + 240px);background:var(--gb,#80d010);pointer-events:none}
   /* Canvas always fills the fixed body (100dvh). Never leave a body-colored strip under the grass. */
   body{position:fixed;inset:0;width:100%;height:100%;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:0;
@@ -221,7 +226,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
 <body>
-<div id="gbot" aria-hidden="true"></div>
+<div id="gtop" aria-hidden="true"></div><div id="gbot" aria-hidden="true"></div>
 <div id="groundFill" aria-hidden="true"></div>
 <section id="seo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0"><h1>Dumb Luck Golf: free retro pixel golf game</h1><p>Dumb Luck Golf is a free retro pixel-art golf game you play in your browser on phone or desktop. Play the Front 9, Back 9 or Full 18, try the new Daily hole every day, and post your score on the leaderboards. Time your swing, pick your club, read the wind and sink your putts. In Career mode you can make an account, rank up, customize your golfer, add friends and challenge them to head-to-head ghost matches.</p><p>Follow Dumb Luck Golf on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" target="_blank">@dumbluckgolfing</a> · <a href="https://www.youtube.com/@dumbluckgolf" rel="me noopener" target="_blank">YouTube @dumbluckgolf</a></p></section>
 <noscript><p style="font:14px/1.5 sans-serif;color:#fff;background:#1c3a1c;padding:16px;margin:0">Dumb Luck Golf is a free retro pixel golf game: Front 9, Back 9, Full 18, a Daily hole and leaderboards. Please turn on JavaScript to play. Follow us on Instagram: <a href="https://www.instagram.com/dumbluckgolfing/" rel="me noopener" style="color:#f8d878">@dumbluckgolfing</a></p></noscript>
@@ -272,7 +277,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.38';
+const GAME_VERSION = 'v8.99.39';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -311,11 +316,13 @@ function viewportCssSize() {
   // v8.99.36: Home Screen app - iOS can hand us a viewport ~34px shorter than the screen (home-indicator inset), leaving the
   // page background visible under the grass. Grow to the physical screen height so the canvas (grass) reaches the bottom edge.
   try {
-    const sa = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    // v8.99.39: the manifest asks for display "fullscreen", so the standalone media query alone never matched there
+    const sa = navigator.standalone === true || (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches));
     if (sa && screen && screen.width && screen.height) {
       const portrait = aw <= Math.max(iw, vw) && iw < ih, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
       const sw0 = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-      if (Math.abs(sw0 - aw) <= 2 && sh > ah && sh - ah <= 80) { ah = sh; grow = true; }
+      const lv = document.documentElement.clientHeight || 0;   // v8.99.39: also trust the 100lvh body
+      if (Math.abs(sw0 - aw) <= 2 && sh > ah && sh - ah <= 160) { ah = sh; grow = true; } else if (lv > ah && lv - ah <= 160) { ah = lv; grow = true; }
     }
   } catch (e) {}
   if (document.body) document.body.style.height = grow ? ah + 'px' : '';
@@ -349,7 +356,7 @@ function safeCssInsets() {
   let standalone = false;
   try {
     standalone = !!(navigator.standalone === true ||
-      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+      (window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches)));   // v8.99.39
   } catch (e) {}
   if (standalone && t < 44) t = 47;
   return { t, r, b, l };
@@ -10500,7 +10507,8 @@ function syncPageBg() {
     if (pageBgCv.width !== w || pageBgCv.height !== 2) { pageBgCv.width = w; pageBgCv.height = 2; }
     pageBgCtx.clearRect(0, 0, w, 2); pageBgCtx.drawImage(cv, 0, 0, w, 1, 0, 0, w, 1); pageBgCtx.drawImage(cv, 0, h - 1, w, 1, 0, 1, w, 1);
     const d = pageBgCtx.getImageData(0, 0, w, 2).data, top = rowMode(d, 0, w), col = rowMode(d, w * 4, w);
-    if (top !== pageTopCol) { pageTopCol = top; document.documentElement.style.backgroundColor = top; }   // v8.99.35: body stays transparent so the html sky/grass split shows below the canvas
+    if (top !== pageTopCol) { pageTopCol = top; const gt = document.getElementById('gtop'); if (gt) gt.style.backgroundColor = top; }   // v8.99.39: the top colour goes on the fixed #gtop sky layer only
+    if (col !== pageBgCol) document.documentElement.style.backgroundColor = col;   // v8.99.39: html solid colour = bottom row (grass) - iOS paints the strip past the viewport with it (root cause of the blue band)
     if (!groundFillEl) groundFillEl = document.getElementById('groundFill');
     if (col !== pageBgCol) { pageBgCol = col; if (groundFillEl) groundFillEl.style.backgroundColor = col; }
   } catch (e) {}
