@@ -279,7 +279,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.46';
+const GAME_VERSION = 'v8.99.47';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -788,11 +788,22 @@ async function loadMatches() {
   if (r.ok) loadH2H();
   return r;
 }
+function openMatchWith(fid) {   // v8.99.46: one open match per pair - pending/active, not expired, either direction
+  const now = Date.now();
+  return (social.matches || []).find(m => ['pending', 'active'].includes(m.status) && (!m.expires_at || Date.parse(m.expires_at) > now) && (m.challenger === fid || m.opponent === fid)) || null;
+}
+function openMatchBtn(m, big) {   // button that replaces CHALLENGE while a match with this friend is open
+  const lab = matchLabel(m), cls = 'btn' + (big ? '' : ' small');
+  if (lab === 'YOUR TURN') return '<button class="' + cls + '" data-a="mplay" data-id="' + esc(m.id) + '">YOUR TURN</button>';
+  if (lab === 'NEW CHALLENGE') return '<button class="' + cls + '" data-a="go:matches">NEW CHALLENGE</button>';
+  return '<button class="' + cls + ' alt" data-a="mresult" data-id="' + esc(m.id) + '">IN PROGRESS</button>';
+}
 async function createMatch(friend, holes, chirps) {
+  if (openMatchWith(friend.friend_id)) return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH @' + String(friend.friend_username).toUpperCase() };
   const seed = (Math.random() * 2147483647) | 0, plan = matchPlanNew(seed, holes);   // v8.47: Daily-hole shuffle
   const ch = (chirps || []).filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2), body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: ch.length ? Object.assign({}, plan.setup, { chirps: ch }) : plan.setup };   // v8.99.14 picked chirps ride in setup (existing jsonb)
   const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
-  if (!r.ok) return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
+  if (!r.ok) { if (/one open match|23505/i.test(JSON.stringify(r.data || r.error || ''))) { loadMatches(); return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH THIS FRIEND' }; } return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' }; }
   const m = Object.assign({ challenger_username: account.profile.username, opponent_username: friend.friend_username }, (r.data && r.data[0]) || body);
   social.matches.unshift(m);
   return { ok: true, match: m };
@@ -11156,7 +11167,7 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st hot">WANTS TO BE FRIENDS</span></div><button class="btn small" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div><button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE">' + at(f.friend_username) + ' <span class="chev">&gt;</span></button>' + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="st">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</div>' + (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id)) : '<button class="btn small" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button>') + '<button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item"><div class="who">' + at(f.friend_username) + '<span class="st">WAITING</span></div><button class="btn small alt" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
     return h;
   },
@@ -11188,7 +11199,7 @@ const VIEWS = {
       '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
       '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
       '<div><b>' + fmtB(B.full) + '</b>BEST 18</div><div><b>' + (S.birdies | 0) + '</b>BIRDIES</div><div><b>' + (S.eagles | 0) + '</b>EAGLES</div><div><b>' + (S.aces | 0) + '</b>HOLES-IN-ONE</div></div>' +
-      (f ? '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>' : '') + '<div class="msg"></div>';
+      (f ? (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id), true) : '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>') : '') + '<div class="msg"></div>';
   },
   challenge: o => {
     const f = social.friends.find(x => x.id === o.fid); const n = o.holes || 9;
@@ -11691,7 +11702,7 @@ if (acctEl) {
     if (a === 'signout') { signOut(); hideAcct(); setState('career'); return; }
     if (a === 'faccept' || a === 'fdecline') { await answerFriend(id, a === 'faccept'); showAcct('friends'); return; }
     if (a === 'fremove') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } await removeFriend(id); showAcct('friends'); return; }
-    if (a === 'challenge') { showAcct('challenge', { fid: id, holes: 9 }); return; }
+    if (a === 'challenge') { const f0 = social.friends.find(x => x.id === id), om = f0 && openMatchWith(f0.friend_id); if (om) { acctMsg('YOU ALREADY HAVE A MATCH WITH @' + String(f0.friend_username).toUpperCase()); return; } showAcct('challenge', { fid: id, holes: 9 }); return; }
     if (a === 'holes') { acctOpts.holes = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
     if (a === 'chirp') { const i = +b.getAttribute('data-n'), c = acctOpts.chirps || (acctOpts.chirps = []), k = c.indexOf(i); if (k >= 0) c.splice(k, 1); else { c.push(i); if (c.length > 2) c.shift(); } showAcct('challenge', acctOpts); return; }
     if (a === 'sendch') {
