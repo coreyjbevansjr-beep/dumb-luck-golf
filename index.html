@@ -315,7 +315,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.54';
+const GAME_VERSION = 'v8.99.55';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -9988,7 +9988,7 @@ addEventListener('pointercancel', e => { hatRelease(e); if (hatTurn.drag === nul
 function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, ty: 0, view: 0, prev: 0, fade: 1, last: 0, moveAt: 0, drag: null }); }
 /* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
-  { id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK', short: 'CAMO SNAPBACK', price: '', badge: '', spec: '', fallback: 'soon' },
+  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '', badge: '', spec: '', fallback: 'soon' },
   { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$8', badge: 'NEW', spec: '40MM CLAY CHIP', stock: 'IN STOCK', url: () => NEW_MARKER_LINK }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
