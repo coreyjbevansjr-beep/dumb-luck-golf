@@ -178,6 +178,14 @@
   #acct .item.fr .fsub .fseen{display:inline;margin:0;min-height:0}
   #acct .item.fr .fsub .st{display:inline;margin:0;font-size:10px}
   #acct .item.fr .fh2h{color:#bcc8e0}
+  #acct .item .fexp{color:#fc9838;letter-spacing:1px;font-size:10px;margin-left:6px}
+  #acct .item .fturn{display:inline-block;background:#c8102e;color:#fcfcfc;font-size:9px;letter-spacing:1px;padding:2px 5px;margin-right:6px;border:1px solid #fcfcfc}
+  #acct .stake-seg button{flex:1 1 30%;min-height:40px;font-size:11px}
+  #acct .box-reveal{text-align:center;padding:18px 8px;border:3px solid #f8d878;margin:12px 0;background:#102040}
+  #acct .box-reveal .tier{font-size:14px;letter-spacing:2px;margin:8px 0}
+  #acct .box-reveal .iname{font-size:18px;color:#f8d878;letter-spacing:2px}
+  #acct .wallet-line{font-size:11px;letter-spacing:1px;color:#bcc8e0;text-align:center;margin:0 0 8px}
+
   #acct .btn.small.fact{flex:none;width:96px;padding:0;letter-spacing:1px;font-size:12px}
   #acct .item.fr span.fx{flex:none;width:44px}
   #acct .btn.small.fx{flex:none;width:44px;padding:0;letter-spacing:0}
@@ -307,7 +315,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.52';
+const GAME_VERSION = 'v8.99.53';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -826,19 +834,55 @@ function openMatchBtn(m, big) {   // button that replaces CHALLENGE while a matc
   if (lab === 'NEW CHALLENGE') return '<button class="' + cls + '" data-a="go:matches">' + (big ? 'NEW CHALLENGE' : 'ACCEPT') + '</button>';
   return '<button class="' + cls + ' alt" data-a="mresult" data-id="' + esc(m.id) + '">' + (big ? 'IN PROGRESS' : 'WAITING') + '</button>';
 }
-async function createMatch(friend, holes, chirps) {
+async function createMatch(friend, holes, chirps, stake) {
   if (openMatchWith(friend.friend_id)) return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH @' + String(friend.friend_username).toUpperCase() };
   const seed = (Math.random() * 2147483647) | 0, plan = matchPlanNew(seed, holes);   // v8.47: Daily-hole shuffle
-  const ch = (chirps || []).filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2), body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup: ch.length ? Object.assign({}, plan.setup, { chirps: ch }) : plan.setup };   // v8.99.14 picked chirps ride in setup (existing jsonb)
+  const ch = (chirps || []).filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2);
+  let st = stake && stake.kind && stake.kind !== 'none' ? Object.assign({}, stake) : null;
+  if (st) {
+    await walletPull();
+    if (st.kind === 'coins') { if ((WALLET.coins | 0) < (st.amount | 0)) return { ok: false, msg: 'NOT ENOUGH COINS' }; }
+    else if (st.kind === 'box') { if ((WALLET.boxes | 0) < 1) return { ok: false, msg: 'NO BOX TO STAKE' }; }
+    else if (st.kind === 'item') { if (walletOwnCount(st.item_id) < 1) return { ok: false, msg: 'YOU DO NOT OWN THAT' }; }
+    else st = null;
+  }
+  // #test preview: local escrow. Live: server stake_deposit after insert.
+  if (st && walletLocal()) {
+    if (st.kind === 'coins') { if (!walletSpendCoins(st.amount | 0)) return { ok: false, msg: 'NOT ENOUGH COINS' }; }
+    else if (st.kind === 'box') { WALLET.boxes -= 1; walletSave(WALLET); }
+    else if (st.kind === 'item') { WALLET.owned[st.item_id] -= 1; if (!WALLET.owned[st.item_id]) delete WALLET.owned[st.item_id]; walletSave(WALLET); }
+  }
+  const setup = Object.assign({}, plan.setup, ch.length ? { chirps: ch } : {}, st ? { stake: st } : {});
+  const body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup };
   const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
-  if (!r.ok) { if (/one open match|23505/i.test(JSON.stringify(r.data || r.error || ''))) { loadMatches(); return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH THIS FRIEND' }; } return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' }; }
+  if (!r.ok) {
+    if (st && walletLocal()) { if (st.kind === 'coins') walletAddCoins(st.amount | 0); else if (st.kind === 'box') walletAddBox(1); else if (st.kind === 'item') walletGrantItem(st.item_id, 1); }
+    if (/one open match|23505/i.test(JSON.stringify(r.data || r.error || ''))) { loadMatches(); return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH THIS FRIEND' }; }
+    return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
+  }
   const m = Object.assign({ challenger_username: account.profile.username, opponent_username: friend.friend_username }, (r.data && r.data[0]) || body);
+  if (st && !walletLocal()) {
+    const d = await sb('/rest/v1/rpc/stake_deposit', { method: 'POST', body: { p_match: m.id } }, 'wallet');
+    if (!d.ok) {
+      await sb('/rest/v1/rpc/respond_match', { method: 'POST', body: { p_match: m.id, p_action: 'cancel' } }, 'matches');
+      await walletPull();
+      const msg = String((d.data && (d.data.message || d.data.msg)) || '');
+      if (/not enough coins/i.test(msg)) return { ok: false, msg: 'NOT ENOUGH COINS' };
+      if (/no box/i.test(msg)) return { ok: false, msg: 'NO BOX TO STAKE' };
+      if (/not owned/i.test(msg)) return { ok: false, msg: 'YOU DO NOT OWN THAT' };
+      if (d.missing) return { ok: false, msg: 'STAKES NOT SET UP YET' };
+      return { ok: false, msg: 'COULD NOT LOCK STAKE' };
+    }
+    await walletPull();
+  }
   social.matches.unshift(m);
   return { ok: true, match: m };
 }
 async function respondMatch(id, action) {
   const r = await sb('/rest/v1/rpc/respond_match', { method: 'POST', body: { p_match: id, p_action: action } }, 'matches');
-  await loadMatches(); return { ok: r.ok };
+  await loadMatches();
+  if (r.ok && (action === 'accept' || action === 'decline' || action === 'cancel')) try { await walletPull(); } catch (e) {}
+  return { ok: r.ok };
 }
 async function fetchGhosts(id) {
   const r = await sb('/rest/v1/matches?id=eq.' + encodeURIComponent(id) + '&select=ghost', {}, 'matches');
@@ -846,7 +890,7 @@ async function fetchGhosts(id) {
 }
 async function submitMatchRound(id, scoresArr, ghost) {
   const r = await sb('/rest/v1/rpc/submit_match_round', { method: 'POST', body: { p_match: id, p_scores: scoresArr, p_ghost: ghost } }, 'matches');
-  if (r.ok) await loadMatches();
+  if (r.ok) { await loadMatches(); try { await walletPull(); } catch (e) {} }
   return { ok: r.ok, data: r.data, msg: r.ok ? '' : (r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT SUBMIT (SAVED ON THIS DEVICE)') };
 }
 function matchSide(m) { return m && isSignedIn() && m.challenger === account.user.id ? 'challenger' : 'opponent'; }
@@ -862,6 +906,16 @@ function matchLabel(m) {   // short status line for lists
   if (!theirs) return 'WAITING FOR @' + o.name;
   return m.status.toUpperCase();
 }
+function matchExpiryMs(m) { if (!m || !m.expires_at) return null; const ts = Date.parse(m.expires_at); return Number.isFinite(ts) ? ts - Date.now() : null; }
+function matchExpiryTag(m) {   // v8.99.53: "2 DAYS LEFT" on open matches
+  if (!m || !['pending', 'active'].includes(m.status)) return '';
+  const ms = matchExpiryMs(m); if (ms == null) return '';
+  if (ms <= 0) return 'EXPIRED';
+  const d = Math.ceil(ms / 864e5); if (d <= 1) { const h = Math.max(1, Math.ceil(ms / 36e5)); return h + (h === 1 ? ' HOUR LEFT' : ' HOURS LEFT'); }
+  return d + ' DAYS LEFT';
+}
+function matchNeedsYou(m) { return /YOUR TURN|NEW CHALLENGE/.test(matchLabel(m)); }
+
 /* ---- v8.47: match plans v2 draw a seeded shuffle of the Daily holes (no repeats until the pool runs out). The chosen hole ids,
    pins, wind and weather are stored in matches.setup so both players and the ghost replay rebuild the exact same round, even if
    the Daily list grows later. Matches without setup.v === 2 (created before v8.47) keep the v1 course plan below. ---- */
@@ -1539,11 +1593,128 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'ball_tumble', name: 'TUMBLEWEED', slot: 'ball', tier: 'rare', req: 'PLAY 100 HOLES', rule: { local: 'holes', min: 100 }, sort: 96 },
   { id: 'ball_black', name: 'BLACKOUT BALL', slot: 'ball', tier: 'legendary', req: 'MAKE AN EAGLE', rule: { local: 'eagles', min: 1 }, sort: 97 },
   { id: 'ball_8', name: '8 BALL', slot: 'ball', tier: 'legendary', req: 'MAKE A HOLE-IN-ONE', rule: { local: 'aces', min: 1 }, sort: 98 },
+  { id: 'tee_wood', name: 'WOOD TEE', slot: 'held', tier: 'common', req: 'MYSTERY BOX', rule: { box: true }, sort: 130 },
+  { id: 'tee_neon', name: 'NEON TEE', slot: 'held', tier: 'common', req: 'MYSTERY BOX', rule: { box: true }, sort: 131 },
+  { id: 'outfit_caddy', name: 'CADDY VEST', slot: 'torso', tier: 'rare', req: 'MYSTERY BOX', rule: { box: true }, sort: 132 },
+  { id: 'golden_hat', name: 'GOLDEN HAT', slot: 'head', tier: 'legendary', req: 'MYSTERY BOX', rule: { box: true }, sort: 133 },
+  { id: 'golden_club', name: 'GOLDEN CLUB', slot: 'held', tier: 'legendary', req: 'MYSTERY BOX', rule: { box: true }, sort: 134 },
   { id: 'trail_ember', name: 'EMBER TRAIL', slot: 'trail', tier: 'common', req: '10 CAREER BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 100 },   // v8.80 ball trails
   { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
   { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
 ];
 /* v8.99.23 GIFT GEAR: owned by everyone (guests too); worn state lives on this device, never sent to the server */
+
+/* ---- v8.99.53: in-game stakes (coins / cosmetics / mystery boxes) + drop table. No real money.
+   Live: my_wallet / open_box / grant_box_for_rounds / stake_deposit RPCs (server RNG + escrow).
+   #test: local preview wallet only (Supabase blocked). Graceful if RPCs missing. ---- */
+const BOX_KEY = 'dlg_wallet_v1__';
+const BOX_EVERY_N = 5;   // rounds between free mystery boxes
+const BOX_DROP = [   // weight-sum = 100; server open_box / box_drop must match
+  { id: 'ball_dlg', name: 'DLG GREEN BALL', tier: 'common', slot: 'ball', w: 14 },
+  { id: 'ball_pumpkin', name: 'PUMPKIN BALL', tier: 'common', slot: 'ball', w: 12 },
+  { id: 'ball_tennis', name: 'TENNIS BALL', tier: 'common', slot: 'ball', w: 12 },
+  { id: 'tee_wood', name: 'WOOD TEE', tier: 'common', slot: 'held', w: 16 },
+  { id: 'tee_neon', name: 'NEON TEE', tier: 'common', slot: 'held', w: 16 },
+  { id: 'camo_hat', name: 'DLG CAMO HAT', tier: 'rare', slot: 'head', w: 7 },
+  { id: 'underpar_visor', name: 'UNDER-PAR VISOR', tier: 'rare', slot: 'head', w: 6 },
+  { id: 'outfit_caddy', name: 'CADDY VEST', tier: 'rare', slot: 'torso', w: 6 },
+  { id: 'lucky_club', name: 'LUCKY CLUB', tier: 'rare', slot: 'held', w: 6 },
+  { id: 'ball_gold', name: 'GOLD BALL', tier: 'super', slot: 'ball', w: 2 },
+  { id: 'golden_hat', name: 'GOLDEN HAT', tier: 'super', slot: 'head', w: 2 },
+  { id: 'golden_club', name: 'GOLDEN CLUB', tier: 'super', slot: 'held', w: 1 }
+];
+const BOX_TIER_COL = { common: '#a8b8d0', rare: '#3cbcfc', super: '#f8d878' };
+const BOX_TIER_NAME = { common: 'COMMON', rare: 'RARE', super: 'SUPER-RARE' };
+const STAKE_COIN_OPTS = [0, 50, 100, 250];
+function walletBlank() { return { v: 1, coins: 200, boxes: 1, owned: {}, roundsAtGrant: 0, winGrants: 0, grantedWins: {}, server: false }; }
+function walletLocal() { return AUTH_TEST || !isSignedIn() || !authOnline(); }   // #test / guest / offline: local preview only
+function walletLoad() {
+  try { const j = JSON.parse(localStorage.getItem(BOX_KEY + (isSignedIn() ? account.user.id : 'guest')) || 'null'); if (j && j.v === 1) return j; } catch (e) {}
+  return walletBlank();
+}
+function walletSave(w) { if (!walletLocal()) return; try { localStorage.setItem(BOX_KEY + (isSignedIn() ? account.user.id : 'guest'), JSON.stringify(w)); } catch (e) {} }
+let WALLET = walletBlank();
+function walletRefresh() { if (walletLocal()) WALLET = walletLoad(); return WALLET; }
+function walletOwnCount(id) { return (WALLET.owned && WALLET.owned[id]) || 0; }
+function walletGrantItem(id, n) { if (!walletLocal()) return; n = n || 1; WALLET.owned = WALLET.owned || {}; WALLET.owned[id] = (WALLET.owned[id] || 0) + n; walletSave(WALLET); }
+function walletSpendCoins(n) { if ((WALLET.coins || 0) < n) return false; WALLET.coins -= n; walletSave(WALLET); return true; }
+function walletAddCoins(n) { if (!walletLocal()) return; WALLET.coins = (WALLET.coins || 0) + n; walletSave(WALLET); }
+function walletAddBox(n) { if (!walletLocal()) return; WALLET.boxes = (WALLET.boxes || 0) + (n || 1); walletSave(WALLET); }
+function boxPickLocal() {   // #test / preview only — live open_box RPC rolls server-side
+  let tot = 0; for (const x of BOX_DROP) tot += x.w; let r = Math.random() * tot;
+  for (const x of BOX_DROP) { r -= x.w; if (r <= 0) return x; } return BOX_DROP[BOX_DROP.length - 1];
+}
+function boxOpenLocal() {
+  if ((WALLET.boxes || 0) < 1) return { ok: false, msg: 'NO MYSTERY BOXES' };
+  WALLET.boxes -= 1; const hit = boxPickLocal(); walletGrantItem(hit.id, 1); walletSave(WALLET);
+  return { ok: true, item: hit };
+}
+async function walletPull() {   // live: server is source of truth
+  if (walletLocal()) { walletRefresh(); return { ok: true, local: true }; }
+  const r = await sb('/rest/v1/rpc/my_wallet', { method: 'POST', body: {} }, 'wallet');
+  if (!r.ok) {   // graceful: keep last known / blank, mark unavailable
+    if (r.missing) net.missing.wallet = true;
+    WALLET = Object.assign(walletBlank(), WALLET, { server: false });
+    return { ok: false, missing: !!r.missing };
+  }
+  const d = r.data || {};
+  WALLET = { v: 1, coins: +d.coins || 0, boxes: +d.boxes || 0, owned: (d.owned && typeof d.owned === 'object') ? d.owned : {},
+    roundsAtGrant: +d.rounds_at_grant || 0, winGrants: 0, grantedWins: {}, server: true };
+  return { ok: true };
+}
+async function boxOpen() {
+  if (walletLocal()) return boxOpenLocal();
+  const r = await sb('/rest/v1/rpc/open_box', { method: 'POST', body: {} }, 'wallet');
+  if (!r.ok) {
+    const msg = String((r.data && (r.data.message || r.data.msg)) || '');
+    if (/no boxes/i.test(msg)) return { ok: false, msg: 'NO MYSTERY BOXES' };
+    if (r.missing) return { ok: false, msg: 'BOXES NOT SET UP YET' };
+    return { ok: false, msg: 'COULD NOT OPEN BOX' };
+  }
+  const id = r.data && r.data.item_id, tier = r.data && r.data.tier;
+  const hit = BOX_DROP.find(x => x.id === id) || { id: id, name: id, tier: tier || 'common', slot: 'ball', w: 0 };
+  await walletPull();
+  return { ok: true, item: hit };
+}
+async function walletMaybeGrantRound() {
+  try {
+    if (walletLocal()) {
+      const c = careerLoad(); if (!c || !c.rounds) return;
+      const prev = WALLET.roundsAtGrant || 0;
+      if (c.rounds > prev && c.rounds % BOX_EVERY_N === 0) { walletAddBox(1); WALLET.roundsAtGrant = c.rounds; walletSave(WALLET); }
+      return;
+    }
+    await sb('/rest/v1/rpc/grant_box_for_rounds', { method: 'POST', body: {} }, 'wallet');
+    await walletPull();
+  } catch (e) {}
+}
+function walletMaybeGrantMatchWin(m) {
+  // Live: private.stake_resolve pays win-box + pot. Local #test preview only:
+  if (!walletLocal()) { walletPull(); return; }
+  if (!m || m.status !== 'complete' || !m.id) return;
+  WALLET.grantedWins = WALLET.grantedWins || {};
+  if (WALLET.grantedWins[m.id]) return;
+  const me = matchSide(m); if (!me) return;
+  const a = m[me + '_total'], b = m[(me === 'challenger' ? 'opponent' : 'challenger') + '_total'];
+  if (a == null || b == null || !(a < b)) return;
+  WALLET.grantedWins[m.id] = 1;
+  walletAddBox(1); WALLET.winGrants = (WALLET.winGrants || 0) + 1;
+  const st = m.setup && m.setup.stake;
+  if (st && st.kind === 'coins' && st.amount > 0) walletAddCoins(st.amount * 2);
+  if (st && st.kind === 'item' && st.item_id) walletGrantItem(st.item_id, 1);
+  if (st && st.kind === 'box') walletAddBox(1);
+  walletSave(WALLET);
+}
+function stakeLabel(st) {
+  if (!st || !st.kind || st.kind === 'none') return '';
+  if (st.kind === 'coins') return st.amount + ' COINS';
+  if (st.kind === 'box') return 'MYSTERY BOX';
+  if (st.kind === 'item') { const it = BOX_DROP.find(x => x.id === st.item_id) || gearItem(st.item_id); return it ? it.name : st.item_id; }
+  return '';
+}
+function stakeSummaryHtml(m) { const s = stakeLabel(m && m.setup && m.setup.stake); return s ? (' · STAKE ' + esc(s)) : ''; }
+
+
 const GEAR_GIFT = ['dlg_shades'], GIFT_EQ_KEY = 'dlg_gift_wear_v1';
 const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
 /* cust1 LOCAL GEAR: gift items + balls unlocked from this device's career stats; worn per slot on this device (never sent to the server) */
@@ -1659,7 +1830,7 @@ function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
 function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
 function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
 function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
-function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id]; }
+function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id] || walletOwnCount(id) > 0; }
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
@@ -2163,6 +2334,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   careerSave(c);
   careerLast = { xp, rankUp: careerRank(c.xp).name !== before ? careerRank(c.xp).name : null, pb, id: careerId() };
   careerPull();   // v8.54: merge with the cloud copy before pushing, so another device never gets overwritten
+  try { if (walletLocal()) walletMaybeGrantRound(); } catch (e) {}   // v8.99.53: #test local box grant; live waits for careerPush
   return careerLast;
 }
 /* ---- optional Supabase sync (table public.careers, see career-schema.sql) ---- */
@@ -2177,6 +2349,7 @@ async function careerPush(c) {
       body: JSON.stringify({ user_id: account.user.id, xp: c.xp, rank: r.name, rounds: c.rounds, stats: c, updated_at: new Date().toISOString() })
     });
     careerSync = res.ok ? 'synced' : (res.status === 404 ? 'missing' : 'error');
+    if (res.ok) try { await walletMaybeGrantRound(); } catch (e) {}   // v8.99.53: server grant every 5 rounds
   } catch (e) { careerSync = 'error'; }
 }
 function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, union of recent rounds (deduped)
@@ -10952,7 +11125,8 @@ function renderCareer() {
     const R = social.h2h;   // v8.32: server-computed record (my_h2h)
     if (R) { const n = R.w + R.l + R.t, rec = R.w + 'W ' + R.l + 'L ' + R.t + 'T' + (n ? '  ' + Math.round(100 * (R.w + R.t / 2) / n) + '%' : '');   // v8.99.41
       careerSoft(rec, T.x + T.w - 8 - textW(rec), T.y + 7, n ? COL.white : '#bcc8e0'); }
-    careerButton(L.fr, req ? 'FRIENDS (' + req + ')' : 'FRIENDS', false, 'careerFr');
+    const frBadge = turn || req;   // v8.99.53: Friends tab badge when a match needs you (or friend request)
+    careerButton(L.fr, frBadge ? 'FRIENDS (' + frBadge + ')' : 'FRIENDS', turn > 0 && blink, 'careerFr');
     careerButton(L.mt, turn ? 'MATCHES (' + turn + ')' : 'MATCHES', turn > 0 && blink, 'careerMt');
   }
   if (admin.is && L.adm) { const on = pressDim('careerAdm') || (mouse.seen && !isTouchUi() && hitBtn(mouse, L.adm)); careerSoft('ADMIN', L.adm.x + Math.round((L.adm.w - textW('ADMIN')) / 2), L.adm.y + 6, on ? CAREER_YEL : '#e8eef8'); }   // v8.99.41: text link, no box   // v8.30: only when the server says admin
@@ -11215,7 +11389,9 @@ const VIEWS = {
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn fadd" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
     if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub"><span class="st hot">WANTS TO BE FRIENDS</span></span></div><button class="btn small fact" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt fx" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE"><span class="fname">' + at(f.friend_username) + '</span></button><span class="fsub">' + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="fh2h">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + '</span></div>' + (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id)) : '<button class="btn small fact" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button>') + '<button class="btn small alt fx" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>').join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => { const om = openMatchWith(f.friend_id), turnOn = om && matchNeedsYou(om), exp = om ? matchExpiryTag(om) : '';
+      return '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE"><span class="fname">' + at(f.friend_username) + '</span></button><span class="fsub">' + (turnOn ? '<span class="fturn">YOUR TURN</span>' : '') + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="fh2h">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + (exp ? '<span class="fexp">' + esc(exp) + '</span>' : '') + '</span></div>' + (om ? openMatchBtn(om) : '<button class="btn small fact" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button>') + '<button class="btn small alt fx" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>'; }).join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    h += '<p class="wallet-line">COINS ' + (walletRefresh().coins|0) + ' · BOXES ' + (WALLET.boxes|0) + ' · <button type="button" data-a="go:boxes" style="background:none;border:0;color:#f8d878;font:inherit;font-size:11px;letter-spacing:1px;text-decoration:underline;cursor:pointer;padding:0">OPEN BOXES</button></p>';
     if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub"><span class="st">REQUEST SENT</span></span></div><button class="btn small alt fact" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button><span class="fx" aria-hidden="true"></span></div>').join('') + '</div>';
     return h;
   },
@@ -11250,12 +11426,31 @@ const VIEWS = {
       (f ? (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id), true) : '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>') : '') + '<div class="msg"></div>';
   },
   challenge: o => {
-    const f = social.friends.find(x => x.id === o.fid); const n = o.holes || 9;
+    const f = social.friends.find(x => x.id === o.fid), n = o.holes || 9; walletRefresh();
+    const sk = o.stakeKind || 'none', sa = o.stakeAmt || 100, si = o.stakeItem || '';
+    const ownItems = BOX_DROP.filter(x => walletOwnCount(x.id) > 0);
+    let stakeBits = '<label>STAKE (IN-GAME ONLY · NO REAL MONEY)</label><div class="seg stake-seg">' +
+      [['none','NONE'],['coins','COINS'],['item','COSMETIC'],['box','BOX']].map(([k,l]) => '<button type="button" data-a="stakeKind" data-n="' + k + '" class="' + (sk === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
+    if (sk === 'coins') stakeBits += '<div class="seg stake-seg" style="margin-top:6px">' + STAKE_COIN_OPTS.filter(x => x > 0).map(c => '<button type="button" data-a="stakeAmt" data-n="' + c + '" class="' + (sa === c ? 'on' : '') + '"' + ((WALLET.coins|0) < c ? ' disabled' : '') + '>' + c + '</button>').join('') + '</div><p class="wallet-line">YOU HAVE ' + (WALLET.coins|0) + ' COINS</p>';
+    if (sk === 'item') stakeBits += (ownItems.length ? '<div class="seg stake-seg" style="margin-top:6px;flex-wrap:wrap">' + ownItems.map(x => '<button type="button" data-a="stakeItem" data-n="' + esc(x.id) + '" class="' + (si === x.id ? 'on' : '') + '" style="flex:1 1 40%">' + esc(x.name) + '</button>').join('') + '</div>' : '<p class="sub">OPEN A MYSTERY BOX TO GET COSMETICS TO STAKE.</p>');
+    if (sk === 'box') stakeBits += '<p class="wallet-line">YOU HAVE ' + (WALLET.boxes|0) + ' BOX' + ((WALLET.boxes|0) === 1 ? '' : 'ES') + ' · WINNER TAKES IT</p>';
     return head('CHALLENGE', 'go:friends') + '<p class="big">' + at(f ? f.friend_username : '?') + '</p>' +
       '<p class="sub">YOU BOTH PLAY THE SAME HOLES, PINS AND WIND.<br>YOU GO FIRST; THEY RACE YOUR GHOST.</p><label>HOLES</label><div class="seg">' +
       MATCH_SIZES.map(k => '<button type="button" data-a="holes" data-n="' + k + '" class="' + (k === n ? 'on' : '') + '">' + k + '<small>' + (k === 3 ? 'QUICK' : k === 9 ? 'NINE' : 'FULL') + '</small></button>').join('') +
-      '</div><label>CHIRPS FOR THEIR ROUND (PICK 2)</label><div class="seg" style="flex-wrap:wrap">' + CHIRP_PICKS.map((l, i) => '<button type="button" data-a="chirp" data-n="' + i + '" class="' + ((o.chirps || []).includes(i) ? 'on' : '') + '" style="flex:1 1 40%;min-height:40px;font-size:11px;letter-spacing:1px">' + esc(l) + '</button>').join('') +
+      '</div>' + stakeBits +
+      '<label>CHIRPS FOR THEIR ROUND (PICK 2)</label><div class="seg" style="flex-wrap:wrap">' + CHIRP_PICKS.map((l, i) => '<button type="button" data-a="chirp" data-n="' + i + '" class="' + ((o.chirps || []).includes(i) ? 'on' : '') + '" style="flex:1 1 40%;min-height:40px;font-size:11px;letter-spacing:1px">' + esc(l) + '</button>').join('') +
       '</div><button class="btn" data-a="sendch" data-id="' + esc(o.fid) + '">SEND + PLAY FIRST</button><div class="msg"></div>';
+  },
+  boxes: o => {
+    walletRefresh();
+    const rev = o && o.reveal;
+    let h = head('MYSTERY BOXES', 'go:friends') + '<p class="wallet-line">COINS ' + (WALLET.coins|0) + ' · BOXES ' + (WALLET.boxes|0) + '</p>';
+    h += '<p class="sub">EARN A BOX EVERY ' + BOX_EVERY_N + ' ROUNDS AND ON A MATCH WIN.<br>COMMON BALLS/TEES · RARE HATS/OUTFITS · SUPER-RARE GOLDEN.<br>NO REAL MONEY. SERVER ROLLS WHEN LIVE.</p>';
+    if (rev) h += '<div class="box-reveal"><div class="tier" style="color:' + (BOX_TIER_COL[rev.tier] || '#fff') + '">' + esc(BOX_TIER_NAME[rev.tier] || rev.tier) + '</div><div class="iname">' + esc(rev.name) + '</div><p class="sub">ADDED TO YOUR LOCKER</p></div>';
+    h += '<button class="btn" data-a="openbox"' + (((WALLET.boxes|0) < 1) ? ' disabled' : '') + '>OPEN A BOX</button>';
+    const owned = BOX_DROP.filter(x => walletOwnCount(x.id) > 0);
+    h += '<p class="sec">FROM BOXES</p><div class="list">' + (owned.length ? owned.map(x => '<div class="item"><div class="who">' + esc(x.name) + ' <span class="st" style="color:' + (BOX_TIER_COL[x.tier]||'#fff') + '">' + esc(BOX_TIER_NAME[x.tier]||'') + '</span><span class="st">x' + walletOwnCount(x.id) + '</span></div></div>').join('') : '<p class="empty">NONE YET.</p>') + '</div><div class="msg"></div>';
+    return h;
   },
   matches: () => {
     let h = head('MATCHES') + '<div class="msg"></div>';
@@ -11264,23 +11459,27 @@ const VIEWS = {
     if (!M.length) return h + '<p class="empty">NO MATCHES YET.<br>CHALLENGE A FRIEND FROM FRIENDS.</p><button class="btn" data-a="go:friends">FRIENDS</button>';
     return h + '<div class="list">' + M.map(m => {
       const o = matchOther(m), lab = matchLabel(m), mine = matchMine(m), hot = /YOUR TURN|NEW CHALLENGE|WON/.test(lab);
+      const exp = matchExpiryTag(m), stk = stakeLabel(m.setup && m.setup.stake);
       let act = '';
       if (m.status === 'pending' && matchSide(m) === 'opponent') act = '<button class="btn small" data-a="maccept" data-id="' + esc(m.id) + '">ACCEPT</button><button class="btn small alt" data-a="mdecline" data-id="' + esc(m.id) + '">NO</button>';
       else if (['pending', 'active'].includes(m.status) && !mine) act = '<button class="btn small" data-a="mplay" data-id="' + esc(m.id) + '">PLAY</button>';
       else act = '<button class="btn small alt" data-a="mresult" data-id="' + esc(m.id) + '">VIEW</button>';
-      return '<div class="item"><div class="who">' + at(o.name) + ' <span style="color:#bcc8e0">' + m.holes + ' HOLES</span><span class="st' + (hot ? ' hot' : '') + '">' + esc(lab) + '</span></div>' + act + '</div>';
+      return '<div class="item"><div class="who">' + at(o.name) + ' <span style="color:#bcc8e0">' + m.holes + ' HOLES</span><span class="st' + (hot ? ' hot' : '') + '">' + esc(lab) + '</span>' +
+        ((exp || stk) ? '<div class="fsub">' + (stk ? '<span class="fh2h">' + esc(stk) + '</span>' : '') + (stk && exp ? ' ' : '') + (exp ? '<span class="fexp">' + esc(exp) + '</span>' : '') + '</div>' : '') +
+        '</div>' + act + '</div>';
     }).join('') + '</div>';
   },
   result: o => {
     const m = social.matches.find(x => x.id === o.id) || (matchCtx && matchCtx.match); if (!m) return head('MATCH', 'go:matches') + '<p class="empty">MATCH NOT FOUND.</p>';
+    try { walletMaybeGrantMatchWin(m); } catch (e) {}
     const me = matchSide(m), oth = matchOther(m), mine = matchMine(m) || (o.local && o.local.scores), theirs = matchTheirs(m), plan = matchPlan(Number(m.seed), m.holes, m.setup);
     const tot = a => a ? a.reduce((x, y) => x + y, 0) : null, A = tot(mine), B = tot(theirs), par = (plan.defs || []).reduce((x, d) => x + d.par, 0);
     let big = 'WAITING FOR ' + at(oth.name);
     if (mine && theirs) big = A < B ? 'YOU WIN!' : A > B ? at(oth.name) + ' WINS' : 'ALL SQUARE';
     else if (!mine) big = 'YOUR TURN';
     const rows = (plan.defs || []).map((d, i) => { const a = mine ? mine[i] : null, b = theirs ? theirs[i] : null; return '<tr><td>' + d.courseNo + '</td><td>' + d.par + '</td><td class="' + (a != null && b != null ? (a < b ? 'w' : a > b ? 'l' : '') : '') + '">' + (a == null ? '-' : a) + '</td><td>' + (b == null ? '-' : b) + '</td></tr>'; }).join('');
-    const ghostOk = !!theirs;
-    return head('MATCH', 'go:matches') + '<p class="big">' + big + '</p><p class="sub">' + m.holes + ' HOLES · PAR ' + par + (o.local && o.local.msg ? '<br><span style="color:#fc9838">' + esc(o.local.msg) + '</span>' : '') + '</p>' +
+    const ghostOk = !!theirs, stk = stakeLabel(m.setup && m.setup.stake), exp = matchExpiryTag(m);
+    return head('MATCH', 'go:matches') + '<p class="big">' + big + '</p><p class="sub">' + m.holes + ' HOLES · PAR ' + par + (stk ? ' · ' + esc(stk) : '') + (exp ? ' · ' + esc(exp) : '') + (o.local && o.local.msg ? '<br><span style="color:#fc9838">' + esc(o.local.msg) + '</span>' : '') + '</p>' +
       '<table><tr><th>HOLE</th><th>PAR</th><th>YOU</th><th>' + at(oth.name) + '</th></tr>' + rows +
       '<tr><th>TOT</th><th>' + par + '</th><th>' + (A == null ? '-' : A) + '</th><th>' + (B == null ? '-' : B) + '</th></tr></table>' +
       (ghostOk ? '<button class="btn alt" data-a="mwatch" data-id="' + esc(m.id) + '">WATCH ' + at(oth.name) + "'S GHOST</button>" : '') +
@@ -11626,7 +11825,8 @@ async function showAcct(view, opts) {
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
   if (view === 'locker') { acctBox.innerHTML = VIEWS.locker(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await gearLoad(true); if (acctView !== 'locker') return; if (gear.fresh.length && !acctOpts.msg) { acctOpts.msg = 'NEW: ' + gear.fresh.map(id => (gearItem(id) || {}).name || id).join(', '); acctOpts.ok = true; gear.sel = gear.fresh[0]; } gear.fresh = []; }
-  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadH2H()]); if (acctView !== 'friends') return; }
+  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadMatches(), loadH2H(), walletPull()]); if (acctView !== 'friends') return; }
+  if (view === 'boxes' || view === 'challenge') { await walletPull(); }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
   acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); acctEl.scrollTop = 0;
@@ -11786,9 +11986,17 @@ if (acctEl) {
     if (a === 'challenge') { const f0 = social.friends.find(x => x.id === id), om = f0 && openMatchWith(f0.friend_id); if (om) { acctMsg('YOU ALREADY HAVE A MATCH WITH @' + String(f0.friend_username).toUpperCase()); return; } showAcct('challenge', { fid: id, holes: 9 }); return; }
     if (a === 'holes') { acctOpts.holes = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
     if (a === 'chirp') { const i = +b.getAttribute('data-n'), c = acctOpts.chirps || (acctOpts.chirps = []), k = c.indexOf(i); if (k >= 0) c.splice(k, 1); else { c.push(i); if (c.length > 2) c.shift(); } showAcct('challenge', acctOpts); return; }
+    if (a === 'stakeKind') { acctOpts.stakeKind = b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
+    if (a === 'stakeAmt') { acctOpts.stakeAmt = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
+    if (a === 'stakeItem') { acctOpts.stakeItem = b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
+    if (a === 'openbox') { const r = await boxOpen(); if (!r.ok) { acctMsg(r.msg); return; } showAcct('boxes', { reveal: r.item }); return; }
     if (a === 'sendch') {
       const f = social.friends.find(x => x.id === id); if (!f) return;
-      acctBusy(true); const r = await createMatch(f, acctOpts.holes || 9, acctOpts.chirps); acctBusy(false);
+      let stake = null;
+      if (acctOpts.stakeKind === 'coins') stake = { kind: 'coins', amount: acctOpts.stakeAmt || 100 };
+      else if (acctOpts.stakeKind === 'box') stake = { kind: 'box' };
+      else if (acctOpts.stakeKind === 'item' && acctOpts.stakeItem) stake = { kind: 'item', item_id: acctOpts.stakeItem };
+      acctBusy(true); const r = await createMatch(f, acctOpts.holes || 9, acctOpts.chirps, stake); acctBusy(false);
       if (!r.ok) { acctMsg(r.msg); return; }
       const s = await startMatchRound(r.match, false); if (!s.ok) acctMsg(s.msg);
       return;
@@ -11819,7 +12027,7 @@ if (acctEl) {
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape' && acctView === 'locker') { e.preventDefault(); hideAcct(); e.stopPropagation(); return; } if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
-if (AUTH_TEST) window.__adm = { get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+if (AUTH_TEST) window.__adm = { get wallet() { return walletRefresh(); }, boxOpenLocal, boxOpen, walletPull, BOX_DROP, get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
   get lookEd() { return lookEd; }, openLookEditor, lookLayout, lookSaveT: () => lookSave(), get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, openShop: () => { setState('title'); menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); }, setStats: o => { const c = careerLoad(); Object.assign(c, o); careerSave(c); LSTAT.c = null; }, lookTab: t => lookSetTab(t), lookTile: id => { const T = lookLayout().tiles.find(t => t.id === id); if (T) lookTileTap(T); return !!T; }, gearEq: () => gearEquipped(), ballSkin: () => { const b = gearBallSprite(); return b ? b.toDataURL() : null; }, gearOwnedT: id => gearOwned(id), gearCanWearT: id => gearCanWear(id), get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
