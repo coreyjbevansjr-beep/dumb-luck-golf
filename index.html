@@ -839,28 +839,50 @@ async function createMatch(friend, holes, chirps, stake) {
   const seed = (Math.random() * 2147483647) | 0, plan = matchPlanNew(seed, holes);   // v8.47: Daily-hole shuffle
   const ch = (chirps || []).filter(i => Number.isInteger(i) && i >= 0 && i < CHIRP_PICKS.length).slice(0, 2);
   let st = stake && stake.kind && stake.kind !== 'none' ? Object.assign({}, stake) : null;
-  if (st) {   // preview escrow until draft_stakes_boxes.sql RPCs ship
-    walletRefresh();
-    if (st.kind === 'coins') { if (!walletSpendCoins(st.amount | 0)) return { ok: false, msg: 'NOT ENOUGH COINS' }; }
-    else if (st.kind === 'box') { if ((WALLET.boxes | 0) < 1) return { ok: false, msg: 'NO BOX TO STAKE' }; WALLET.boxes -= 1; walletSave(WALLET); }
-    else if (st.kind === 'item') { if (walletOwnCount(st.item_id) < 1) return { ok: false, msg: 'YOU DO NOT OWN THAT' }; WALLET.owned[st.item_id] -= 1; if (!WALLET.owned[st.item_id]) delete WALLET.owned[st.item_id]; walletSave(WALLET); }
+  if (st) {
+    await walletPull();
+    if (st.kind === 'coins') { if ((WALLET.coins | 0) < (st.amount | 0)) return { ok: false, msg: 'NOT ENOUGH COINS' }; }
+    else if (st.kind === 'box') { if ((WALLET.boxes | 0) < 1) return { ok: false, msg: 'NO BOX TO STAKE' }; }
+    else if (st.kind === 'item') { if (walletOwnCount(st.item_id) < 1) return { ok: false, msg: 'YOU DO NOT OWN THAT' }; }
     else st = null;
+  }
+  // #test preview: local escrow. Live: server stake_deposit after insert.
+  if (st && walletLocal()) {
+    if (st.kind === 'coins') { if (!walletSpendCoins(st.amount | 0)) return { ok: false, msg: 'NOT ENOUGH COINS' }; }
+    else if (st.kind === 'box') { WALLET.boxes -= 1; walletSave(WALLET); }
+    else if (st.kind === 'item') { WALLET.owned[st.item_id] -= 1; if (!WALLET.owned[st.item_id]) delete WALLET.owned[st.item_id]; walletSave(WALLET); }
   }
   const setup = Object.assign({}, plan.setup, ch.length ? { chirps: ch } : {}, st ? { stake: st } : {});
   const body = { challenger: account.user.id, opponent: friend.friend_id, holes, seed, setup };
   const r = await sb('/rest/v1/matches', { method: 'POST', headers: { Prefer: 'return=representation' }, body }, 'matches');
   if (!r.ok) {
-    if (st) { if (st.kind === 'coins') walletAddCoins(st.amount | 0); else if (st.kind === 'box') walletAddBox(1); else if (st.kind === 'item') walletGrantItem(st.item_id, 1); }
+    if (st && walletLocal()) { if (st.kind === 'coins') walletAddCoins(st.amount | 0); else if (st.kind === 'box') walletAddBox(1); else if (st.kind === 'item') walletGrantItem(st.item_id, 1); }
     if (/one open match|23505/i.test(JSON.stringify(r.data || r.error || ''))) { loadMatches(); return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH THIS FRIEND' }; }
     return { ok: false, msg: r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT CREATE MATCH' };
   }
   const m = Object.assign({ challenger_username: account.profile.username, opponent_username: friend.friend_username }, (r.data && r.data[0]) || body);
+  if (st && !walletLocal()) {
+    const d = await sb('/rest/v1/rpc/stake_deposit', { method: 'POST', body: { p_match: m.id } }, 'wallet');
+    if (!d.ok) {
+      await sb('/rest/v1/rpc/respond_match', { method: 'POST', body: { p_match: m.id, p_action: 'cancel' } }, 'matches');
+      await walletPull();
+      const msg = String((d.data && (d.data.message || d.data.msg)) || '');
+      if (/not enough coins/i.test(msg)) return { ok: false, msg: 'NOT ENOUGH COINS' };
+      if (/no box/i.test(msg)) return { ok: false, msg: 'NO BOX TO STAKE' };
+      if (/not owned/i.test(msg)) return { ok: false, msg: 'YOU DO NOT OWN THAT' };
+      if (d.missing) return { ok: false, msg: 'STAKES NOT SET UP YET' };
+      return { ok: false, msg: 'COULD NOT LOCK STAKE' };
+    }
+    await walletPull();
+  }
   social.matches.unshift(m);
   return { ok: true, match: m };
 }
 async function respondMatch(id, action) {
   const r = await sb('/rest/v1/rpc/respond_match', { method: 'POST', body: { p_match: id, p_action: action } }, 'matches');
-  await loadMatches(); return { ok: r.ok };
+  await loadMatches();
+  if (r.ok && (action === 'accept' || action === 'decline' || action === 'cancel')) try { await walletPull(); } catch (e) {}
+  return { ok: r.ok };
 }
 async function fetchGhosts(id) {
   const r = await sb('/rest/v1/matches?id=eq.' + encodeURIComponent(id) + '&select=ghost', {}, 'matches');
@@ -868,7 +890,7 @@ async function fetchGhosts(id) {
 }
 async function submitMatchRound(id, scoresArr, ghost) {
   const r = await sb('/rest/v1/rpc/submit_match_round', { method: 'POST', body: { p_match: id, p_scores: scoresArr, p_ghost: ghost } }, 'matches');
-  if (r.ok) await loadMatches();
+  if (r.ok) { await loadMatches(); try { await walletPull(); } catch (e) {} }
   return { ok: r.ok, data: r.data, msg: r.ok ? '' : (r.missing ? 'MATCHES NOT SET UP YET' : 'COULD NOT SUBMIT (SAVED ON THIS DEVICE)') };
 }
 function matchSide(m) { return m && isSignedIn() && m.challenger === account.user.id ? 'challenger' : 'opponent'; }
@@ -1571,6 +1593,11 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'ball_tumble', name: 'TUMBLEWEED', slot: 'ball', tier: 'rare', req: 'PLAY 100 HOLES', rule: { local: 'holes', min: 100 }, sort: 96 },
   { id: 'ball_black', name: 'BLACKOUT BALL', slot: 'ball', tier: 'legendary', req: 'MAKE AN EAGLE', rule: { local: 'eagles', min: 1 }, sort: 97 },
   { id: 'ball_8', name: '8 BALL', slot: 'ball', tier: 'legendary', req: 'MAKE A HOLE-IN-ONE', rule: { local: 'aces', min: 1 }, sort: 98 },
+  { id: 'tee_wood', name: 'WOOD TEE', slot: 'held', tier: 'common', req: 'MYSTERY BOX', rule: { box: true }, sort: 130 },
+  { id: 'tee_neon', name: 'NEON TEE', slot: 'held', tier: 'common', req: 'MYSTERY BOX', rule: { box: true }, sort: 131 },
+  { id: 'outfit_caddy', name: 'CADDY VEST', slot: 'torso', tier: 'rare', req: 'MYSTERY BOX', rule: { box: true }, sort: 132 },
+  { id: 'golden_hat', name: 'GOLDEN HAT', slot: 'head', tier: 'legendary', req: 'MYSTERY BOX', rule: { box: true }, sort: 133 },
+  { id: 'golden_club', name: 'GOLDEN CLUB', slot: 'held', tier: 'legendary', req: 'MYSTERY BOX', rule: { box: true }, sort: 134 },
   { id: 'trail_ember', name: 'EMBER TRAIL', slot: 'trail', tier: 'common', req: '10 CAREER BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 100 },   // v8.80 ball trails
   { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
   { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
@@ -1578,11 +1605,11 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
 /* v8.99.23 GIFT GEAR: owned by everyone (guests too); worn state lives on this device, never sent to the server */
 
 /* ---- v8.99.53: in-game stakes (coins / cosmetics / mystery boxes) + drop table. No real money.
-   Server ownership + escrow + RNG live in draft_stakes_boxes.sql (not applied). Client keeps a
-   local preview wallet until those RPCs ship; #test always uses the local wallet. ---- */
+   Live: my_wallet / open_box / grant_box_for_rounds / stake_deposit RPCs (server RNG + escrow).
+   #test: local preview wallet only (Supabase blocked). Graceful if RPCs missing. ---- */
 const BOX_KEY = 'dlg_wallet_v1__';
 const BOX_EVERY_N = 5;   // rounds between free mystery boxes
-const BOX_DROP = [   // weight-sum = 100; server open_box must use the same weights
+const BOX_DROP = [   // weight-sum = 100; server open_box / box_drop must match
   { id: 'ball_dlg', name: 'DLG GREEN BALL', tier: 'common', slot: 'ball', w: 14 },
   { id: 'ball_pumpkin', name: 'PUMPKIN BALL', tier: 'common', slot: 'ball', w: 12 },
   { id: 'ball_tennis', name: 'TENNIS BALL', tier: 'common', slot: 'ball', w: 12 },
@@ -1599,20 +1626,21 @@ const BOX_DROP = [   // weight-sum = 100; server open_box must use the same weig
 const BOX_TIER_COL = { common: '#a8b8d0', rare: '#3cbcfc', super: '#f8d878' };
 const BOX_TIER_NAME = { common: 'COMMON', rare: 'RARE', super: 'SUPER-RARE' };
 const STAKE_COIN_OPTS = [0, 50, 100, 250];
-function walletBlank() { return { v: 1, coins: 200, boxes: 1, owned: {}, roundsAtGrant: 0, winGrants: 0, grantedWins: {} }; }
+function walletBlank() { return { v: 1, coins: 200, boxes: 1, owned: {}, roundsAtGrant: 0, winGrants: 0, grantedWins: {}, server: false }; }
+function walletLocal() { return AUTH_TEST || !isSignedIn() || !authOnline(); }   // #test / guest / offline: local preview only
 function walletLoad() {
   try { const j = JSON.parse(localStorage.getItem(BOX_KEY + (isSignedIn() ? account.user.id : 'guest')) || 'null'); if (j && j.v === 1) return j; } catch (e) {}
   return walletBlank();
 }
-function walletSave(w) { try { localStorage.setItem(BOX_KEY + (isSignedIn() ? account.user.id : 'guest'), JSON.stringify(w)); } catch (e) {} }
+function walletSave(w) { if (!walletLocal()) return; try { localStorage.setItem(BOX_KEY + (isSignedIn() ? account.user.id : 'guest'), JSON.stringify(w)); } catch (e) {} }
 let WALLET = walletBlank();
-function walletRefresh() { WALLET = walletLoad(); return WALLET; }
+function walletRefresh() { if (walletLocal()) WALLET = walletLoad(); return WALLET; }
 function walletOwnCount(id) { return (WALLET.owned && WALLET.owned[id]) || 0; }
-function walletGrantItem(id, n) { n = n || 1; WALLET.owned = WALLET.owned || {}; WALLET.owned[id] = (WALLET.owned[id] || 0) + n; walletSave(WALLET); }
+function walletGrantItem(id, n) { if (!walletLocal()) return; n = n || 1; WALLET.owned = WALLET.owned || {}; WALLET.owned[id] = (WALLET.owned[id] || 0) + n; walletSave(WALLET); }
 function walletSpendCoins(n) { if ((WALLET.coins || 0) < n) return false; WALLET.coins -= n; walletSave(WALLET); return true; }
-function walletAddCoins(n) { WALLET.coins = (WALLET.coins || 0) + n; walletSave(WALLET); }
-function walletAddBox(n) { WALLET.boxes = (WALLET.boxes || 0) + (n || 1); walletSave(WALLET); }
-function boxPickLocal() {   // preview / #test only — live open_box RPC must roll server-side
+function walletAddCoins(n) { if (!walletLocal()) return; WALLET.coins = (WALLET.coins || 0) + n; walletSave(WALLET); }
+function walletAddBox(n) { if (!walletLocal()) return; WALLET.boxes = (WALLET.boxes || 0) + (n || 1); walletSave(WALLET); }
+function boxPickLocal() {   // #test / preview only — live open_box RPC rolls server-side
   let tot = 0; for (const x of BOX_DROP) tot += x.w; let r = Math.random() * tot;
   for (const x of BOX_DROP) { r -= x.w; if (r <= 0) return x; } return BOX_DROP[BOX_DROP.length - 1];
 }
@@ -1621,17 +1649,51 @@ function boxOpenLocal() {
   WALLET.boxes -= 1; const hit = boxPickLocal(); walletGrantItem(hit.id, 1); walletSave(WALLET);
   return { ok: true, item: hit };
 }
-function walletMaybeGrantRound() {   // every BOX_EVERY_N scored rounds
+async function walletPull() {   // live: server is source of truth
+  if (walletLocal()) { walletRefresh(); return { ok: true, local: true }; }
+  const r = await sb('/rest/v1/rpc/my_wallet', { method: 'POST', body: {} }, 'wallet');
+  if (!r.ok) {   // graceful: keep last known / blank, mark unavailable
+    if (r.missing) net.missing.wallet = true;
+    WALLET = Object.assign(walletBlank(), WALLET, { server: false });
+    return { ok: false, missing: !!r.missing };
+  }
+  const d = r.data || {};
+  WALLET = { v: 1, coins: +d.coins || 0, boxes: +d.boxes || 0, owned: (d.owned && typeof d.owned === 'object') ? d.owned : {},
+    roundsAtGrant: +d.rounds_at_grant || 0, winGrants: 0, grantedWins: {}, server: true };
+  return { ok: true };
+}
+async function boxOpen() {
+  if (walletLocal()) return boxOpenLocal();
+  const r = await sb('/rest/v1/rpc/open_box', { method: 'POST', body: {} }, 'wallet');
+  if (!r.ok) {
+    const msg = String((r.data && (r.data.message || r.data.msg)) || '');
+    if (/no boxes/i.test(msg)) return { ok: false, msg: 'NO MYSTERY BOXES' };
+    if (r.missing) return { ok: false, msg: 'BOXES NOT SET UP YET' };
+    return { ok: false, msg: 'COULD NOT OPEN BOX' };
+  }
+  const id = r.data && r.data.item_id, tier = r.data && r.data.tier;
+  const hit = BOX_DROP.find(x => x.id === id) || { id: id, name: id, tier: tier || 'common', slot: 'ball', w: 0 };
+  await walletPull();
+  return { ok: true, item: hit };
+}
+async function walletMaybeGrantRound() {
   try {
-    const c = careerLoad(); if (!c || !c.rounds) return;
-    const prev = WALLET.roundsAtGrant || 0;
-    if (c.rounds > prev && c.rounds % BOX_EVERY_N === 0) { walletAddBox(1); WALLET.roundsAtGrant = c.rounds; walletSave(WALLET); }
+    if (walletLocal()) {
+      const c = careerLoad(); if (!c || !c.rounds) return;
+      const prev = WALLET.roundsAtGrant || 0;
+      if (c.rounds > prev && c.rounds % BOX_EVERY_N === 0) { walletAddBox(1); WALLET.roundsAtGrant = c.rounds; walletSave(WALLET); }
+      return;
+    }
+    await sb('/rest/v1/rpc/grant_box_for_rounds', { method: 'POST', body: {} }, 'wallet');
+    await walletPull();
   } catch (e) {}
 }
 function walletMaybeGrantMatchWin(m) {
+  // Live: private.stake_resolve pays win-box + pot. Local #test preview only:
+  if (!walletLocal()) { walletPull(); return; }
   if (!m || m.status !== 'complete' || !m.id) return;
   WALLET.grantedWins = WALLET.grantedWins || {};
-  if (WALLET.grantedWins[m.id]) return;   // once per match (preview local)
+  if (WALLET.grantedWins[m.id]) return;
   const me = matchSide(m); if (!me) return;
   const a = m[me + '_total'], b = m[(me === 'challenger' ? 'opponent' : 'challenger') + '_total'];
   if (a == null || b == null || !(a < b)) return;
@@ -1651,6 +1713,7 @@ function stakeLabel(st) {
   return '';
 }
 function stakeSummaryHtml(m) { const s = stakeLabel(m && m.setup && m.setup.stake); return s ? (' · STAKE ' + esc(s)) : ''; }
+
 
 const GEAR_GIFT = ['dlg_shades'], GIFT_EQ_KEY = 'dlg_gift_wear_v1';
 const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
@@ -1767,7 +1830,7 @@ function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
 function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
 function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
 function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
-function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id]; }
+function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id] || walletOwnCount(id) > 0; }
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
@@ -2271,6 +2334,7 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   careerSave(c);
   careerLast = { xp, rankUp: careerRank(c.xp).name !== before ? careerRank(c.xp).name : null, pb, id: careerId() };
   careerPull();   // v8.54: merge with the cloud copy before pushing, so another device never gets overwritten
+  try { if (walletLocal()) walletMaybeGrantRound(); } catch (e) {}   // v8.99.53: #test local box grant; live waits for careerPush
   return careerLast;
 }
 /* ---- optional Supabase sync (table public.careers, see career-schema.sql) ---- */
@@ -2285,6 +2349,7 @@ async function careerPush(c) {
       body: JSON.stringify({ user_id: account.user.id, xp: c.xp, rank: r.name, rounds: c.rounds, stats: c, updated_at: new Date().toISOString() })
     });
     careerSync = res.ok ? 'synced' : (res.status === 404 ? 'missing' : 'error');
+    if (res.ok) try { await walletMaybeGrantRound(); } catch (e) {}   // v8.99.53: server grant every 5 rounds
   } catch (e) { careerSync = 'error'; }
 }
 function careerMerge(a, b) {   // v8.54: max per counter, best-of best scores, union of recent rounds (deduped)
@@ -11760,7 +11825,8 @@ async function showAcct(view, opts) {
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
   if (view === 'locker') { acctBox.innerHTML = VIEWS.locker(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await gearLoad(true); if (acctView !== 'locker') return; if (gear.fresh.length && !acctOpts.msg) { acctOpts.msg = 'NEW: ' + gear.fresh.map(id => (gearItem(id) || {}).name || id).join(', '); acctOpts.ok = true; gear.sel = gear.fresh[0]; } gear.fresh = []; }
-  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadMatches(), loadH2H()]); if (acctView !== 'friends') return; }
+  if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadMatches(), loadH2H(), walletPull()]); if (acctView !== 'friends') return; }
+  if (view === 'boxes' || view === 'challenge') { await walletPull(); }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
   acctBox.innerHTML = VIEWS[view](acctOpts);
   acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); acctEl.scrollTop = 0;
@@ -11923,7 +11989,7 @@ if (acctEl) {
     if (a === 'stakeKind') { acctOpts.stakeKind = b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
     if (a === 'stakeAmt') { acctOpts.stakeAmt = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
     if (a === 'stakeItem') { acctOpts.stakeItem = b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
-    if (a === 'openbox') { const r = boxOpenLocal(); if (!r.ok) { acctMsg(r.msg); return; } showAcct('boxes', { reveal: r.item }); return; }
+    if (a === 'openbox') { const r = await boxOpen(); if (!r.ok) { acctMsg(r.msg); return; } showAcct('boxes', { reveal: r.item }); return; }
     if (a === 'sendch') {
       const f = social.friends.find(x => x.id === id); if (!f) return;
       let stake = null;
@@ -11961,7 +12027,7 @@ if (acctEl) {
   acctEl.addEventListener('keydown', e => { if (e.key === 'Escape' && acctView === 'locker') { e.preventDefault(); hideAcct(); e.stopPropagation(); return; } if (e.key === 'Escape') { e.preventDefault(); const fb = acctView === 'feedback' || acctView === 'fbThanks', po = acctView === 'preorder' || acctView === 'poThanks'; hideAcct(); if (po && state === 'title') menuPopup = { kind: 'shop', t: 0.2 }; else if (!fb && !po) setState('career'); } e.stopPropagation(); });
   for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) acctEl.addEventListener(t, e => e.stopPropagation(), { passive: true });
 }
-if (AUTH_TEST) window.__adm = { get wallet() { return walletRefresh(); }, boxOpenLocal, BOX_DROP, get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
+if (AUTH_TEST) window.__adm = { get wallet() { return walletRefresh(); }, boxOpenLocal, boxOpen, walletPull, BOX_DROP, get admin() { return admin; }, get acctView() { return acctView; }, acctOpen, golferHDImg, careerMerge, cupEnter, a2hsShow, showAcct, hideAcct, adminRpc, adminUnlockOn, addFriend, createMatch, authHeaders,
   get account() { return account; }, get social() { return social; }, hatUnlocked: i => hatUnlocked(i), trailUnlocked: t => trailUnlocked(t), get hats() { return HATS.length; }, careerXp: () => careerLoad().xp, setState: s => setState(s),
   get lookEd() { return lookEd; }, openLookEditor, lookLayout, lookSaveT: () => lookSave(), get player() { return player; }, loadMatches, startMatchRound, get ghostPlay() { return ghostPlay; }, lookOf, loadH2H, closeLook: () => { lookEd = null; }, openFeedback, get fbDraft() { return fbDraft; }, detectUS, get mkt() { return account.mkt; }, setXp: x => { const c = careerLoad(); c.xp = x; careerSave(c); }, openShop: () => { setState('title'); menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); }, setStats: o => { const c = careerLoad(); Object.assign(c, o); careerSave(c); LSTAT.c = null; }, lookTab: t => lookSetTab(t), lookTile: id => { const T = lookLayout().tiles.find(t => t.id === id); if (T) lookTileTap(T); return !!T; }, gearEq: () => gearEquipped(), ballSkin: () => { const b = gearBallSprite(); return b ? b.toDataURL() : null; }, gearOwnedT: id => gearOwned(id), gearCanWearT: id => gearCanWear(id), get h2h() { return social.h2h; },
   backswingTop: p => backswingTop(p),
