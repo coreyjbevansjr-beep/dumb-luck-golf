@@ -142,6 +142,12 @@
   #acct .kpis b{display:block;font-size:20px;color:#f8d878;margin-bottom:2px}
   #acct .row .btn{flex:1}
   #acct .item .who.wr{white-space:normal;word-break:break-word}
+  #acct .item.admsc{flex-wrap:wrap;align-items:flex-start;gap:6px 8px}
+  #acct .item.admsc .who{flex:1 1 100%;min-width:0;white-space:normal}
+  #acct .item.admsc .nm{font-size:15px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #acct .item.admsc .st{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #acct .item.admsc .acts{display:flex;gap:6px;width:100%;flex:1 1 100%}
+  #acct .item.admsc .acts .btn{flex:1;min-width:0;padding-left:4px;padding-right:4px}
   #acct .chk.mkt{align-items:flex-start;border:2px solid #3c4c6c;padding:10px;line-height:1.4}
   #acct .chk.mkt input{flex:none;margin-top:1px}
   #acct textarea#fbText{display:block;width:100%;box-sizing:border-box;font-size:16px;font-family:inherit;letter-spacing:1px;line-height:1.4;padding:10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;border-radius:0;-webkit-appearance:none;appearance:none;resize:vertical;min-height:120px}
@@ -301,7 +307,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.49';
+const GAME_VERSION = 'v8.99.50';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -11062,8 +11068,8 @@ const ADMIN_VIEWS = {
   adminScores: () => {
     let h = head('SCORES', 'go:admin') + '<div class="seg"><button type="button" data-a="ssort" data-n="recent" class="' + (admin.scoreSort === 'recent' ? 'on' : '') + '">NEWEST</button><button type="button" data-a="ssort" data-n="best" class="' + (admin.scoreSort === 'best' ? 'on' : '') + '">LOWEST</button></div><div class="msg"></div>';
     if (!admin.scores.length) return h + '<p class="empty">NO SCORES.</p>';
-    return h + '<div class="list">' + admin.scores.map(s => '<div class="item"><div class="who wr">' + esc(s.name) + admHid(s) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span><span class="st">' + esc(String(s.mode || '').toUpperCase()) + ' · ' + fmtTs(s.created_at) + '</span></div>' +
-      admHideBtn(s) + '<button class="btn small alt" data-a="sdel" data-id="' + esc(s.id) + '">DELETE</button><button class="btn small alt" data-a="nban" data-id="' + esc(s.name) + '">BAN NAME</button></div>').join('') + '</div>';
+    return h + '<div class="list">' + admin.scores.map(s => '<div class="item admsc"><div class="who"><div class="nm">' + esc(s.name) + admHid(s) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span></div><span class="st">' + esc(String(s.mode || '').toUpperCase()) + ' · ' + fmtTs(s.created_at) + '</span></div><div class="acts">' +
+      admHideBtn(s) + '<button class="btn small alt" data-a="sdel" data-id="' + esc(s.id) + '">DELETE</button><button class="btn small alt" data-a="nban" data-id="' + esc(s.name) + '">BAN NAME</button></div></div>').join('') + '</div>';   // v8.99.50: stack name/score + meta + buttons (iPhone)
   },
   adminPlayers: o => {
     let h = head('PLAYERS', 'go:admin') + '<form data-f="adminSearch" novalidate><div class="row"><input id="aQ" type="text" maxlength="12" placeholder="SEARCH USERNAME" autocapitalize="off" spellcheck="false" value="' + esc(o.q || '') + '"><button class="btn" type="submit">FIND</button></div></form><div class="msg"></div>';
@@ -11079,7 +11085,7 @@ const ADMIN_VIEWS = {
     h += '<p class="big">' + at(P.p.username) + (a.banned ? '<span class="ban">BANNED</span>' : '') + '</p><p class="sub">JOINED ' + fmtTs(P.p.created_at) + (last ? ' · LAST ACTIVE ' + admAgo(last) + ' AGO' : '') + '</p>' + (x0.email ? '<p class="sub" style="text-transform:none;user-select:text;-webkit-user-select:text">' + esc(x0.email) + '</p>' : '') + '<div class="msg"></div>';
     h += '<div class="kpis"><div><b>' + (c.rounds || a.rounds || 0) + '</b>ROUNDS</div><div><b>' + s.length + '</b>SCORES</div><div><b>' + (a.matches || 0) + '</b>MATCHES</div><div><b>' + esc(String(c.rank || '-').toUpperCase()) + '</b>RANK</div><div><b>' + (c.xp || 0) + '</b>XP</div><div><b>' + Object.keys(best).length + '</b>MODES</div></div>';
     const bk = Object.entries(best); if (bk.length) h += '<p class="sec">BEST SCORES</p><div class="feed">' + bk.map(([k, x]) => '<div><span>' + esc(k) + '</span><span style="color:#f8d878">' + x.strokes + ' (' + (x.to_par > 0 ? '+' : '') + x.to_par + ')</span></div>').join('') + '</div>';
-    h += '<p class="sec">RECENT SCORES</p>' + (s.length ? '<div class="list">' + s.slice(0, 8).map(x => '<div class="item"><div class="who wr">' + esc(admMode(x.mode)) + admHid(x) + ' <span style="color:#f8d878">' + x.strokes + ' (' + (x.to_par > 0 ? '+' : '') + x.to_par + ')</span><span class="st">' + fmtTs(x.created_at) + '</span></div>' + admHideBtn(x) + '<button class="btn small alt" data-a="sdel" data-id="' + esc(x.id) + '">DELETE</button></div>').join('') + '</div>' : '<p class="empty">NO SCORES</p>');
+    h += '<p class="sec">RECENT SCORES</p>' + (s.length ? '<div class="list">' + s.slice(0, 8).map(x => '<div class="item admsc"><div class="who"><div class="nm">' + esc(admMode(x.mode)) + admHid(x) + ' <span style="color:#f8d878">' + x.strokes + ' (' + (x.to_par > 0 ? '+' : '') + x.to_par + ')</span></div><span class="st">' + fmtTs(x.created_at) + '</span></div><div class="acts">' + admHideBtn(x) + '<button class="btn small alt" data-a="sdel" data-id="' + esc(x.id) + '">DELETE</button></div></div>').join('') + '</div>' : '<p class="empty">NO SCORES</p>');
     if (!a.admin) h += '<div class="row"><button class="btn small alt" data-a="prename" data-id="' + esc(P.p.username) + '">RENAME</button><button class="btn small ' + (a.banned ? '' : 'alt') + '" data-a="' + (a.banned ? 'punban' : 'pban') + '" data-id="' + esc(P.p.username) + '">' + (a.banned ? 'UNBAN' : 'BAN') + '</button></div>';
     return h + '<p class="sub" style="margin-top:6px">' + (x0.last_sign_in_at ? 'LAST SIGN-IN ' + fmtTs(x0.last_sign_in_at) + ' · ' : '') + (x0.rounds_logged || 0) + ' ROUNDS LOGGED · ' + (x0.aces || 0) + ' ACES</p>';
   },
