@@ -315,7 +315,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.53';
+const GAME_VERSION = 'v8.99.54';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -9989,7 +9989,7 @@ function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, 
 /* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
   { id: 'camo_snapback', name: 'DUMB LUCK CAMO SNAPBACK', short: 'CAMO SNAPBACK', price: '', badge: '', spec: '', fallback: 'soon' },
-  { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$10', badge: 'NEW', spec: '40MM CLAY CHIP', stock: 'IN STOCK', url: () => STRIPE_MARKER_URL }];
+  { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$8', badge: 'NEW', spec: '40MM CLAY CHIP', stock: 'IN STOCK', url: () => NEW_MARKER_LINK }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
   if (!force && shopState.at && performance.now() - shopState.at < 60000) return shopState;
@@ -10008,7 +10008,8 @@ function shopVisibleItems() { const st = shopState.status; return SHOP_ITEMS.fil
    green #14462D + gold #D4AF37 (orange still used where it was). Shopify-ready: an item can map to a Shopify product handle,
    variant id or buy link (public.store_links, set in admin STORE). With no mapping the item keeps its fallback:
    PREORDER request form (Supabase + email) or RESTOCKING SOON. ---- */
-const STRIPE_MARKER_URL = 'https://buy.stripe.com/eVq6oG1DJdtj9AJ0oH7Re00';   // v8.99.26: Stripe Payment Link for the LUCKY BALL MARKER (TEST link - swap for the live one before launch)
+const NEW_MARKER_LINK = 'https://buy.stripe.com/28E5kC0zF88ZeV33AT7Re01';   // v8.99.54: $8 + $5.95 US shipping Payment Link (plink_1UYZHAAGDDjl63ToIJNAF8Yc)
+const STRIPE_MARKER_URL = 'https://buy.stripe.com/eVq6oG1DJdtj9AJ0oH7Re00';   // v8.99.26: old $10 link — keep active/unused; Buy Now uses NEW_MARKER_LINK
 const SHOPIFY = { domain: '' };   // e.g. 'dumb-luck-golf.myshopify.com'. With a handle / variant id set in admin STORE, BUY goes to that store
 const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
 const SHOP_GALLERY = { camo_snapback: [], lucky_marker: ['shop/lucky-marker-front-720.webp?v=850', 'shop/lucky-marker-back-720.webp?v=850'] };
@@ -11341,7 +11342,7 @@ const VIEWS = {
       (isSignedIn() ? '<p class="sub">WE\'LL REPLY TO YOUR ACCOUNT EMAIL IF NEEDED.</p>' : '<label for="fbEmail">REPLY EMAIL (OPTIONAL)</label><input id="fbEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" value="' + esc(o.email || '') + '">') +
       '<div class="fbbtns"><button class="btn ghost" type="button" data-a="fbClose">CANCEL</button><button class="btn" type="submit">SEND</button></div></form><div class="msg"></div>'; },
   preorder: () => { const o = acctOpts;   // v8.48: preorder request (no payment)
-    return head('PREORDER', 'poClose') + '<p class="sub">LUCKY BALL MARKER · $10</p><form data-f="preorder" novalidate>' +
+    return head('PREORDER', 'poClose') + '<p class="sub">LUCKY BALL MARKER · $8</p><form data-f="preorder" novalidate>' +
       '<label for="poName">NAME</label><input id="poName" type="text" autocomplete="name" maxlength="60" value="' + esc(o.name || '') + '">' +
       '<label for="poEmail">EMAIL</label><input id="poEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" value="' + esc(o.email || '') + '">' +
       '<label for="poQty">QUANTITY</label><select id="poQty">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(q => '<option value="' + q + '"' + (q === (o.qty || 1) ? ' selected' : '') + '>' + q + '</option>').join('') + '</select>' +
