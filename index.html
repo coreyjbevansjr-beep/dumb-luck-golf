@@ -307,7 +307,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.50';
+const GAME_VERSION = 'v8.99.52';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4936,7 +4936,7 @@ function layoutChrome() {
     // the logo just to force more rows.
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     const bobPad = 6;
-    const cupB = cupLive() ? 30 : lbiBannerOn() ? 18 : 0;   // v8.52 SPOOKY CUP banner strip under the icon row; v8.99.32 slim tournament strip
+    const cupB = cupLive() ? 30 : lbiBannerOn() ? 28 : 0;   // v8.52 SPOOKY CUP; v8.99.52 compact 2-line LBI scoreboard strip
     const skyTop = iconBot + bobPad + cupB + (cupB ? 6 : 0);
     SPOOKY_BANNER.on = !!cupB; if (cupB) { SPOOKY_BANNER.w = Math.min(W - 16, 220); SPOOKY_BANNER.h = cupB > 20 ? 26 : 15; SPOOKY_BANNER.x = Math.round((W - SPOOKY_BANNER.w) / 2); SPOOKY_BANNER.y = iconBot + 7; }   // v8.99.32: a little more room under share/settings
     const menuH = menuLayoutCalc().blockH; // v8.18: labels + subheadings (2x2 grid on narrow phones)
@@ -4969,7 +4969,7 @@ function layoutChrome() {
     const iconBot = GEAR_BTN.y + GEAR_BTN.h;
     ldW = lw0; ldH = lh0;
     if (ldW > W - 40) { ldW = W - 40; ldH = Math.round(lh0 * ldW / lw0); }
-    const cupB = cupLive() ? 30 : lbiBannerOn() ? 18 : 0;   // v8.52 / v8.99.32
+    const cupB = cupLive() ? 30 : lbiBannerOn() ? 28 : 0;   // v8.52 / v8.99.52 compact LBI strip
     LOGO_Y = Math.max(iconBot + 2 + cupB, Math.max(3, Math.round(H * 0.012)));
     MENU_CX = Math.round(W / 2);
     if (H < 300) {   // v8.99.34: short iPhone landscape - leaderboard as a right side panel, logo + menu centred in the left column
@@ -11363,20 +11363,34 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { lb
 
 /* ---- title banner (same slot as the Spooky Cup strip; brand green + gold) ---- */
 function drawLbiFlag(x, y) { rect(x + 1, y, 1, 9, '#fcfcfc'); rect(x + 2, y, 5, 3, '#D4AF37'); rect(x + 2, y + 3, 3, 1, '#D4AF37'); rect(x - 1, y + 9, 5, 1, '#000'); }
-function drawLbiBanner() {
+function lbiDateRange() {   // v8.99.52: "NOV 15-22" from server config (r1 start .. lock / last end)
+  const c = lbiCfg(); if (!c) return '';
+  const a = lbiFmtDay(c.r && c.r[0] ? c.r[0][0] : c.reg_open), b = lbiFmtDay(c.lock_at || (c.r && c.r[3] ? c.r[3][1] : c.reg_close));
+  if (!a) return '';
+  const am = a.replace(/\s+.*/, ''), bm = b.replace(/\s+.*/, ''), ad = a.replace(/^\S+\s+/, ''), bd = b.replace(/^\S+\s+/, '');
+  return am === bm ? am + ' ' + ad + '-' + bd : a + '-' + b;
+}
+function drawLbiBanner() {   // v8.99.52: one compact 2-line scoreboard strip (name + dates/status). No cream overlay on the logo.
   const b = SPOOKY_BANNER; if (!b.on || menuPopup || !lbiBannerOn()) return;
   const dim = pressDim('lbi') || (mouse.seen && hit(mouse, b));
   rect(b.x - 1, b.y - 1, b.w + 2, b.h + 2, '#000'); rect(b.x, b.y, b.w, b.h, dim ? '#0c2c1c' : '#14462D');
   rect(b.x, b.y, b.w, 1, '#D4AF37'); rect(b.x, b.y + b.h - 1, b.w, 1, '#D4AF37');
-  drawLbiFlag(b.x + 6, b.y + 3); drawLbiFlag(b.x + b.w - 13, b.y + 3);   // v8.99.32: one slim line  NAME · STATUS
-  const me = LBI.info && LBI.info.me, p = lbiPhase(), room = b.w - 34, st0 = lbiStatusLine().replace(' LEFT', '');
-  const tag = p.k === 'pre' ? (me && me.registered ? "YOU'RE IN" : 'REGISTER') : '', full = tag ? tag + ' · ' + st0 : st0;
+  drawLbiFlag(b.x + 6, b.y + 4); drawLbiFlag(b.x + b.w - 13, b.y + 4);
+  const me = LBI.info && LBI.info.me, p = lbiPhase(), room = b.w - 34;
   const n0 = lbiName(false), n1 = n0.replace(/^THE /, ''), n2 = n1.replace(/ INVITATIONAL$/, '');
-  let l1 = n2, l2 = '';
-  for (const [a1, a2] of [[n0, full], [n1, full], [n2, full], [n1, tag || st0], [n2, tag || st0], [n2, '']]) { if (textW(a1 + (a2 ? ' · ' + a2 : '')) <= room) { l1 = a1; l2 = a2; break; } }
-  const sep = l2 ? ' · ' : '', tw = textW(l1 + sep + l2), tx = Math.round(b.x + (b.w - tw) / 2), ty = b.y + Math.round((b.h - 7) / 2);
-  drawText(l1, tx + 1, ty + 1, '#000'); drawText(l1, tx, ty, '#D4AF37');
-  if (l2) drawText(sep + l2, tx + textW(l1), ty, COL.white);
+  let title = n1; for (const cand of [n0, n1, n2]) if (textW(cand) <= room) { title = cand; break; }
+  const dates = lbiDateRange(), free = (p.k === 'pre' || p.k === 'none') ? 'FREE ENTRY' : '';
+  const tag = p.k === 'pre' ? (me && me.registered ? "YOU'RE IN" : 'REGISTER') : (p.k === 'live' || p.k === 'gap' ? lbiStatusLine().replace(' LEFT', '') : (p.k === 'final' || p.k === 'done' ? lbiStatusLine() : ''));
+  const bits = [dates, free, tag].filter(Boolean);
+  let sub = bits.join(' · ');
+  while (sub && textW(sub) > room) { bits.pop(); sub = bits.join(' · '); if (!bits.length) break; }
+  const ty1 = b.y + (b.h >= 22 ? 4 : Math.round((b.h - 7) / 2));
+  const tw1 = textW(title), tx1 = Math.round(b.x + (b.w - tw1) / 2);
+  drawText(title, tx1 + 1, ty1 + 1, '#000'); drawText(title, tx1, ty1, '#D4AF37');
+  if (sub && b.h >= 22) {
+    const tw2 = textW(sub), tx2 = Math.round(b.x + (b.w - tw2) / 2), ty2 = ty1 + 11;
+    drawText(sub, tx2 + 1, ty2 + 1, '#000'); drawText(sub, tx2, ty2, COL.white);
+  }
 }
 function lbiOpen(tab) {
   try { trackEvent('lbi_open', {}); } catch (e) {}
