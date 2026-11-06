@@ -199,6 +199,20 @@
   #acct .sub.l{text-align:left;margin-top:6px}
   #acct .kpis.h2h b{color:#f8d878}
   #acct .kpis.h2h{grid-template-columns:1fr 1fr}
+  /* v8.99.56: compact tournament guidance, deadlines and personal standing */
+  #acct .lbidate{font-size:12px;line-height:1.6;letter-spacing:.3px;text-align:center;color:#bcc8e0;margin:6px 0 12px;overflow-wrap:anywhere}
+  #acct .lbidate b{color:#fcfcfc}
+  #acct .lbihow{border-top:1px solid #3c4c6c;border-bottom:1px solid #3c4c6c;margin:12px 0;font-size:12px;line-height:1.6;letter-spacing:.3px}
+  #acct .lbihow summary{min-height:44px;box-sizing:border-box;padding:12px 0;cursor:pointer;color:#f8d878;font-weight:700}
+  #acct .lbihow p{margin:0 0 10px}
+  #acct .lbimine{background:#14462D;padding:10px 8px;margin:12px 0}
+  #acct .lbimine h3{font-size:11px;letter-spacing:1px;color:#f8d878;margin:0 0 8px;text-align:center}
+  #acct .lbimine .lbics{margin-bottom:0}
+  #acct .lbimine p{font-size:11px;line-height:1.5;text-align:center;margin:8px 0 0;color:#fcfcfc}
+  #acct .lbiready{font-size:13px;line-height:1.6;letter-spacing:.2px;color:#bcc8e0;margin:14px 0}
+  #acct .lbiready p{margin:0 0 12px}
+  #acct .lbiready strong{color:#fcfcfc}
+  #acct .btn.lbipractice{font-size:13px;letter-spacing:.5px}
   /* v8.63 tournament */
   #acct .lbist{color:#D4AF37;font-size:13px;letter-spacing:2px;margin-top:-4px}
   #acct .lbis{font-size:15px;color:#bcc8e0}#acct .lbis.ok{color:#58d854}
@@ -315,7 +329,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.55';
+const GAME_VERSION = 'v8.99.56';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -11603,6 +11617,68 @@ async function lbiRefresh() {
 function lbiRender(msg, ok) { if (acctView !== 'lbi') return; const y = acctEl.scrollTop; acctBox.innerHTML = VIEWS.lbi(acctOpts); acctEl.scrollTop = y; if (msg) acctMsg(msg, ok); }
 
 /* ---- tournament page ---- */
+// v8.99.56: display-only guidance; dates and standings still use existing server data.
+function lbiFmtDeadline(iso) {
+  const d = new Date(iso); if (!isFinite(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d).toUpperCase() + ' ET';
+}
+function lbiDeadline() {
+  const c = lbiCfg(), p = lbiPhase(), t = lbiNow(); if (!c || p.k === 'done') return null;
+  if ((p.k === 'pre' || p.k === 'live') && !(LBI.info.me && LBI.info.me.registered) && t >= lbiT(c.reg_open) && t < lbiT(c.reg_close)) return { label: 'REGISTRATION CLOSES', at: c.reg_close };
+  if (p.k === 'pre' || p.k === 'gap') return { label: LBI_RNAME[p.next - 1] + ' OPENS', at: new Date(p.at).toISOString() };
+  if (p.k === 'live') return { label: LBI_RNAME[p.rnd - 1] + ' CLOSES', at: new Date(p.ends).toISOString() };
+  if (p.k === 'final' && p.playoff) return { label: 'PLAYOFF WINDOW CLOSES', at: c.playoff_end };
+  if (p.k === 'final' && lbiT(c.lock_at) > t) return { label: 'RESULTS / PLAYOFF DAY', at: c.lock_at };
+  return null;
+}
+function lbiPageKey() { const p = lbiPhase(); return [p.k, p.rnd, p.next, !!p.playoff, lbiNow() < lbiT((lbiCfg() || {}).reg_close)].join(':'); }
+function lbiPageStatusLine() { const p = lbiPhase(); return p.k === 'live' ? LBI_RNAME[p.rnd - 1] : lbiStatusLine(); }
+function lbiDeadlineHtml() {
+  const d = lbiDeadline(); if (!d || !lbiFmtDeadline(d.at)) return '';
+  return '<b>' + esc(d.label) + ' · ' + lbiLeft(lbiT(d.at) - lbiNow()) + ' LEFT</b><br>' + esc(lbiFmtDeadline(d.at));
+}
+function lbiHowHtml() {
+  return '<details class="lbihow"><summary>HOW IT WORKS</summary>' +
+    '<p>4 rounds · 18 holes each. One counted round per round window. The cut follows Round 2.</p>' +
+    '<p>Resume from your saved progress while the window is open. Finish and submit before the deadline.</p>' +
+    '<p>Quit or miss the deadline: each unfinished hole scores 10.</p>' +
+    '<p>Practice does not count toward your tournament score.</p></details>';
+}
+function lbiMineHtml(B) {
+  const me = LBI.info && LBI.info.me; if (!isSignedIn() || !hasUsername() || !me || !me.registered) return '';
+  const row = ((B && B.rows) || []).find(r => String(r.u || '').toUpperCase() === myName()), p = lbiPhase();
+  const rnd = p.rnd || (p.playoff ? 5 : 0), r = rnd ? lbiMyRound(rnd) : null;
+  const thru = row && row.thru != null ? row.thru : r && r.thru != null ? r.thru : '-';
+  const note = me.status === 'removed' ? 'NOT IN THE FIELD' : me.mc || (row && row.mc) ? 'MISSED THE CUT' : !row ? 'REGISTERED · NO SCORES YET' : '';
+  return '<section class="lbimine" aria-label="Your tournament standing"><h3>YOUR STANDING</h3><div class="lbics">' +
+    [['POS', row && row.pos != null ? row.pos : '-'], ['TOTAL', lbiTp(row && row.total)], ['TODAY', lbiTp(row && row.today)], ['THRU', thru]].map(([k, v]) => '<div><b>' + esc(v) + '</b>' + k + '</div>').join('') +
+    '</div>' + (note ? '<p>' + note + '</p>' : '') + '</section>';
+}
+function lbiReadyHtml(o) {
+  const rnd = +o.rnd, r = lbiMyRound(rnd), a = lbiAction(), ready = Array.isArray(a) && a[1] === 'lbiPlay' && a[2] === rnd;
+  const c = lbiCfg() || {}, end = rnd === 5 ? c.playoff_end : c.r && c.r[rnd - 1] && c.r[rnd - 1][1];
+  return head(rnd === 5 ? 'COUNTED PLAYOFF' : 'COUNTED ROUND', 'lbiBack') +
+    '<p class="sub">' + esc(rnd === 5 ? 'PLAYOFF' : LBI_RNAME[rnd - 1] || '') + '</p>' +
+    '<div data-lbi-phase="' + lbiPageKey() + '"></div>' +
+    (end ? '<p class="lbidate"><b>FINISH &amp; SUBMIT BEFORE</b><br>' + esc(lbiFmtDeadline(end)) + '</p>' : '') +
+    '<div class="lbiready"><p><strong>This counts toward your tournament score.</strong> ' + (rnd === 5 ? 'Play the assigned playoff hole.' : 'One counted 18-hole round in this window.') + '</p>' +
+    '<p>Resume uses your saved progress. Finish and submit before the window closes.</p><p>Quit or miss the deadline: <strong>each unfinished hole scores 10.</strong></p></div><div class="msg"></div>' +
+    (ready ? '<button class="btn" data-a="lbiStart" data-n="' + rnd + '">' + (r && !r.closed ? 'RESUME COUNTED ROUND' : 'START COUNTED ROUND') + '</button>' : '<p class="empty">ROUND UNAVAILABLE · CHECK THE BOARD</p>') +
+    '<button class="btn alt" data-a="lbiBack">BACK TO TOURNAMENT</button>';
+}
+// Update only the small text blocks; keep expanded help and scroll position intact.
+setInterval(() => {
+  if (document.hidden || !['lbi', 'lbiReady'].includes(acctView)) return;
+  const marker = acctBox.querySelector('[data-lbi-phase]'); if (!marker) return;
+  if (marker.getAttribute('data-lbi-phase') !== lbiPageKey()) {
+    if (acctView === 'lbi') lbiRender(); else acctBox.innerHTML = lbiReadyHtml(acctOpts);
+    lbiRefresh(); return;
+  }
+  const status = acctBox.querySelector('[data-lbi-status]'), deadline = acctBox.querySelector('[data-lbi-deadline]');
+  if (status) status.textContent = lbiPageStatusLine();
+  if (deadline) deadline.innerHTML = lbiDeadlineHtml();
+}, 1000);
+
 function lbiAction() {   // [label, data-a, data-n, alt?] or a status line
   const I = LBI.info || {}, me = I.me, p = lbiPhase(), c = lbiCfg() || {}, t = lbiNow();
   if (p.k === 'done') return null;
@@ -11640,16 +11716,17 @@ function lbiPageHtml(o) {
   const I = LBI.info, c = lbiCfg();
   if (!I || !c) return head('TOURNAMENT', 'lbiClose') + (I ? '<p class="empty">NOT OPEN YET</p>' : '<p class="empty">LOADING...</p>') + '<div class="msg"></div>';
   const tab = o.tab || 'board', a = lbiAction(), B = LBI.board || {}, F = LBI.field || [];
-  let h = head(esc(lbiDispName(c.name)), 'lbiClose') + '<p class="sub lbist">' + esc(lbiStatusLine()) + '</p>';
+  let h = head(esc(lbiDispName(c.name)), 'lbiClose') + '<p class="sub lbist" data-lbi-status data-lbi-phase="' + lbiPageKey() + '">' + esc(lbiPageStatusLine()) + '</p>' + '<p class="lbidate" data-lbi-deadline>' + lbiDeadlineHtml() + '</p>';
   if (I.preview) h += '<p class="sub" style="color:#fc9838">ADMIN PREVIEW · PLAYERS SEE THIS ' + lbiFmtDay(c.reg_open) + '</p>';
   if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
   if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
   else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
+  h += lbiHowHtml();
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
-  if (tab === 'board') h += lbiBoardHtml(B, false);
+  if (tab === 'board') h += lbiMineHtml(B) + lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
   else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
-  h += '<button class="btn alt" data-a="lbiPrac">PRACTICE</button>';
+  h += '<button class="btn alt lbipractice" data-a="lbiPrac">PRACTICE · DOES NOT COUNT</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
   return h;
@@ -11713,8 +11790,8 @@ function lbiBegin(d, practice) {
 }
 async function lbiPlay(rnd, btn) {
   const r = await lbiRpc('lbi_start', { p_round: rnd });
-  if (!r.ok) { lbiRender(lbiErr(r)); return; }
-  if (r.data.closed) { await lbiRefresh(); return; }
+  if (!r.ok) { if (acctView === 'lbiReady') acctMsg(lbiErr(r)); else lbiRender(lbiErr(r)); return; }
+  if (r.data.closed) { await lbiRefresh(); if (acctView === 'lbiReady') lbiOpen('board'); return; }
   try { trackEvent('lbi_round_start', { round: rnd }); } catch (e) {}
   lbiBegin(r.data, false);
 }
@@ -11746,7 +11823,7 @@ function lbiCardMsg() {
 }
 function lbiAfterCard() { setState('title'); lbiCtx = null; lbiOpen('board'); }
 setTimeout(lbiFlush, 2500);
-Object.assign(VIEWS, { lbi: o => lbiPageHtml(o), lbiAdmin: o => lbiAdminHtml(o), lbiGate: () => lbiGateHtml() });   // v8.63
+Object.assign(VIEWS, { lbiReady: o => lbiReadyHtml(o), lbi: o => lbiPageHtml(o), lbiAdmin: o => lbiAdminHtml(o), lbiGate: () => lbiGateHtml() });   // v8.63
 /* v8.55 ADD TO HOME SCREEN nudge: after round 1 or 2, not installed, at most every 3 days, never mid-round */
 const A2HS_KEY = 'dlg_a2hs_v1', A2HS_GAP = 3 * 864e5;
 let a2hsEvt = null;
@@ -11957,7 +12034,8 @@ if (acctEl) {
       if (a === 'lbiTab') { acctOpts.tab = b.getAttribute('data-n'); lbiRender(); return; }
       if (a === 'lbiGate') { try { sessionStorage.setItem(LBI_AFTER_KEY, '1'); } catch (e) {} showAcct('lbiGate'); return; }
       if (a === 'lbiReg') { acctBusy(true); const r = await lbiRpc('lbi_register', {}); acctBusy(false); if (!r.ok) { acctMsg(lbiErr(r)); return; } try { trackEvent('lbi_register', {}); } catch (e) {} await lbiRefresh(); lbiRender(); return; }
-      if (a === 'lbiPlay') { acctBusy(true); await lbiPlay(+b.getAttribute('data-n')); acctBusy(false); return; }
+      if (a === 'lbiPlay') { showAcct('lbiReady', { rnd: +b.getAttribute('data-n') }); return; }
+      if (a === 'lbiStart') { acctBusy(true); await lbiPlay(+b.getAttribute('data-n')); acctBusy(false); return; }
       if (a === 'lbiPrac') { lbiBegin(null, true); return; }
       if (a === 'lbiAdmin') { showAcct('lbiAdmin', { loading: true }); const r = await lbiAdminLoad(); if (acctView === 'lbiAdmin') showAcct('lbiAdmin', { msg: r.ok ? '' : lbiErr(r) }); return; }
       if (a === 'lbiBack') { lbiOpen('board'); return; }
