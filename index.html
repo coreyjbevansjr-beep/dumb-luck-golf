@@ -274,6 +274,10 @@
   #acct details{margin-top:8px}#acct summary{font-size:11px;letter-spacing:1px;color:#3cbcfc;cursor:pointer}
   #acct .qlinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
   #acct .qlinks a{flex:1;text-align:center;border:2px solid #3c4c6c;padding:6px 2px;font-size:10px;letter-spacing:1px;color:#3cbcfc;text-decoration:none}
+#courseArrival{position:fixed;inset:0;z-index:100;display:grid;place-items:center;box-sizing:border-box;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));background:linear-gradient(160deg,rgba(9,36,26,.97),rgba(17,61,41,.9));color:#f5efd8;text-align:center;font-family:Georgia,serif;touch-action:manipulation}
+#courseArrival[hidden]{display:none}#courseArrival .arrivalInner{max-width:520px;width:100%}#courseArrival .arrivalKicker{font:10px/1.9 ui-monospace,monospace;letter-spacing:3px;color:#d4c28c}#courseArrival .arrivalRule{width:56px;height:1px;background:#cdb875;margin:24px auto}#courseArrival h1{font-size:clamp(56px,12vw,92px);font-weight:400;line-height:.95;letter-spacing:-2px;margin:26px 0 20px}#courseArrival h1 em{font-weight:400;color:#e5d49a}#courseArrival .arrivalMeta{font:11px/1.9 ui-monospace,monospace;letter-spacing:2px;color:#e5dcc0}#courseArrival .arrivalHole{font:12px/1.8 ui-monospace,monospace;letter-spacing:1px;color:#c8d4bc;margin-top:22px}#courseArrival button{font:11px ui-monospace,monospace;letter-spacing:2px;background:none;border:1px solid #cdb875;color:#f5efd8;min-height:44px;padding:12px 30px;margin-top:30px;cursor:pointer}#courseArrival.show .arrivalInner{animation:arrivalIn .8s ease-out both}#courseArrival.show.leaving{animation:arrivalOut .65s ease-in forwards}@keyframes arrivalIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes arrivalOut{to{opacity:0}}@media(prefers-reduced-motion:reduce){#courseArrival.show,#courseArrival.show .arrivalInner{animation:none}}
+
+
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
@@ -313,6 +317,7 @@
 </div>
 <div id="windInd" aria-hidden="true"><div class="wf"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><svg viewBox="0 0 34 16"><path d="M3 8H23" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M21 2.2L32.5 8L21 13.8Z" fill="#fff" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span></span></div>
 <div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
+<section id="courseArrival" role="dialog" aria-modal="true" aria-label="Magnolia Pines tournament introduction" hidden><div class="arrivalInner"><p class="arrivalKicker">THE DUMB LUCK INVITATIONAL</p><div class="arrivalRule"></div><h1>Magnolia<br><em>Pines</em></h1><p class="arrivalMeta">18 HOLES &nbsp;·&nbsp; PAR 72<br>THE STAGE IS SET.</p><p class="arrivalHole" id="arrivalRound">OPENING ROUND</p><button type="button" id="arrivalSkip">TEE OFF · SKIP INTRO</button></div></section>
 <script>
 (() => {
 'use strict';
@@ -329,7 +334,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.56';
+const GAME_VERSION = 'v8.99.57';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3113,6 +3118,25 @@ Object.assign(THEMES, {
 });
 THEMES.links = { sky: '#a8d8f8', hill: '#7c9c5c', hillL: '#9cb874', clouds: true, tree: BUSH_DRY, bush: BUSH_DRY,   // v8.80 seaside links: no trees, fescue + pot bunkers
   C: Object.assign({}, COL, { grass: '#7cb048', fair2: '#8cc058', grassD: '#a8a050', sand: '#ecdcac', sandD: '#c8b47c', green: '#58c048', green2: '#68cc58' }) };
+// Magnolia Pines art: course-specific palette and intentional planting only.
+const INVITATIONAL_ART = (() => {
+  const sprite = (w,h,paint) => {const c=mk(w,h),g=c.getContext('2d');paint((x,y,a,b,col)=>{g.fillStyle=col;g.fillRect(x,y,a,b)});return c;};
+  const pine=sprite(32,68,R=>{
+    R(14,20,5,48,'#3d3925');R(16,22,2,44,'#7b714a');
+    for(const [y,w,h] of [[0,10,21],[12,19,24],[28,30,24]]){
+      for(let j=0;j<h;j++){const a=Math.max(1,Math.round(w*(j+3)/(h+3)));R(16-Math.floor(a/2),y+j,a,1,'#143e2b');if(a>3)R(16-Math.floor(a/2),y+j,Math.ceil(a*.45),1,'#28563a');}
+    }
+    R(5,49,23,2,'#123c29');
+  });
+  const blossom=sprite(24,12,R=>{
+    R(3,4,18,8,'#315e35');R(0,7,24,4,'#244e2d');R(5,2,14,7,'#477b40');
+    for(const [x,y,col]of [[3,6,'#dd8db1'],[7,3,'#f0aecb'],[12,5,'#f5d1df'],[17,3,'#d779a3'],[20,7,'#e7a0bd'],[8,8,'#f4d4e0']]){R(x,y,3,2,col);R(x+1,y-1,1,4,col);}
+  });
+  return {pine,blossom};
+})();
+THEMES.invitational={sky:'#8fc6ed',hill:'#47784a',hillL:'#679460',clouds:true,tree:INVITATIONAL_ART.pine,bush:INVITATIONAL_ART.blossom,
+  C:Object.assign({},COL,{grass:'#5d963d',fair2:'#79ad50',grassD:'#365d30',green:'#76bd48',green2:'#8bcb5b',sand:'#f2ead2',sandD:'#d1c49f',water:'#6ba9b6',waterD:'#347c91',dirt:'#987548',dirtD:'#6c5334',dirtL:'#b69667'})};
+
 const themeOf = hl => THEMES[(hl && hl.theme) || 'day'] || THEMES.day;
 const QUICK3_THEMES = ['links', 'snow', 'desert', 'night'];   // v8.80: QUICK 3 plays one look per day (only plain day holes are re-skinned; physics unchanged)
 function quick3Theme() { const [y, m, d] = nyDateStr().split('-').map(Number); return QUICK3_THEMES[Math.floor(Date.UTC(y, m - 1, d) / 864e5) % QUICK3_THEMES.length]; }
@@ -3181,6 +3205,74 @@ const BACK_HOLES = [
    pts:[[0,'tee',16],[24,'rough',14],[42,'water',12],[128,'rough',12],[143,'fair',12],[284,'fair',16],[373,'fair',20],[397,'sand',22],[417,'fair',24],[483,'fair',26],[545,'green',40],
         [631,'sand',38],[649,'rough',38],[682,'end',38]] }
 ];
+
+// Magnolia Pines draft 2. Deterministic geometry for new, course-only obstacles.
+function invNearSegment(x,y,ax,ay,bx,by) {
+  const dx=bx-ax,dy=by-ay,t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/(dx*dx+dy*dy||1)));
+  const qx=ax+dx*t,qy=ay+dy*t;return {x:qx,y:qy,d:Math.hypot(x-qx,y-qy)};
+}
+function invObstacleShape(m,t) {
+  const g=m.g0||0,angle=((t-(m.startedAt||0))/Math.max(.4,m.period||5)+(m.phase||0))*Math.PI*2;
+  if(m.kind==='bell') {
+    const a=Math.sin(angle)*.8,L=m.rope||30,anchor=g+(m.anchor||59);
+    return {cx:m.x+Math.sin(a)*L,cy:anchor-Math.cos(a)*L,r:m.radius||8,ax:m.x,ay:anchor};
+  }
+  return {cx:m.x,cy:g+(m.hub||25),r:m.radius||23,angle,g};
+}
+function invMoverHit(m,b,t) {
+  const s=invObstacleShape(m,t);
+  if(m.kind==='bell')return Math.hypot(b.x-s.cx,b.h-s.cy)<s.r+1.5||invNearSegment(b.x,b.h,s.ax,s.ay,s.cx,s.cy).d<2;
+  if(Math.hypot(b.x-s.cx,b.h-s.cy)<4.5)return true;
+  if(invNearSegment(b.x,b.h,s.cx,s.g,s.cx,s.cy).d<2.5)return true;
+  for(let k=0;k<6;k++) {
+    const a=s.angle+k*Math.PI/3,c=Math.cos(a),n=Math.sin(a);
+    if(invNearSegment(b.x,b.h,s.cx+c*4,s.cy+n*4,s.cx+c*(s.r-3),s.cy+n*(s.r-3)).d<2.7)return true;
+    const px=s.cx+c*(s.r-2),py=s.cy+n*(s.r-2);
+    if(invNearSegment(b.x,b.h,px-n*5,py+c*5,px+n*5,py-c*5).d<3)return true;
+  }
+  return false;
+}
+function invBankstoneBounce(b,hl) {
+  for(const s of hl.bankstones||[]) {
+    const q=invNearSegment(b.x,b.h,s.x0,s.y0,s.x1,s.y1);if(q.d>3.5)continue;
+    const dx=s.x1-s.x0,dy=s.y1-s.y0,L=Math.hypot(dx,dy)||1;
+    let nx=-dy/L,ny=dx/L;if((b.x-q.x)*nx+(b.h-q.y)*ny<0){nx=-nx;ny=-ny;}
+    const vn=b.vx*nx+b.vy*ny;if(vn>=-.05)continue;
+    b.vx-=1.78*vn*nx;b.vy-=1.78*vn*ny;b.x=q.x+nx*3.7;b.h=Math.max(q.y+ny*3.7,groundH(hl,b.x)+.5);
+    b.mode='air';b.events.push('bankstone');return true;
+  }
+  return false;
+}
+function invDrawBeam(ax,ay,bx,by,color,width) {
+  const dx=bx-ax,dy=by-ay,n=Math.max(1,Math.ceil(Math.hypot(dx,dy)));
+  for(let i=0;i<=n;i++){const x=Math.round(ax+dx*i/n),y=Math.round(ay+dy*i/n);rect(x-Math.floor(width/2),y-Math.floor(width/2),width,width,color);}
+}
+function invDrawMover(m,t,cam) {
+  const s=invObstacleShape(m,t),x=s.cx-cam,y=BASE-s.cy;if(x<-80||x>W+80)return;
+  if(m.kind==='bell') {
+    invDrawBeam(s.ax-cam,BASE-s.ay,x,y,'#2b3025',3);invDrawBeam(s.ax-cam,BASE-s.ay,x,y,'#b5a57a',1);
+    for(let j=-7;j<=4;j++){const hw=j<-5?2:j<-3?3:j<-1?4:j<2?5:6;rect(Math.round(x)-hw,Math.round(y)+j,hw*2+1,1,'#59451f');rect(Math.round(x)-hw+1,Math.round(y)+j,hw*2-1,1,j>2?'#b69a45':'#e6cb72');}
+    rect(Math.round(x)-5,Math.round(y)+3,11,2,'#f7e4a1');rect(Math.round(x),Math.round(y)+6,2,2,'#60491e');return;
+  }
+  invDrawBeam(x,BASE-s.g,x,y,'#382d23',4);
+  for(let k=0;k<6;k++){
+    const a=s.angle+k*Math.PI/3,c=Math.cos(a),n=Math.sin(a),px=x+c*(s.r-2),py=y-n*(s.r-2);
+    invDrawBeam(x+c*4,y-n*4,x+c*(s.r-3),y-n*(s.r-3),'#302b21',3);
+    invDrawBeam(x+c*4,y-n*4,x+c*(s.r-3),y-n*(s.r-3),'#b39868',1);
+    invDrawBeam(px-n*5,py-c*5,px+n*5,py+c*5,'#352a20',4);
+    invDrawBeam(px-n*5,py-c*5,px+n*5,py+c*5,'#c6ae7d',2);
+  }
+  rect(Math.round(x)-3,Math.round(y)-3,7,7,'#352a20');rect(Math.round(x)-1,Math.round(y)-1,3,3,'#d4bd7d');
+}
+function invDrawBankstones(hl,cam) {
+  for(const s of hl.bankstones||[]){if(Math.max(s.x0,s.x1)-cam<-10||Math.min(s.x0,s.x1)-cam>W+10)continue;
+    invDrawBeam(s.x0-cam,BASE-s.y0,s.x1-cam,BASE-s.y1,'#273b32',6);
+    invDrawBeam(s.x0-cam-1,BASE-s.y0-1,s.x1-cam-1,BASE-s.y1-1,'#b0ae93',3);
+    invDrawBeam(s.x0-cam+1,BASE-s.y0,s.x1-cam+1,BASE-s.y1,'#777c66',1);
+  }
+}
+
+const INVITATIONAL_HOLES = [{"name":"FIRST LIGHT","theme":"invitational","par":4,"cup":356,"pins":[344,356,368],"wind":0,"windR":[-2,3],"deco":[["tree",-34],["tree",482],["bush",468]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",10],[168,"fair",14],[214,"sand",12],[232,"fair",10],[300,"fair",10],[320,"green",10],[394,"rough",10],[430,"rough",12],[494,"end",12]]},{"name":"THE POCKET","theme":"invitational","par":3,"cup":142,"pins":[132,142,152],"wind":-2,"windR":[-4,1],"deco":[["tree",-34],["tree",264],["bush",250]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",10],[82,"sand",8],[104,"rough",30],[112,"green",44],[176,"rough",44],[216,"rough",28],[276,"end",26]]},{"name":"THE GATEKEEPER","theme":"invitational","par":4,"cup":392,"pins":[378,392,406],"wind":3,"windR":[1,5],"deco":[["tree",-34],["tree",520],["bush",506]],"pts":[[0,"tee",14],[28,"rough",14],[50,"fair",12],[144,"fair",20],[184,"fair",14],[236,"sand",10],[254,"fair",12],[320,"sand",16],[342,"green",18],[432,"rough",18],[468,"rough",20],[532,"end",20]],"walls":[[152,0,12],[220,0,10]]},{"name":"THE WATERWORKS","theme":"invitational","par":5,"cup":542,"pins":[526,542,558],"wind":0,"windR":[-2,3],"deco":[["tree",-34],["tree",670],["bush",656]],"pts":[[0,"tee",10],[28,"rough",10],[48,"fair",10],[156,"fair",16],[236,"sand",14],[256,"fair",12],[324,"water",8],[372,"fair",12],[424,"fair",14],[482,"sand",14],[502,"green",14],[582,"rough",14],[642,"rough",18],[682,"end",18]],"movers":[{"kind":"waterwheel","x":350,"w":46,"hBot":0,"hTop":47,"radius":23,"hub":25,"period":5.6,"phase":0.2,"amp":23}],"drop":382},{"name":"STEPPING STONES","theme":"invitational","par":3,"cup":174,"pins":[164,174,184],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",292],["bush",278]],"pts":[[0,"tee",20],[28,"rough",18],[44,"water",8],[70,"fair",12],[90,"water",8],[112,"fair",14],[130,"water",8],[142,"rough",16],[146,"green",16],[204,"rough",16],[304,"end",18]],"drop":144},{"name":"THE LOW ROAD","theme":"invitational","par":4,"cup":374,"pins":[360,374,388],"wind":-2,"windR":[-5,2],"deco":[["tree",-34],["tree",502],["bush",488]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",10],[126,"fair",16],[178,"rough",16],[200,"fair",12],[282,"sand",12],[304,"fair",14],[330,"green",14],[414,"rough",14],[452,"rough",18],[514,"end",18]],"walls":[[174,19,47,46]]},{"name":"SPLIT DECISION","theme":"invitational","par":4,"cup":246,"pins":[234,246,258],"wind":0,"windR":[-2,3],"deco":[["tree",-34],["tree",370],["bush",356]],"pts":[[0,"tee",22],[28,"rough",20],[44,"fair",16],[92,"water",10],[126,"fair",12],[146,"water",8],[184,"rough",12],[200,"fair",12],[210,"green",12],[282,"sand",12],[302,"rough",12],[382,"end",14]],"drop":190},{"name":"THE TERRACES","theme":"invitational","par":4,"cup":418,"pins":[404,418,432],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",550],["bush",536]],"pts":[[0,"tee",10],[28,"rough",10],[48,"fair",10],[106,"fair",24],[156,"fair",24],[210,"fair",10],[260,"sand",10],[282,"fair",30],[330,"fair",30],[360,"sand",36],[382,"green",48],[462,"rough",48],[562,"end",48]]},{"name":"THE GRANDSTAND","theme":"invitational","par":5,"cup":566,"pins":[550,566,582],"wind":2,"windR":[0,5],"deco":[["tree",-34],["tree",694],["bush",680]],"pts":[[0,"tee",14],[28,"rough",14],[48,"fair",12],[152,"fair",16],[232,"sand",14],[254,"fair",12],[330,"fair",14],[372,"fair",10],[410,"fair",12],[470,"sand",14],[492,"fair",16],[524,"green",16],[606,"rough",16],[648,"rough",20],[706,"end",20]],"walls":[[306,0,13],[454,0,11]]},{"name":"THE DROP","theme":"invitational","par":4,"cup":378,"pins":[364,378,392],"wind":1,"windR":[-2,4],"deco":[["tree",-34],["tree",504],["bush",490]],"pts":[[0,"tee",60],[28,"rough",58],[46,"rough",48],[78,"fair",10],[158,"fair",8],[210,"sand",8],[230,"fair",12],[276,"fair",26],[316,"fair",26],[340,"green",26],[416,"rough",26],[516,"end",28]]},{"name":"THE CLUBHOUSE BELL","theme":"invitational","par":3,"cup":128,"pins":[120,128,136],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",244],["bush",230]],"pts":[[0,"tee",16],[26,"rough",14],[44,"fair",12],[56,"water",8],[92,"rough",12],[110,"green",12],[156,"rough",12],[210,"rough",14],[256,"end",14]],"drop":100,"movers":[{"kind":"bell","x":78,"w":16,"hBot":0,"hTop":61,"anchor":59,"rope":30,"radius":8,"period":4.8,"phase":0.15,"amp":26}],"walls":[[78,58,62,44]]},{"name":"DOUBLE OR NOTHING","theme":"invitational","par":5,"cup":524,"pins":[508,524,540],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",652],["bush",638]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",10],[144,"fair",18],[220,"sand",16],[242,"fair",14],[308,"fair",12],[334,"water",8],[352,"fair",12],[366,"water",8],[390,"fair",12],[440,"sand",14],[460,"fair",16],[484,"green",16],[564,"rough",16],[664,"end",18]],"drop":400},{"name":"THE CATHEDRAL","theme":"invitational","par":4,"cup":430,"pins":[414,430,446],"wind":-1,"windR":[-4,2],"deco":[["tree",-34],["tree",566],["bush",552],["oak",164]],"pts":[[0,"tee",26],[28,"rough",24],[48,"fair",14],[146,"fair",10],[222,"sand",10],[242,"fair",12],[322,"fair",20],[362,"sand",22],[384,"green",24],[478,"rough",24],[518,"rough",26],[578,"end",26]],"walls":[[356,0,12]]},{"name":"THE CROWN","theme":"invitational","par":3,"cup":198,"pins":[184,198,212],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",318],["bush",304]],"pts":[[0,"tee",20],[28,"rough",18],[48,"fair",12],[76,"water",6],[146,"rough",32],[166,"green",40],[230,"rough",40],[330,"end",42]],"drop":156},{"name":"BANK ON IT","theme":"invitational","par":4,"cup":350,"pins":[336,350,364],"wind":1,"windR":[-2,4],"deco":[["tree",-34],["tree",482],["bush",468]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",10],[144,"sand",10],[164,"fair",10],[248,"rough",12],[272,"fair",12],[304,"green",12],[394,"sand",12],[414,"rough",12],[448,"rough",14],[494,"end",14]],"bankstones":[[412,1,428,34]]},{"name":"THE LAST GATE","theme":"invitational","par":4,"cup":338,"pins":[324,338,352],"wind":-2,"windR":[-5,1],"deco":[["tree",-34],["tree",470],["bush",456]],"pts":[[0,"tee",14],[28,"rough",14],[48,"fair",12],[150,"fair",14],[210,"rough",10],[248,"fair",12],[278,"sand",12],[300,"green",14],[382,"rough",14],[420,"rough",16],[482,"end",16]],"walls":[[240,0,18]]},{"name":"THE JACKET","theme":"invitational","par":4,"cup":412,"pins":[398,412,426],"wind":0,"windR":[-3,3],"deco":[["tree",-34],["tree",540],["bush",526]],"pts":[[0,"tee",12],[28,"rough",12],[48,"fair",12],[142,"fair",18],[220,"fair",18],[258,"fair",30],[304,"fair",30],[346,"sand",36],[368,"green",46],[452,"rough",46],[552,"end",48]],"walls":[[346,0,11]]},{"name":"THE LAUNCH","theme":"invitational","par":5,"cup":512,"pins":[496,512,528],"wind":3,"windR":[1,5],"deco":[["tree",-34],["tree",642],["bush",628]],"pts":[[0,"tee",38],[28,"rough",36],[48,"fair",18],[154,"fair",12],[230,"sand",10],[252,"fair",12],[338,"fair",18],[386,"sand",16],[408,"fair",14],[450,"fair",14],[472,"green",14],[554,"rough",14],[596,"rough",18],[654,"end",18]],"ramps":[[202,0.48,28]]}];
 
 /* ================= v8.5: wild Daily-only hole pool (normal course holes untouched) =================
    Picked deterministically from the NY date seed so everyone plays the same design each day.
@@ -4017,6 +4109,8 @@ function compileHole(def) {
   hl.pads = (def.pads || []).map(([x0, x1]) => ({ x0, x1 }));
   hl.ramps = (def.ramps || []).map(([x, kick, minV]) => ({ x, kick: kick || 0.5, minV: minV || 30 }));   // v8.69: kicker lips (HIGH ROLLER)
   hl.movers = (def.movers || []).map(m => { const o = Object.assign({ kind: 'slide', x: 0, w: 14, hBot: 0, hTop: 28, period: 2.5, phase: 0, amp: 40 }, m); o.g0 = groundH(hl, o.x); return o; });
+  hl.bankstones = (def.bankstones || []).map(([x0,h0,x1,h1]) => ({x0,y0:groundH(hl,x0)+h0,x1,y1:groundH(hl,x1)+h1}));
+  for(const m of hl.movers)if(m.kind==='waterwheel'||m.kind==='bell')m.startedAt=(typeof performance!=='undefined'?performance.now():0)/1000;
   if (def.id === 'city') rushHourVariant(hl);   // v8.99.19 RUSH HOUR street: two one-way lanes between tunnels
   hl.drop = def.drop != null ? def.drop : null;
   hl.grav = def.grav || 1;   // v8.39: low-gravity Daily (moon); every other hole stays 1
@@ -4054,6 +4148,7 @@ function windmillBladeHit(m, t, dx0, rh) {
 function hitMover(hl, b, t) {
   if (!hl.movers || !hl.movers.length) return null;
   for (const m of hl.movers) {
+    if (m.kind === 'waterwheel' || m.kind === 'bell') { if (invMoverHit(m,b,t)) return m; continue; }
     if (m.kind === 'windmill') {
       if (!moverBlockX(m, t)) continue;
       const rh = b.h - (m.g0 || 0);
@@ -4175,7 +4270,8 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
 // Advance a ball by dt. Returns null while moving, otherwise 'stop' | 'cup' | 'water' | 'ob'.
 const iv0 = b => Math.abs(b.vy);
 function stepBall(b, hl, wind, dt) {   // v8.38: a lip only counts if the ball finishes out of the cup
-  const r = stepBallRaw(b, hl, wind, dt);
+  let r = stepBallRaw(b, hl, wind, dt);
+  if (hl.bankstones && hl.bankstones.length && invBankstoneBounce(b,hl)) r = null;
   if (r && b.lipPend) { b.lipPend = false; if (r !== 'cup') b.events.push('lip'); }
   return r;
 }
@@ -8003,6 +8099,7 @@ function crowdKeepOut(hl) {   // v8.99.5: world-x spans no spectator may overlap
   for (const r of hl.ramps || []) add(r.x - 10, r.x + 6);
   for (const m of hl.movers || []) { const hw = (m.w || 14) / 2; if (m.kind === 'windmill') { const r = Math.max(hw, (m.hTop || 28) * 0.75); add(m.x - r, m.x + r); } else add(m.x - (m.amp || 40) - hw, m.x + (m.amp || 40) + hw); }   // full motion path
   let s0 = null; for (let x = 0; x <= hl.len + 1; x++) { const s = x <= hl.len ? surfAt(hl, x) : 'end', hz = s === 'sand' || s === 'water'; if (hz && s0 == null) s0 = x; else if (!hz && s0 != null) { add(s0, x - 1); s0 = null; } }
+  for (const s of hl.bankstones || []) add(Math.min(s.x0,s.x1)-6,Math.max(s.x0,s.x1)+6);
   add(hl.cup - 12, hl.cup + 12);   // cup + flag
   K.soft = S; return K;
 }
@@ -8830,7 +8927,7 @@ function v93Paint(th, key, hl, cityish, layer, bucket) {
     }
   } else {   // mid: soft tree line (rounded crowns, two tones, light from above)
     const col = tone(night ? hdMix(sky, '#000010', 0.3) : hdMix(sky, shadeHex(base, 0.8), 0.58)), top0 = band - 20, hi = tone(hdMix(col, night ? '#5c6cb8' : '#ffffff', 0.12));
-    const pine = /snow|swamp|spooky|patch/.test(hl.theme || '');
+    const pine = /snow|swamp|spooky|patch|invitational/.test(hl.theme || '');
     for (let i = 0, x = 0; x < w + 20; i++) {
       const r = 5 + Math.floor(hash(i * 17 + 3) * 6), cy = top0 - Math.floor(hash(i * 5 + 9) * 7) + r;
       if (pine) { for (let y = 0; y < r * 2 + 4; y++) { const hw2 = Math.round(y * 0.45); R(x - hw2, cy - r - 2 + y, hw2 * 2 + 1, 1, col); } }
@@ -9123,7 +9220,8 @@ function drawCourse(hl, cam) {
     rect(sx - 1, top + 2, 2, 2, '#bcb090');
     for (let k = 4; k < hh - 2; k += 5) rect(sx - 1, top + k, 3, 1, '#5c4c3c');
   }
-  if (hl.ramps) for (const rp of hl.ramps) {   // v8.69: kicker lip: yellow/black chevrons on the last few yards
+  if (hl.ramps) for (const rp of hl.ramps) {
+    if (hl.theme === 'invitational') { for(let k=0;k<14;k++){const x=rp.x-14+k,sx=Math.round(x-cam),gy=Math.round(BASE-groundH(hl,x)),h=2+Math.floor(k/4);if(sx>=0&&sx<W){rect(sx,gy-h,1,h,'#365d30');rect(sx,gy-h,1,1,'#cbb67d');}} continue; }   // v8.69: kicker lip: yellow/black chevrons on the last few yards
     for (let k = 0; k < 14; k++) { const wx = rp.x - 14 + k, sx = Math.round(wx - cam); if (sx < 0 || sx >= W) continue; const gy = Math.round(BASE - groundH(hl, wx)); rect(sx, gy - 3, 1, 3, (k >> 1) % 2 ? '#000' : '#f8d878'); }
     { const sx = Math.round(rp.x - cam), gy = Math.round(BASE - groundH(hl, rp.x)); if (sx > -4 && sx < W + 4) { rect(sx, gy - 11, 1, 8, '#000'); rect(sx - 2, gy - 12, 5, 4, '#000'); rect(sx - 1, gy - 11, 3, 2, '#f8d878'); } }   // little lip marker post
   }
@@ -9132,6 +9230,7 @@ function drawCourse(hl, cam) {
     if (sx > -12 && sx < W + 12) { for (const dx of [-4, 4]) { rect(sx + dx, gy - 6, 1, 6, '#000'); rect(sx + dx, gy - 6, 1, 4, '#fcfcfc'); } rect(sx - 4, gy - 1, 9, 1, '#fcfcfc'); drawText('DROP', sx - 11, gy - 15, '#fcfcfc'); }
   }
   if (hl.movers) for (const m of hl.movers) {
+    if (m.kind === 'waterwheel' || m.kind === 'bell') { invDrawMover(m,t,cam); continue; }
     if (m.rh) continue;   // v8.99.19: drawn by drawRushStreet
     if (m.kind === 'windmill') {
       const sx = Math.round(m.x - cam);
@@ -9210,6 +9309,7 @@ function drawCourse(hl, cam) {
   for (const tx of [5, 22]) { const sx = Math.round(tx - cam); if (sx > -4 && sx < W) { const gy = Math.round(BASE - groundH(hl, tx)); rect(sx - 1, gy - 4, 4, 4, '#000'); rect(sx, gy - 3, 2, 2, COL.red); } }
   // out-of-bounds stakes
   for (const ox of [0, hl.len]) { const sx = Math.round(ox - cam); if (sx > -3 && sx < W + 3) { const gy = Math.round(BASE - groundH(hl, ox)); rect(sx - 1, gy - 14, 3, 14, '#000'); rect(sx, gy - 13, 1, 13, COL.white); rect(sx, gy - 13, 1, 3, COL.red); } }
+  invDrawBankstones(hl,cam);
   // cup + flag
   const fx = Math.round(hl.cup - cam), fgy = Math.round(BASE - groundH(hl, hl.cup));
   if (fx > -20 && fx < W + 4) {
@@ -9219,7 +9319,7 @@ function drawCourse(hl, cam) {
     rect(fx - 2, fgy, 5, 2, '#000');
     rect(fx, fgy - 28, 1, 28, COL.white); rect(fx + 1, fgy - 28, 1, 28, '#000');
     const wave = Math.floor(t * 4) % 2;                          // DLG flag, gently waving
-    rect(fx + 2, fgy - 29, 18, 11, '#000'); rect(fx + 2, fgy - 28, 17, 9, COL.red);
+    rect(fx + 2, fgy - 29, 18, 11, '#000'); rect(fx + 2, fgy - 28, 17, 9, hl.theme === 'invitational' ? '#e7c954' : COL.red);
     if (wave) { rect(fx + 18, fgy - 28, 1, 2, '#000'); rect(fx + 19, fgy - 23, 1, 4, th.dim ? th.sky : th.sky); }
     drawFlagCrest(fx + 2, fgy - 28);   // v8.99.20: official D15 crest replaces the DLG text
     if (rt) ctx.restore();
@@ -9522,6 +9622,7 @@ function hiddenColliders(hl) {
     const g = m.g0 || 0, hw = (m.w || 14) / 2, a = m.kind === 'windmill' ? 0 : (m.amp || 40);
     out.push({ kind: m.kind === 'windmill' ? 'windmill' : 'slide', x0: m.x - a - hw, x1: m.x + a + hw, h0: g + (m.hBot || 0) - 2, h1: g + (m.hTop || 28) });
   }
+  for(const b of hl.bankstones||[])out.push({kind:'bankstone',x0:Math.min(b.x0,b.x1)-4,x1:Math.max(b.x0,b.x1)+4,h0:Math.min(b.y0,b.y1)-4,h1:Math.max(b.y0,b.y1)+4});
   return out;
 }
 function flyStart() {
@@ -11595,7 +11696,7 @@ function drawLbiBanner() {   // v8.99.52: one compact 2-line scoreboard strip (n
   let title = n1; for (const cand of [n0, n1, n2]) if (textW(cand) <= room) { title = cand; break; }
   const dates = lbiDateRange(), free = (p.k === 'pre' || p.k === 'none') ? 'FREE ENTRY' : '';
   const tag = p.k === 'pre' ? (me && me.registered ? "YOU'RE IN" : 'REGISTER') : (p.k === 'live' || p.k === 'gap' ? lbiStatusLine().replace(' LEFT', '') : (p.k === 'final' || p.k === 'done' ? lbiStatusLine() : ''));
-  const bits = [dates, free, tag].filter(Boolean);
+  const bits = (p.k === 'pre' ? ['PRACTICE OPEN', dates] : [dates, free, tag]).filter(Boolean);
   let sub = bits.join(' · ');
   while (sub && textW(sub) > room) { bits.pop(); sub = bits.join(' · '); if (!bits.length) break; }
   const ty1 = b.y + (b.h >= 22 ? 4 : Math.round((b.h - 7) / 2));
@@ -11721,12 +11822,13 @@ function lbiPageHtml(o) {
   if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
   if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
   else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
+  h += '<button class="btn alt lbipractice" data-a="lbiPrac">PRACTICE NOW · DOES NOT COUNT</button>';
   h += lbiHowHtml();
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiMineHtml(B) + lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
   else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
-  h += '<button class="btn alt lbipractice" data-a="lbiPrac">PRACTICE · DOES NOT COUNT</button>';
+  h += '<a class="link" href="invitational.html">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</a>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
   return h;
@@ -11746,7 +11848,7 @@ function lbiAdminHtml(o) {
   const c = A.cfg, sel = (id, v, opts) => '<select id="' + id + '">' + opts.map(([k, l]) => '<option value="' + k + '"' + (String(k) === String(v == null ? '' : v) ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
   h += '<p class="sub">ALL TIMES EASTERN · YYYY-MM-DD HH:MM</p><form data-f="lbiCfg" novalidate><label for="lbN">NAME</label><input id="lbN" type="text" maxlength="40" value="' + esc(c.name) + '">' +
     LBI_DATES.map(([k, l]) => '<label for="lbD_' + k + '">' + l + '</label><input id="lbD_' + k + '" type="text" inputmode="numeric" maxlength="16" value="' + esc(lbiEt(lbiCfgDate(c, k))) + '">').join('') +
-    [0, 1, 2, 3].map(i => '<label for="lbC' + i + '">R' + (i + 1) + ' COURSE</label>' + sel('lbC' + i, c.courses[i], [['full', 'HOLES 1-18'], ['rev', 'HOLES 10-18, THEN 1-9']])).join('') +
+    [0, 1, 2, 3].map(i => '<label for="lbC' + i + '">R' + (i + 1) + ' COURSE</label>' + sel('lbC' + i, c.courses[i], [['full', 'MAGNOLIA PINES 1-18'], ['rev', 'MAGNOLIA PINES 10-18, THEN 1-9']])).join('') +
     '<label for="lbPH">PLAYOFF HOLE</label>' + sel('lbPH', c.playoff_hole, [['', 'NOT SET']].concat(Array.from({ length: 18 }, (_, i) => [i + 1, 'HOLE ' + (i + 1) + ' · PAR ' + FRONT_HOLES.concat(BACK_HOLES)[i].par]))) +
     '<label for="lbR">OFFICIAL RULES LINK</label><input id="lbR" type="text" inputmode="url" maxlength="500" placeholder="https://" autocapitalize="off" spellcheck="false" value="' + esc(c.rules_url || '') + '">' +
     '<button class="btn" type="submit">SAVE SETTINGS</button></form>';
@@ -11772,21 +11874,30 @@ function lbiCsv() {
   window.__lbiCsv = csv; return csv;
 }
 
+
+// v8.99.57: public practice entry and a brief course arrival. Practice never sends counted-round RPCs.
+let invIntroTimer=null;
+function invIntroEnd(){clearTimeout(invIntroTimer);const el=document.getElementById('courseArrival');if(el){el.hidden=true;el.classList.remove('show','leaving');}paused=false;}
+function invIntroStart(practice){const el=document.getElementById('courseArrival');if(!el)return;clearTimeout(invIntroTimer);document.getElementById('arrivalRound').textContent=practice?'PRACTICE ROUND · SCORES DO NOT COUNT':(LBI_RNAME[(lbiCtx&&lbiCtx.rnd||1)-1]||'PLAYOFF');el.hidden=false;el.classList.remove('leaving');el.classList.add('show');paused=true;document.getElementById('arrivalSkip').focus();invIntroTimer=setTimeout(()=>{paused=false;el.classList.add('leaving');invIntroTimer=setTimeout(invIntroEnd,650);},3150);}
+{const el=document.getElementById('courseArrival'),skip=document.getElementById('arrivalSkip');if(skip)skip.addEventListener('click',invIntroEnd);if(el){for(const type of ['pointerdown','pointerup','touchstart','click','wheel'])el.addEventListener(type,e=>e.stopPropagation(),{passive:true});el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();invIntroEnd();}});}}
+function invPracticeFromLink(){if(!/^#practice(?:&|$)/.test(location.hash))return;const m=location.hash.match(/(?:^|&)hole=(\d+)(?:&|$)/);let n=m?Math.max(1,Math.min(18,+m[1])):1;const c=lbiCfg()||{},p=lbiPhase(),rnd=p.rnd||p.next||1,rev=(c.courses||[])[rnd-1]==='rev';const from=rev?(n<=9?n+8:n-10):n-1;lbiBegin(null,true,from);}
+addEventListener('hashchange',invPracticeFromLink);
+
 /* ---- playing a round ---- */
-function lbiHoles(course, rnd, ph) { const all = FRONT_HOLES.concat(BACK_HOLES); if (rnd === 5) return [all[(ph || 18) - 1]]; return course === 'rev' ? BACK_HOLES.concat(FRONT_HOLES) : all; }
+function lbiHoles(course, rnd, ph) { const all = INVITATIONAL_HOLES; if (rnd === 5) return [all[(ph || 18) - 1]]; return course === 'rev' ? all.slice(9).concat(all.slice(0,9)) : all; }
 function lbiHoleNo(i) { if (!lbiCtx) return i + 1; if (lbiCtx.rnd === 5) return lbiCtx.ph || 1; return lbiCtx.course === 'rev' ? (i < 9 ? i + 10 : i - 8) : i + 1; }
-function lbiBegin(d, practice) {
+function lbiBegin(d, practice, from) {
   const c = lbiCfg() || {};
   if (practice) {   // practice: the round's course, random pins / wind like any normal round; never sent anywhere
     const p = lbiPhase(), rnd = p.rnd || p.next || 1;
-    lbiCtx = { practice: true, rnd, course: (c.courses || [])[rnd - 1] || 'full', from: 0, prev: [] };
+    lbiCtx = { practice: true, rnd, course: (c.courses || [])[rnd - 1] || 'full', from: Math.max(0, Math.min(17, from|0)), prev: [] };
     weather = pickWeather(); setCourseHoles('lbi', lbiHoles(lbiCtx.course, rnd));
   } else {
     lbiCtx = { practice: false, rnd: d.rnd, course: d.course, seed: String(d.seed || ''), ph: d.playoff_hole, from: d.from | 0, prev: (d.scores || []).map(v => v == null ? undefined : v), err: '', sentTp: null };
     weather = pickWeather(mulberry32(seedFromStr('LBI-W-' + lbiCtx.seed)));
     setCourseHoles('lbi', lbiHoles(d.course, d.rnd, d.playoff_hole));
   }
-  hideAcct(); setState('title'); startRound();
+  hideAcct(); if(state==='splash')dismissSplash(); setState('title'); startRound(); if(!lbiCtx.from) invIntroStart(practice);
 }
 async function lbiPlay(rnd, btn) {
   const r = await lbiRpc('lbi_start', { p_round: rnd });
@@ -13049,6 +13160,7 @@ if (/test/.test(location.hash)) {
     }
   };
 }
+invPracticeFromLink();
 (function preview() {
   const m = location.hash.match(/preview=(\w+)/); if (!m) return;
   const p = m[1];
