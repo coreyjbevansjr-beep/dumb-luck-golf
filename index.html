@@ -278,6 +278,34 @@
 #courseArrival[hidden]{display:none}#courseArrival .arrivalInner{max-width:520px;width:100%}#courseArrival .arrivalKicker{font:10px/1.9 ui-monospace,monospace;letter-spacing:3px;color:#d4c28c}#courseArrival .arrivalRule{width:56px;height:1px;background:#cdb875;margin:24px auto}#courseArrival h1{font-size:clamp(56px,12vw,92px);font-weight:400;line-height:.95;letter-spacing:-2px;margin:26px 0 20px}#courseArrival h1 em{font-weight:400;color:#e5d49a}#courseArrival .arrivalMeta{font:11px/1.9 ui-monospace,monospace;letter-spacing:2px;color:#e5dcc0}#courseArrival .arrivalHole{font:12px/1.8 ui-monospace,monospace;letter-spacing:1px;color:#c8d4bc;margin-top:22px}#courseArrival button{font:11px ui-monospace,monospace;letter-spacing:2px;background:none;border:1px solid #cdb875;color:#f5efd8;min-height:44px;padding:12px 30px;margin-top:30px;cursor:pointer}#courseArrival.show .arrivalInner{animation:arrivalIn .8s ease-out both}#courseArrival.show.leaving{animation:arrivalOut .65s ease-in forwards}@keyframes arrivalIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes arrivalOut{to{opacity:0}}@media(prefers-reduced-motion:reduce){#courseArrival.show,#courseArrival.show .arrivalInner{animation:none}}
 
 
+#invWelcome{position:fixed;inset:0;z-index:110;display:flex;align-items:center;justify-content:center;background:rgba(7,25,19,.83);padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));box-sizing:border-box;touch-action:manipulation}
+#invWelcome[hidden],#invWelcome [hidden]{display:none!important}
+#invWelcome .invw-box{width:min(640px,100%);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;-webkit-overflow-scrolling:touch;background:#f4f0e3;color:#174a35;border:1px solid #bda256;box-shadow:0 14px 70px #0006;font:16px/1.5 Georgia,serif}
+#invWelcome.book .invw-box{width:min(1080px,100%);height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:hidden}
+#invWelcome .invw-bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#174a35;color:#f4efd8;padding:3px 8px 3px 15px;flex:none;font:10px/1.4 ui-monospace,monospace;letter-spacing:.7px}
+#invWelcome .invw-bar button{flex:none;min-height:44px;min-width:44px;border:0;background:none;color:#f4efd8;font:12px ui-monospace,monospace;cursor:pointer}
+#invWelcome #invwClose{font-size:30px;line-height:1}
+#invwLanding{text-align:center;padding:22px 25px 14px}
+#invwLanding .invw-eyebrow{font:10px ui-monospace,monospace;letter-spacing:2px;color:#6a775e;margin:0 0 10px}
+#invwLanding h2{font-weight:400;font-size:clamp(34px,7vw,52px);line-height:1.08;letter-spacing:-1px;margin:0 0 19px}
+#invwLanding h2 em{color:#9b8039;font-weight:400}
+#invwLanding img{display:block;width:100%;height:auto;max-height:160px;object-fit:cover;image-rendering:pixelated}
+#invwLanding p{margin:15px 0;font-size:15px}
+#invWelcome .invw-actions{display:flex;gap:9px;flex-wrap:wrap}
+#invWelcome .invw-actions button{flex:1;min-width:160px;background:#174a35;color:#fff6dc;border:1px solid #174a35;min-height:48px;padding:10px 12px;font:700 11px/1.4 ui-monospace,monospace;cursor:pointer}
+#invWelcome #invwPractice{background:transparent;color:#174a35}
+#invWelcome .invw-plain{display:block;margin:8px auto 0;min-height:44px;border:0;background:none;color:#174a35;font:10px ui-monospace,monospace;text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+#invWelcome p.invw-credit{font:10px/1.4 ui-monospace,monospace;color:#6a775e;margin:8px 0 0}
+#invwFrame{width:100%;flex:1;min-height:0;border:0;background:#f4f0e3}
+#invWelcome button:focus-visible,#courseArrival button:focus-visible{outline:2px solid #bda256;outline-offset:2px}
+#courseArrival .inv-extra{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+#courseArrival .inv-extra button{margin:0;min-height:44px;border:0;padding:8px;font-size:10px;letter-spacing:.8px}
+#courseArrival .inv-extra .inv-subtle{opacity:.8}
+#courseArrival .inv-sound-note{font:10px/1.5 ui-monospace,monospace;letter-spacing:.5px;color:#c8d4bc;margin:14px 0 0}
+@media(max-width:420px){#invwLanding{padding:18px 18px 10px}#invWelcome .invw-actions button{min-width:130px;font-size:10px}#invwLanding img{max-height:130px}#invWelcome .invw-bar{font-size:9px}}
+
+#courseArrival{overflow:auto}#courseArrival [hidden]{display:none!important}
+
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
@@ -317,7 +345,21 @@
 </div>
 <div id="windInd" aria-hidden="true"><div class="wf"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><svg viewBox="0 0 34 16"><path d="M3 8H23" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M21 2.2L32.5 8L21 13.8Z" fill="#fff" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span></span></div>
 <div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
-<section id="courseArrival" role="dialog" aria-modal="true" aria-label="Magnolia Pines tournament introduction" hidden><div class="arrivalInner"><p class="arrivalKicker">THE DUMB LUCK INVITATIONAL</p><div class="arrivalRule"></div><h1>Magnolia<br><em>Pines</em></h1><p class="arrivalMeta">18 HOLES &nbsp;·&nbsp; PAR 72<br>THE STAGE IS SET.</p><p class="arrivalHole" id="arrivalRound">OPENING ROUND</p><button type="button" id="arrivalSkip">TEE OFF · SKIP INTRO</button></div></section>
+<section id="invWelcome" role="dialog" aria-modal="true" aria-labelledby="invWelcomeTitle" hidden>
+ <div class="invw-box">
+  <div class="invw-bar"><button type="button" id="invwBack" hidden>← WELCOME</button><span>THE DUMB LUCK INVITATIONAL</span><button type="button" id="invwClose" aria-label="Close course welcome">×</button></div>
+  <div id="invwLanding">
+   <p class="invw-eyebrow">PRACTICE IS OPEN</p><h2 id="invWelcomeTitle">Welcome to<br><em>Magnolia Pines.</em></h2>
+   <img src="invitational-hero.webp" width="1280" height="560" alt="The Magnolia Pines gallery at the yellow DLG flag">
+   <p>Explore all 18 holes, meet the new obstacles, and step into the gallery. Tap a gallery speech bubble to chirp back.</p>
+   <div class="invw-actions"><button type="button" id="invwExplore">EXPLORE THE LOOKBOOK</button><button type="button" id="invwPractice">PRACTICE NOW</button></div>
+   <button type="button" id="invwContinue" class="invw-plain">CONTINUE TO THE GAME</button><p class="invw-credit">Built by @scorey. Made for the gallery.</p>
+  </div>
+  <iframe id="invwFrame" title="Magnolia Pines course lookbook" hidden></iframe>
+ </div>
+</section>
+
+<section id="courseArrival" role="dialog" aria-modal="true" aria-label="Magnolia Pines tournament introduction" hidden><div class="arrivalInner"><p class="arrivalKicker">THE DUMB LUCK INVITATIONAL</p><div class="arrivalRule"></div><h1>Magnolia<br><em>Pines</em></h1><p class="arrivalMeta">18 HOLES &nbsp;·&nbsp; PAR 72<br>THE STAGE IS SET.</p><p class="arrivalHole" id="arrivalRound">OPENING ROUND</p><button type="button" id="invIntroBegin">BEGIN PRACTICE</button><div class="inv-extra"><button type="button" id="invIntroBook">COURSE LOOKBOOK</button><button type="button" id="invIntroSound">SOUND ON</button><button type="button" id="arrivalSkip" class="inv-subtle">SKIP INTRO</button></div><p class="inv-sound-note">Sound follows your game settings.</p></div></section>
 <script>
 (() => {
 'use strict';
@@ -334,7 +376,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.57';
+const GAME_VERSION = 'v8.99.60';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1579,15 +1621,15 @@ function golferHDImg(app, gear, kind, scale) {
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
   if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
 }
-function lookPreviewGolfer(cx, feetY, look, gear) {   // EDIT LOOK preview: same tee patch as careerGolfer, detailed golfer on it (2 px per unit)
-  const s = 3, px = cx;
+function lookPreviewGolfer(cx, feetY, look, gear, avatarScale=2) {   // EDIT LOOK preview: same tee patch as careerGolfer, detailed golfer on it (2 px per unit)
+  const s = avatarScale+1, px = cx;
   ctx.globalAlpha = 0.08; czEllipse(px, feetY - 15 * s, 17 * s, 19 * s, COL.white); czEllipse(px, feetY - 13 * s, 11 * s, 13 * s, COL.white); ctx.globalAlpha = 1;
   const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
   czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
   for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
   ctx.globalAlpha = 0.28; czEllipse(px, feetY, 9 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
   const blink = (st % 4.2) > 4.05;
-  drawGolferHD(Math.round(px - 1), Math.round(feetY - 1), 2, look, { gear: gear || {}, blink });
+  drawGolferHD(Math.round(px - 1), Math.round(feetY - 1), avatarScale, look, { gear: gear || {}, blink });
 }
 /* ================= v8.64: GEAR. Server catalog (rarity + seasonal windows), locker room, redeem codes, show-off busts.
    Gear is cosmetic and only shows on the detailed golfer (EDIT LOOK, locker, friends, boards, share card) - never on the in-game sprite. ================= */
@@ -2013,41 +2055,33 @@ function openLookEditor() {
   if (!gear.loaded || isSignedIn()) gearLoad(true).then(() => { if (lookEd && !lookEd.gdirty) lookGearInit(); }).catch(() => {});
 }
 function lookLayout() {
-  const st0 = SAFE.t || 0, sb0 = SAFE.b || 0, wide = careerWide(), L = { wide }, gtab = !!(lookEd && lookEd.tab === 'gear'), n = gtab ? 0 : LOOK_ROWS.length, nL = LOOK_ROWS.length;
-  let rowsTop, rh, rx, rw;
-  if (wide) {
-    // v8.99.30: everything fits the screen height - preview + action on the left, list + CANCEL/SAVE on the right
-    const colL = 124, colR = Math.min(244, W - colL - 24), gx = Math.round((W - colL - colR - 10) / 2), top = st0 + 28, bot = H - sb0 - 6, BH = 20; rh = 19;
-    L.prev = { x: gx, y: top, w: colL, h: bot - BH - 4 - top }; L.gfeet = L.prev.y + L.prev.h - 9; L.gs = 3;
-    L.act = { x: gx, y: bot - BH, w: colL, h: BH };
-    rx = gx + colL + 10; rw = colR;
-    L.tabs = { look: { x: rx, y: top, w: Math.floor(rw / 2) - 2, h: 18 }, gear: { x: rx + Math.floor(rw / 2) + 2, y: top, w: rw - Math.floor(rw / 2) - 2, h: 18 } };
-    const hw = Math.floor((rw - 4) / 2);
-    L.cancel = { x: rx, y: bot - BH, w: hw, h: BH }; L.save = { x: rx + hw + 4, y: bot - BH, w: rw - hw - 4, h: BH };
-    rowsTop = top + 22;
-    L.view = { x: rx, y: rowsTop, w: rw, h: Math.max(rh * 3, bot - BH - 4 - rowsTop) };
-  } else {
-    const w = Math.min(244, W - 12), x = Math.round((W - w) / 2), PH = 142; rh = 22;
-    const need = PH + 4 + 20 + 4 + nL * rh + 6 + 26 + 30, room = H - sb0 - 8 - (st0 + 28);
-    const top = need <= room ? Math.max(st0 + 28, Math.round((H - sb0 - need) / 2)) : st0 + 28;
-    L.prev = { x, y: top, w, h: PH }; L.gfeet = top + PH - 9; L.gs = 3;
-    const hw0 = Math.floor((w - 4) / 2);
-    L.tabs = { look: { x, y: top + PH + 4, w: hw0, h: 20 }, gear: { x: x + hw0 + 4, y: top + PH + 4, w: w - hw0 - 4, h: 20 } };
-    rowsTop = top + PH + 28; rx = x; rw = w;
-    const by = need <= room ? rowsTop + nL * rh + 4 : H - sb0 - 8 - 56;
-    L.view = { x, y: rowsTop, w, h: by - 4 - rowsTop };
-    L.act = { x, y: by, w, h: 24 };
-    const hw = Math.floor((w - 6) / 2);
-    L.cancel = { x, y: by + 30, w: hw, h: 26 }; L.save = { x: x + hw + 6, y: by + 30, w: w - hw - 6, h: 26 };
+  const st0=SAFE.t||0,sb0=SAFE.b||0,wide=careerWide()||W>=300&&W>H||H<W*1.1,L={wide},gtab=!!(lookEd&&lookEd.tab==='gear'),n=gtab?0:LOOK_ROWS.length;
+  let rowsTop,rh,rx,rw;
+  const top=st0+34,bot=H-sb0-8;
+  if(wide){
+    const gap=14,total=Math.min(W-28,440),left=Math.min(156,Math.floor(total*.39)),right=total-left-gap,x=Math.round((W-total)/2),bh=28;
+    L.prev={x,y:top,w:left,h:Math.max(98,bot-bh-8-top)};L.gfeet=L.prev.y+L.prev.h-12;
+    L.act={x,y:bot-bh,w:left,h:bh};rx=x+left+gap;rw=right;
+    L.tabs={look:{x:rx,y:top,w:Math.floor((rw-6)/2),h:26},gear:{x:rx+Math.floor((rw-6)/2)+6,y:top,w:rw-Math.floor((rw-6)/2)-6,h:26}};
+    rowsTop=top+32;const half=Math.floor((rw-6)/2);
+    L.cancel={x:rx,y:bot-bh,w:half,h:bh};L.save={x:rx+half+6,y:bot-bh,w:rw-half-6,h:bh};
+    L.view={x:rx,y:rowsTop,w:rw,h:Math.max(36,bot-bh-8-rowsTop)};rh=22;
+  }else{
+    const w=Math.min(256,W-20),x=Math.round((W-w)/2),ph=Math.min(gtab?184:160,Math.max(94,H-st0-sb0-224));
+    L.prev={x,y:top,w,h:ph};L.gfeet=top+ph-12;rx=x;rw=w;
+    const half=Math.floor((w-6)/2),ty=top+ph+6;
+    L.tabs={look:{x,y:ty,w:half,h:28},gear:{x:x+half+6,y:ty,w:w-half-6,h:28}};
+    rowsTop=ty+34;const by=bot-66;
+    L.view={x,y:rowsTop,w,h:Math.max(34,by-8-rowsTop)};
+    L.act={x,y:by,w,h:28};L.cancel={x,y:by+36,w:half,h:30};L.save={x:x+half+6,y:by+36,w:w-half-6,h:30};rh=34;
   }
-  // the one action button under the list: RANDOMIZE (LOOK) or SHOP [+ REDEEM CODE when signed in] (GEAR)
-  const A = L.act; L.rand = A;
-  if (isSignedIn()) { const h2 = Math.floor((A.w - 4) / 2); L.shop = { x: A.x, y: A.y, w: h2, h: A.h }; L.code = { x: A.x + h2 + 4, y: A.y, w: A.w - h2 - 4, h: A.h }; } else L.shop = A;
+  const A=L.act;L.rand=A;
+  if(isSignedIn()){const h2=Math.floor((A.w-4)/2);L.shop={x:A.x,y:A.y,w:h2,h:A.h};L.code={x:A.x+h2+4,y:A.y,w:A.w-h2-4,h:A.h};}else L.shop=A;
   L.rh = rh;
   let content = n * rh;
   L.tiles = []; L.heads = [];
   if (gtab) {   // GEAR: one tile grid, grouped by slot
-    const V = L.view, cols = Math.max(3, Math.floor((V.w + 4) / 48)), pitch = Math.floor((V.w + 4) / cols), ts = pitch - 4;
+    const V = L.view, cols = Math.max(3, Math.floor((V.w + 6) / 58)), pitch = Math.floor((V.w + 6) / cols), ts = pitch - 6;
     let y = 0;
     for (const [gname, slot] of GEAR_ROWS) {
       const ids = gearOpts(slot).slice(1); if (slot === 'ball') ids.unshift('__white');
@@ -2063,7 +2097,7 @@ function lookLayout() {
   L.tiles.forEach(T => { T.y += L.view.y - s; T.vis = T.y + T.h / 2 > L.view.y && T.y + T.h / 2 < L.view.y + L.view.h; });   // v8.99.30: no thin slivers at the edges
   L.heads.forEach(Hd => { Hd.y += L.view.y - s; });
   L.rows = []; for (let i = 0; i < n; i++) L.rows.push({ x: rx, y: rowsTop + i * rh - s, w: rw, h: rh - 2 });
-  L.rows.forEach(R => { R.l = { x: R.x + R.w - 92, y: R.y, w: 20, h: R.h }; R.r = { x: R.x + R.w - 20, y: R.y, w: 20, h: R.h }; R.vis = R.y + R.h > L.view.y && R.y < L.view.y + L.view.h; });
+  L.rows.forEach(R => { R.l = { x:R.x+R.w-(L.wide?60:76),y:R.y,w:L.wide?24:32,h:R.h }; R.r = { x:R.x+R.w-(L.wide?26:34),y:R.y,w:L.wide?24:32,h:R.h }; R.vis = R.y>=L.view.y && R.y+R.h<=L.view.y+L.view.h; });
   return L;
 }
 const lookLocked = d => !hatUnlocked(d.hat);
@@ -2088,30 +2122,35 @@ function lookTileIcon(id, locked) {
 const LOOK_ICON_IMG = new Map();
 function renderLookTab(L, E) {
   for (const k of ['look', 'gear']) { const T = L.tabs[k], on = (E.tab || 'look') === k;
-    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, on ? CAREER_YEL : '#183848');
-    careerSoftC(k.toUpperCase(), T.x + T.w / 2, T.y + Math.round((T.h - 7) / 2), on ? '#102860' : COL.white); }
+    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, on ? '#24405a' : '#10243a');
+    if(on)rect(T.x+1,T.y+T.h-2,T.w-2,2,CAREER_YEL);
+    careerSoftC(k.toUpperCase(), T.x + T.w / 2, T.y + Math.round((T.h - 7) / 2), on ? CAREER_YEL : COL.gray); }
 }
+function lookColorName(hex){return ({'#fcfcfc':'WHITE','#f83800':'RED','#3cbcfc':'SKY BLUE','#00a800':'GREEN','#f8d878':'GOLD','#fc9838':'ORANGE','#58d854':'GREEN','#0058f8':'BLUE','#f878f8':'PINK','#2c5cd8':'ROYAL BLUE','#585858':'GRAY','#3c3c3c':'CHARCOAL','#24188c':'NAVY','#d8a868':'KHAKI','#a84000':'RUST','#9878f8':'LAVENDER','#101010':'BLACK','#1c1c1c':'BLACK'})[String(hex).toLowerCase()]||'';}
 function renderLookEditor() {
   drawSkyScene(careerFair(), true);
   rect(0, 0, W, H, '#0c1830');   // v8.99.30: solid backdrop - no busy scenery behind the editor
   const L = lookLayout(), E = lookEd, d = E.draft, gtab = E.tab === 'gear';
   careerDrawBack('lookBack');
   outlined('EDIT LOOK', Math.round((W - textW('EDIT LOOK', 2)) / 2), (SAFE.t || 0) + 8, CAREER_YEL, 2);
-  const P = L.prev; czBoard(P.x, P.y, P.w, P.h, 0.9, false);
+  const P=L.prev,changed=E.gdirty||LOOK_ROWS.some(r=>E.draft[r[1]]!==E.orig[r[1]]);
+  rect(P.x,P.y,P.w,P.h,'#34445c');rect(P.x+1,P.y+1,P.w-2,P.h-2,'#10243a');
+  careerSoft('YOUR GOLFER',P.x+8,P.y+8,'#e8e2cc');
+  if(P.w>=180)careerSoft(changed?'UNSAVED':'PREVIEW',P.x+P.w-textW(changed?'UNSAVED':'PREVIEW')-8,P.y+8,changed?CAREER_YEL:COL.gray);
   const strip = gtab && E.gsel ? 24 : 0;   // v8.99.30: item name/status get their own strip; the golfer stands above it
   // cust1: a locked gear tile you tapped is tried on in the preview (not saved), with how to unlock it along the bottom
   const sel = gtab ? E.gsel : null, sg = sel && sel !== '__white' ? gearItem(sel) : null, gLock = !!(sg && !gearCanWear(sel)), gs = sg ? sg.slot : null;
   const wear = gLock ? Object.assign({}, lookGearDraft(), { [gs]: sel }) : lookGearDraft();
-  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet - strip, lookOf(d), wear);
+  lookPreviewGolfer(P.x + Math.round(P.w / 2), L.gfeet - strip, lookOf(d), wear, P.h-strip>=150?2:1);
   { const bid = sel && (sel === '__white' || gs === 'ball') ? sel : wear.ball, bs = bid && bid !== '__white' ? lookTileIcon(bid, false) : SPR.golfball;   // the ball, by the golfer's feet
     if (bs) { ctx.imageSmoothingEnabled = false; const z = BALL_SKINS[bid] || !bid || bid === '__white' ? 3 : 1; ctx.drawImage(bs, Math.min(P.x + Math.round(P.w / 2) + 26, P.x + P.w - 3 - Math.round(bs.width * z)), L.gfeet - strip - bs.height * z, bs.width * z, bs.height * z); } }
-  if (lookLocked(d) && !gtab) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 6, COL.orange); }
+  if (lookLocked(d) && !gtab) { czPadlock(P.x + P.w - 12, P.y + 12, COL.orange); careerSoft('LOCKED HAT', P.x + 6, P.y + 20, COL.orange); }
   if (sel) { const st = lookTileState(sel, gs), g = sg || {}; let nm = lookItemName(sel);
     let tx = st === 'lock' ? (g.req || 'LOCKED') + (isSignedIn() || gearIsLocal(sel) ? '' : ' - SIGN IN').toUpperCase().slice(0, 30) : st === 'on' ? 'EQUIPPED' : 'OWNED - TAP TO WEAR';
     const fit = (t, w) => { while (t.length > 1 && textW(t, 1) > w) t = t.slice(0, -1); return t; }; tx = fit(tx, P.w - 22); nm = fit(nm, P.w - 10);
     rect(P.x + 2, P.y + P.h - 25, P.w - 4, 23, '#081020'); rect(P.x + 2, P.y + P.h - 26, P.w - 4, 1, '#000');
     careerSoft(nm, P.x + 6, P.y + P.h - 23, sg ? (GEAR_TIERS[sg.tier] || GEAR_TIERS.common).col : COL.white);
-    if (st === 'lock') { czPadlock(P.x + 9, P.y + P.h - 8, COL.orange); careerSoft(tx, P.x + 16, P.y + P.h - 12, COL.orange); careerSoft('TRY-ON', P.x + 6, P.y + 6, COL.orange); }
+    if (st === 'lock') { czPadlock(P.x + 9, P.y + P.h - 8, COL.orange); careerSoft(tx, P.x + 16, P.y + P.h - 12, COL.orange); careerSoft('TRY-ON', P.x + 6, P.y + 20, COL.orange); }
     else careerSoft(tx, P.x + 6, P.y + P.h - 12, st === 'on' ? CAREER_YEL : COL.lime); }
   renderLookTab(L, E);
   const V = L.view; ctx.save(); ctx.beginPath(); ctx.rect(V.x - 1, V.y, V.w + 2, V.h); ctx.clip();
@@ -2119,23 +2158,30 @@ function renderLookEditor() {
     const R = L.rows[i]; if (!R.vis) continue;
     const isSel = i === E.row, row = LOOK_ROWS[i], v = d[row[1]], name = row[0]; let [sw, lab] = row[2](v);
     const dim = (row[1] === 'hat' && d.hatStyle === 2) || (row[1] === 'hairColor' && d.hair === 0), locked = row[1] === 'hat' && !hatUnlocked(v);
-    rect(R.x, R.y, R.w, R.h, '#000'); ctx.globalAlpha = isSel ? 0.85 : 0.55; rect(R.x + 1, R.y + 1, R.w - 2, R.h - 2, isSel ? '#24406c' : '#183848'); ctx.globalAlpha = 1;
-    if (isSel) rect(R.x, R.y, 2, R.h, CAREER_YEL);
-    careerSoft(name, R.x + 6, R.y + Math.round((R.h - 7) / 2), dim ? COL.gray : (isSel ? CAREER_YEL : COL.white));
-    const mid = R.l.x + R.l.w + 3;
-    if (sw) { rect(mid, R.y + 4, 9, R.h - 8, '#000'); rect(mid + 1, R.y + 5, 7, R.h - 10, sw); }
-    careerSoft(lab.slice(0, sw ? 6 : 8), mid + (sw ? 12 : 2), R.y + Math.round((R.h - 7) / 2), locked ? COL.orange : (dim ? COL.gray : COL.white));
-    if (locked) czPadlock(R.r.x - 6, R.y + Math.round(R.h / 2), COL.orange);
+    rect(R.x,R.y,R.w,R.h,isSel?'#1e3550':'#10243a');rect(R.x,R.y+R.h-1,R.w,1,'#2c4056');
+    if(isSel)rect(R.x,R.y,2,R.h,CAREER_YEL);
+    careerSoft(name,R.x+8,R.y+(L.wide?2:5),dim?COL.gray:(isSel?CAREER_YEL:COL.white));
+    let label=lab;
+    if(row[1]==='skin')label='TONE '+(v+1)+' / '+SKINS.length;
+    else if(row[1]==='hat'&&v>=10)label=lab;
+    else if(sw&&row[1]!=='hairColor'&&row[1]!=='shoes'&&row[1]!=='glove')label=lookColorName(sw)||lab;
+    if(dim)label=row[1]==='hat'?'NO HEADWEAR':'NO HAIR';
+    const vx=R.x+8;
+    if(sw&&!dim){const sy=R.y+(L.wide?10:17),sz=L.wide?9:11;rect(vx,sy,sz,sz,'#000');rect(vx+1,sy+1,sz-2,sz-2,sw);}
+    const available=R.l.x-vx-(sw&&!dim?20:8);while(label.length>1&&textW(label)>available)label=label.slice(0,-1);
+    careerSoft(label,vx+(sw&&!dim?17:0),R.y+(L.wide?12:19),locked?COL.orange:dim?COL.gray:'#c4d1dc');
+    if(locked)czPadlock(R.l.x-7,R.y+9,COL.orange);
     lookArrow(R.l, true, pressDim('lookL' + i)); lookArrow(R.r, false, pressDim('lookR' + i));
   }
   for (const Hd of L.heads) if (Hd.y >= V.y && Hd.y + 10 <= V.y + V.h) careerSoft(Hd.name, V.x + 1, Hd.y + 2, COL.gray);
   for (const T of L.tiles) { if (!T.vis) continue;
     const st = lookTileState(T.id, T.slot), g = T.id === '__white' ? null : gearItem(T.id), tc = g ? (GEAR_TIERS[g.tier] || GEAR_TIERS.common).col : '#bcbcbc', isSel = E.gsel === T.id;
-    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, st === 'on' ? CAREER_YEL : st === 'lock' ? '#2c3440' : tc);   // v8.99.30: same frame for every state
+    rect(T.x, T.y, T.w, T.h, '#000'); rect(T.x + 1, T.y + 1, T.w - 2, T.h - 2, st === 'on' ? CAREER_YEL : '#34445c');   // v8.99.30: same frame for every state
     rect(T.x + 2, T.y + 2, T.w - 4, T.h - 4, isSel ? '#24406c' : '#183848');
     const ic = lookTileIcon(T.id, st === 'lock');
     if (ic) { const iw = ic.naturalWidth || ic.width, ih = ic.naturalHeight || ic.height, f = Math.min((T.w - 8) / iw, (T.h - 13) / ih), z = f >= 1 ? Math.floor(f) : f; ctx.imageSmoothingEnabled = false;
-      if (st === 'lock') ctx.globalAlpha = 0.35; ctx.drawImage(ic, T.x + Math.round((T.w - iw * z) / 2), T.y + 3 + Math.round((T.h - 12 - ih * z) / 2), Math.round(iw * z), Math.round(ih * z)); ctx.globalAlpha = 1; }
+      if (st === 'lock') ctx.globalAlpha = 0.5; ctx.drawImage(ic, T.x + Math.round((T.w - iw * z) / 2), T.y + 3 + Math.round((T.h - 12 - ih * z) / 2), Math.round(iw * z), Math.round(ih * z)); ctx.globalAlpha = 1; }
+    if(st==='own')careerSoftC('OWNED',T.x+T.w/2,T.y+T.h-9,COL.gray);
     if (st === 'lock') czPadlock(T.x + T.w - 8, T.y + 8, COL.gray);
     if (st === 'on') { rect(T.x + 2, T.y + T.h - 10, T.w - 4, 8, CAREER_YEL); careerSoftC('ON', T.x + T.w / 2, T.y + T.h - 9, '#102860'); }   // same ON strip on every equipped tile
     if (isSel) { rect(T.x - 1, T.y - 1, T.w + 2, 1, COL.white); rect(T.x - 1, T.y + T.h, T.w + 2, 1, COL.white); rect(T.x - 1, T.y, 1, T.h, COL.white); rect(T.x + T.w, T.y, 1, T.h, COL.white); } }
@@ -2150,7 +2196,10 @@ function renderLookEditor() {
     else B.push([L.rand, 'RANDOMIZE', 'lookRand']);
     B.push([L.cancel, 'CANCEL', 'lookCancel'], [L.save, E.busy ? 'SAVING' : 'SAVE', 'lookSave']);
     const sc = B.every(([r, t]) => textW(t, 2) <= r.w - 12 && r.h >= 22) ? 2 : 1;
-    for (const [r, t, k] of B) careerButton(r, t, false, k, sc);
+    for(const [r,t,k] of B){
+      if(k==='lookSave'){rect(r.x,r.y,r.w,r.h,changed?CAREER_YEL:'#3e725e');rect(r.x+1,r.y+1,r.w-2,r.h-2,E.busy?'#183848':'#174f3b');careerSoftC(t,r.x+r.w/2,r.y+Math.round((r.h-7*sc)/2),COL.white,sc);}
+      else{const on=pressDim(k)||(mouse.seen&&!isTouchUi()&&hitBtn(mouse,r));rect(r.x,r.y,r.w,r.h,on?'#75879a':'#34445c');rect(r.x+1,r.y+1,r.w-2,r.h-2,'#10243a');careerSoftC(t,r.x+r.w/2,r.y+Math.round((r.h-7*sc)/2),on?CAREER_YEL:'#c4d1dc',sc);}
+    }
   }
   if (E.msg) { E.msgT += 1 / 60; if (E.msgT > 2.4) E.msg = ''; else careerSoftC(E.msg, W / 2, (SAFE.t || 0) + 20, E.msgBad ? COL.orange : COL.lime); }
 }
@@ -3221,7 +3270,13 @@ function invObstacleShape(m,t) {
 }
 function invMoverHit(m,b,t) {
   const s=invObstacleShape(m,t);
-  if(m.kind==='bell')return Math.hypot(b.x-s.cx,b.h-s.cy)<s.r+1.5||invNearSegment(b.x,b.h,s.ax,s.ay,s.cx,s.cy).d<2;
+  if(m.kind==='bell') {
+    // Match the visible rope, stepped bell body and clapper; no circular blocker in the empty corners.
+    if(invNearSegment(b.x,b.h,s.ax,s.ay,s.cx,s.cy).d<2)return true;
+    const r=1.5,hit=(x0,y0,x1,y1)=>Math.hypot(Math.max(x0-b.x,0,b.x-x1),Math.max(y0-b.h,0,b.h-y1))<=r;
+    for(let j=-7;j<=4;j++){const hw=j<-5?2:j<-3?3:j<-1?4:j<2?5:6;if(hit(s.cx-hw,s.cy-j-1,s.cx+hw+1,s.cy-j))return true;}
+    return hit(s.cx,s.cy-8,s.cx+2,s.cy-6);
+  }
   if(Math.hypot(b.x-s.cx,b.h-s.cy)<4.5)return true;
   if(invNearSegment(b.x,b.h,s.cx,s.g,s.cx,s.cy).d<2.5)return true;
   for(let k=0;k<6;k++) {
@@ -4283,6 +4338,8 @@ function stepBallRaw(b, hl, wind, dt) {
     b.x += b.vx * dt; b.h += b.vy * dt;
     if (b.x < -60 || b.x > hl.len + 60) return 'ob';
     if (hl.oaks && !b.hitTree) for (const o of hl.oaks) if (b.x > o.x0 && b.x < o.x1 && b.h < o.top && b.h > o.base - 2) {   // clipped the oak: drops near it
+      // Resolve outside the entry face: a stopped ball must not remain trapped inside the trunk.
+      b.x=px<=o.x0?o.x0-1.2:px>=o.x1?o.x1+1.2:b.vx>=0?o.x0-1.2:o.x1+1.2;
       b.hitTree = true; b.vx *= -0.15; b.vy = Math.min(b.vy, 0) * 0.4; b.events.push('tree'); break;
     }
     // bank-shot walls (Daily): reverse horizontal velocity when crossing a rock face
@@ -5930,7 +5987,7 @@ function winCardMaybe() {
   try { trackEvent('spooky_win_card', {}); } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
-    const k = b ? b.getAttribute('data-w') : 'x'; d.remove(); SFX.click();
+    const k = b ? b.getAttribute('data-w') : 'x'; d.remove(); SFX.click(); setTimeout(invWelcomeMaybe, 700);
     if (k === 'go') { try { trackEvent('spooky_win_register', { signed_in: inn }); } catch (e) {} if (!inn && state === 'title') showAcct('signup'); }
     else setTimeout(giftCardMaybe, 300);
   });
@@ -5953,7 +6010,7 @@ function giftCardMaybe() {
   try { trackEvent('gift_card', { item: 'dlg_shades' }); } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
-    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click();
+    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click(); setTimeout(invWelcomeMaybe, 500);
     if (k === 'eq') { gearEquip('dlg_shades', true); showToast(['DLG SHADES ON', 'CHANGE IT IN EDIT LOOK'], 2600); try { trackEvent('gift_equip', { item: 'dlg_shades' }); } catch (e) {} }
     else if (k === 'shop' && state === 'title') { try { trackEvent('shop_tap', { mode: 'gift' }); } catch (e) {} if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} } else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); } }
   });
@@ -7071,7 +7128,7 @@ function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   setState('title');
-  setTimeout(winCardMaybe, 400); setTimeout(giftCardMaybe, 420);   // v8.99.28 champion card first; v8.99.23 one-time thank-you gift card
+  setTimeout(winCardMaybe, 400); setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.28 champion card first; v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
@@ -7082,7 +7139,7 @@ function dismissSplash() {
   } catch (e) {}
 }
 function dismissA2HS() {
-  a2hs.show = false; SFX.click();
+  a2hs.show = false; SFX.click(); setTimeout(invWelcomeMaybe, 500);
   try { localStorage.setItem('dlg_a2hs_v1', '1'); } catch (e) {}
 }
 function renderSplash() {
@@ -8447,12 +8504,26 @@ function hecPreList() {
   if (waterSpan && waterSpan(hole) && r < 0.5 && r > 0.38) return HEC.waterPre;
   return strokes === 0 ? HEC.tee : HEC.fair;
 }
+function hecSpeakerBlocks() {
+  if (!hole || !ball) return [];
+  const z = worldZoom(), gx = lastSpotForGolfer(), g = w2s(gx - camX - facingForGolfer() * 7, BASE - groundH(hole, gx)), f = w2s(hole.cup - camX, BASE - groundH(hole, hole.cup));
+  return [{ x: g.x - 16*z, y: g.y - 64*z, w: 32*z, h: 70*z }, { x: f.x - 6*z, y: f.y - 38*z, w: 36*z, h: 43*z }];
+}
+function hecRectHits(a,b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+function hecReplyRect(q,w,h) {
+  const blocks=hecSpeakerBlocks(), top=Math.max(36,(SAFE.t||0)+6)+17, baseY=Math.max(top,Math.min(q.y-h,blocks[0].y-h-6));
+  const xs=[q.x-w/2,q.x-w-24,q.x+24,W/2-w/2];
+  if(hec&&!hec.hide)blocks.push(hec.r);
+  for(const x of xs){const r={x:Math.round(clamp(x,2,W-w-2)),y:Math.round(baseY),w,h};if(r.y+h<PLAY_H-4&&!blocks.some(b=>hecRectHits(r,b)))return r;}
+  return null;
+}
 function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear of the ball, golfer, aim line and HUD
   if (!crowdOn() || SIM || !hole || !ball) return false;
-  const sp = crowdSpots(hole), Z = worldZoom(), who = opts && opts.who, lines = (who ? [who.name] : []).concat(hecWrap(text)), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
+  const sp = crowdSpots(hole), Z = worldZoom(), who = opts && (opts.who || (opts.fan && opts.fan.cast)), lines = (who ? [who.name] : []).concat(hecWrap(text)), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5;
   const top = Math.max(36, (SAFE.t || 0) + 6) + 17, bq = w2s(ball.x - camX, BASE - ball.h - 4);
   const rx = opts && opts.relax, avoid = [rx ? { x: bq.x - 8, y: bq.y - 30 * Z, w: 16, h: 34 * Z } : { x: bq.x - 24, y: bq.y - 56 * Z, w: 48, h: 64 * Z }, { x: MC.x - 4, y: 0, w: MC.w + 8, h: MC.y + MC.h + 6 }, { x: 0, y: 0, w: PAUSE_BTN.x + PAUSE_BTN.w + 4, h: PAUSE_BTN.y + PAUSE_BTN.h + 4 }];
   const pts = (opts && opts.relax && !['aim', 'power', 'accuracy'].includes(state)) ? [] : lastAimPts || [], hitR = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const speakerBlocks = hecSpeakerBlocks(); avoid.push(...speakerBlocks);
   const cand = [];
   for (const p of sp) {
     if (p.f.costume === 'ghost' || p.f.costume === 'pumpkin') continue;
@@ -8460,11 +8531,13 @@ function hecSay(text, opts) {   // pick a visible fan whose bubble stays clear o
     if (opts && opts.near != null && Math.abs(p.x - opts.near) > 140) continue;
     const hh = p.f.legH + p.f.torH + p.f.headH + (p.f.rider ? 12 : 0) + 3, q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - (FAN_DEPTH[p.row] + (p.lift || 0)) - hh);
     if (q.x < 6 || q.x > W - 6) continue;
+    if (speakerBlocks.some(b => hecRectHits({x:q.x-4*Z,y:q.y-3*Z,w:8*Z,h:8*Z},b))) continue;
     for (const lift of (rx ? [0, 14, 28, 44, 60, 76] : [0, 14, 28, 44])) {   // lift the bubble (longer tail) when the aim line runs over the crowd
       const r = { x: Math.round(clamp(q.x - bw / 2, 2, W - bw - 2)), y: Math.round(q.y - bh - 5 - lift), w: bw, h: bh };
       if (r.y < top || r.y + r.h > PLAY_H - 4) continue;
       if (avoid.some(a => hitR(r, a))) continue;
       const tl = { x: q.x - 3, y: r.y + r.h, w: 6, h: lift + 4 };
+      if (speakerBlocks.some(b => hitR(tl,b))) continue;
       if (pts.some(d => (d.x >= r.x - 4 && d.x <= r.x + r.w + 4 && d.y >= r.y - 4 && d.y <= r.y + r.h + 4) || (d.x >= tl.x - 2 && d.x <= tl.x + tl.w + 2 && d.y >= tl.y && d.y <= tl.y + tl.h))) continue;
       cand.push({ p, r, q, lift, w: (p.row < 2 ? 3 : 1) * (p.f.kid ? 0.6 : 1) / (1 + lift / 12) * (opts && opts.low ? 0.2 + (r.y / PLAY_H) ** 2 * 4 : 1) }); break;
     }
@@ -8502,6 +8575,8 @@ function hecDraw() {
   const q = w2s(p.x - camX, BASE - groundH(hole, Math.max(0, p.x)) - (FAN_DEPTH[p.row] + (p.lift || 0)) - hh);   // follow the fan as the camera moves
   r.x = Math.round(clamp(q.x - r.w / 2, 2, W - r.w - 2)); r.y = Math.round(q.y - r.h - 5 - hec.lift); hec.tail = q.x;
   if (q.x < 2 || q.x > W - 2 || r.y < Math.max(36, (SAFE.t || 0) + 6) + 17 || r.y + r.h > PLAY_H - 4) hec.hide = 1;
+  const tail = { x:q.x-3, y:r.y+r.h, w:6, h:hec.lift+4 };
+  if (hecSpeakerBlocks().some(b => hecRectHits(r,b) || hecRectHits(tail,b) || hecRectHits({x:q.x-4,y:q.y-3,w:8,h:8},b))) { hec.hide = 1; return; }
   if (state === 'flight' || state === 'penalty') { const bq = w2s(ball.x - camX, BASE - ball.h - 4); if (bq.x > r.x - 10 && bq.x < r.x + r.w + 10 && bq.y > r.y - 10 && bq.y < r.y + r.h + 14) hec.hide = Math.max(hec.hide, 1); }   // the ball wins: get out of the way
   if (hec.hide) { hec.hide = Math.min(1, hec.hide); hec.t = Math.max(hec.t, hec.dur - 0.12); }
   const a = REDUCED_MOTION ? 1 : Math.min(1, hec.t / 0.1, (hec.dur - hec.t) / 0.2); if (a <= 0) return;
@@ -8532,7 +8607,7 @@ const LG_FILES = { hush: 'audio/crowd-hush.mp3?v=186', aww: 'audio/crowd-aww.mp3
 const LG = { hype: 50, r: new Map(), sayT: -99, blipT: -99, tapT: -99, key: '', shotN: 0, plan: null, minD: 1e9, startD: 0, oohAt: -99, hushKey: '', loaded: false, streak: 0, cold: 0, prevD: 0, me: null, comeT: -99, ducked: new Set(), round: '' };
 const lgT = () => performance.now() / 1000;
 const LGL = {
-  tee: ['FAIRWAYS AND GREENS!', 'SMASH IT!', 'DONT SLICE IT!', 'NICE STANCE... I GUESS', 'GRIP IT AND RIP IT!', 'SHOW US SOMETHING!', 'WAKE ME UP WHEN YOU SWING', 'MY GRANDMA HITS IT FARTHER', 'IS THAT A RENTAL?', 'BOMBS AWAY!', 'DONT WHIFF IT!', 'BIG DOG TIME!'],
+  tee: ['THAT SWING NEEDS A RECEIPT!', 'DUMB LUCK. BOLD STRATEGY.', 'YOUR CADDIE JUST LOGGED OFF!', 'FAIRWAYS AND GREENS!', 'SMASH IT!', 'DONT SLICE IT!', 'NICE STANCE... I GUESS', 'GRIP IT AND RIP IT!', 'SHOW US SOMETHING!', 'WAKE ME UP WHEN YOU SWING', 'MY GRANDMA HITS IT FARTHER', 'IS THAT A RENTAL?', 'BOMBS AWAY!', 'DONT WHIFF IT!', 'BIG DOG TIME!'],
   fair: ['STICK IT CLOSE!', 'FLAG HUNTING?', 'YOU GOT THIS... MAYBE', 'PICK A CLUB ALREADY!', 'AIM FOR THE GREEN, NOT US!', 'THE GREEN IS THAT WAY!', 'NO PRESSURE!', 'EVERYONE IS WATCHING!', 'HIT IT TO ME!', 'NOT IN THE CROWD AGAIN!'],
   puttShort: ['DONT CHOKE!', 'TAP IN... RIGHT?', 'EVEN I MAKE THESE!', 'DONT LIP IT!', 'GIMME? NOPE!', 'HANDS ARE SHAKING!'],
   puttLong: ['NEVER UP, NEVER IN!', 'READ THE BREAK!', 'LAG IT!', 'THREE PUTT INCOMING', 'DRAIN IT!', 'GET IT TO THE HOLE!'],
@@ -8879,7 +8954,7 @@ function lgDraw() {   // hype bar (tiny, under the pause button) + your comeback
   const x = PAUSE_BTN.x, y = PAUSE_BTN.y + PAUSE_BTN.h + 4, w = PAUSE_BTN.w, f = Math.round((w - 2) * LG.hype / 100), c = LG.hype >= 75 ? '#f8d878' : LG.hype <= 25 ? '#f83800' : '#fcfcfc';
   ctx.globalAlpha = 0.85; rect(x, y, w, 4, '#000'); rect(x + 1, y + 1, f, 2, c); ctx.globalAlpha = 1;
   if (LG.me && ball) { const lines = hecWrap(LG.me.text), bw = Math.max(...lines.map(l => textW(l))) + 8, bh = lines.length * 9 + 5, gx = lastSpotForGolfer() - camX - facingForGolfer() * 7, q = w2s(gx, BASE - groundH(hole, Math.max(0, lastSpotForGolfer())) - 46);
-    const rx = Math.round(clamp(q.x - bw / 2, 2, W - bw - 2)), ry = Math.round(Math.max(Math.max(36, (SAFE.t || 0) + 6) + 17, q.y - bh)), a = Math.min(1, LG.me.t / 0.1, (LG.me.dur - LG.me.t) / 0.2); if (a <= 0) return;
+    const replyRect = hecReplyRect(q,bw,bh); if (!replyRect) return; const rx = replyRect.x, ry = replyRect.y, a = Math.min(1, LG.me.t / 0.1, (LG.me.dur - LG.me.t) / 0.2); if (a <= 0) return;
     ctx.globalAlpha = a; rect(rx - 1, ry, bw + 2, bh, '#000'); rect(rx, ry - 1, bw, bh + 2, '#000'); rect(rx, ry, bw, bh, '#f8d878'); lines.forEach((l, i) => drawText(l, Math.round(rx + (bw - textW(l)) / 2), ry + 3 + i * 9, '#1c1c2c')); ctx.globalAlpha = 1; }
 }
 /* v8.87 gallery zoom: on a long hole-out (ace, or a non-putt holed from 20+ yd) at a gallery event, a short push-in on the cheering crowd, then back. Tap skips. Screen-space post zoom (one drawImage). */
@@ -9617,9 +9692,12 @@ let fly = null, flySeen = new Set(), hidList = [], hidFlash = 0;
 function hiddenColliders(hl) {
   const out = [];
   for (const o of hl.oaks || []) out.push({ kind: 'oak', x0: o.x0, x1: o.x1, h0: o.base - 2, h1: o.top });
-  for (const w of hl.walls || []) { const g = w.g0 || 0; out.push({ kind: 'wall', x0: w.x - 3, x1: w.x + 3, h0: g + w.hBot, h1: g + w.hTop }); }
+  for (const w of hl.walls || []) { const g = w.g0 || 0, half = w.ww ? w.ww / 2 + 1 : 3; out.push({ kind: 'wall', x0: w.x - half, x1: w.x + half, h0: g + w.hBot, h1: g + w.hTop }); }
   for (const m of hl.movers || []) {
-    const g = m.g0 || 0, hw = (m.w || 14) / 2, a = m.kind === 'windmill' ? 0 : (m.amp || 40);
+    const g = m.g0 || 0;
+    if(m.kind==='bell'){const sweep=Math.sin(.8)*(m.rope||30),r=m.radius||8;out.push({kind:'bell',x0:m.x-sweep-r,x1:m.x+sweep+r,h0:g+(m.anchor||59)-(m.rope||30)-r,h1:g+(m.anchor||59)+2});continue;}
+    if(m.kind==='waterwheel'){const r=(m.radius||23)+5,hub=g+(m.hub||25);out.push({kind:'waterwheel',x0:m.x-r,x1:m.x+r,h0:Math.min(g,hub-r),h1:hub+r});continue;}
+    const hw=(m.w||14)/2,a=m.kind==='windmill'?0:(m.amp||40);
     out.push({ kind: m.kind === 'windmill' ? 'windmill' : 'slide', x0: m.x - a - hw, x1: m.x + a + hw, h0: g + (m.hBot || 0) - 2, h1: g + (m.hTop || 28) });
   }
   for(const b of hl.bankstones||[])out.push({kind:'bankstone',x0:Math.min(b.x0,b.x1)-4,x1:Math.max(b.x0,b.x1)+4,h0:Math.min(b.y0,b.y1)-4,h1:Math.max(b.y0,b.y1)+4});
@@ -11828,7 +11906,7 @@ function lbiPageHtml(o) {
   if (tab === 'board') h += lbiMineHtml(B) + lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
   else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
-  h += '<a class="link" href="invitational.html">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</a>';
+  h += '<button class="btn alt" data-a="lbiLookbook">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</button>';
   h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
   return h;
@@ -11877,10 +11955,91 @@ function lbiCsv() {
 
 // v8.99.57: public practice entry and a brief course arrival. Practice never sends counted-round RPCs.
 let invIntroTimer=null;
-function invIntroEnd(){clearTimeout(invIntroTimer);const el=document.getElementById('courseArrival');if(el){el.hidden=true;el.classList.remove('show','leaving');}paused=false;}
-function invIntroStart(practice){const el=document.getElementById('courseArrival');if(!el)return;clearTimeout(invIntroTimer);document.getElementById('arrivalRound').textContent=practice?'PRACTICE ROUND · SCORES DO NOT COUNT':(LBI_RNAME[(lbiCtx&&lbiCtx.rnd||1)-1]||'PLAYOFF');el.hidden=false;el.classList.remove('leaving');el.classList.add('show');paused=true;document.getElementById('arrivalSkip').focus();invIntroTimer=setTimeout(()=>{paused=false;el.classList.add('leaving');invIntroTimer=setTimeout(invIntroEnd,650);},3150);}
-{const el=document.getElementById('courseArrival'),skip=document.getElementById('arrivalSkip');if(skip)skip.addEventListener('click',invIntroEnd);if(el){for(const type of ['pointerdown','pointerup','touchstart','click','wheel'])el.addEventListener(type,e=>e.stopPropagation(),{passive:true});el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();invIntroEnd();}});}}
-function invPracticeFromLink(){if(!/^#practice(?:&|$)/.test(location.hash))return;const m=location.hash.match(/(?:^|&)hole=(\d+)(?:&|$)/);let n=m?Math.max(1,Math.min(18,+m[1])):1;const c=lbiCfg()||{},p=lbiPhase(),rnd=p.rnd||p.next||1,rev=(c.courses||[])[rnd-1]==='rev';const from=rev?(n<=9?n+8:n-10):n-1;lbiBegin(null,true,from);}
+// v8.99.58: optional arrival lookbook, with no interruption to deep links or counted rounds.
+let invWelcomePriorPause=false,invWelcomePriorFocus=null,invWelcomeArrival=false,invWelcomeReadonly=false,invWelcomeSeen=false;
+function invWelcomeRemember(){invWelcomeSeen=true;try{sessionStorage.setItem('dlg_inv_welcome_v58','1');}catch(e){}}
+function invWelcomeMaybe(force){
+ if(!force&&AUTH_TEST)return;
+ if(state!=='title'||a2hs.show||paused||ov||menuPopup||(acctEl&&acctEl.classList.contains('on'))||authReturn||document.getElementById('winCard')||document.getElementById('giftCard'))return;
+ if(location.hash&&!/^#(?:welcome|lookbook)$/.test(location.hash))return;
+ try{if(sessionStorage.getItem('dlg_inv_welcome_v58')==='1')return;}catch(e){}
+ if(!invWelcomeSeen)invWelcomeOpen(false);
+}
+function invWelcomeOpen(book){
+ const el=document.getElementById('invWelcome');if(!el||!el.hidden){if(book)invWelcomeBook();return;}
+ invWelcomeRemember();invWelcomePriorPause=paused;invWelcomePriorFocus=document.activeElement;invWelcomeArrival=!document.getElementById('courseArrival').hidden;
+ invWelcomeReadonly=!!(courseKind==='lbi'&&lbiCtx&&!lbiCtx.practice&&state!=='card');
+ if(invWelcomeArrival)document.getElementById('courseArrival').style.visibility='hidden';
+ paused=true;el.hidden=false;invWelcomeLanding();if(book)invWelcomeBook();else document.getElementById('invwExplore').focus();
+}
+function invWelcomeLanding(){const el=document.getElementById('invWelcome');el.classList.remove('book');document.getElementById('invwLanding').hidden=false;document.getElementById('invwFrame').hidden=true;document.getElementById('invwBack').hidden=true;}
+function invWelcomeBook(){
+ const el=document.getElementById('invWelcome'),frame=document.getElementById('invwFrame');
+ el.classList.add('book');document.getElementById('invwLanding').hidden=true;document.getElementById('invwBack').hidden=invWelcomeReadonly;frame.hidden=false;
+ const url='invitational.html?embed=1'+(invWelcomeReadonly?'&round=counted':'');if(frame.getAttribute('src')!==url)frame.setAttribute('src',url);
+ document.getElementById('invwClose').focus();
+}
+function invWelcomeClose(){
+ const el=document.getElementById('invWelcome');if(!el||el.hidden)return;el.hidden=true;paused=invWelcomePriorPause;
+ if(invWelcomeArrival)document.getElementById('courseArrival').style.visibility='';
+ if(invWelcomePriorFocus&&invWelcomePriorFocus.isConnected)invWelcomePriorFocus.focus();
+ invWelcomeArrival=false;invWelcomeReadonly=false;
+}
+function invWelcomePlay(hash){
+ if(invWelcomeReadonly)return;
+ invWelcomeClose();if(location.hash===hash)invPracticeFromLink();else location.hash=hash;
+}
+{const el=document.getElementById('invWelcome');
+ document.getElementById('invwClose').addEventListener('click',invWelcomeClose);
+ document.getElementById('invwContinue').addEventListener('click',invWelcomeClose);
+ document.getElementById('invwExplore').addEventListener('click',invWelcomeBook);
+ document.getElementById('invwBack').addEventListener('click',()=>{invWelcomeLanding();document.getElementById('invwExplore').focus();});
+ document.getElementById('invwPractice').addEventListener('click',()=>invWelcomePlay('#practice'));
+ el.addEventListener('click',e=>{if(e.target===el)invWelcomeClose();e.stopPropagation();});
+ for(const type of ['pointerdown','pointerup','touchstart','wheel'])el.addEventListener(type,e=>e.stopPropagation(),{passive:true});
+ el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();invWelcomeClose();}if(e.key==='Tab'){const controls=Array.from(el.querySelectorAll('button,iframe')).filter(x=>!x.hidden&&x.getClientRects().length);if(controls.length){const first=controls[0],last=controls[controls.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}});
+}
+addEventListener('message',e=>{
+ const frame=document.getElementById('invwFrame'),el=document.getElementById('invWelcome');
+ if(!frame||el.hidden||e.source!==frame.contentWindow||e.origin!==location.origin||!e.data||e.data.type!=='dlg:lookbook:play')return;
+ const hash=e.data.hash;if(typeof hash!=='string'||!(hash==='#invitational'||/^#practice(?:&hole=(?:[1-9]|1[0-8]))?$/.test(hash)))return;
+ invWelcomePlay(hash);
+});
+let invIntroNodes=[],invIntroBus=null,invIntroPractice=true,invIntroStarted=false,invIntroFinishing=false;
+function invIntroSoundStop(){for(const o of invIntroNodes){try{o.stop();o.disconnect();}catch(e){}}invIntroNodes=[];if(invIntroBus){invIntroBus.disconnect();invIntroBus=null;}}
+function invIntroChime(){
+ if(!AC||muted||!settings.sound)return;
+ invIntroSoundStop();invIntroBus=AC.createGain();invIntroBus.gain.value=.72;invIntroBus.connect(sDest(AC));
+ const notes=invIntroPractice?[392,523,659,784,659,784,1047]:[523,523,523,659,784,659,784,1047];
+ function note(f,at,dur,type,vol){const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+.015+at;o.type=type;o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.005);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(invIntroBus);o.start(t);o.stop(t+dur+.03);invIntroNodes.push(o);}
+ notes.forEach((f,i)=>note(f,i*.15,.16,'square',.05));note(131,0,.24,'triangle',.10);note(196,.6,.24,'triangle',.08);note(262,1.05,.35,'triangle',.09);
+}
+function invIntroEnd(){clearTimeout(invIntroTimer);invIntroSoundStop();const el=document.getElementById('courseArrival');if(el){el.hidden=true;el.style.visibility='';el.classList.remove('show','leaving');}paused=false;invIntroStarted=false;invIntroFinishing=false;}
+function invIntroFinish(){if(invIntroFinishing)return;invIntroFinishing=true;clearTimeout(invIntroTimer);invIntroSoundStop();paused=false;document.getElementById('courseArrival').classList.add('leaving');invIntroTimer=setTimeout(invIntroEnd,650);}
+function invSoundLabel(){const b=document.getElementById('invIntroSound');if(b)b.textContent=muted?'SOUND OFF':'SOUND ON';}
+function invIntroToggleSound(){muted=!muted;settings.sound=!muted;saveSettings();if(invIntroBus)invIntroBus.gain.value=muted?0:.72;audioOn();invSoundLabel();}
+function invIntroPlay(){
+ if(invIntroStarted)return;invIntroStarted=true;document.getElementById('invIntroBegin').hidden=true;document.getElementById('invIntroBook').hidden=true;
+ audioOn();invIntroChime();invIntroTimer=setTimeout(invIntroFinish,2400);
+}
+function invIntroStart(practice){
+ clearTimeout(invIntroTimer);invIntroSoundStop();invIntroPractice=!!practice;invIntroStarted=false;invIntroFinishing=false;
+ const el=document.getElementById('courseArrival');if(!el)return;
+ document.getElementById('arrivalRound').textContent=practice?'PRACTICE ROUND · SCORES DO NOT COUNT':(lbiCtx&&lbiCtx.rnd===5?'PLAYOFF':LBI_RNAME[(lbiCtx&&lbiCtx.rnd||1)-1]||'TOURNAMENT ROUND');
+ const begin=document.getElementById('invIntroBegin');begin.textContent=practice?'BEGIN PRACTICE':'BEGIN ROUND';begin.hidden=false;document.getElementById('invIntroBook').hidden=false;
+ el.hidden=false;el.classList.remove('leaving');el.classList.add('show');paused=true;invSoundLabel();begin.focus();
+}
+{const el=document.getElementById('courseArrival');
+ document.getElementById('arrivalSkip').addEventListener('click',invIntroEnd);
+ document.getElementById('invIntroBegin').addEventListener('click',invIntroPlay);
+ document.getElementById('invIntroSound').addEventListener('click',invIntroToggleSound);
+ document.getElementById('invIntroBook').addEventListener('click',()=>invWelcomeOpen(true));
+ for(const type of ['pointerdown','pointerup','touchstart','click','wheel'])el.addEventListener(type,e=>e.stopPropagation(),{passive:true});
+ el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();invIntroEnd();}else if(e.key.toLowerCase()==='m'){e.preventDefault();invIntroToggleSound();}});
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)invIntroSoundStop();});
+
+function invPracticeFromLink(){if(/^#invitational(?:&|$)/.test(location.hash)){if(state==='splash')dismissSplash();setState('title');lbiOpen('board');return;}if(!/^#practice(?:&|$)/.test(location.hash))return;const m=location.hash.match(/(?:^|&)hole=(\d+)(?:&|$)/);let n=m?Math.max(1,Math.min(18,+m[1])):1;const c=lbiCfg()||{},p=lbiPhase(),rnd=p.rnd||p.next||1,rev=(c.courses||[])[rnd-1]==='rev';const from=rev?(n<=9?n+8:n-10):n-1;lbiBegin(null,true,from);}
 addEventListener('hashchange',invPracticeFromLink);
 
 /* ---- playing a round ---- */
@@ -11897,7 +12056,7 @@ function lbiBegin(d, practice, from) {
     weather = pickWeather(mulberry32(seedFromStr('LBI-W-' + lbiCtx.seed)));
     setCourseHoles('lbi', lbiHoles(d.course, d.rnd, d.playoff_hole));
   }
-  hideAcct(); if(state==='splash')dismissSplash(); setState('title'); startRound(); if(!lbiCtx.from) invIntroStart(practice);
+  hideAcct(); if(state==='splash')dismissSplash(); setState('title'); startRound(); if(practice||!lbiCtx.from) invIntroStart(practice);
 }
 async function lbiPlay(rnd, btn) {
   const r = await lbiRpc('lbi_start', { p_round: rnd });
@@ -12147,6 +12306,7 @@ if (acctEl) {
       if (a === 'lbiReg') { acctBusy(true); const r = await lbiRpc('lbi_register', {}); acctBusy(false); if (!r.ok) { acctMsg(lbiErr(r)); return; } try { trackEvent('lbi_register', {}); } catch (e) {} await lbiRefresh(); lbiRender(); return; }
       if (a === 'lbiPlay') { showAcct('lbiReady', { rnd: +b.getAttribute('data-n') }); return; }
       if (a === 'lbiStart') { acctBusy(true); await lbiPlay(+b.getAttribute('data-n')); acctBusy(false); return; }
+      if (a === 'lbiLookbook') { invWelcomeOpen(true); return; }
       if (a === 'lbiPrac') { lbiBegin(null, true); return; }
       if (a === 'lbiAdmin') { showAcct('lbiAdmin', { loading: true }); const r = await lbiAdminLoad(); if (acctView === 'lbiAdmin') showAcct('lbiAdmin', { msg: r.ok ? '' : lbiErr(r) }); return; }
       if (a === 'lbiBack') { lbiOpen('board'); return; }
