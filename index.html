@@ -376,7 +376,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.63';
+const GAME_VERSION = 'v8.99.64';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1317,13 +1317,44 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA) look = playGearLook(look, GA);
   sx = Math.round(sx); gy = Math.round(gy);
   const K = '#000', X = dx => sx + dir * dx;
-  const r = (dx, dy, w, h, c) => { const x0 = dir > 0 ? X(dx) : X(dx) - w + 1; rect(x0, gy + dy, w, h, c); };
+  // Project a compact swing plane: hands turn around the shoulders, wrists hinge separately.
+  const coil = clamp(pose.coil || 0, 0, 1), finish = clamp(pose.finish || 0, 0, 1);
+  const active = coil > 0 || finish > 0 || pose.smear != null;
+  const upperShift = Math.round(-2 * coil + 3 * finish);
+  const torsoX = dy => dy <= -24 ? Math.round(upperShift * 0.5) : dy <= -13 ? Math.round(upperShift * clamp((-dy - 12) / 7, 0, 1)) : 0;
+  const bob = Math.round(coil - finish);
+  const shx = X(2 + torsoX(-19)), shy = gy - 19 + bob;
+  const back = active && !finish ? clamp((ang - SWING_ADDR) / 215, 0, 1) : 0;
+  // Hands take the inside arc; shaft hinges farther, then catches the hands at impact.
+  const armDeg = active ? (finish > 0 ? lerp(75, -65, finish) : lerp(75, 220, back)) : ang;
+  const clubDeg = active ? (finish > 0 ? lerp(75, -188, finish) : 75 + 285 * back) : ang;
+  const armA = armDeg * Math.PI / 180, clubA = clubDeg * Math.PI / 180;
+  const reach = 7 + 3 * Math.max(back, finish);
+  const hx = Math.round(shx + dir * Math.cos(armA) * reach), hy = Math.round(shy + Math.sin(armA) * reach - 4 * back);
+  const ex = Math.round((shx + hx) / 2 - dir * (coil + finish)), ey = Math.round((shy + hy) / 2 + coil + finish);
+  const cx = Math.round(hx + dir * Math.cos(clubA) * 14), cy = Math.round(hy + Math.sin(clubA) * 14);
+  const wrap = finish;
+  const lucky = !!GA && GA.held === 'lucky_club';
+  const clubBehind = finish > 0.63 || back > 0.78;
+  const drawClub = () => {
+    line(hx, hy, cx, cy, lucky ? '#d4af37' : COL.grayD);
+    rect(cx - 1, cy - 1, 3, 2, K); rect(cx, cy - 1, 1, 1, lucky ? '#f8d878' : '#bcbcbc');
+    if (lucky) rect(dir > 0 ? cx + 1 : cx - 1, cy - 1, 1, 1, '#00a800');
+  };
+  if (clubBehind) drawClub(); // torso/head occlude the shaft naturally
+  const r = (dx, dy, w, h, c) => {
+    // Shear the torso by one to three pixels; keep the shoes planted.
+    for (let row = 0; row < h; row++) {
+      const yy = dy + row, xx = dx + torsoX(yy);
+      rect(dir > 0 ? X(xx) : X(xx) - w + 1, gy + yy + (yy <= -13 ? bob : 0), w, 1, c);
+    }
+  };
   const fin = (pose.finish || 0) > 0.5;
   // ---- legs + shoes (rows -12..-1)
   r(-5, -12, 10, 4, look.pants); r(-5, -12, 1, 4, look.pantsD);                  // hips
   if (fin) {                                                                     // rear heel up, on the toe
-    r(-4, -8, 4, 5, look.pants); r(-4, -8, 1, 5, look.pantsD); r(-5, -8, 1, 6, K); r(-6, -12, 1, 4, K); r(-5, -8, 1, 0, K);
-    r(-4, -3, 3, 2, look.shoe); r(-4, -1, 3, 1, look.shoeD); r(-5, -3, 1, 3, K); r(-1, -3, 1, 3, K);
+    r(-2, -8, 3, 4, look.pants); r(-2, -8, 1, 4, look.pantsD); r(-3, -8, 1, 5, K); r(-5, -12, 1, 4, K);
+    r(-2, -4, 2, 3, look.shoe); r(-2, -1, 2, 1, look.shoeD); r(-3, -4, 1, 4, K); r(0, -4, 1, 3, K);
   } else {
     r(-5, -8, 5, 6, look.pants); r(-5, -8, 1, 6, look.pantsD); r(-6, -12, 1, 10, K);
     r(-5, -2, 5, 1, look.shoe); r(-5, -1, 5, 1, look.shoeD); r(-6, -2, 1, 2, K);
@@ -1377,22 +1408,22 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
     if (GA && GA.head === 'underpar_visor') r(2, -29, 1, 1, '#00a800');
   }
   // ---- arms + club: integer joints, 1px outline, glove covers the hands
-  const a = ang * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
-  const shx = X(2), shy = gy - 19;
-  if (pose.smear != null) {
-    const a2 = Math.min(pose.smear, ang + 130);
-    for (let b = ang + 7; b <= a2; b += 7) {
-      const k = (b - ang) / 130, rr = b * Math.PI / 180;
-      if (k > 0.6 && Math.round(b / 7) % 2) continue;
-      rect(Math.round(shx + dir * Math.cos(rr) * 21), Math.round(shy + Math.sin(rr) * 21), k < 0.3 ? 2 : 1, k < 0.3 ? 2 : 1, k < 0.3 ? COL.white : k < 0.6 ? '#bcf0fc' : COL.gray);
+
+  if (pose.smear != null && active && finish < 0.2) {
+    const previous = Math.min(1, back + 0.15);
+    for (let i = 1; i <= 4; i++) {
+      const q = lerp(back, previous, i / 4), aa = (75 + 145 * q) * Math.PI / 180, cc = (75 + 285 * q) * Math.PI / 180;
+      const rr = 7 + 3 * q;
+      rect(Math.round(shx + dir * (Math.cos(aa) * rr + Math.cos(cc) * 14)), Math.round(shy + Math.sin(aa) * rr - 4 * q + Math.sin(cc) * 14), 1, 1, i < 3 ? COL.white : COL.gray);
     }
   }
-  const P = d => [Math.round(shx + dir * ca * d), Math.round(shy + sa * d)];
-  const [ex, ey] = P(3), [hx, hy] = P(7), [cx, cy] = P(21);
-  const lucky = !!GA && GA.held === 'lucky_club';
-  line(hx, hy, cx, cy, lucky ? '#d4af37' : COL.grayD);                                               // shaft
-  rect(cx - 1, cy - 1, 3, 2, K); rect(dir > 0 ? cx : cx, cy - 1, 1, 1, lucky ? '#f8d878' : '#bcbcbc');  // club head
-  if (lucky) rect(dir > 0 ? cx + 1 : cx - 1, cy - 1, 1, 1, '#00a800');
+  if (!clubBehind) drawClub();
+  // A shaded far arm gives the raised hands a little depth without enlarging the sprite.
+  if (finish > 0.15 || coil > 0.2) {
+    const fx = shx - dir * 3, fy = shy + 1, elbowX = ex - dir * 2;
+    line(fx, fy, elbowX, ey + 2, look.shirtD);
+    line(elbowX, ey + 2, hx, hy + 1, look.skinD);
+  }
   // arm outline: black against the background, the shirt's shade tone where the arm crosses the torso (no black scribbles on the chest)
   const inTorso = (x, y) => { const dx = (x - sx) * dir, dy = y - gy; return dx >= -6 && dx <= 5 && dy >= -23 && dy <= -13; };
   const armPts = []; { let x0 = shx, y0 = shy; const dxl = Math.abs(hx - shx), dyl = -Math.abs(hy - shy), sxs = shx < hx ? 1 : -1, sys = shy < hy ? 1 : -1; let err = dxl + dyl;
@@ -6652,6 +6683,36 @@ function drawBanner() {
 }
 /* v8.76 IMPACT FX (visual only, Math.random particles; never touch the ball, the shot RNG or the pre-sim):
    dust puff on fairway / rough landings, sand spray, water splash, a flagstick rattle when a ball meets the pin. */
+// Impact turf is cosmetic: no colliders, lie changes, or gameplay RNG.
+let turfKick = null, turfCleanCount = 0;
+function kickTurf(lie) {
+  turfKick = null;
+  if (SIM || REDUCED_MOTION || !shotSweet || clubIdx < 2 || clubIdx > WEDGE_I || meter.power < 0.45 || !['fair', 'rough', 'tee'].includes(lie)) return;
+  turfCleanCount++;
+  if (!shotPerfect && turfCleanCount % 3 === 0) return;
+  turfKick = { hole, x: ball.x + facing * 2, h: groundH(hole, ball.x), dir: facing, at: performance.now(), power: meter.power };
+}
+function drawTurfKick() {
+  const q = turfKick;
+  if (!q || q.hole !== hole || REDUCED_MOTION) return;
+  const t = (performance.now() - q.at) / 1000;
+  if (t < 0 || t > 0.72) { turfKick = null; return; }
+  const u = Math.min(t, 0.62), rise = Math.max(0, 27 * u - 44 * u * u);
+  const x = Math.round(q.x + q.dir * (23 + 8 * q.power) * u - camX), y = Math.round(BASE - q.h - rise - 1);
+  ctx.save();
+  ctx.globalAlpha *= clamp((0.72 - t) / 0.15, 0, 1);
+  // One small turning sod patch, with a grass top and dark earth underneath.
+  const edge = Math.floor(u * 10) % 3 === 1;
+  const w = edge ? 3 : 6, hh = edge ? 4 : 2;
+  rect(x - w / 2 | 0, y, w, hh, '#76502c');
+  rect(x - w / 2 | 0, y - 1, w, 1, '#58a838');
+  rect(x - 1, y - 2, 1, 1, '#8cd450');
+  for (let i = 0; i < 3; i++) {
+    const z = Math.max(0, (20 + i * 4) * u - 48 * u * u);
+    rect(Math.round(q.x + q.dir * (12 + i * 6) * u - camX), Math.round(BASE - q.h - z), 1, 1, i === 1 ? '#8c683c' : '#58a838');
+  }
+  ctx.restore();
+}
 let flagRattle = 0;
 function impactFx(x, s, k) {
   if (REDUCED_MOTION || k < 0.18) return;
@@ -6870,6 +6931,7 @@ function launch() {
   shotRng = testSeed != null ? testSeed : (Math.random() * 4294967296) >>> 0; testSeed = null; shotPred = null;   // testSeed: #test preview clips only
   try { hbArm(); } catch (e) { hb = null; }
   setState('flight');
+  kickTurf(lie);
   if (!SIM) { try { hecEvent('hit'); } catch (e) {} }   // v8.99 gallery banter (decoration only)
 }
 function flightStep() {   // v8.60: one physics step of a live shot; also used (SIM = true, no side effects) to pre-simulate it
@@ -9942,8 +10004,18 @@ function drawAim() {
   aimTip = w2s(x - camX, BASE - h);   // v8.70: loft readout anchor while dragging
 }
 function golferPose() {
-  if (state === 'swing') return { smear: backswingTop(meter.power) };
-  if (state === 'flight') return { finish: clubIdx === PUTT_I ? 0 : clamp((st - 0.04) / 0.2, 0, 1), smear: st < 0.1 && clubIdx !== PUTT_I ? backswingTop(meter.power) : null };
+  const putt = clubIdx === PUTT_I;
+  if (putt) return {}; // retain the quiet pendulum putting stroke
+  const top = Math.max(1, backswingTop(meter.power) - SWING_ADDR);
+  if (state === 'power' || state === 'accuracy') return { coil: clamp((swingAng - SWING_ADDR) / 215, 0, 1) };
+  if (state === 'swing') {
+    const t = clamp(st / DOWN_T, 0, 1);
+    return { coil: clamp((swingAng - SWING_ADDR) / top, 0, 1) * meter.power, smear: t > 0.3 ? Math.min(backswingTop(meter.power), swingAng + 56) : null };
+  }
+  if (state === 'flight') {
+    const t = clamp(st / FOLLOW_T, 0, 1), finish = t * t * (3 - 2 * t);
+    return { finish, smear: st < 0.08 ? SWING_ADDR : null };
+  }
   return {};
 }
 /* v8.12: the dog is drawn in screen space after the HUD + mini map, popping up from the HUD's top edge
@@ -12617,6 +12689,7 @@ function renderScene() {
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   try { drawGhostGolfer(); } catch (e) {}
   if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try { drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose()); } finally { V93.main = false; } }
+  drawTurfKick();
   if (state === 'flight' || state === 'holed') drawTrail();
   aimPts = [];
   if (['aim', 'power', 'accuracy'].includes(state)) drawAim();
@@ -13484,3 +13557,4 @@ invPracticeFromLink();
 </script>
 </body>
 </html>
+
