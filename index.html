@@ -376,7 +376,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.64';
+const GAME_VERSION = 'v8.99.65';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3074,6 +3074,93 @@ const BILLBOARD = (() => { const c = mk(96, 40), g = c.getContext('2d'), R = (x,
   text3(g, 'DUMBLUCKGOLF.COM', 17, 16, COL.red);
   for (const [x, y] of [[4, 4], [91, 19]]) { R(x - 1, y, 3, 1, COL.gray); R(x, y - 1, 1, 3, COL.gray); }   // sparkles
   return c; })();
+// Course-side house promotions. Scenery only; never added to obstacle/deco collision data.
+const COURSE_PROMOS = [
+  { title: 'FOLLOW THE LUCK', label: 'INSTAGRAM', handle: '@DUMBLUCKGOLFING', url: 'https://www.instagram.com/dumbluckgolfing/', color: '#b43878' },
+  { title: 'WATCH THE CHAOS', label: 'YOUTUBE', handle: '@DUMBLUCKGOLF', url: 'https://www.youtube.com/@dumbluckgolf', color: '#ba2929' },
+  { title: 'MORE DUMB LUCK', label: 'TIKTOK', handle: '@DUMBLUCKGOLF', url: 'https://www.tiktok.com/@dumbluckgolf', color: '#147879' },
+  { title: 'HAT DROP', label: 'COMING SOON', handle: 'DROP NEWS ON INSTAGRAM', url: 'https://www.instagram.com/dumbluckgolfing/', color: '#244d37' }
+];
+const PROMO_ART = new Map();
+let coursePromoHits = [];
+function coursePromoIndex(hl) { const i = HOLES.indexOf(hl); return Math.max(0, i < 0 ? holeIdx : i); }
+function coursePromoPlacement(hl) {
+  if (!hl || hl.spooky || (hl.def && hl.def.spooky) || courseKind === 'spooky' || (hl.deco || []).some(d => d[0] === 'board')) return null;
+  const i = coursePromoIndex(hl);
+  if (i % 3 !== 0 && i % 6 !== 2) return null;
+  const rail = i % 6 === 2, width = 96;
+  for (const x of [76, 100, 124, 148]) {
+    if (x + width > hl.cup - 50 || !['fair','rough','tee'].includes(surfAt(hl,x + width / 2))) continue;
+    if (Math.abs(groundH(hl,x) - groundH(hl,x + width)) > 8) continue;
+    if ((hl.deco || []).some(d => d[1] > x - 35 && d[1] < x + width)) continue;
+    if ((hl.walls || []).some(w => w[0] > x - 12 && w[0] < x + width + 12)) continue;
+    if ((hl.movers || []).some(m => m.x > x - 20 && m.x < x + width + 20)) continue;
+    return { x, rail };
+  }
+  return null;
+}
+function coursePromoFace(n, rail, scale = 4) {
+  const key = 'face:' + n + ':' + !!rail + ':' + scale;
+  if (PROMO_ART.has(key)) return PROMO_ART.get(key);
+  const p=COURSE_PROMOS[n], h=rail?24:32, cv2=mk(96*scale,h*scale),g=cv2.getContext('2d');
+  g.scale(scale,scale);g.fillStyle='#fcfcf8';g.fillRect(0,0,96,h);
+  g.strokeStyle='#25342d';g.lineWidth=0.6;g.strokeRect(.3,.3,95.4,h-.6);
+  g.fillStyle=p.color;g.fillRect(0,0,2.5,h);
+  g.textAlign='left';g.textBaseline='middle';
+  const label=n===3?'HAT DROP':['Instagram','YouTube','TikTok'][n];
+  g.fillStyle='#17241e';g.font='700 '+(rail?10:12)+'px Arial, sans-serif';
+  g.fillText(label,8,rail?8:10.5);
+  g.fillStyle='#364b40';g.font=(n===3?'500 ':'600 ')+(rail?7.8:8.4)+'px Arial, sans-serif';
+  const sub=n===3?'Coming soon':p.handle.toLowerCase();
+  g.fillText(sub,8,rail?18:24);
+  // A small quiet arrow indicates the sign links out.
+  g.strokeStyle=p.color;g.lineWidth=1;g.beginPath();g.moveTo(84,rail?10:12);g.lineTo(89,rail?5:7);g.moveTo(85,rail?5:7);g.lineTo(89,rail?5:7);g.lineTo(89,rail?9:11);g.stroke();
+  PROMO_ART.set(key,cv2);return cv2;
+}
+function coursePromoArt(n, rail) {
+  const key=n+':'+!!rail;if(PROMO_ART.has(key))return PROMO_ART.get(key);
+  const h=rail?32:40, faceH=rail?24:32, cv2=mk(96,h),g=cv2.getContext('2d');
+  g.fillStyle='#433c32';g.fillRect(14,faceH,2,h-faceH);g.fillRect(80,faceH,2,h-faceH);
+  g.imageSmoothingEnabled=true;g.drawImage(coursePromoFace(n,rail),0,0,96,faceH);
+  PROMO_ART.set(key,cv2);return cv2;
+}
+let coursePromoLayer = null, coursePromoLayerCount = 0;
+function resetCoursePromoLayer() {
+  coursePromoLayerCount=0;
+  if(coursePromoLayer)for(const el of coursePromoLayer.children)el.style.display='none';
+}
+function crispCoursePromo(n,rail,sx,sy) {
+  if(paused || replayOn())return;
+  const faceH=rail?24:32,a=w2s(sx,sy),b=w2s(sx+96,sy+faceH);
+  // Keep the canvas foreground in front of a sign: fall back to its canvas text when it overlaps a ball or golfer.
+  const bp=w2s(ball.x-camX,BASE-ball.h),gx=lastSpotForGolfer()-camX-facingForGolfer()*7;
+  const gp=w2s(gx,BASE-groundH(hole,lastSpotForGolfer())-17);
+  const overlap=p=>p.x>a.x-10 && p.x<b.x+10 && p.y>a.y-18 && p.y<b.y+18;
+  if(overlap(bp)||overlap(gp)||a.y<0||b.y>PLAY_H)return;
+  const r=cv.getBoundingClientRect();if(!r.width||!r.height)return;
+  if(!coursePromoLayer){coursePromoLayer=document.createElement('div');coursePromoLayer.setAttribute('aria-hidden','true');coursePromoLayer.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:1;';document.body.appendChild(coursePromoLayer);}
+  let el=coursePromoLayer.children[coursePromoLayerCount++];
+  if(!el){el=document.createElement('img');el.alt='';el.style.cssText='position:absolute;pointer-events:none;image-rendering:auto;';coursePromoLayer.appendChild(el);}
+  const img=coursePromoFace(n,rail);const key=n+':'+rail;
+  if(el.dataset.promo!==key){el.src=img.toDataURL();el.dataset.promo=key;}
+  Object.assign(el.style,{display:'block',left:(r.left+a.x*r.width/W)+'px',top:(r.top+a.y*r.height/H)+'px',width:((b.x-a.x)*r.width/W)+'px',height:((b.y-a.y)*r.height/H)+'px'});
+}
+function drawCoursePromo(hl, cam, x, rail, n) {
+  const img=coursePromoArt(n,rail),sx=Math.round(x-cam),gy=BASE-groundH(hl,x+48),sy=Math.round(gy-img.height-4),faceH=rail?24:32;
+  if(sx>W||sx+96<0)return;
+  for(const post of [15,81]){const bottom=Math.round(BASE-groundH(hl,x+post)+2);rect(sx+post-1,sy+faceH,2,Math.max(0,bottom-sy-faceH),'#433c32');}
+  ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(img,sx,sy);ctx.restore();
+  if(hl===hole && !ov && !roundTip && ['aim','power','accuracy','swing','flight','holed'].includes(state))crispCoursePromo(n,rail,sx,sy);
+  if(hl===hole&&state==='aim'&&!paused){const a=w2s(sx,sy),b=w2s(sx+96,sy+faceH);coursePromoHits.push({x:a.x,y:a.y,w:b.x-a.x,h:b.y-a.y,n});}
+}
+function coursePromoTap(p,e) {
+  if(state!=='aim' || paused || ov || roundTip)return false;
+  const r=coursePromoHits.find(r=>hit(p,r));if(!r)return false;
+  e.preventDefault && e.preventDefault();
+  armUiTap('coursePromo',()=>{try{window.open(COURSE_PROMOS[r.n].url,'_blank','noopener');}catch(er){}},up=>hit(toLogical(up),r),e);
+  return true;
+}
+
 const CLOVER = (() => { const c = mk(13, 14), g = c.getContext('2d'), C = [[4, 4], [8, 4], [4, 8], [8, 8]];
   for (const pass of [0, 1]) for (const [cx, cy] of C) for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) { const d = x * x + y * y; if (d > 10) continue;
     if (pass === 0) { g.fillStyle = '#000'; g.fillRect(cx + x, cy + y, 1, 1); } else if (d <= 5) { g.fillStyle = x + y < 0 ? '#58d854' : '#00a800'; g.fillRect(cx + x, cy + y, 1, 1); } }
@@ -7359,6 +7446,7 @@ cv.addEventListener('pointerdown', e => {
     if (hitBtn(p, PAUSE_BTN)) armUiTap('pause', () => pauseGame(), (up) => hitBtn(toLogical(up), PAUSE_BTN), e);
     touchDown = null; return;
   }
+  if (coursePromoTap(p, e)) { touchDown = null; return; }
   if (inShotCtl(p)) {   // v8.78: shot height pill (never swings)
     try { e.preventDefault(); e.stopPropagation(); } catch (err) {}
     armUiTap('shotk', () => cycleShotKind(1), (up) => hit(toLogical(up), SHOT_PILL), e);
@@ -8234,7 +8322,8 @@ function crowdSpotsAll(hl) {
   if (hl._crowd) return hl._crowd;
   const out = [], ev = crowdEvent(), th = crowdTheme(hl), night = themeOf(hl).stars ? 0.8 : 1;
   const ok = x => { const s = surfAt(hl, x); return s !== 'water' && s !== 'ob' && s !== 'green' && s !== 'sand' && Math.abs(x - hl.cup) > 18; };   // never in front of the pin
-  const boards = (hl.deco || []).filter(d => d[0] === 'board').map(d => [d[1] - 8, d[1] + 104]);   // never stand people in front of the sponsor board
+  const boards = (hl.deco || []).filter(d => d[0] === 'board').map(d => [d[1] - 8, d[1] + 104]);
+  const promo = coursePromoPlacement(hl); if (promo) boards.push([promo.x - 8, promo.x + 104]);   // never stand people in front of the sponsor board
   const okFar = x => { const s = x < 0 ? 'rough' : surfAt(hl, x); return s !== 'water' && s !== 'ob' && !boards.some(b => x > b[0] && x < b[1]); };
   let g0 = hl.cup, g1 = hl.cup; while (g0 > 0 && surfAt(hl, g0 - 1) === 'green') g0--; while (g1 < hl.len && surfAt(hl, g1 + 1) === 'green') g1++;
   const R = mulberry32(((hl.len | 0) * 2654435761 + (hl.cup | 0)) >>> 0);
@@ -9444,6 +9533,7 @@ function drawCourse(hl, cam) {
   if (hl === hole) drawCrowd(hl, cam, C, 'back');   // v8.99.6: fans standing behind scenery, drawn before it
   // trees, bushes, cacti and the oak stand on the ground
   for (const [kind, dx] of hl.deco) {
+    if (kind === 'board') { drawCoursePromo(hl, cam, dx, false, coursePromoIndex(hl) % 4); continue; }
     const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH, sx = Math.round(dx - cam);
     if (sx > W || sx + img.width < 0) continue;
     const gy = BASE - groundH(hl, dx + img.width / 2);
@@ -9453,6 +9543,8 @@ function drawCourse(hl, cam) {
     } else if (v93Sways(img)) v93DrawSway(img, sx, Math.round(gy - img.height + 4), img.width, img.height, dx * 0.07);
     else ctx.drawImage(img, sx, Math.round(gy - img.height + 4));
   }
+  const promo = coursePromoPlacement(hl);
+  if (promo) drawCoursePromo(hl, cam, promo.x, promo.rail, coursePromoIndex(hl) % 4);
   if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery; v8.99.4: drawn BEFORE the pads / walls / ramps / movers so obstacles (e.g. the HAUNTED GRAVEYARD ghost) are never hidden behind fans
   // Daily specials: bounce pads (on ground), rock walls, moving barriers
   const t = performance.now() / 1000;
@@ -12667,6 +12759,8 @@ function drawGhostGolfer() {
 }
 
 function renderScene() {
+  coursePromoHits = [];
+  resetCoursePromoLayer();
   if (state === 'splash') { renderSplash(); drawCursor(); return; }
   if (state === 'title') { renderTitle(); drawCursor(); return; }
   if (state === 'course') { renderCourseSelect(); drawCursor(); return; }
