@@ -8487,7 +8487,7 @@ function caVoices(kind, k) {   // cheer and close-call use the staged excerpts; 
   return true;
 }
 function caClap(k) { if (cc0React('applause')) return true; if (!caReady() || !CA.buf.clap) return false; caPlay('clap', Math.min(1, 0.55 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.15 : 1))); return true; }   // staged applause first; old clap is not fetched
-/* v8.99.61 staged CC0 excerpts. One reaction voice. Roar outranks applause, which outranks a close call, which outranks a missed putt.
+/* v8.99.61 staged CC0 excerpts. One reaction voice. Roar replaces applause, and does not replace a close call or missed putt already playing for that outcome.
    A second roar in the same shot (perfect contact + hole-out + personal best together) does not restart. The 8s ambience is not a certified loop: play once, fade the edges, then leave a gap. */
 const CC0_GAIN = { roar: 0.70, applause: 0.60, close: 0.45, miss: 0.35 };
 const CC0_RANK = { roar: 4, applause: 3, close: 2, miss: 1 };
