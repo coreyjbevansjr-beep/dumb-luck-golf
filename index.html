@@ -376,7 +376,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.61';
+const GAME_VERSION = 'v8.99.62';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6712,7 +6712,7 @@ function celebratePerfect() {
   fxBurst(wx, wh, 10, GOLDS, 40, { up: true, stars: 1, life: 1.3 });
   fx.glow = true; fx.glowT = 0;
   fxBanner('PERFECT!', ['#f8d878', '#fcfcfc', '#fc9838', '#fcfc9c'], 1.5, 56);   // sits below the message box
-  crowdCheer(0.8);   // v8.80
+  crowdCheer(0.8, true);   // v8.80 exceptional contact: a success roar, not a suspense voice
   const gsx = Math.round(ball.x - camX) - facing * 7;                    // the dog pops up beside the golfer to cheer
   const behind = facing > 0 ? gsx - 62 : gsx + 14, front = facing > 0 ? gsx + 18 : gsx - 66;
   dogPop = { x: clamp(behind >= 4 && behind <= W - 52 ? behind : front, 4, W - 52), kind: 'cheer', t: 0, hold: 1.0 };
@@ -6759,7 +6759,7 @@ function celebrateLuck() {
   announce('dumb luck! a lucky bounce toward the pin');
   fx.flash = 0.16; fx.flashCol = '#b8f818'; fx.shake = 0.25; fx.shakeAmp = 2;
   fxBurst(ball.x, ball.h + 2, 22, ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 65, { stars: 0.7 });
-  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true; crowdCheer(1);
+  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true; crowdCheer(1, true);
   msg = null;
   dogPop = { x: clamp(Math.round(ball.x - camX) - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.2 };
   setTimeout(() => { if (dogPop && dogPop.kind === 'laugh') SFX.laugh(); }, 400);
@@ -6771,7 +6771,7 @@ function celebrateHoleOut() {   // chip-in from off the green
   fxBurst(hole.cup, gh, 40, CONFETTI, 75, { up: true, conf: true, g: 50, life: 1.7, stars: 0 });
   fxBurst(hole.cup, gh, 16, GOLDS, 55, { stars: 1 });
   fx.flash = 0.2; fx.flashCol = '#fcfcfc'; fx.shake = 0.35; fx.shakeAmp = 2;
-  fxBanner('CHIP IN!', ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8'], 2.0, 56); crowdCheer(1.4);
+  fxBanner('CHIP IN!', ['#f83800', '#f8d878', '#58d854', '#3cbcfc', '#f878f8'], 2.0, 56); crowdCheer(1.4, true);
   msg = null; SFX.perfect();
   holedDur = 2.1;
 }
@@ -6797,7 +6797,7 @@ function celebrateAce() {
   fxBurst(hole.cup, gh, 70, CONFETTI, 95, { up: true, conf: true, g: 55, life: 2.2, stars: 0 });
   fxBurst(hole.cup, gh, 28, GOLDS, 70, { stars: 1 });
   fx.flash = 0.45; fx.flashCol = '#f8d878'; fx.shake = 0.55; fx.shakeAmp = 4;
-  fxBanner('ACE!', ['#f8d878', '#fcfcfc', '#f83800', '#58d854'], 2.4, 44); crowdCheer(2);
+  fxBanner('ACE!', ['#f8d878', '#fcfcfc', '#f83800', '#58d854'], 2.4, 44); crowdCheer(2, true);
   setTimeout(() => { if (state === 'holed') fxBanner('HOLE IN ONE!', ['#f83800', '#f8d878', '#3cbcfc', '#f878f8'], 2.0, 62); }, 700);
   msg = null; SFX.perfect(); SFX.fanfare && SFX.fanfare();
   hap([30, 50, 30, 50, 30, 80, 120]);
@@ -7022,11 +7022,11 @@ function finishHole() {
   try { lgHoleDone(d); } catch (e) {}
   try { fansHoleDone(d, scores[holeIdx]); } catch (e) {}   // v8.99.14
   doneInfo = { name: scoreName(scores[holeIdx], hole.par), d, strokes: scores[holeIdx] };
-  if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1); } catch (e) {} }   // v8.78
+  if (holeSave && d <= 0 && strokes > 1) { try { careerNoteSave(); } catch (e) {} doneInfo.save = true; showMsg('GREAT SAVE  +' + CAREER_XP.save + ' XP', '#f8d878', 2.2); SFX.perfect(); try { crowdCheer && crowdCheer(1, true); } catch (e) {} }   // v8.78
   holeSave = false;
   if (holeIdx === bountyIdx && d <= -1 && !SIM) { if (!doneInfo.save) showMsg('BOUNTY!  2X XP', '#f8d878', 2.2); doneInfo.bounty = true; }   // v8.79
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
-  if (d <= -1 && strokes > 1) crowdCheer(d <= -2 ? 1.4 : 1);   // v8.80
+  if (d <= -1 && strokes > 1) crowdCheer(d <= -2 ? 1.4 : 1, true);   // v8.80 under par is a success, one roar for the shot
   if (d <= -2) grantAch('eagle', 'GOLD CROWN HAT!');
   else if (d === -1) grantAch('birdie', 'GOLD TRAIL!');
   if (courseKind === 'daily') noteDailyPlayed();
@@ -7052,7 +7052,7 @@ function finishRound() {
   if (rel < 0) grantAch('under', 'FIRE TRAIL!');
   const prevBest = isDaily ? null : courseBest(courseKind);   // v8.16: best per course (FRONT 9 / BACK 9 / FULL 18)
   const newBest = !isDaily && !!COURSE_BEST_KEY[courseKind] && (prevBest === null || rel < prevBest);
-  if (newBest) { if (courseKind === 'front') best = rel; try { localStorage.setItem(COURSE_BEST_KEY[courseKind], String(rel)); } catch (e) {} try { cc0React('roar'); } catch (e) {} }   // same roar asset as an exceptional shot; skipped when that shot already played it
+  if (newBest) { if (courseKind === 'front') best = rel; try { localStorage.setItem(COURSE_BEST_KEY[courseKind], String(rel)); } catch (e) {} try { cc0React('roar', { success: true }); } catch (e) {} }   // same roar asset; skipped when this shot already roared
   cardInfo = { total, rel, newBest, mode, practice: !!practice, pendingMode: false };
   lastEntry = { name: player.name || 'PLAYER', strokes: total, to_par: rel, created_at: new Date().toISOString(), mode };
   if (courseKind === 'match') { saveWhere = 'device'; pendingSave = null; try { finishMatchRound(total); } catch (e) {} }   // career v2: match rounds go to the match, not the leaderboard
@@ -8072,7 +8072,7 @@ const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d
 function crowdEvent() { return courseKind === 'spooky' || courseKind === 'lbi'; }
 function crowdOn() { if (courseKind === 'lab' || (typeof LAB !== 'undefined' && LAB.on)) return false; const tk = (hole && hole.theme) || ''; return tk !== 'deep' && tk !== 'lava'; }
 function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; if (/^tropic/.test(t) || t === 'pier') return 'beach'; if (t === 'snow') return 'snow'; if (t === 'desert' || t === 'pyramid' || t === 'canyon') return 'desert'; if (t === 'farm' || t === 'patch') return 'farm'; if (t === 'stadium') return 'stadium'; return 'club'; }   // v8.99.14 course-themed crowds
-function crowdCheer(k) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
+function crowdCheer(k, success) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1, !!success)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
 /* ---- palettes ---- */
 const FAN_HAIR = ['#1c1410', '#1c1410', '#2c1c10', '#4c2c18', '#4c2c18', '#8c5028', '#a86c38', '#d8a860', '#f0d088', '#c84c0c'];
 const FAN_PANTS = ['#2c2c3c', '#384c7c', '#c8b48c', '#1c1c1c', '#6c6c74', '#24402c', '#e8e4d8', '#5c4c38', '#1c2c4c'];
@@ -8413,7 +8413,7 @@ function drawCrowd(hl, cam, C, pass) {
 const CA_FILES = { murmur: 'audio/crowd-murmur.mp3?v=180', ooh: 'audio/crowd-ooh.mp3?v=182', groan: 'audio/crowd-groan.mp3?v=182' };
 const CA_LOOP_S = 12;   // murmur file is a 12 s loop. The staged wind/birds bed is not looped.
 const CA_LOOP_IOS = { murmur: 40, air: 37 };   // v8.99.15 iPhone: long beds (random-offset segments, equal-power crossfades + loop seam baked offline), different lengths so they never line up
-const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false, oneUntil: 0, airTgt: -1 };
+const CA = { g: null, bus: null, mur: null, air: null, murS: [], airS: null, tgt: -1, mtgt: -1, buf: {}, loading: false, oneUntil: 0, airTgt: -1, ones: [] };
 function caUrl(u) { return isIOS ? u.replace('audio/', 'audio/ios/').replace('.mp3?v=', '.m4a?v=') + '-194' : u; }   // v8.99.10 iPhone: 48 kHz AAC (no Safari 22 kHz resample, no mp3 padding)
 function caLoopBuf(b, k) {
   if (false) {   // v8.99.13: off (plain trimmed loop on iPhone too). v8.99.10 iPhone: bake a 60 ms crossfade into the loop seam, so a decoder's padding can never click once per loop
@@ -8469,15 +8469,15 @@ function caVoiceOk() { if (!isIOS) return true; const t = AC.currentTime; caEnds
 function caTrack(s, dur) { if (isIOS) caEnds.push(AC.currentTime + (dur || (s.buffer ? s.buffer.duration / (s.playbackRate.value || 1) : 1)) + 0.05); }
 function caPlay(key, vol) {   // two layers: L/R, ~20 ms apart, slightly different speed: wide and natural, not a mono point source
   const b = CA.buf[key]; if (!b || !AC) return;
-  if ((CA.oneUntil || 0) > AC.currentTime + 0.04) return;   // one crowd voice; don't stack on a staged reaction
+  if (cc0CrowdBusy()) return;   // a staged reaction or another one-shot is already the voice
   try { const r = 0.96 + Math.random() * 0.08, t = AC.currentTime; if (!caVoiceOk()) return;
-    (isIOS ? [[0, 0, 1, 1.25]] : [[-0.45, 0, 1, 0.7], [0.45, 0.018 + Math.random() * 0.012, 0.985, 0.7]]).forEach(([p, d, rk, gv]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk; g.gain.value = vol * gv; s.connect(g).connect(isIOS ? CA.bus : caPan(p, CA.bus)); caTrack(s); s.start(t + d); });
+    (isIOS ? [[0, 0, 1, 1.25]] : [[-0.45, 0, 1, 0.7], [0.45, 0.018 + Math.random() * 0.012, 0.985, 0.7]]).forEach(([p, d, rk, gv]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk; g.gain.value = vol * gv; s.connect(g).connect(isIOS ? CA.bus : caPan(p, CA.bus)); caTrack(s); s.start(t + d); cc0TrackOne(s, g, t + d + b.duration / r); });
     CA.oneUntil = Math.max(CA.oneUntil || 0, t + b.duration / r + 0.05);
   } catch (e) {}
 }
-function caVoices(kind, k) {   // cheer and close-call use the staged excerpts; groan stays the existing penalty recording
-  if (kind === 'cheer') return cc0React('roar');
-  if (kind === 'ooh' && cc0React('close')) return true;
+function caVoices(kind, k, success) {   // cheer and close-call use the staged excerpts; groan stays the existing penalty recording
+  if (kind === 'cheer') return cc0React('roar', { success: !!success });
+  if (kind === 'ooh' && cc0React('close')) return true;   // settled outcome, not the in-flight suspense close
   if (!caReady()) return false;
   const ev = crowdEvent() ? 1.15 : 1, kk = Math.min(1.6, k || 1);
   if (kind === 'ooh' && lgOn() && lgT() - LG.oohAt < 3) return true;
@@ -8487,36 +8487,60 @@ function caVoices(kind, k) {   // cheer and close-call use the staged excerpts; 
   return true;
 }
 function caClap(k) { if (cc0React('applause')) return true; if (!caReady() || !CA.buf.clap) return false; caPlay('clap', Math.min(1, 0.55 * Math.min(1.6, k || 1) * (crowdEvent() ? 1.15 : 1))); return true; }   // staged applause first; old clap is not fetched
-/* v8.99.61 staged CC0 excerpts. One reaction voice. Roar replaces applause, and does not replace a close call or missed putt already playing for that outcome.
-   A second roar in the same shot (perfect contact + hole-out + personal best together) does not restart. The 8s ambience is not a certified loop: play once, fade the edges, then leave a gap. */
+/* v8.99.62 staged CC0 excerpts. One crowd voice, including older caPlay / lgCaAt one-shots.
+   A success roar can fade a pre-result close or miss. A settled close or miss stays against a debut cheer.
+   A second roar in the same shot does not restart. The 8s ambience is not a certified loop. */
 const CC0_GAIN = { roar: 0.70, applause: 0.60, close: 0.45, miss: 0.35 };
 const CC0_RANK = { roar: 4, applause: 3, close: 2, miss: 1 };
-const CC0 = { tickBuf: null, tickAt: 0, loading: false, rx: null, roarShot: -1, shot: 0, plays: [], airSrc: null, airG: null, airUntil: 0, airNext: 0, airStarts: 0 };
+const CC0 = { tickBuf: null, tickAt: 0, loading: false, rx: null, roarShot: -1, shot: 0, plays: [], airSrc: null, airG: null, airUntil: 0, airNext: 0, airStarts: 0, fades: 0 };
 function cc0NewShot() { if (!SIM) CC0.shot = (CC0.shot | 0) + 1; }
 function cc0StopRx(fade) {
   const rx = CC0.rx; CC0.rx = null; if (!rx || !AC) return;
   try { const t = AC.currentTime, g = rx.g; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t); g.gain.linearRampToValueAtTime(0.0001, t + fade); rx.src.stop(t + fade + 0.03); } catch (e) {}
 }
+function cc0TrackOne(src, g, until) {   // legacy one-shots, so a later voice can fade the audio itself
+  const row = { src, g, until: until || 0 };
+  CA.ones = CA.ones || []; CA.ones.push(row);
+  const prev = src.onended;
+  src.onended = () => { if (CA.ones) CA.ones = CA.ones.filter(x => x !== row); if (typeof prev === 'function') prev(); };
+  return row;
+}
+function cc0FadeLegacy(fade) {
+  if (!AC) return 0;
+  const t = AC.currentTime, rows = (CA.ones || []).slice();
+  rows.forEach(x => { try { x.g.gain.cancelScheduledValues(t); x.g.gain.setValueAtTime(Math.max(0.0001, x.g.gain.value), t); x.g.gain.linearRampToValueAtTime(0.0001, t + fade); x.src.stop(t + fade + 0.03); } catch (e) {} });
+  if (rows.length) CC0.fades++;
+  CA.ones = [];
+  return rows.length;
+}
+function cc0CrowdBusy() {
+  if (!AC) return false;
+  const t = AC.currentTime;
+  if (CC0.rx && CC0.rx.until > t + 0.04) return true;
+  return (CA.oneUntil || 0) > t + 0.04;
+}
 function cc0DuckForShot() {
   if (SIM || !AC) return;
   if (CC0.rx) cc0StopRx(0.05);
-  const t = AC.currentTime;
-  if ((CA.oneUntil || 0) > t + 0.18) CA.oneUntil = t + 0.18;   // let the strike through; the result voice can still play when the ball stops
+  cc0FadeLegacy(0.05);   // stop the older one-shot audio; a shorter timer alone left it playing over the strike
+  CA.oneUntil = AC.currentTime + 0.18;
 }
 function cc0Note(kind) { CC0.plays.push(kind); if (CC0.plays.length > 24) CC0.plays.shift(); }
-function cc0React(kind) {
+function cc0React(kind, opt) {
+  opt = opt || {};
   if (!crowdOn() || SIM || !AC || muted || AC.state !== 'running') return false;
   const b = CA.buf['cc_' + kind]; if (!b) return false;
   if (!CA.bus && !caReady()) return false;
   const t = AC.currentTime;
-  if (kind === 'roar' && CC0.roarShot === CC0.shot) return true;
+  if (kind === 'roar' && CC0.roarShot === CC0.shot) return true;   // this shot already roared
   if (CC0.rx && CC0.rx.until > t + 0.04) {
-    if (CC0.rx.kind === kind) return true;
-    // a near miss or missed putt already claimed this outcome; the debut cheer must not replace it
-    if (kind === 'roar' && (CC0.rx.kind === 'close' || CC0.rx.kind === 'miss')) return true;
-    if (CC0_RANK[CC0.rx.kind] >= CC0_RANK[kind]) return true;
+    if (CC0.rx.kind === kind) { if (!opt.prelim) CC0.rx.prelim = false; return true; }
+    if (kind === 'roar' && (CC0.rx.kind === 'close' || CC0.rx.kind === 'miss')) {
+      if (!(opt.success && CC0.rx.prelim)) return true;   // debut cheer leaves a settled miss; a hole-out replaces pre-result suspense
+    } else if (CC0_RANK[CC0.rx.kind] >= CC0_RANK[kind]) return true;
     cc0StopRx(0.08);
   }
+  cc0FadeLegacy(0.06);
   try {
     const src = AC.createBufferSource(), g = AC.createGain();
     src.buffer = b; src.loop = false;
@@ -8527,7 +8551,7 @@ function cc0React(kind) {
     g.gain.linearRampToValueAtTime(0.0001, t + delay + dur);
     src.connect(g).connect(CA.bus || CA.g);
     src.start(t + delay); src.stop(t + delay + dur + 0.05);
-    CC0.rx = { kind, src, g, until: t + delay + dur };
+    CC0.rx = { kind, src, g, until: t + delay + dur, prelim: !!opt.prelim };
     CA.oneUntil = CC0.rx.until;
     if (kind === 'roar') CC0.roarShot = CC0.shot;
     cc0Note(kind);
@@ -8743,7 +8767,7 @@ const LGL = {
 const LG_COME = [['WATCH THIS.', 'OK... SHOW ME!'], ['I GOT THIS.', 'DOUBT IT!'], ['TAKE NOTES.', 'NOTE: YOU STINK!'], ['QUIET PLEASE!', 'MAKE ME!'], ['YOU TRY IT!', 'NOT FOR FREE!'], ['SIGN UP THEN!', 'I CANT AFFORD CLUBS'], ['THIS ONE IS FOR YOU.', 'AWW... STILL BOO!'], ['NICE SHIRT.', 'HEY! THATS LOW.']];
 function lgPick(list) { return hecPickLine(list); }
 function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot: two close layers around 'pan', optional slice + fade, optional rising gain
-  if (AC && (CA.oneUntil || 0) > AC.currentTime + 0.04) return false;   // a staged reaction or another crowd voice is already up
+  if (cc0CrowdBusy()) return false;   // staged reaction or another one-shot already holds the voice
   if (isIOS && key === 'aww' && CA.buf.groan) key = 'groan';   // v8.99.13 iPhone: the pitched-down 'aww' read as a fart on the phone speaker
   const b = CA.buf[key]; if (!b || !caReady()) return false;
   if (isIOS && key === 'laugh') { off = 0; dur = 0; rate = 1; rise = 0; }   // v8.99.17 iPhone: the chuckle is one whole reaction - always play it start to end
@@ -8751,7 +8775,7 @@ function lgCaAt(key, vol, pan, off, dur, rate, rise) {   // one spatial one-shot
     (isIOS ? [[0, 0, 1]] : [[-0.18, 0, 1], [0.18, 0.016 + Math.random() * 0.01, 0.99]]).forEach(([dp, dl, rk]) => { const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = r * rk;
       const v = vol * (isIOS ? 1.05 : 0.6); if (isIOS && !rise) { g.gain.setValueAtTime(0, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + 0.012); } else if (rise) { g.gain.setValueAtTime(v * 0.15, t + dl); g.gain.linearRampToValueAtTime(v, t + dl + rise); } else g.gain.setValueAtTime(v, t + dl);
       g.gain.setValueAtTime(rise ? v : v, t + dl + Math.max(0.05, d / r - 0.18)); g.gain.linearRampToValueAtTime(0, t + dl + d / r);
-      s.connect(g).connect(isIOS ? CA.bus : caPan(clamp(pan + dp, -0.95, 0.95), CA.bus)); caTrack(s, d / r + dl); s.start(t + dl, o, d + 0.02); });
+      s.connect(g).connect(isIOS ? CA.bus : caPan(clamp(pan + dp, -0.95, 0.95), CA.bus)); caTrack(s, d / r + dl); s.start(t + dl, o, d + 0.02); cc0TrackOne(s, g, t + dl + d / r); });
     CA.oneUntil = Math.max(CA.oneUntil || 0, t + d / r + 0.05);
     return true; } catch (e) { return false; }
 }
@@ -8965,7 +8989,7 @@ function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
   if (state === 'flight' && ball) {
     const d = Math.abs(hole.cup - ball.x); LG.minD = Math.min(LG.minD, d);
     // rising ooh as a rolling ball tracks at the cup
-    if (ball.mode !== 'air' && d < 7 && d > 0.6 && T - LG.oohAt > 3 && LG.startD > 3) { LG.oohAt = T; if (!cc0React('close')) lgCaAt('ooh', 0.55 * lgHyp(), lgPanX(hole.cup), 0, 2.2, 1, 0.8); lgReact(lgNear(hole.cup, 90), p => hash(p.i * 3 + 2) < 0.7 ? 'lean' : 'ooh', 1.6, 0.25); }
+    if (ball.mode !== 'air' && d < 7 && d > 0.6 && T - LG.oohAt > 3 && LG.startD > 3) { LG.oohAt = T; if (!cc0React('close', { prelim: true })) lgCaAt('ooh', 0.55 * lgHyp(), lgPanX(hole.cup), 0, 2.2, 1, 0.8); lgReact(lgNear(hole.cup, 90), p => hash(p.i * 3 + 2) < 0.7 ? 'lean' : 'ooh', 1.6, 0.25); }
     // a low ball screaming at the gallery: those fans duck (once per shot), the odd yelp
     if (ball.mode === 'air' && ball.h < 40) for (const p of crowdSpots(hole)) { if (LG.ducked.has(p.i) || Math.abs(p.x - ball.x) > 9) continue; LG.ducked.add(p.i); LG.r.set(p.i, { pose: 'duck', at: T, until: T + 0.9 }); if (LG.ducked.size === 1 && Math.random() < 0.5) { lgSay(LGL.duck, { near: p.x, force: !hec }); lgCaAt('shout', 0.3, lgPanX(p.x), Math.random() * 2, 0.5); } }
   }
@@ -9020,7 +9044,7 @@ function lgHoled() {   // hole-outs, clutch putts, eagles: roar (existing) + lay
   try { if (hole) hole._sfGo = true; } catch (e) {}   // v8.99.14 superfans rush the green edge
   try { if (lgOn()) lgStreak(true, false); } catch (e) {}   // v8.99.11: counts as a good shot (the hole-out line wins)
   if (!lgOn() || !hole) return; const putt = clubIdx === PUTT_I, big = !putt || strokes <= hole.par - 2, clutch = putt && (LG.startD >= 6 || strokes >= hole.par);
-  if (!putt || clutch || big) { lgReact(() => true, p => hash(p.i * 3) < 0.15 ? 'point' : 'up', big ? 3 : 2.2, 0.4); lgCaAt('shout', (big ? 0.6 : 0.45) * lgHyp(), lgPanX(hole.cup) * 0.5, Math.random() * 1.2, 2.3); if (big && LG.hype > 60) setTimeout(() => { try { lgCaAt('shout', 0.4, -lgPanX(hole.cup) * 0.5, 0.5 + Math.random(), 1.8); } catch (e) {} }, 380); if (!crowdT) crowdCheer(big ? 1.3 : 1); }
+  if (!putt || clutch || big) { lgReact(() => true, p => hash(p.i * 3) < 0.15 ? 'point' : 'up', big ? 3 : 2.2, 0.4); lgCaAt('shout', (big ? 0.6 : 0.45) * lgHyp(), lgPanX(hole.cup) * 0.5, Math.random() * 1.2, 2.3); if (big && LG.hype > 60) setTimeout(() => { try { lgCaAt('shout', 0.4, -lgPanX(hole.cup) * 0.5, 0.5 + Math.random(), 1.8); } catch (e) {} }, 380); if (!crowdT) crowdCheer(big ? 1.3 : 1, true); }
   else lgReact(lgNear(hole.cup, 150), p => hash(p.i * 9) < 0.6 ? 'clap' : null, 1.4);
   lgSay(!putt ? LGL.holeOut : clutch ? LGL.clutchIn : strokes < hole.par ? LGL.birdie : LGL.good, { near: hole.cup, force: true });
 }
@@ -13425,8 +13449,8 @@ if (/test/.test(location.hash)) {
   };
 }
 if (window.__golf) window.__cc0 = {   // #test only: staged-audio probes (mute, one voice, ambience gap)
-  status() { return { version: GAME_VERSION, muted, ac: AC ? AC.state : 'none', tick: !!CC0.tickBuf, buf: ['cc_applause', 'cc_roar', 'cc_close', 'cc_miss', 'cc_air'].filter(k => !!CA.buf[k]), rx: CC0.rx ? CC0.rx.kind : null, plays: CC0.plays.slice(), roarShot: CC0.roarShot, shot: CC0.shot, airLoop: CC0.airSrc ? !!CC0.airSrc.loop : null, airGap: CC0.airNext && CC0.airUntil ? +(CC0.airNext - CC0.airUntil).toFixed(2) : null, airStarts: CC0.airStarts, menu: menuChrome(), oneBusy: !!(AC && (CA.oneUntil || 0) > AC.currentTime + 0.04) }; },
-  react(k) { return cc0React(k); },
+  status() { return { version: GAME_VERSION, muted, ac: AC ? AC.state : 'none', tick: !!CC0.tickBuf, buf: ['cc_applause', 'cc_roar', 'cc_close', 'cc_miss', 'cc_air'].filter(k => !!CA.buf[k]), rx: CC0.rx ? CC0.rx.kind : null, prelim: !!(CC0.rx && CC0.rx.prelim), plays: CC0.plays.slice(), roarShot: CC0.roarShot, shot: CC0.shot, airLoop: CC0.airSrc ? !!CC0.airSrc.loop : null, airGap: CC0.airNext && CC0.airUntil ? +(CC0.airNext - CC0.airUntil).toFixed(2) : null, airStarts: CC0.airStarts, menu: menuChrome(), oneBusy: cc0CrowdBusy(), legacy: (CA.ones || []).length, fades: CC0.fades, hidden: !!document.hidden, paused, state }; },
+  react(k, opt) { return cc0React(k, opt || null); },
   menu() { const t = CC0.tickAt; const ok = cc0Menu(); return { ok, advanced: CC0.tickAt !== t }; },
   unlock() { audioOn(); return AC ? AC.state : 'none'; },
   air() { try { if (!CA.air) caReady(); } catch (e) {} cc0AirTick(); return this.status(); },
