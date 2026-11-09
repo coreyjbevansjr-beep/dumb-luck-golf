@@ -376,7 +376,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.62';
+const GAME_VERSION = 'v8.99.63';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6711,8 +6711,7 @@ function celebratePerfect() {
   fxBurst(wx, wh, 26, GOLDS, 70, { stars: 0.6 });
   fxBurst(wx, wh, 10, GOLDS, 40, { up: true, stars: 1, life: 1.3 });
   fx.glow = true; fx.glowT = 0;
-  fxBanner('PERFECT!', ['#f8d878', '#fcfcfc', '#fc9838', '#fcfc9c'], 1.5, 56);   // sits below the message box
-  crowdCheer(0.8, true);   // v8.80 exceptional contact: a success roar, not a suspense voice
+  fxBanner('PERFECT!', ['#f8d878', '#fcfcfc', '#fc9838', '#fcfc9c'], 1.5, 56);   // sits below the message box. The gallery roar waits for the result so a perfect swing cannot use up the one roar.
   const gsx = Math.round(ball.x - camX) - facing * 7;                    // the dog pops up beside the golfer to cheer
   const behind = facing > 0 ? gsx - 62 : gsx + 14, front = facing > 0 ? gsx + 18 : gsx - 66;
   dogPop = { x: clamp(behind >= 4 && behind <= W - 52 ? behind : front, 4, W - 52), kind: 'cheer', t: 0, hold: 1.0 };
@@ -6759,7 +6758,7 @@ function celebrateLuck() {
   announce('dumb luck! a lucky bounce toward the pin');
   fx.flash = 0.16; fx.flashCol = '#b8f818'; fx.shake = 0.25; fx.shakeAmp = 2;
   fxBurst(ball.x, ball.h + 2, 22, ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 65, { stars: 0.7 });
-  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true; crowdCheer(1, true);
+  fxBanner('DUMB LUCK!', ['#58d854', '#f8d878', '#b8f818', '#fcfcfc'], 1.8, 56); fx.banner.clover = true;
   msg = null;
   dogPop = { x: clamp(Math.round(ball.x - camX) - 24, 4, W - 52), kind: 'laugh', t: 0, hold: 1.2 };
   setTimeout(() => { if (dogPop && dogPop.kind === 'laugh') SFX.laugh(); }, 400);
@@ -8535,10 +8534,12 @@ function cc0React(kind, opt) {
   if (kind === 'roar' && CC0.roarShot === CC0.shot) return true;   // this shot already roared
   if (CC0.rx && CC0.rx.until > t + 0.04) {
     if (CC0.rx.kind === kind) { if (!opt.prelim) CC0.rx.prelim = false; return true; }
-    if (kind === 'roar' && (CC0.rx.kind === 'close' || CC0.rx.kind === 'miss')) {
-      if (!(opt.success && CC0.rx.prelim)) return true;   // debut cheer leaves a settled miss; a hole-out replaces pre-result suspense
-    } else if (CC0_RANK[CC0.rx.kind] >= CC0_RANK[kind]) return true;
-    cc0StopRx(0.08);
+    if (kind === 'roar' && !opt.success) return true;   // debut cheer does not replace the landing voice
+    const suspense = !!CC0.rx.prelim;
+    const outcome = !opt.prelim && (kind === 'miss' || kind === 'close' || kind === 'applause' || (kind === 'roar' && opt.success));
+    if (suspense && outcome) cc0StopRx(0.08);   // the stop result replaces the rolling close; one voice
+    else if (CC0_RANK[CC0.rx.kind] >= CC0_RANK[kind]) return true;
+    else cc0StopRx(0.08);
   }
   cc0FadeLegacy(0.06);
   try {
