@@ -59,21 +59,21 @@
   #groundFill{position:fixed;left:0;right:0;bottom:-240px;height:calc(50% + 240px);background:#98e020;z-index:-1;pointer-events:none}
   #rot{display:none !important}
   .sr-only{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
-  #nameOverlay{display:none;position:fixed;left:0;right:0;top:0;z-index:50;padding:12px 12px calc(12px + env(safe-area-inset-top));
-    background:rgba(0,0,0,0.72);box-sizing:border-box;touch-action:manipulation}
-  #nameOverlay.on{display:block}
-  #nameOverlay .box{max-width:420px;margin:0 auto;background:#000;border:3px solid #fcfcfc;padding:14px 12px 12px;
-    font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc}
-  #nameOverlay label{display:block;font-size:12px;letter-spacing:2px;margin:0 0 8px;color:#f8d878}
-  #nameInput{display:block;width:100%;box-sizing:border-box;font-size:16px;line-height:1.3;letter-spacing:2px;text-transform:uppercase;
-    font-family:ui-monospace,Menlo,Consolas,monospace;padding:12px 10px;border:2px solid #3cbcfc;background:#0c1848;color:#fcfcfc;
-    border-radius:0;-webkit-appearance:none;appearance:none;
+  /* v8.99.64: name field is a column control on the customize screen, not a top sheet.
+     Position and size are set in px by placeNameOverlay() so it stays inside the safe area and the keyboard. */
+  #nameOverlay{display:none;position:fixed;z-index:50;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;
+    width:auto;max-width:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 12px);
+    overflow:visible;touch-action:manipulation;pointer-events:auto}
+  #nameOverlay.on{display:flex;flex-direction:column;justify-content:flex-end}
+  #nameOverlay label{flex:none;height:14px;margin:0 0 2px;padding:0;font:11px/14px ui-monospace,Menlo,Consolas,monospace;
+    letter-spacing:2px;color:#f8d878;text-shadow:1px 0 0 #000,-1px 0 0 #000,0 1px 0 #000,0 -1px 0 #000}
+  #nameInput{display:block;flex:1 1 auto;min-height:0;width:100%;box-sizing:border-box;margin:0;font-size:16px;line-height:1.2;
+    letter-spacing:2px;text-transform:uppercase;font-family:ui-monospace,Menlo,Consolas,monospace;padding:0 8px;
+    border:2px solid #bcbcbc;background:#0c1848;color:#fcfcfc;border-radius:0;-webkit-appearance:none;appearance:none;cursor:text;
     user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
-  #nameOverlay .row{display:flex;gap:10px;margin-top:12px}
-  #nameOverlay button{flex:1;font-size:16px;letter-spacing:2px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;
-    padding:12px 8px;border:2px solid #fcfcfc;background:#183848;color:#fcfcfc;touch-action:manipulation;-webkit-appearance:none}
-  #nameSave{background:#00a800;border-color:#58d854;color:#fcfcfc}
-  #nameCancel{background:#585858;border-color:#bcbcbc}
+  #nameOverlay.sel #nameInput,#nameInput:focus{border-color:#f8d878;outline:none}
+  #nameOverlay.warn label{color:#fc9838}
+  #nameOverlay.warn #nameInput{border-color:#fc9838}
   /* career v2: account / friends / matches panel (DOM so password managers, iOS autofill and the keyboard just work) */
   #acct{display:none;position:fixed;inset:0;z-index:40;background:rgba(8,16,40,0.82);overflow-y:auto;-webkit-overflow-scrolling:touch;
     padding:calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
@@ -336,12 +336,9 @@
   <p>Post your score to the online leaderboard and unlock hats and ball trails for birdies, eagles, aces and daily streaks.</p>
 </main>
 <div id="rot">&#8635; ROTATE FOR A BIGGER VIEW</div>
-<div id="nameOverlay" aria-hidden="true">
-  <div class="box">
-    <label for="nameInput">YOUR NAME</label>
-    <input id="nameInput" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" inputmode="text">
-    <div class="row"><button type="button" id="nameSave">SAVE</button><button type="button" id="nameCancel">CANCEL</button></div>
-  </div>
+<div id="nameOverlay" role="group" aria-label="Your name" aria-hidden="true">
+  <label for="nameInput">YOUR NAME</label>
+  <input id="nameInput" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" inputmode="text" aria-label="Your name">
 </div>
 <div id="windInd" aria-hidden="true"><div class="wf"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><svg viewBox="0 0 34 16"><path d="M3 8H23" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M21 2.2L32.5 8L21 13.8Z" fill="#fff" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span></span></div>
 <div id="acct" aria-hidden="true" role="dialog" aria-modal="true"><div class="box" id="acctBox"></div></div>
@@ -376,7 +373,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.65';
+const GAME_VERSION = 'v8.99.66';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5225,6 +5222,7 @@ let titleHole = compileHole(HOLES[0]), titleCam = 0;
 function setState(s) {
   const from = state;
   state = s; st = 0; lockInput(250); if (s !== 'card' && s !== 'board') { try { a2hsHide(); } catch (e) {} }   // v8.55: never over gameplay
+  if (s !== 'custom') { try { hideNameOverlay(); } catch (e) {} }   // v8.99.64: name field only lives on the customize screen
   if (s === 'title') refreshTitleLB();
   // quick fade between major screens (not every swing state)
   const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
@@ -5357,6 +5355,7 @@ let MM_BOX = { x: 160, y: 173, w: 92, h: 12 }, MM_GAP = 6;   // v8.10: mini map 
 let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 120, h: 14 }, CZ_GOLF = { x: 128, y: 200, s: 3 }, DONE_R = { x: 60, y: 124, w: 136, h: 22 };
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
 let CZ_HEAD_Y = 6, CZ_COLX = 128, CZ_PANEL = { x: 8, y: 200, w: 240, h: 160 }, CZ_PITCH = 29, CZ_CTRL = { al: 122, sw: 152, ar: 214, aw: 28, sww: 60 };   // v8.14 customize layout
+let CZ_NAME = { x: 48, y: 28, w: 160, h: 44 };   // v8.99.64 name label + field, in logical px
 let CS_ARW_L = { x: 0, y: 0, w: 0, h: 0 }, CS_ARW_R = { x: 0, y: 0, w: 0, h: 0 };   // v8.75 course switch arrows
 let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
 let KB_X0 = 28, KB_Y0 = 124, KB_PANEL = { x: 22, y: 117, w: 212, h: 87 };
@@ -5482,60 +5481,75 @@ function layoutChrome() {
     }
   }
 
-  // v8.14 Customize: the golfer preview is the focal point (big, integer pixel scale, centered).
-  // Portrait: header -> name -> preview (golfer on a mown tee patch, soft spotlight) -> options board -> LOCKED band -> TEE OFF -> grass.
-  // Landscape: preview fills the left column; header, name, options board and TEE OFF stack in the right column.
+  // v8.99.64 Customize: one column on a phone (name, whole golfer, look, TEE OFF), safe-area clear.
+  // The golfer's hat crown is ~35 units above the soles — reserve 36, and cap the scale so the head is never cropped.
+  // Extra height stays as sky above the hat. TEE OFF sits just above the bottom safe area, same width as the board.
+  // Landscape: golfer in the left column; name, board and TEE OFF stack in the right column.
   {
     const sy = Math.max(0.5, (cv.getBoundingClientRect().height || H) / Math.max(1, H));
     const top = SAFE.t || 0, bot = H - (SAFE.b || 0);
     const minPitch = Math.max(Math.ceil(44 / sy), 22);   // >=44 CSS px rows; scale-2 labels (14px) never touch
     let P = minPitch;
-    const lockH = 14;
-    const teeH = Math.max(22, Math.min(30, minPitch));
+    const lockH = 12;
+    const teeH = Math.max(22, Math.min(32, Math.ceil(48 / sy)));
+    const FIG = 36;   // hat crown through the soles
+    const nameH = Math.max(28, Math.ceil(60 / sy));   // 14px label + 2px gap + 44px field
     CZ_BACK_R.x = 2 + (SAFE.l || 0); CZ_BACK_R.y = top + 2; CZ_BACK_R.w = 66; CZ_BACK_R.h = 22;
     CZ_HEAD_Y = top + 6;
     const ctrl = (px, pw) => { const aw = 28, sww = 60, ar = px + pw - 6 - aw, sw = ar - 2 - sww, al = sw - 2 - aw; CZ_CTRL = { al, sw, ar, aw, sww }; };
     let gs, feetY, gcx, nameY, teeY, lockY;
     if (portrait) {
       CZ_COLX = Math.round(W / 2);
-      nameY = top + 30;
-      const pw = Math.min(240, W - 16), px = Math.round((W - pw) / 2);
-      teeY = bot - 8 - teeH;
-      lockY = teeY - 4 - lockH;
+      const side = 8 + Math.max(SAFE.l || 0, SAFE.r || 0);
+      const pw = Math.min(240, W - side * 2), px = Math.round((W - pw) / 2);
+      nameY = CZ_HEAD_Y + 20;
+      const marginBot = 8, gapTee = 6;
+      teeY = bot - marginBot - teeH;
       let panelH = 5 * P + 12;
-      let panelY = lockY - 2 - panelH;
-      const stageTop = nameY + 24;
-      // tiny screens: tighten rows before the preview drops below 3x
-      while (P > 22 && panelY - 6 - stageTop < 3 * 31 + 10) { P--; panelH = 5 * P + 12; panelY = lockY - 2 - panelH; }
-      const stageBot = panelY - 6;
-      gs = Math.max(2, Math.min(7, Math.floor((stageBot - stageTop - 10) / 31)));
-      const ry = Math.max(4, Math.round(2.2 * gs));
-      const ext = 28 * gs + ry;
-      feetY = stageTop + Math.max(0, Math.round((stageBot - stageTop - ext) / 2)) + 28 * gs;
+      let panelY = teeY - gapTee - lockH - panelH;
+      let stageTop = nameY + nameH + 8;
+      let guard = 0;
+      while (P > 20 && panelY - 6 - stageTop < FIG * 3 && guard++ < 20) { P--; panelH = 5 * P + 12; panelY = teeY - gapTee - lockH - panelH; }
+      let stageBot = panelY - 6;
+      if (stageBot - stageTop < FIG * 2 + 4) stageTop = Math.max(CZ_HEAD_Y + 16, nameY + Math.min(nameH, Math.ceil(46 / sy)) );
+      stageBot = Math.max(stageTop + FIG * 2, panelY - 4);
+      const room = Math.max(FIG * 2, stageBot - stageTop);
+      gs = Math.max(2, Math.min(5, Math.floor((room - 4) / FIG)));
+      const figH = FIG * gs, below = Math.min(12, Math.max(4, room - figH));
+      const figTop = stageTop + Math.max(0, room - figH - below);
+      const ry = Math.max(3, Math.round(1.8 * gs));
+      feetY = Math.min(figTop + (FIG - 1) * gs, stageBot - ry - 2);
       gcx = CZ_COLX;
       CZ_PANEL = { x: px, y: panelY, w: pw, h: panelH };
       ctrl(px, pw);
-      CZ_FAIR = feetY - 3 * gs - 4;
-    } else {
-      const cw = Math.min(W - 16, 440), x0 = Math.round((W - cw) / 2);
-      const leftW = Math.round(cw * 0.42);
-      const pw = Math.min(240, cw - leftW - 6), px = x0 + leftW + 6 + Math.round((cw - leftW - 6 - pw) / 2);
-      CZ_COLX = px + Math.round(pw / 2);
-      nameY = top + 26;
-      let panelY = nameY + 24;
-      let panelH = 5 * P + 12;
-      // keep TEE OFF on screen: shrink row pitch if the window is short
-      while (P > 18 && panelY + panelH + 2 + lockH + 2 + teeH > bot - 4) { P--; panelH = 5 * P + 12; }
+      CZ_FAIR = Math.round(feetY - Math.max(2, gs));
+      CZ_NAME = { x: px, y: nameY, w: pw, h: Math.max(Math.ceil(40 / sy), Math.min(nameH, stageTop - 4 - nameY)) };
       lockY = panelY + panelH + 2;
-      teeY = lockY + lockH + 2;
+    } else {
+      const cw = Math.min(W - 16, 480), x0 = Math.round((W - cw) / 2);
+      const leftW = Math.round(cw * 0.42);
+      const pw = Math.min(240, Math.max(120, cw - leftW - 8)), px = x0 + leftW + 8 + Math.round((cw - leftW - 8 - pw) / 2);
+      CZ_COLX = px + Math.round(pw / 2);
+      nameY = CZ_HEAD_Y + 18;
+      let panelY = nameY + nameH + 4;
+      let panelH = 5 * P + 12;
+      let guard = 0;
+      while (P > 18 && panelY + panelH + 2 + lockH + 4 + teeH > bot - 4 && guard++ < 20) { P--; panelH = 5 * P + 12; }
+      lockY = panelY + panelH + 2;
+      teeY = Math.min(bot - 4 - teeH, lockY + lockH + 2);
       CZ_PANEL = { x: px, y: panelY, w: pw, h: panelH };
       ctrl(px, pw);
-      const footRoom = g => Math.max(Math.max(4, Math.round(2.2 * g)), 3 * g) + 4;   // pedestal + club head stay on screen
+      const availTop = top + 4, availBot = bot - 4;
+      const foot = g => Math.max(4, Math.round(1.8 * g)) + 2;
       gs = 5;
-      for (; gs > 2; gs--) { if (bot - footRoom(gs) - 28 * gs >= top + 12) break; }
-      feetY = bot - footRoom(gs);
-      CZ_FAIR = Math.min(H - 20, feetY - 2 * gs - 2);   // golfer stands on the fairway (TEE OFF may sit over the hills/grass)
+      for (; gs > 2; gs--) { if (availTop + FIG * gs + foot(gs) <= availBot) break; }
+      const block = FIG * gs + foot(gs);
+      const figTop = availTop + Math.max(0, Math.round((availBot - availTop - block) / 2));
+      const ry = Math.max(3, Math.round(1.8 * gs));
+      feetY = Math.min(figTop + (FIG - 1) * gs, availBot - ry);
+      CZ_FAIR = Math.min(H - 16, Math.round(feetY - Math.max(2, gs)));
       gcx = x0 + Math.round(leftW / 2);
+      CZ_NAME = { x: px, y: nameY, w: pw, h: nameH };
     }
     CZ_PITCH = P;
     CZ_ROW_H = P - 2;
@@ -5543,10 +5557,11 @@ function layoutChrome() {
     for (let r = 1; r <= 5; r++) CZ_Y.push(CZ_PANEL.y + 6 + (r - 1) * P + Math.round((P - 14) / 2));
     CZ_Y.push(teeY + Math.round((teeH - 14) / 2));
     CZ_LOCK = { y: lockY, h: lockH };
-    DONE_R.w = 150; DONE_R.h = teeH; DONE_R.x = Math.round(CZ_COLX - 75); DONE_R.y = teeY;
+    DONE_R.w = CZ_PANEL.w; DONE_R.h = teeH; DONE_R.x = CZ_PANEL.x; DONE_R.y = teeY;
     CZ_OX = CZ_PANEL.x - 8;
-    // golfer art spans ~-5..+9 (ball) around its feet x; center the group on gcx
+    // body centre sits a few units left of the feet anchor; the ball is to the right. Keep the group on gcx.
     CZ_GOLF = { x: Math.round(gcx - 3 * gs), y: feetY, s: gs };
+    try { placeNameOverlay(); } catch (e) {}
   }
   // v8.16 Choose Course: '< BACK' top-left (same as customize), gold CHOOSE COURSE header, one gold-framed board holding a
   // card per course (>=44 CSS px tall), plus a small framed hole preview of the highlighted course.
@@ -6141,8 +6156,8 @@ function closePopup() { if (menuPopup && menuPopup.kind === 'shop') { psEscKey()
   if (menuPopup && menuPopup.t > 0.15) { menuPopup = null; SFX.click(); } }
 
 /* --- customize screen ---
-   rows: 0 name, 1 hat, 2 skin, 3 shirt, 4 pants, 5 done. Typing on a keyboard always edits the name;
-   tapping the name opens a native HTML <input> overlay (phone keyboard). */
+   rows: 0 name, 1 hat, 2 skin, 3 shirt, 4 pants, 5 trail, 6 done.
+   The name is a real HTML field in the column (iOS keyboard). It stays put when the keyboard opens. */
 const CZ_ROWS = 7, CZ_DONE = 6;   // CZ_Y / DONE_R live in layoutChrome()
 const CZ_OPTS = [null, ['hat', HATS], ['skin', SKINS], ['shirt', SHIRTS], ['pants', PANTS]];   // row -> [player key, choices]
 const NAME_RECT = { x: 52, y: 6, w: 152, h: 36 };
@@ -6158,66 +6173,122 @@ function kbCells(r) { let c = 0; return KB[r].map(lab => { const w = lab === 'OK
 let cz = null, usingTouch = false;
 function isTouchUi() { return usingTouch || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0); }
 function openCustomize(from) {
-  const needName = !player.name;
+  const needName = !cleanName(player.name);
   // from 'play': pre-round step — saved look/name pre-filled; row on TEE OFF so one Enter/tap starts
   cz = { from, skin: player.skin, shirt: player.shirt, hat: player.hat | 0, pants: player.pants | 0, name: player.name,
+         nameAtOpen: player.name || '',
          trail: unlocks.trail || 'white',
          row: needName ? 0 : ((from === 'play' || from === 'daily') ? CZ_DONE : 1),
-         warn: (from === 'play' || from === 'daily') && needName ? 3 : 0, kb: false, kr: 0, kc: 0 };
+         warn: 0, kb: false, kr: 0, kc: 0 };
   if (!hatUnlocked(cz.hat)) cz.hat = 0;
-  if (needName) openKb();   // native HTML input — works on phone + desktop
   setState('custom');
+  showNameField();
+  if (needName) openKb();   // caret in the name field — iOS only shows the keyboard after a tap
 }
+let nameFocusT = 0, nameIgnoreFocus = 0;
 function openKb() {
-  if (!cz) return;
-  cz.kb = true; cz.row = 0; SFX.click();
-  showNameOverlay(cz.name || '');
+  if (!cz || !nameInputEl) return;
+  clearTimeout(nameFocusT);
+  cz.nameAtOpen = cz.name || '';
+  cz.kb = true; cz.row = 0;
+  showNameField();
+  SFX.click();
+  nameFocusT = setTimeout(() => {
+    if (!cz || !cz.kb) return;
+    try { nameInputEl.focus({ preventScroll: true }); const n = nameInputEl.value.length; nameInputEl.setSelectionRange(n, n); }
+    catch (e) { try { nameInputEl.focus(); } catch (e2) {} }
+    pinNamePage(); placeNameOverlay();
+  }, 40);
 }
 function closeKb(save) {
   if (!cz) return;
+  clearTimeout(nameFocusT);
+  nameIgnoreFocus = performance.now() + 280;
   if (save !== false) {
     const v = nameOverlayValue();
     if (v != null) cz.name = v;
+    if (cleanName(cz.name)) cz.row = CZ_DONE;
+  } else {
+    cz.name = cz.nameAtOpen || '';
+    cz.warn = 0;
+    if (nameInputEl) nameInputEl.value = cz.name || '';
   }
-  hideNameOverlay();
   cz.kb = false;
-  if (cleanName(cz.name)) cz.row = CZ_DONE;
+  // blur after the keydown so the browser doesn't put focus straight back in the field
+  setTimeout(() => { try { if (nameInputEl && document.activeElement === nameInputEl) nameInputEl.blur(); } catch (e) {} }, 0);
   SFX.click();
 }
-/* --- native name entry overlay (iOS keyboard) --- */
+/* --- name field: sits in the customize column (CZ_NAME), never a full-bleed top sheet --- */
 const nameOverlayEl = document.getElementById('nameOverlay');
 const nameInputEl = document.getElementById('nameInput');
-const nameSaveEl = document.getElementById('nameSave');
-const nameCancelEl = document.getElementById('nameCancel');
 function nameOverlayValue() {
   if (!nameInputEl) return null;
   return cleanName(nameInputEl.value);
 }
-function placeNameOverlay() {
-  if (!nameOverlayEl || nameOverlayEl.style.display === 'none' && !nameOverlayEl.classList.contains('on')) return;
-  const vv = window.visualViewport;
-  const top = (vv ? vv.offsetTop : 0) + 8;
-  nameOverlayEl.style.top = top + 'px';
-  nameOverlayEl.style.left = (vv ? vv.offsetLeft : 0) + 'px';
-  nameOverlayEl.style.width = (vv ? vv.width : window.innerWidth) + 'px';
+function pinNamePage() {
+  try { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); } catch (e) {}
 }
-function showNameOverlay(initial) {
-  if (!nameOverlayEl || !nameInputEl) return;
-  nameInputEl.value = (initial || '').toUpperCase().slice(0, NAME_MAX);
+function placeNameOverlay() {
+  const el = document.getElementById('nameOverlay');
+  if (!el || !el.classList.contains('on') || !CZ_NAME || !CZ_NAME.w || !cv) return;
+  const br = cv.getBoundingClientRect();
+  const sx = br.width / Math.max(1, W), sy = br.height / Math.max(1, H);
+  const vv = window.visualViewport;
+  const ox = vv ? vv.offsetLeft : 0, oy = vv ? vv.offsetTop : 0;
+  const vw = vv ? vv.width : window.innerWidth, vh = vv ? vv.height : window.innerHeight;
+  const safe = safeCssInsets();
+  let left = br.left + CZ_NAME.x * sx + ox;
+  let top = br.top + CZ_NAME.y * sy + oy;
+  let width = CZ_NAME.w * sx, height = CZ_NAME.h * sy;
+  const minL = ox + Math.max(6, safe.l), maxR = ox + vw - Math.max(6, safe.r);
+  const minT = oy + safe.t, maxB = oy + vh - 8;
+  if (left < minL) left = minL;
+  if (left + width > maxR) width = Math.max(96, maxR - left);
+  if (top < minT) top = minT;
+  if (top + height > maxB) { height = Math.max(36, maxB - top); if (top + height > maxB) top = Math.max(minT, maxB - height); }
+  const s = el.style;
+  s.left = Math.round(left) + 'px'; s.top = Math.round(top) + 'px';
+  s.width = Math.round(width) + 'px'; s.height = Math.round(height) + 'px';
+  s.right = 'auto'; s.bottom = 'auto'; s.maxWidth = 'none';
+  const lab = el.querySelector('label'), input = document.getElementById('nameInput');
+  if (lab) {
+    const lp = Math.max(11, Math.min(22, Math.round(7 * sy)));
+    lab.style.fontSize = lp + 'px'; lab.style.lineHeight = lp + 'px'; lab.style.height = lp + 'px';
+    lab.style.letterSpacing = Math.max(1, Math.round(sy * 0.6)) + 'px';
+  }
+  if (input) input.style.fontSize = Math.max(16, Math.min(28, Math.round(8 * sy))) + 'px';
+}
+function syncNameFieldChrome() {
+  if (!nameOverlayEl || !nameInputEl || !cz || !nameOverlayEl.classList.contains('on')) return;
+  const warn = cz.warn > 0 && !cleanName(cz.name);
+  nameOverlayEl.classList.toggle('warn', !!warn);
+  nameOverlayEl.classList.toggle('sel', !!(cz.row === 0 || cz.kb || document.activeElement === nameInputEl));
+  const lab = nameOverlayEl.querySelector('label'), text = warn ? 'ENTER NAME' : 'YOUR NAME';
+  if (lab && lab.textContent !== text) lab.textContent = text;
+  if (document.activeElement !== nameInputEl) {
+    const v = (cz.name || '').toUpperCase().slice(0, NAME_MAX);
+    if (nameInputEl.value !== v) nameInputEl.value = v;
+  }
+}
+function showNameField() {
+  if (!nameOverlayEl || !nameInputEl || !cz) return;
+  if (document.activeElement !== nameInputEl) nameInputEl.value = (cz.name || '').toUpperCase().slice(0, NAME_MAX);
   nameOverlayEl.classList.add('on');
   nameOverlayEl.setAttribute('aria-hidden', 'false');
   placeNameOverlay();
-  // focus after paint so iOS brings up the keyboard
-  setTimeout(() => { try { nameInputEl.focus({ preventScroll: false }); nameInputEl.setSelectionRange(nameInputEl.value.length, nameInputEl.value.length); } catch (e) { try { nameInputEl.focus(); } catch (e2) {} } }, 30);
+  syncNameFieldChrome();
+}
+function showNameOverlay(initial) {
+  if (cz && initial != null) cz.name = cleanName(initial);
+  showNameField();
 }
 function hideNameOverlay() {
   if (!nameOverlayEl || !nameInputEl) return;
   try { nameInputEl.blur(); } catch (e) {}
-  nameOverlayEl.classList.remove('on');
+  nameOverlayEl.classList.remove('on', 'warn', 'sel');
   nameOverlayEl.setAttribute('aria-hidden', 'true');
-  nameOverlayEl.style.top = '';
-  nameOverlayEl.style.left = '';
-  nameOverlayEl.style.width = '';
+  nameOverlayEl.style.top = ''; nameOverlayEl.style.left = ''; nameOverlayEl.style.width = '';
+  nameOverlayEl.style.height = ''; nameOverlayEl.style.right = ''; nameOverlayEl.style.bottom = '';
 }
 if (nameInputEl) {
   nameInputEl.addEventListener('input', () => {
@@ -6226,16 +6297,29 @@ if (nameInputEl) {
     if (cleaned !== nameInputEl.value) { nameInputEl.value = cleaned; try { nameInputEl.setSelectionRange(Math.min(caret, cleaned.length), Math.min(caret, cleaned.length)); } catch (e) {} }
     if (cz) { cz.name = cleaned; cz.warn = 0; }
   });
+  nameInputEl.addEventListener('focus', () => {
+    pinNamePage();
+    if (!cz || performance.now() < nameIgnoreFocus) {
+      setTimeout(() => { try { if (nameInputEl && document.activeElement === nameInputEl) nameInputEl.blur(); } catch (e) {} }, 0);
+      return;
+    }
+    if (!cz.kb) { cz.nameAtOpen = cz.name || ''; SFX.tick(); }
+    cz.kb = true; cz.row = 0;
+    placeNameOverlay();
+  });
+  nameInputEl.addEventListener('blur', () => {
+    if (cz) { const v = nameOverlayValue(); if (v != null) cz.name = v; cz.kb = false; }
+    pinNamePage(); placeNameOverlay();
+  });
   nameInputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); closeKb(true); }
-    if (e.key === 'Escape') { e.preventDefault(); closeKb(false); }
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); closeKb(true); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeKb(false); }
   });
 }
-if (nameSaveEl) nameSaveEl.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); closeKb(true); });
-if (nameCancelEl) nameCancelEl.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); closeKb(false); });
+function onNameViewport() { pinNamePage(); placeNameOverlay(); }
 if (window.visualViewport) {
-  visualViewport.addEventListener('resize', placeNameOverlay);
-  visualViewport.addEventListener('scroll', placeNameOverlay);
+  visualViewport.addEventListener('resize', onNameViewport);
+  visualViewport.addEventListener('scroll', onNameViewport);
 }
 
 const czIsOpt = r => r >= 1 && r <= 4;
@@ -6252,12 +6336,17 @@ function cycleTrail(d) {
   i = (i + d + TRAIL_IDS.length) % TRAIL_IDS.length;
   cz.trail = TRAIL_IDS[i]; SFX.tick();
 }
+function czSyncInput() {
+  if (!nameInputEl || !cz || document.activeElement === nameInputEl) return;
+  const v = (cz.name || '').toUpperCase().slice(0, NAME_MAX);
+  if (nameInputEl.value !== v) nameInputEl.value = v;
+}
 function czType(ch) {
-  if (ch === 'DEL') { if (cz.name) { cz.name = cz.name.slice(0, -1); SFX.click(); } return; }
+  if (ch === 'DEL') { if (cz.name) { cz.name = cz.name.slice(0, -1); SFX.click(); czSyncInput(); } return; }
   if (ch === 'SPC') ch = ' ';
   if (ch === ' ' && (!cz.name || cz.name.endsWith(' '))) return;
   if (cz.name.length >= NAME_MAX) { tone(200, 0.08, 'square', 0.05); return; }
-  cz.name += ch; cz.warn = 0; SFX.tick();
+  cz.name += ch; cz.warn = 0; SFX.tick(); czSyncInput();
 }
 function kbPress(lab) { if (lab === 'OK') closeKb(); else czType(lab); }
 function kbMove(dr, dc) {
@@ -6268,12 +6357,17 @@ function kbMove(dr, dc) {
   SFX.tick();
 }
 function czDone() {
+  if (nameInputEl && nameOverlayEl && nameOverlayEl.classList.contains('on')) {
+    const v = nameOverlayValue();
+    if (v != null) cz.name = v;
+  }
   const name = cleanName(cz.name);
   if (!name) { cz.warn = 3; cz.row = 0; SFX.sad(); openKb(); return; }
   if (!hatUnlocked(cz.hat)) cz.hat = 0;
   player = Object.assign({}, player, { name, skin: cz.skin, shirt: cz.shirt, hat: cz.hat, pants: cz.pants }); savePlayer(); try { saveAppearance(); } catch (e) {}
   if (cz.trail && trailUnlocked(cz.trail)) { unlocks.trail = cz.trail; saveUnlocks(); }
   else if (cz.trail && !trailUnlocked(cz.trail)) { /* keep prior unlocked trail */ }
+  hideNameOverlay();
   const from = cz.from; cz = null; SFX.click();
   if (from === 'play' || from === 'daily') startRound(); else setState('title');
 }
@@ -6298,10 +6392,9 @@ function customKey(e) {
   }
 }
 function customPointer(p) {
-  // name overlay owns its own DOM taps; canvas taps below still work for look / tee-off / back
-  if (cz.kb) return;
+  // the name field is HTML and takes its own taps; canvas taps still change the look and tee off
   if (hitBack(p, CZ_BACK_R)) { czCancel(); return; }
-  if (hitBtn(p, nameHitRect())) { openKb(); return; }
+  if (hitBtn(p, nameHitRect())) { if (!cz.kb) openKb(); return; }
   for (const r of [1, 2, 3, 4, 5]) {
     if (hitBtn(p, ARROW_L(r))) { cz.row = r; czStep(r, -1); return; }
     if (hitBtn(p, ARROW_R(r)) || hitBtn(p, SWATCH_R(r))) { cz.row = r; czStep(r, 1); return; }
@@ -6309,7 +6402,7 @@ function customPointer(p) {
   }
   if (hitBtn(p, DONE_R)) { cz.row = CZ_DONE; czDone(); }
 }
-function nameHitRect() { return { x: Math.round(CZ_COLX - 76), y: CZ_Y[0] - 4, w: 152, h: 26 }; }
+function nameHitRect() { return CZ_NAME && CZ_NAME.w ? { x: CZ_NAME.x, y: CZ_NAME.y, w: CZ_NAME.w, h: CZ_NAME.h } : { x: Math.round(CZ_COLX - 76), y: CZ_Y[0] - 4, w: 152, h: 26 }; }
 
 /* --- leaderboard screen --- */
 let board = null, pendingSave = null, lastEntry = null, saveWhere = '';
@@ -7540,7 +7633,8 @@ cv.addEventListener('pointerdown', e => {
     touchDown = null; return;
   }
   if (state === 'custom') {
-    if (!cz || cz.kb) { touchDown = null; return; }
+    if (!cz) { touchDown = null; return; }
+    if (nameInputEl && document.activeElement === nameInputEl) { try { nameInputEl.blur(); } catch (err) {} }
     // arm specific customize controls
     if (hitBack(p, CZ_BACK_R)) { armUiTap('czback', () => czCancel(), (up) => hitBack(toLogical(up), CZ_BACK_R), e); touchDown = null; return; }
     if (hitBtn(p, nameHitRect())) { armUiTap('czname', () => openKb(), (up) => hitBtn(toLogical(up), nameHitRect()), e); touchDown = null; return; }
@@ -10851,14 +10945,16 @@ function renderCustom() {
     outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
-  if (!cz.kb) { const t = 'CUSTOMIZE'; outlined(t, Math.round(colX - textW(t, 2) / 2), CZ_HEAD_Y, YEL, 2); }
-  // name + underline (tap to edit)
-  const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
-  if (cz.name) outlined(cz.name, Math.round(colX - textW(cz.name, 2) / 2), ny, nf ? YEL : COL.white, 2);
-  else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
-  const uw = 124, ux = Math.round(colX - uw / 2);
-  rect(ux, ny + 17, uw, 2, '#000'); rect(ux + 1, ny + 17, uw - 2, 1, nf ? YEL : COL.white);
-  if (nf && cz.name && cz.name.length < NAME_MAX && Math.floor(st * 3) % 2 === 0) { const cx = Math.round(colX + textW(cz.name, 2) / 2) + 3; rect(cx - 1, ny - 1, 4, 16, '#000'); rect(cx, ny, 2, 14, YEL); }
+  { const t = 'CUSTOMIZE'; outlined(t, Math.round(colX - textW(t, 2) / 2), CZ_HEAD_Y, YEL, 2); }
+  // The HTML name field occupies CZ_NAME. Canvas text is only the fallback if that field is hidden.
+  if (nameOverlayEl && nameOverlayEl.classList.contains('on')) syncNameFieldChrome();
+  else {
+    const ny = CZ_Y[0], nf = cz.row === 0 || cz.kb;
+    if (cz.name) outlined(cz.name, Math.round(colX - textW(cz.name, 2) / 2), ny, nf ? YEL : COL.white, 2);
+    else { const ph = cz.warn > 0 ? 'ENTER NAME' : 'YOUR NAME'; outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, cz.warn > 0 ? (blink ? COL.orange : COL.white) : COL.gray, 2); }
+    const uw = Math.min(CZ_PANEL.w - 16, 160), ux = Math.round(colX - uw / 2);
+    rect(ux, ny + 17, uw, 2, '#000'); rect(ux + 1, ny + 17, uw - 2, 1, nf ? YEL : COL.white);
+  }
 
   // Preview: soft spotlight + mown tee patch + golfer at an integer scale (crisp pixels), gentle club waggle
   {
@@ -10892,7 +10988,7 @@ function renderCustom() {
     drawText(ch, gx + 1, gy + 1, '#000', 2); drawText(ch, gx, gy, f || on ? YEL : COL.white, 2);
   };
   [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4], ['TRAIL', 5]].forEach(([lab, r]) => {
-    const f = cz.row === r && !cz.kb, rr = ROW_R(r), y = CZ_Y[r];
+    const f = cz.row === r, rr = ROW_R(r), y = CZ_Y[r];
     if (f) { ctx.globalAlpha = 0.55; rect(rr.x, rr.y, rr.w, rr.h, '#3c64b4'); ctx.globalAlpha = 1; czRing(rr.x, rr.y, rr.w, rr.h, YEL); }
     outlined(lab, pane.x + 12, y, f ? YEL : COL.white, 2);
     keycap(ARROW_L(r), '<', f, -1); keycap(ARROW_R(r), '>', f, 1);
@@ -10938,7 +11034,7 @@ function renderCustom() {
   // TEE OFF / PLAY DAILY / DONE button
   {
     const dl = (cz.from === 'play' || cz.from === 'daily') ? (cz.from === 'daily' ? (dailyMeta && dailyMeta.practice ? 'PRACTICE' : 'PLAY DAILY') : 'TEE OFF') : 'DONE';
-    const df = cz.row === CZ_DONE && !cz.kb, on = mouse.seen && !isTouchUi() && hitBtn(mouse, DONE_R), d = DONE_R;
+    const df = cz.row === CZ_DONE, on = mouse.seen && !isTouchUi() && hitBtn(mouse, DONE_R), d = DONE_R;
     czBoard(d.x, d.y, d.w, d.h, 0.9, df && blink);
     const dw = textW(dl, 2), dx = Math.round(d.x + (d.w - dw) / 2);
     outlined(dl, dx, CZ_Y[CZ_DONE], df || on ? YEL : COL.white, 2);
@@ -13572,7 +13668,7 @@ if (/test/.test(location.hash)) {
     get roundTip() { return !!roundTip; }, openTip(touch) { openRoundTip(!!touch); }, closeTip() { closeRoundTip(); }, seenTip() { markTipSeen(); }, tipSeen() { return tipAlreadySeen(); }, setCam(x, hold) { const v = clamp(x, CAM_MIN, camMax()); camX = v; if (hold) camHold = v; else if (hold === false) camHold = null; }, clearCamHold() { camHold = null; }, holeInfo() { return hole ? { name: hole.name, par: hole.par, cup: hole.cup, pin: Math.round(Math.abs(hole.cup - TEE_X)), pinHud: ball ? Math.round(Math.abs(hole.cup - ball.x)) : null, ballX: ball ? ball.x : null, theme: hole.theme, len: hole.len, walls: (hole.walls||[]).length, pads: (hole.pads||[]).length, movers: (hole.movers||[]).length } : null; },
     get worldZoom() { return worldZoom(); }, get camX() { return camX; }, get camY() { return camY; }, snapCam() { camX = camTarget(); camY = camYTarget(); }, get courseKind() { return courseKind; }, get lbi() { return { ctx: lbiCtx ? Object.assign({}, lbiCtx) : null, q: lbiQ.length, info: LBI.info, board: LBI.board, banner: lbiBannerOn(), rect: Object.assign({}, SPOOKY_BANNER), phase: lbiPhase(), status: lbiStatusLine(), holes: HOLES.map(h => h.name), nums: HOLES.map((h, i) => displayHoleNum(i)), wind, weather: weather.id }; }, lbiOpenT(t) { lbiOpen(t); }, lbiLoadT() { return lbiLoad(true); }, lbiCsvT() { return lbiCsv(); }, lbiHoleT(n) { closeRoundTip(); strokes = n; if (lbiCtx) lbiCtx.shots = Array.from({ length: Math.max(1, Math.ceil(n / 2)) }, (_, i) => i * 1500); finishHole(); nextHole(); }, get weather() { return weather; }, setWeather(id) { const w = WEATHERS.find(x => x.id === id); if (w) weather = Object.assign({}, w); }, openCourse() { courseSel=0; setState('course'); }, courseRects() { return { cards: CS_CARDS.map(r => Object.assign({}, r)), back: Object.assign({}, CS_BACK_R), board: Object.assign({}, CS_BOARD), prev: CS_PREV ? Object.assign({}, CS_PREV) : null, head: Object.assign({}, CS_HEAD), fair: CS_FAIR, hintY: CS_HINT_Y }; }, get courseSel() { return courseSel; }, courseBest(k) { return courseBest(k); }, startFront() { startCourse('front'); }, startCourseT(k) { startCourse(k); return courseKind; }, courseSelT(i) { courseSel = i; }, courseGroupT(g) { csApplyGroup(g); courseSel = 0; layoutChrome(); return CS_GROUPS[csGroup].name; }, get csArrows() { return { l: Object.assign({}, CS_ARW_L), r: Object.assign({}, CS_ARW_R) }; }, startBack() { startCourse('back'); }, startFull() { startCourse('full'); }, startCoral() { startCourse('coral'); }, get hl() { return { last: hl.last ? { label: hl.last.label, notable: hl.last.notable, res: hl.last.res, frames: hl.last.f.length } : null, busy: hl.busy, ready: hl.ready ? { name: hl.ready.name, type: hl.ready.type, size: hl.ready.blob.size, share: hl.ready.share } : null, visible: hlVisible(), btn: hl.btn, msg: hl.msg }; }, hlForce(label) { if (hl.last) { hl.last.notable = true; hl.last.label = label || hl.last.label || 'TEST'; hl.t = 0; } }, hlRecord() { return hlRecord(); }, hlDeliver() { return hlDeliver(); }, hlFrame(i, hold) { const r = hl.last, L = hlLayout(r), fc = mk(L.w, L.h); hlDrawFrame(fc, r, i, L, hold); return fc.toDataURL('image/png'); }, halloweenOn() { return halloweenOn(); }, settingsRowsT() { return settingsRows(); }, ovAct(i) { ovActivate(i); }, openSettingsT(b) { openSettings(b); }, ovBackT() { ovBack(); }, get pumpkinBall() { return !!settings.pumpkinBall; }, get coralHoles() { return CORAL_HOLES.map(h => ({ name: h.name, par: h.par, theme: h.theme })); }, coralUnlocked() { return coralUnlocked(); }, startDaily(i) { startDailyFlow(i); }, forceDaily(id) { const i = (typeof id === 'number') ? id : DAILY_HOLES.findIndex(h => h.id === id || h.name === id || h.name.replace(/\s+/g, '_') === String(id).toUpperCase()); startDailyFlow(i >= 0 ? i : 0); if (cz) { cz.name = player.name || 'TEST'; czDone(); } return dailyMeta; }, listDaily() { return DAILY_HOLES.map((h, i) => ({ i, id: h.id, name: h.name, par: h.par })); }, get dailyDesigns() { return DAILY_HOLES.map(h => h.name); }, teeOff() { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else if (state === 'course') startCourse('front'); else if (!hole) { startCourse('front'); if (cz) { cz.name = player.name || 'COREY'; czDone(); } } }, forceAce() { if (state === 'custom' || state === 'course' || state === 'title' || !hole) { if (state === 'custom' && cz) { if (!cleanName(cz.name) && player.name) cz.name = player.name; czDone(); } else { setCourseHoles(courseKind || 'front', courseKind === 'back' ? BACK_HOLES : courseKind === 'full' ? FRONT_HOLES.concat(BACK_HOLES) : courseKind === 'daily' && HOLES.length ? HOLES : FRONT_HOLES); startRound(); } } closeRoundTip(); strokes = 1; placeBall(hole.cup); ball.h = groundH(hole, hole.cup); resolveBall('cup'); }, get unlocks() { return JSON.parse(JSON.stringify(unlocks)); }, grantAch(id) { return grantAch(id, id.toUpperCase()); }, get shotFx() { return shotFx; }, get aimAngle() { return angle; }, get fly() { return fly ? { dur: fly.dur, tee: fly.tee, pin: fly.pin, keys: fly.keys ? fly.keys.map(k => Object.assign({}, k)) : null } : null; }, get flyZm() { return flyZm; }, get st() { return st; }, get hidList() { return hidList.map(o => Object.assign({}, o)); }, get hidFlash() { return hidFlash; }, get cupX() { return hole ? hole.cup : null; }, hidAlphaT() { return hidAlpha(); }, hidInvT() { const out = []; const sets = { FRONT: FRONT_HOLES, BACK: BACK_HOLES, DAILY: DAILY_HOLES, CORAL: CORAL_HOLES, SPOOKY: typeof SPOOKY_DAILY !== 'undefined' ? SPOOKY_DAILY : [] }; for (const k in sets) sets[k].forEach((d, i) => { const l = hiddenColliders(compileHole(d)); out.push({ set: k, n: i + 1, name: d.name, count: l.length, kinds: l.map(o => o.kind) }); }); return out; }, introRealT(i) { holeIdx = i; startHole(); }, set aimAngle(v) { angle = v; }, get yardFx() { return yardFx ? Object.assign({}, yardFx) : null; }, get yardRects() { return JSON.parse(JSON.stringify(yardRects)); }, get dailyMeta() { return dailyMeta ? Object.assign({}, dailyMeta) : null; }, get holeName() { return hole && hole.name; }, dismissSplash() { dismissSplash(); },
     showA2HS() { a2hs = { show: true, dismissAt: 0 }; }, dismissA2HS() { dismissA2HS(); }, get a2hs() { return !!a2hs.show; },
-    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), DONE_R: Object.assign({}, DONE_R) }; },
+    get layout() { return { W, H, PLAY_H, BASE, HUD_Y0, TITLE_FAIR, TITLE_RIDGE, CZ_FAIR, LOGO_Y, LOGO_DRAW: Object.assign({}, LOGO_DRAW), MENU_Y0, TLB: Object.assign({}, TLB_R), CLUB_BTN: Object.assign({}, CLUB_BTN), CLUB_PAD: Object.assign({}, CLUB_PAD), MM: mmRect(), MM_PAD: mmPad(), PAUSE_BTN: Object.assign({}, PAUSE_BTN), PAUSE_PAD: Object.assign({}, PAUSE_PAD), MC: Object.assign({}, MC), tipOk: Object.assign({}, tipOkR), SAFE: Object.assign({}, SAFE), CZ_Y: CZ_Y.slice(), CZ_ROW_H, CZ_OX, CZ_LOCK: Object.assign({}, CZ_LOCK), CZ_GOLF: Object.assign({}, CZ_GOLF), CZ_NAME: Object.assign({}, CZ_NAME), DONE_R: Object.assign({}, DONE_R) }; },
     startRoundTip() { startRound(); },
     openNameKb() { openKb(); },
     closeNameKb(save) { closeKb(save !== false); },
