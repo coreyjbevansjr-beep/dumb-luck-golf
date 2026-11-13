@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.73';
+const GAME_VERSION = 'v8.99.74';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1396,9 +1396,9 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
-  else if (hs === 5) {                                                       // busy afro: a tall bumpy puff behind the head, clear of the eye
-    r(-3, -38, 4, 2, hc); r(-6, -36, 8, 2, hc); r(-8, -34, 10, 3, hc); r(-9, -32, 9, 4, hc); r(-8, -29, 7, 3, hc); r(-6, -27, 4, 2, hc);
-    r(-5, -35, 1, 1, shadeHex(hc, 0.72)); r(-3, -33, 1, 1, shadeHex(hc, 1.25)); r(-7, -31, 1, 1, shadeHex(hc, 0.7));
+  else if (hs === 5) {                                                       // busy afro wrapped over the crown, clear of the eye at y -27
+    r(-4, -38, 6, 2, hc); r(-7, -36, 10, 3, hc); r(-8, -33, 12, 4, hc); r(-2, -32, 6, 3, hc); r(-8, -30, 6, 4, hc);
+    r(-5, -35, 1, 1, shadeHex(hc, 0.72)); r(-2, -34, 1, 1, shadeHex(hc, 1.25)); r(-6, -31, 1, 1, shadeHex(hc, 0.7));
   }
   else if (hs) {
     r(-1, -29, 2, 2, hc); r(-1, -27, 1, 1, hc);                                  // back of the head
@@ -1418,12 +1418,11 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
     if ((look.hatIdx | 0) === 10) { r(-1, -34, 1, 1, '#f8d878'); r(1, -35, 1, 1, '#f8d878'); r(3, -34, 1, 1, '#f8d878'); }
     if (GA && GA.head === 'camo_hat') { r(0, -32, 2, 1, '#2c2414'); r(3, -31, 1, 1, '#8c8c50'); r(-1, -30, 2, 1, '#8c8c50'); r(2, -30, 1, 1, '#2c2414'); r(0, -31, 3, 1, '#fc7c18'); }
   } else {
-    // no crown: hair (or a bald outline) on top of the head
-    if (hs) {
+    if (hs && hs !== 5) {
       r(-1, -30, 6, 1, hc); r(-2, -30, 1, 1, K); r(5, -30, 1, 1, K);
       if (hs === 4) { r(-1, -31, 2, 1, hc); r(2, -31, 2, 1, hc); r(-1, -32, 2, 1, K); r(2, -32, 2, 1, K); r(1, -31, 1, 1, K); r(4, -31, 1, 1, K); r(-2, -31, 1, 1, K); }
       else r(-1, -31, 6, 1, K);
-    } else r(-1, -30, 6, 1, K);
+    } else if (!hs) r(-1, -30, 6, 1, K);
     if (hst === 1) { r(-1, -29, 6, 1, look.hat); r(-2, -29, 1, 1, K); r(5, -29, 4, 1, look.hatD); r(9, -29, 1, 1, K); r(6, -28, 3, 1, K); r(6, -30, 3, 1, K); }   // visor band + brim
     if (GA && GA.head === 'underpar_visor') r(2, -29, 1, 1, '#00a800');
   }
@@ -1588,7 +1587,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     F(-3, -47, 1, 0.5, '#4c3420'); F(3, -47, 1, 0.5, '#4c3420'); F(-3, -47, 0.5, 0.5, '#fcfcfc'); F(3, -47, 0.5, 0.5, '#fcfcfc');   // iris + catchlight
     F(-4, -47.5, 2.5, 0.5, K); F(2.5, -47.5, 2.5, 0.5, K); F(-4, -45, 2, 0.5, L(sk, 0.9)); F(3, -45, 2, 0.5, L(sk, 0.9));       // lids
   }
-  const brow = hs ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
+  const brow = hs && hs !== 5 ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
   F(-5, -49.5, 2, 0.5, brow); F(4, -49.5, 2, 0.5, brow);
   D(0, -46, 1, 2, skD); D(-2, -43, 5, 1, skD); D(-3, -44, 1, 1, skD); D(3, -44, 1, 1, skD);                                   // nose + smile
   F(0.5, -46.5, 0.5, 1.5, skL); F(-0.5, -44.5, 0.5, 0.5, skD); F(1, -44.5, 0.5, 0.5, skD);                                  // nose light + nostrils
@@ -1599,14 +1598,15 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 5) {                                                                                                         // busy afro: ~1.7x the head, tall, bumpy edge. Eyes sit at y -47, so the face stays clear.
-      R(-2, -74, 5, 2, hc); R(-5, -73, 4, 2, hc); R(2, -73, 5, 2, hc);
-      R(-7, -71, 6, 3, hc); R(0, -72, 6, 2, hc); R(4, -71, 5, 3, hc);
-      R(-10, -68, 6, 4, hc); R(-4, -69, 9, 3, hc); R(4, -68, 7, 4, hc);
-      R(-12, -65, 5, 4, hc); R(-6, -66, 13, 4, hc); R(6, -65, 7, 4, hc);
-      R(-12, -62, 5, 4, hc); R(-5, -63, 12, 4, hc); R(7, -62, 6, 4, hc);
-      R(-11, -58, 5, 4, hc); R(-4, -59, 10, 4, hc); R(6, -58, 6, 4, hc);
-      R(-10, -54, 4, 3, hc); R(7, -54, 4, 3, hc); R(-8, -52, 3, 2, hc); R(6, -52, 3, 2, hc);
+    if (hs === 5) {                                                                                                         // busy afro wrapped on the head. Face sits in the bottom center. Eyes are y -47.
+      R(-1, -73, 4, 2, hc); R(-5, -72, 4, 2, hc); R(3, -72, 4, 2, hc);
+      R(-8, -70, 17, 3, hc); R(-10, -67, 21, 4, hc);
+      R(-12, -64, 6, 5, hc); R(-5, -65, 11, 4, hc); R(6, -64, 7, 5, hc);
+      R(-12, -60, 5, 5, hc); R(8, -60, 5, 5, hc);
+      R(-7, -56, 15, 4, hc);                                                                                               // covers the skull top, down to the forehead
+      R(-6, -52, 13, 3, hc);                                                                                               // hairline on the forehead, above the eyes
+      R(-12, -56, 4, 10, hc); R(9, -56, 4, 10, hc);                                                                        // sides past the ears
+      R(-11, -46, 3, 5, hc); R(9, -46, 3, 5, hc);                                                                          // down to the jaw, outside the face
     } else {
       if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
       if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
@@ -1620,9 +1620,9 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     }
     flush();
     if (hs === 5) {
-      D(-6, -70, 2, 2, hcD); D(3, -69, 2, 2, hcD); D(-2, -66, 2, 2, hcD); D(7, -64, 2, 2, hcD);
-      D(-9, -62, 2, 2, hcD); D(1, -61, 2, 2, hcD); D(-4, -57, 2, 2, hcD); D(5, -56, 2, 2, hcD); D(-7, -54, 2, 1, hcD);
-      D(-3, -72, 2, 1, hcL); D(1, -68, 2, 1, hcL); D(-8, -65, 1, 1, hcL); D(4, -63, 2, 1, hcL); D(-1, -58, 2, 1, hcL); D(8, -60, 1, 1, hcL);
+      D(-7, -68, 2, 2, hcD); D(2, -69, 2, 2, hcD); D(-3, -64, 2, 2, hcD); D(6, -63, 2, 2, hcD);
+      D(-10, -60, 2, 2, hcD); D(0, -58, 2, 2, hcD); D(8, -58, 2, 2, hcD); D(-5, -54, 2, 1, hcD); D(4, -53, 2, 1, hcD);
+      D(-2, -71, 2, 1, hcL); D(4, -67, 2, 1, hcL); D(-8, -65, 1, 1, hcL); D(1, -62, 2, 1, hcL); D(-9, -56, 1, 1, hcL); D(7, -55, 1, 1, hcL);
       flush();
     } else if (hs) {
       if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
