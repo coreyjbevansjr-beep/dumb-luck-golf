@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.79';
+const GAME_VERSION = 'v8.99.80';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5514,7 +5514,7 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     if (shortL && MENU_COLW && rowW > MENU_COLW - 4) {   // v8.99.37: left column too narrow for one row - SHOP sign hanging over PLAY | CAREER (like the phone), centred in the column
       const HW = Math.min(84, Math.floor((MENU_COLW - 8) / 2)), HG = 4; let yy = 7; MENU_ROWS = [];
       const sIt = items.find(it => it.kind === 's'), pc = items.filter(it => it.kind === 'p' || it.kind === 'c');
-      if (sIt) { sIt.w = Math.min(132, MENU_COLW - 4); sIt.h = SH; sIt.bx = Math.round(MENU_CX - sIt.w / 2); sIt.by = yy; MENU_ROWS.push([items.indexOf(sIt)]); yy += SH + G; }
+      if (sIt) { sIt.w = Math.min(132, MENU_COLW - 4); sIt.h = SH; sIt.bx = Math.round(MENU_CX - sIt.w / 2); sIt.by = yy; MENU_ROWS.push([items.indexOf(sIt)]); yy += SH + 17; }
       pc.forEach((it, j) => { it.w = HW; it.h = PH; it.bx = Math.round(MENU_CX - (HW * 2 + HG) / 2) + j * (HW + HG); it.by = yy; });
       MENU_ROWS.push(pc.map(it => items.indexOf(it))); yy += PH;
       MENU_L = { grid: true, items, blockH: yy, itemH: PH, fx: 0, fy: 0, fw: 0, fh: 0 };
@@ -5523,7 +5523,7 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     let mx = Math.round((shortL ? MENU_CX : W / 2) - rowW / 2);
     items.forEach(it => { it.bx = mx; it.by = Math.round((PH - it.h) / 2); mx += it.w + LG; });
     MENU_ROWS = [items.map((_, i) => i)];
-    MENU_L = { grid: false, items, blockH: PH, itemH: PH, fx: mx, fy: Math.round((PH - ft) / 2), fw, fh: ft };
+    MENU_L = { grid: false, items, blockH: PH + 12, itemH: PH, fx: mx, fy: Math.round((PH - ft) / 2), fw, fh: ft };   // room under the SHOP plank for the hat-drop line
   } else {           // stacked: PLAY, SHOP, then the small text row
     const ft = 0, fw = 0, rowH = 0, withF = false;   // v8.99.32: IG + YT moved to the top icon row
     const tW2 = tW + (withF ? (tW ? 10 : 0) + fw : 0);
@@ -5532,7 +5532,7 @@ function menuLayoutCalc() {   // v8.99.32: PLAY = big primary button, SHOP = sec
     items.forEach((it, i) => { if (it.kind === 't') return;
       if ((it.kind === 'p' || it.kind === 'c') && pIt) { it.w = HW; it.h = 28; it.bx = pIt.bx + HW + HG; it.by = pIt.by; pRow.push(i); return; }
       if (it.kind === 'p' || it.kind === 'c') { it.w = HW; it.h = 28; it.bx = Math.round((W - (HW * 2 + HG)) / 2); it.by = yy; pIt = it; pRow = [i]; MENU_ROWS.push(pRow); yy += it.h + G; return; }
-      if (it.kind === 's') yy += 7;   /* room for the sign's hanging bar + chains */ it.bx = Math.round((W - it.w) / 2); it.by = yy; yy += it.h + G; MENU_ROWS.push([i]); });
+      if (it.kind === 's') yy += 7;   /* room for the sign's hanging bar + chains */ it.bx = Math.round((W - it.w) / 2); it.by = yy; yy += it.h + (it.kind === 's' ? 17 : G); MENU_ROWS.push([i]); });
     yy -= G;
     const tr = []; items.forEach((it, i) => { if (it.kind === 't') { it.bx = tx; it.by = yy + Math.round((rowH - TH) / 2) + 1; tx += it.w + 14; tr.push(i); } });
     if (tr.length) MENU_ROWS.push(tr);
@@ -5555,6 +5555,12 @@ function drawHangSign(x, y, w, h, label, hot, hang, showArrow) {   // v8.99.67: 
   const ux = Math.round(x + (w - (arrow ? aw + ag + lw : lw)) / 2), lx = arrow ? ux + aw + ag : ux, ly = gy + 10;
   blockText(label, lx, ly, hot ? '#fffaf0' : '#f4ead0', 2);
   if (arrow) blockText('>', ux + (Math.floor(st * 4) % 2), ly, '#f4ead0', 2);
+}
+function drawHatDropLine(x, y, w) {   // one line under the SHOP plank; the string is cached per second
+  hatDropRefresh();
+  const s = hatDropHome; if (!s || w < 40) return;
+  const tw = textW(s, 1), tx = Math.round(x + (w - tw) / 2);
+  drawText(s, tx + 1, y + 1, '#1a0c04'); drawText(s, tx, y, '#f0c850');
 }
 function drawShopWall(x, y, w, h) {   // v8.99.67: fitting-bay wall — one clubhouse plank plus the pro shop's vertical seams
   if (w < 20 || h < 12) return;
@@ -10789,6 +10795,7 @@ function renderTitle() {
     } else if (it.kind === 's') {   // hanging country-club sign
       const hang = !(MENU_L && MENU_L.grid === false);   // v8.99.37: landscape/desktop row = three flat planks side by side, no floating hanger
       drawHangSign(x, y, it.w, it.h, label, sel || dim, hang, sel);
+      drawHatDropLine(x, y + it.h + 2, it.w);
     } else if (it.kind === 'c') {   // CAREER: slimmer wood plank, cream trim + block text
       woodPlank(x, y, it.w, it.h, sel || dim, '#f0e4c0', 11);
       const lw = blockW(label, 2), lx = Math.round(x + (it.w - lw) / 2), ly = y + 7;
@@ -10858,8 +10865,35 @@ addEventListener('pointerup', hatRelease, true);
 addEventListener('pointercancel', e => { hatRelease(e); if (hatTurn.drag === null) { hatTurn.tx = 0; hatTurn.ty = 0; } }, true);
 function hatReset() { Object.assign(hatTurn, { x: 0, vx: 0, y: 0, vy: 0, tx: 0, ty: 0, view: 0, prev: 0, fade: 1, last: 0, moveAt: 0, drag: null }); }
 /* ---- v8.48 PRO SHOP items: built-in list; admins can hide / archive (public.store_items). Fetch failure -> built-in list ---- */
+const HAT_DROP_AT = Date.parse('2026-11-23T00:00:00Z');   // Sun Nov 22 2026, 7:00 PM Eastern. Absolute UTC, not the device clock zone.
+const HAT_DROP_URL = 'https://buy.stripe.com/bJe8wOeqvcpfdQZdbt7Re02';   // 16 orders, $50 + $5.95 shipping (plink_1UbTBeAGDDjl63To1Nq2AaKK)
+function hatDropNow() {
+  if (typeof AUTH_TEST !== 'undefined' && AUTH_TEST) { const m = String(location.hash || '').match(/(?:^|[#&])drop=(\d+)/); if (m) return Number(m[1]); }
+  return Date.now();
+}
+function hatDropLive(now) { return (now == null ? hatDropNow() : now) >= HAT_DROP_AT; }
+let hatDropSec = -1, hatDropShop = '', hatDropHome = '';
+function hatDropRefresh(now) {
+  now = now == null ? hatDropNow() : now;
+  const sec = Math.floor(now / 1000); if (sec === hatDropSec) return;
+  hatDropSec = sec;
+  const ms = HAT_DROP_AT - now;
+  if (ms <= 0) { hatDropShop = 'HAT DROP LIVE'; hatDropHome = 'HAT DROP LIVE'; return; }
+  let s = Math.ceil(ms / 1000), d = Math.floor(s / 86400); s -= d * 86400;
+  const hh = Math.floor(s / 3600); s -= hh * 3600; const mm = Math.floor(s / 60); s -= mm * 60;
+  const p = n => (n < 10 ? '0' : '') + n, clock = p(hh) + ':' + p(mm) + ':' + p(s);
+  if (d > 0) { hatDropShop = 'DROPS IN ' + d + 'D ' + clock; hatDropHome = 'HAT DROP ' + d + 'D ' + p(hh) + ':' + p(mm); }
+  else { hatDropShop = 'DROPS IN ' + clock; hatDropHome = 'HAT DROP ' + clock; }
+}
+function hatDropTick() {   // existing frame loop only; the strings change at most once a second
+  const prev = hatDropSec, prevLive = hatDropHome === 'HAT DROP LIVE';
+  hatDropRefresh(); if (hatDropSec === prev) return;
+  if (!(ps && ps.open && ps.el)) return;
+  if (hatDropHome === 'HAT DROP LIVE') { if (!prevLive || ps.el.querySelector('[data-drop]')) psRender(); return; }
+  ps.el.querySelectorAll('[data-drop]').forEach(n => { if (n.textContent !== hatDropShop) n.textContent = hatDropShop; });
+}
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
-  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '', badge: '', spec: '', fallback: 'soon' },
+  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '$50', badge: '16 MADE', spec: '', fallback: 'soon' },
   { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$8', badge: '', spec: '40MM CLAY CHIP', stock: 'SOLD OUT', soldOut: true, url: () => NEW_MARKER_LINK }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
@@ -10888,6 +10922,12 @@ let shopPreBox = null, shopChipEl = null, shopChipBox = null, shopChipFlip = fal
 const psUrlOk = u => /^https:\/\/[^\s"'<>\\]{4,500}$/.test(String(u || ''));
 function shopLink(id) {
   if (SHOP_ITEMS.some(it => it.id === id && it.soldOut)) return '';
+  if (id === 'camo_snapback') {   // before the drop there is nothing to buy; after it, an admin buy_url still wins
+    if (!hatDropLive()) return '';
+    const saved = (shopState.links || {})[id] || {};
+    if (psUrlOk(saved.buy_url)) return saved.buy_url;
+    return HAT_DROP_URL;
+  }
   { const it = (typeof SHOP_ITEMS !== 'undefined' ? SHOP_ITEMS : []).find(i => i.id === id), u = it && typeof it.url === 'function' ? it.url() : ''; if (psUrlOk(u)) return u; }   // v8.99.26: a fixed buy link wins
   const l = (shopState.links || {})[id] || {};
   if (psUrlOk(l.buy_url)) return l.buy_url;
@@ -10898,7 +10938,8 @@ function shopLink(id) {
 }
 function shopCta(it) {
   if (it.soldOut) return { kind: 'soldout', label: 'SOLD OUT' };
-  const u = shopLink(it.id); if (u) return { kind: 'buy', label: it.url ? 'BUY NOW' : 'BUY' + (it.price ? ' · ' + it.price : ''), url: u };
+  if (it.id === 'camo_snapback' && !hatDropLive()) { hatDropRefresh(); return { kind: 'drop', label: hatDropShop }; }
+  const u = shopLink(it.id); if (u) return { kind: 'buy', label: (it.url || it.id === 'camo_snapback') ? 'BUY NOW' : 'BUY' + (it.price ? ' · ' + it.price : ''), url: u };
   return it.fallback === 'preorder' ? { kind: 'preorder', label: 'PREORDER' } : { kind: 'soon', label: 'RESTOCKING SOON' };
 }
 const ps = { el: null, open: false, at: 0, detail: null, gal: 0, down: null };
@@ -10964,7 +11005,8 @@ const PS_CSS = `
   background:#D4AF37;border:3px solid #000;box-shadow:inset 0 -3px 0 #9c7a1c,inset 0 2px 0 #f3d77a,0 3px 0 #000;transition:transform .08s}
 .ps-cta:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #9c7a1c,0 1px 0 #000}
 .ps-cta.buy{background:#fcfcfc}
-.ps-soon{margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:44px;width:calc(100% - 20px);max-width:220px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:1px;white-space:nowrap;text-align:center;color:#fc9838;border:2px dashed #fc9838}
+.ps-soon{margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:44px;width:calc(100% - 20px);max-width:260px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:1px;white-space:nowrap;text-align:center;color:#fc9838;border:2px dashed #fc9838}
+.ps-soon.ps-drop{font-size:10px;letter-spacing:.4px;color:#fce4a0;border:2px solid #D4AF37;cursor:default}
 .ps-card.locked{cursor:default;box-shadow:inset 0 0 0 2px #5c6470,0 6px 0 #000}.ps-card.locked:after{display:none}
 .ps-card.locked .ps-stage{background:#2c3440}.ps-card.locked .ps-art{filter:brightness(0) invert(.1);opacity:1;animation:none !important}.ps-card.locked .ps-art *{filter:none !important;box-shadow:none !important}   /* v8.99.31: mystery silhouette - no stitching/logo/camo */
 .ps-card.locked .ps-name{color:#8c96a4}.ps-soon.ps-locked{color:#8c96a4;border:2px solid #5c6470;border-style:solid}
@@ -11008,9 +11050,10 @@ function psCtaHtml(it) {
   const c = shopCta(it);
   if (c.kind === 'buy') return '<button class="ps-cta buy" data-ps="buy" data-id="' + it.id + '">' + psEsc(c.label) + '</button>';
   if (c.kind === 'preorder') return '<button class="ps-cta" data-ps="pre" data-id="' + it.id + '">PREORDER</button>';
+  if (c.kind === 'drop') return '<span class="ps-soon ps-drop" data-ps="drop" data-drop="1">' + psEsc(c.label) + '</span>';
   return '<span class="ps-soon">' + psEsc(c.label) + '</span>';
 }
-function psLocked(it) { return !!it && it.id === 'camo_snapback'; }   // v8.99.31
+function psLocked() { return false; }   // the camo hat is a timed drop now, not a locked silhouette
 function psRender() {
   const el = ps.el; if (!el) return; const body = el.querySelector('.ps-body'), items = shopVisibleItems();
   if (ps.detail && (!items.some(i => i.id === ps.detail) || psLocked(items.find(i => i.id === ps.detail)))) ps.detail = null;
@@ -11048,6 +11091,7 @@ function psAct(t, e) {
   const a = t && t.getAttribute('data-ps');
   if (!a) { if (!e.target.closest || !e.target.closest('.ps-room')) psClose(); return; }
   const id = t.getAttribute('data-id');
+  if (a === 'drop') return;   // countdown is not a button
   if (a === 'close') return psClose();
   if (a === 'flip') { shopChipFlip = !shopChipFlip; t.classList.toggle('flip', shopChipFlip); SFX.click(); return; }
   if (a === 'open') { ps.detail = id; ps.gal = 0; psRender(); SFX.click(); const b = ps.el.querySelector('.ps-back'); if (b && e.detail === 0) b.focus(); return; }
@@ -12628,7 +12672,7 @@ function lbiPageHtml(o) {
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiMineHtml(B) + lbiBoardHtml(B, false);
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
-  else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
+  else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-3RD</b>LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiLookbook">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</button>';
   h += '<a class="link" href="' + esc(c.rules_url || 'https://dumbluckgolf.com/tournament-rules.html') + '" target="_blank" rel="noopener">OFFICIAL RULES</a>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
@@ -13811,6 +13855,7 @@ function frame(now) {
   if (pre === 'swing' && state === 'flight') shotFacing = facing;
   // v8.20: static screens (leaderboard, scorecard, pause/settings) redraw at ~8fps unless there was recent input
   const staticScreen = paused || state === 'board' || state === 'card';
+  try { hatDropTick(); } catch (e) {}
   if (!staticScreen || now - lastInputAt < 600 || now - lastRenderAt > 125) { render(); lastRenderAt = now; }
   requestAnimationFrame(frame);
 }
