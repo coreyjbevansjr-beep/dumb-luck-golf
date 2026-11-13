@@ -5647,6 +5647,7 @@ let CZ_Y = [14, 46, 66, 86, 106, 128], CZ_ROW_H = 24, CZ_OX = 0, CZ_LOCK = { y: 
 let CZ_BACK_R = { x: 2, y: 2, w: 62, h: 16 };   // '< BACK' top-left on customize
 let CZ_HEAD_Y = 6, CZ_COLX = 128, CZ_PANEL = { x: 8, y: 200, w: 240, h: 160 }, CZ_PITCH = 29, CZ_CTRL = { al: 122, sw: 152, ar: 214, aw: 28, sww: 60 };   // v8.14 customize layout
 let CZ_NAME = { x: 48, y: 28, w: 160, h: 44 };   // v8.99.64 name label + field, in logical px
+let CZ_STAGE = { x: 8, y: 80, w: 240, h: 120 };
 let CZ_SIGN = { x: 72, y: 16, w: 140, h: 34 };   // v8.99.67 hanging PRO FITTING sign
 let CS_ARW_L = { x: 0, y: 0, w: 0, h: 0 }, CS_ARW_R = { x: 0, y: 0, w: 0, h: 0 };   // v8.75 course switch arrows
 let CS_BACK_R = { x: 2, y: 2, w: 66, h: 22 }, CS_HEAD = { x: 128, y: 30 }, CS_BOARD = { x: 8, y: 120, w: 240, h: 150 }, CS_CARDS = [], CS_PREV = null, CS_FAIR = 200, CS_HINT_Y = 220;   // v8.16 choose-course layout
@@ -5825,6 +5826,9 @@ function layoutChrome() {
       ctrl(px, pw);
       CZ_FAIR = Math.round(feetY - Math.max(2, gs));
       CZ_NAME = { x: px, y: nameY, w: pw, h: Math.max(Math.ceil(40 / sy), Math.min(nameH, stageTop - 4 - nameY)) };
+      CZ_STAGE = { x: px, y: CZ_NAME.y + CZ_NAME.h + 6, w: pw, h: Math.max(36, panelY - CZ_NAME.y - CZ_NAME.h - 14) };
+      feetY = CZ_STAGE.y + CZ_STAGE.h - 12;
+      gs = hdStandScale(CZ_STAGE.h - 24);
       lockY = panelY + panelH + 2;
     } else {
       const cw = Math.min(W - 16, 480), x0 = Math.round((W - cw) / 2);
@@ -5852,6 +5856,11 @@ function layoutChrome() {
       CZ_FAIR = Math.min(H - 16, Math.round(feetY - Math.max(2, gs)));
       gcx = x0 + Math.round(leftW / 2);
       CZ_NAME = { x: px, y: nameY, w: pw, h: nameH };
+      CZ_STAGE = { x: x0 + 4, y: top + 30, w: leftW - 8, h: Math.max(84, bot - top - 48) };
+      feetY = CZ_STAGE.y + CZ_STAGE.h - 14;
+      gs = hdStandScale(CZ_STAGE.h - 30);
+      gcx = CZ_STAGE.x + Math.round(CZ_STAGE.w / 2);
+      CZ_FAIR = Math.min(bot - 8, CZ_STAGE.y + CZ_STAGE.h + 4);
     }
     CZ_PITCH = P;
     CZ_ROW_H = P - 2;
@@ -6556,9 +6565,10 @@ function placeNameOverlay() {
   s.left = Math.round(left) + 'px'; s.top = Math.round(top) + 'px';
   s.width = Math.round(width) + 'px'; s.height = Math.round(height) + 'px';
   s.right = 'auto'; s.bottom = 'auto'; s.maxWidth = 'none';
+  s.padding = Math.max(3, Math.round(3 * sy)) + 'px ' + Math.max(8, Math.round(5 * sx)) + 'px';
   const lab = el.querySelector('label'), input = document.getElementById('nameInput');
   if (lab) {
-    const lp = Math.max(11, Math.min(22, Math.round(7 * sy)));
+    const lp = Math.max(11, Math.min(16, Math.round(6 * sy)));
     lab.style.fontSize = lp + 'px'; lab.style.lineHeight = lp + 'px'; lab.style.height = lp + 'px';
     lab.style.letterSpacing = Math.max(1, Math.round(sy * 0.6)) + 'px';
   }
@@ -11279,22 +11289,13 @@ function renderCustom() {
   const blink = Math.floor(st * 4) % 2 === 0, CREAM = '#f4ead0', GOLD = '#f8d050';
   const pane = CZ_PANEL, colX = CZ_COLX;
   drawHangSign(CZ_SIGN.x, CZ_SIGN.y, CZ_SIGN.w, CZ_SIGN.h, 'FITTING', false, true, false);
-  let fitBay = null;
-  {
-    const g0 = CZ_GOLF, s0 = Math.max(1, Math.round(g0.s || 3));
-    const inBay = g0.x + 4 * s0 >= pane.x - 4;
-    if (inBay) {
-      const wallY = CZ_NAME.y + CZ_NAME.h + 2, wallH = pane.y - 4 - wallY;
-      drawShopWall(pane.x, wallY, pane.w, wallH);
-      fitBay = { x: pane.x, w: pane.w };
-    } else {
-      const bx = Math.max((SAFE.l || 0) + 4, Math.round(g0.x - 8 * s0));
-      const br = Math.min(pane.x - 6, Math.round(g0.x + 22 * s0));
-      const by = Math.max((SAFE.t || 0) + 2, g0.y - 42 * s0);
-      const bh = g0.y + 12 - by;
-      if (br - bx > 30 && bh > 20) { drawShopWall(bx, by, br - bx, bh); fitBay = { x: bx, w: br - bx }; }
-    }
-  }
+  // A dedicated preview bay uses the detailed golfer's actual 74-unit height.
+  // Its size never depends on the unrelated name field in the other column.
+  const stage = CZ_STAGE;
+  drawShopWall(stage.x, stage.y, stage.w, stage.h);
+  const stageLabel = 'YOUR GOLFER', labelW = textW(stageLabel);
+  rect(Math.round(stage.x + (stage.w - labelW) / 2) - 5, stage.y + 7, labelW + 10, 13, '#3a2210');
+  drawText(stageLabel, Math.round(stage.x + (stage.w - labelW) / 2), stage.y + 10, CREAM);
   // '< BACK' after the wall so the fitting bay never covers it
   {
     const br = CZ_BACK_R, on = mouse.seen && hitBtn(mouse, br);
@@ -11309,18 +11310,15 @@ function renderCustom() {
     outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, col, 2);
   }
 
-  // Fitting: golfer on the pro shop counter, whole figure in front of the wood wall
+  // Keep the complete, crisp golfer centred above a compact display counter.
   {
-    const g = CZ_GOLF, s = Math.max(1, Math.round(g.s || 3)), px = g.x + 3 * s;
-    const cw = fitBay ? Math.min(fitBay.w - 8, Math.max(48, 30 * s)) : Math.min(pane.w - 8, Math.max(48, 28 * s));
-    const cx0 = fitBay ? fitBay.x + Math.round((fitBay.w - cw) / 2) : Math.round(px - cw / 2);
-    drawShopCounter(cx0, g.y - 2, cw, 10);
-    ctx.globalAlpha = 0.35; czEllipse(px, g.y + 1, Math.max(8, 7 * s), Math.max(2, Math.round(s * 0.7)), '#000'); ctx.globalAlpha = 1;
-    const standX = Math.round(g.x + 3 * s);
-    drawStandGolfer(standX, g.y, lookOf(cz), gearEquipped(), g.y - (CZ_NAME.y + CZ_NAME.h + 4));
-    const bs = Math.max(1, Math.floor(s / 2));
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(SPR.golfball, g.x + 9 * s, g.y - 5 * bs + Math.floor(bs / 2), 5 * bs, 5 * bs);
+    const feetY = stage.y + stage.h - 12;
+    const avail = Math.max(24, feetY - stage.y - 26);
+    const scale = hdStandScale(avail), center = Math.round(stage.x + stage.w / 2);
+    const counterW = Math.min(stage.w - 12, Math.max(56, 44 * scale));
+    drawShopCounter(Math.round(center - counterW / 2), feetY - 1, counterW, 9);
+    ctx.globalAlpha = 0.3; czEllipse(center, feetY + 1, 14 * scale, Math.max(2, scale), '#000'); ctx.globalAlpha = 1;
+    drawStandGolfer(center, feetY, lookOf(cz), gearEquipped(), avail);
   }
 
   // Fitting board — the same clubhouse plank as the menu, not the navy card
@@ -11336,7 +11334,8 @@ function renderCustom() {
   [['HAT', 1], ['SKIN', 2], ['SHIRT', 3], ['PANTS', 4], ['TRAIL', 5]].forEach(([lab, r]) => {
     const f = cz.row === r, rr = ROW_R(r), y = CZ_Y[r];
     if (f) { rect(rr.x + 3, rr.y + 1, rr.w - 6, rr.h - 2, '#5c3820'); czRing(rr.x + 2, rr.y, rr.w - 4, rr.h, '#f0c850'); }
-    outlined(lab, pane.x + 12, y, f ? '#fff4c0' : CREAM, 2);
+    const labelScale = (cv.getBoundingClientRect().height || H) / H < 2 ? 2 : 1;
+    outlined(lab, pane.x + 12, y + (labelScale === 1 ? 4 : 0), f ? '#fff4c0' : CREAM, labelScale);
     keycap(ARROW_L(r), '<', f, -1); keycap(ARROW_R(r), '>', f, 1);
     const sr = SWATCH_R(r), sh = Math.min(20, sr.h - 2), sx0 = sr.x, sy0 = Math.round(sr.y + (sr.h - sh) / 2), sw = sr.w;
     rect(sx0, sy0, sw, sh, '#000'); rect(sx0 + 1, sy0 + 1, sw - 2, sh - 2, f ? '#fff0a0' : '#f0e4c0'); rect(sx0 + 2, sy0 + 2, sw - 4, sh - 4, '#2a1608');
