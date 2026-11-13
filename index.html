@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.78';
+const GAME_VERSION = 'v8.99.79';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -488,13 +488,15 @@ function resize() {
   let dev = sc * dpr; const fl = Math.floor(dev); if (fl >= 1 && fl / dev >= 0.92) { dev = fl; sc = dev / dpr; lw = Math.max(GW, Math.round(aw / sc)); lh = Math.max(GH, Math.round(ah / sc)); }
   const inset = safeCssInsets();
   SAFE = { t: Math.round(inset.t / sc), r: Math.round(inset.r / sc), b: Math.round((off ? Math.max(inset.b, off + Math.min(inset.b, 21)) : inset.b) / sc), l: Math.round(inset.l / sc) };
-  if (lw === W && lh === H && cv.width === lw && cv.height === lh) {
-    // CSS keeps canvas inset:0 / 100% — do not shrink style height below the body
-    layoutChrome();
-    return;
+  const sizeSame = lw === W && lh === H && cv.width === lw && cv.height === lh;
+  if (!sizeSame) {
+    W = lw; H = lh;
+    cv.width = W; cv.height = H;
+    ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
   }
-  W = lw; H = lh;
-  // HUD docks at the bottom (design HUD = 54px). Extra tall height → sky above + dirt under the fairway.
+  // Always recompute. A later safe-area inset (iPhone home indicator) must shrink the play
+  // area too; skipping this left the loft pills with a negative height, and fillRect then
+  // painted their white borders upward over the minimap and the HUD.
   const HUD_H = H > W * 1.15 && H >= 380 ? 54 + LOFT_BAND() + SAFE.b : 54;   // v8.26: portrait adds the loft band below meter + club
   PLAY_H = Math.max(PLAY0, H - HUD_H);
   const dirtBand = PLAY0 - BASE0;            // 14px dirt under tee line (original framing)
@@ -506,8 +508,6 @@ function resize() {
     const want = Math.round(H * 0.64);
     BASE = clamp(want, Math.round(H * 0.58), PLAY_H - Math.max(dirtBand, 28));
   }
-  cv.width = W; cv.height = H;
-  ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
   layoutChrome();
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
@@ -5916,17 +5916,21 @@ function layoutChrome() {
     // v8.26 loft pill [UP | angle | DOWN], styled like the club button
     {
       const tapW = Math.max(26, Math.ceil(44 / cssSy)), port = H - HUD_Y0 > 60;
-      if (port) {   // portrait: own band under the club button, same width as it
-        LOFT_PILL.x = CLUB_BTN.x; LOFT_PILL.w = CLUB_BTN.w; LOFT_PILL.y = HUD_Y0 + 55; LOFT_PILL.h = Math.min(tapW, H - (SAFE.b || 0) - LOFT_PILL.y - 1);
+      const roomBelow = y => Math.max(0, H - (SAFE.b || 0) - y - 2);
+      if (port) {   // portrait: own band under the club button, same width as it. Never taller than the gap, and never a negative height.
+        const y = HUD_Y0 + 54, h = Math.min(32, tapW, roomBelow(y));
+        if (h >= 18 && y >= PLAY_H) {
+          LOFT_PILL.x = CLUB_BTN.x; LOFT_PILL.w = CLUB_BTN.w; LOFT_PILL.y = y; LOFT_PILL.h = h;
+          Object.assign(SHOT_PILL, { x: 2, y, w: Math.min(138, CLUB_BTN.x - 6), h });
+        } else { LOFT_PILL.w = 0; LOFT_PILL.h = 0; SHOT_PILL.w = 0; SHOT_PILL.h = 0; }
       } else {      // wide: right of the club button + TEE column, spanning HUD rows 2-3
         LOFT_PILL.x = CLUB_BTN.x + CLUB_BTN.w + 4; LOFT_PILL.y = HUD_Y0 + 15; LOFT_PILL.h = 37;
         LOFT_PILL.w = Math.min(tapW * 2 + 30, W - sr - 2 - LOFT_PILL.x);
       }
-      const aw = Math.min(tapW, Math.floor((LOFT_PILL.w - 20) / 2));
-      Object.assign(LOFT_UP, { x: LOFT_PILL.x, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
-      Object.assign(LOFT_DN, { x: LOFT_PILL.x + LOFT_PILL.w - aw, y: LOFT_PILL.y, w: aw, h: LOFT_PILL.h });
-      if (port) Object.assign(SHOT_PILL, { x: 2, y: LOFT_PILL.y, w: 138, h: LOFT_PILL.h });   // v8.78: under the meter, same band as the loft pill
-      else { const sx = LOFT_PILL.x + LOFT_PILL.w + 4, sw = Math.min(84, W - sr - 2 - sx); Object.assign(SHOT_PILL, sw >= 60 ? { x: sx, y: LOFT_PILL.y, w: sw, h: LOFT_PILL.h } : { x: 0, y: -99, w: 0, h: 0 }); }
+      const aw = Math.max(0, Math.min(tapW, Math.floor((LOFT_PILL.w - 20) / 2)));
+      Object.assign(LOFT_UP, { x: LOFT_PILL.x, y: LOFT_PILL.y, w: aw, h: Math.max(0, LOFT_PILL.h) });
+      Object.assign(LOFT_DN, { x: LOFT_PILL.x + Math.max(0, LOFT_PILL.w - aw), y: LOFT_PILL.y, w: aw, h: Math.max(0, LOFT_PILL.h) });
+      if (!port) { const sx = LOFT_PILL.x + LOFT_PILL.w + 4, sw = Math.min(84, W - sr - 2 - sx); Object.assign(SHOT_PILL, sw >= 60 ? { x: sx, y: LOFT_PILL.y, w: sw, h: LOFT_PILL.h } : { x: 0, y: -99, w: 0, h: 0 }); }
     }
     CLUB_PAD.x = meterR + 1; CLUB_PAD.y = CLUB_BTN.y - clubGap;
     CLUB_PAD.w = Math.min(W, CLUB_BTN.x + CLUB_BTN.w + clubGap) - CLUB_PAD.x;
@@ -6167,7 +6171,7 @@ const shotPillShown = () => ['aim', 'power', 'accuracy'].includes(state) && !pau
 const inShotCtl = p => state === 'aim' && shotPillShown() && hit(p, SHOT_PILL);
 const inLoftCtl = p => loftShown() && hit(p, LOFT_PILL);
 function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bottom HUD, club-button style (hidden for the putter)
-  if (!loftShown()) return;
+  if (!loftShown() || LOFT_PILL.h < 16 || LOFT_PILL.y < PLAY_H) return;
   const P = LOFT_PILL, YEL = '#f8d878';
   ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
   const edge = (x, y, w, h, c) => { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); };
@@ -6189,7 +6193,7 @@ function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bot
   if (P.h >= 30) drawText('LOFT', Math.round(mid + (mw - textW('LOFT')) / 2), P.y + 3, COL.gray);
 }
 function drawShotPill() {   // v8.78: [ SHOT  PUNCH  . . o . ] tap to cycle; dimmed (not tappable) while swinging
-  if (!shotPillShown()) return;
+  if (!shotPillShown() || SHOT_PILL.h < 16 || SHOT_PILL.y < PLAY_H) return;
   const P = SHOT_PILL, ks = shotKindsNow(), k = shotKindValid(), on = k !== 'n', YEL = '#f8d878', live = state === 'aim';
   ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
   const c = live ? (on ? YEL : COL.white) : COL.gray;
@@ -13205,11 +13209,7 @@ function renderScene() {
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   try { drawGhostGolfer(); } catch (e) {}
-  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try {
-    const posed = golferPose();
-    if (state === 'aim' && !(posed.coil > 0) && !(posed.finish > 0) && posed.smear == null) drawStandGolfer(gsx + facingForGolfer() * 4, ggy, lookOf(player), gearEquipped(), 70);
-    else drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), posed);
-  } finally { V93.main = false; } }
+  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try { drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose()); } finally { V93.main = false; } }
   drawTurfKick();
   if (state === 'flight' || state === 'holed') drawTrail();
   aimPts = [];
