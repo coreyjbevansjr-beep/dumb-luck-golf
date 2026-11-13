@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.76';
+const GAME_VERSION = 'v8.99.77';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1398,11 +1398,23 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (pk) {}
   else if (hs === 5) {                                                       // round afro on the side-view head. Eye stays at (3, -27).
     const cells = [];
-    const ax = 0.5, ay = -31, rx = hst === 2 ? 5.2 : 7.4, ry = 4.8, fx = 2.2, fy = -26.2, frx = 3.2, fry = 3.0;
-    for (let y = -40; y <= -24; y++) for (let x = -12; x <= 12; x++) {
-      const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
-      const bump = (0.6 * Math.sin(ang * 5) + 0.3 * Math.sin(ang * 9 + 0.5)) / ((rx + ry) * 0.5);
-      if (Math.hypot(px / rx, py / ry) > 1 + bump) continue;
+    const ax = 0.5, ay = -31, rx = 5.2, ry = 4.8, fx = 2.2, fy = -26.2, frx = 3.2, fry = 3.0;
+    const hatBlobs = hst === 2 ? null : [[0, -37, 2.2, 3.0], [-2, -35, 2.2, 2.8], [-5, -32, 2.0, 4.4], [-1, -33, 2.4, 2.6], [-6, -29, 1.8, 3.2]];
+    for (let y = -42; y <= -24; y++) for (let x = -12; x <= 10; x++) {
+      let hit = false;
+      if (hatBlobs) {
+        for (let i = 0; i < hatBlobs.length; i++) {
+          const cx = hatBlobs[i][0], cy = hatBlobs[i][1], brx = hatBlobs[i][2], bry = hatBlobs[i][3];
+          const px = x + 0.5 - cx, py = y + 0.5 - cy, ang = Math.atan2(py / bry, px / brx);
+          const bump = (0.55 * Math.sin(ang * 5 + cx) + 0.3 * Math.sin(ang * 8)) / ((brx + bry) * 0.5);
+          if (Math.hypot(px / brx, py / bry) <= 1 + bump) hit = true;
+        }
+      } else {
+        const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+        const bump = (0.6 * Math.sin(ang * 5) + 0.3 * Math.sin(ang * 9 + 0.5)) / ((rx + ry) * 0.5);
+        hit = Math.hypot(px / rx, py / ry) <= 1 + bump;
+      }
+      if (!hit) continue;
       const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
       if (fdx * fdx + fdy * fdy <= 1) continue;
       cells.push([x, y]);
@@ -1635,17 +1647,33 @@ function drawGolferHD(cx, feetY, s, look, opt) {
       // A near-circle, a little wider than tall, centered just above the face. Diameter is about 1.7x the head.
       // The face ellipse cuts the lower middle, so the puff's bottom edge curves in at the cheeks. No per-rect outline.
       const ax = 0, ay = -51, ry = 10.2, fx = 0, fy = -44.6, frx = 5.5, fry = 5.5;
-      const rx = capOn || visorOn ? 14.5 : 10.5;                                                                           // same ball; wider only so a normal cap still has 6px of hair on each side
-      const X0 = -20, Y0 = -66, GW = 42, GH = 30, on = new Uint8Array(GW * GH);
+      const X0 = -18, Y0 = -74, GW = 38, GH = 36, on = new Uint8Array(GW * GH);
       const at = (x, y) => (y - Y0) * GW + (x - X0);
       const box = (x, y) => x >= X0 && x < X0 + GW && y >= Y0 && y < Y0 + GH;
-      for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
-        const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
-        const bump = (0.75 * Math.sin(ang * 7) + 0.4 * Math.sin(ang * 13 + 0.4)) / ((rx + ry) * 0.5);
-        if (Math.hypot(px / rx, py / ry) > 1 + bump || y > -45) continue;
-        const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
-        if (fdx * fdx + fdy * fdy <= 1) continue;
-        on[at(x, y)] = 1;
+      const faceCut = (x, y) => { const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry; return fdx * fdx + fdy * fdy <= 1; };
+      if (capOn || visorOn) {
+        // Lumpy cloud: tall clumps above the hat and round side puffs down to the cheeks. Not a wide oval.
+        const blobs = [[0, -65, 4.2, 5.0], [-6, -63, 3.5, 4.4], [6, -62, 3.6, 4.2], [-3, -60, 3.8, 3.4], [4, -59, 3.6, 3.2], [-11, -53, 3.8, 7.8], [11, -53, 3.8, 7.6], [-8, -57, 3.2, 5.2], [8, -56, 3.2, 5.0], [-12, -47, 2.6, 3.4], [12, -47, 2.6, 3.2]];
+        for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+          let hit = false;
+          for (let i = 0; i < blobs.length; i++) {
+            const cx = blobs[i][0], cy = blobs[i][1], rx = blobs[i][2], ryB = blobs[i][3];
+            const px = x + 0.5 - cx, py = y + 0.5 - cy, ang = Math.atan2(py / ryB, px / rx);
+            const bump = (0.65 * Math.sin(ang * 5 + cx) + 0.35 * Math.sin(ang * 9 + cy * 0.3)) / ((rx + ryB) * 0.5);
+            if (Math.hypot(px / rx, py / ryB) <= 1 + bump) hit = true;
+          }
+          if (!hit || (faceCut(x, y) && y > -49)) continue;
+          on[at(x, y)] = 1;
+        }
+      } else {
+        const rx = 10.5;
+        for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+          const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+          const bump = (0.75 * Math.sin(ang * 7) + 0.4 * Math.sin(ang * 13 + 0.4)) / ((rx + ry) * 0.5);
+          if (Math.hypot(px / rx, py / ry) > 1 + bump || y > -45) continue;
+          if (faceCut(x, y)) continue;
+          on[at(x, y)] = 1;
+        }
       }
       const onSkin = (x, y) => (x >= -6 && x <= 6 && y >= -52 && y <= -40) || ((x === -7 || x === 7) && y >= -48 && y <= -46) || (x >= -2 && x <= 2 && y >= -40 && y <= -39);
       for (let y = Y0; y < Y0 + GH; y++) {
@@ -1657,8 +1685,8 @@ function drawGolferHD(cx, feetY, s, look, opt) {
           x = x2;
         }
       }
-      for (const [x, y] of [[-6, -59], [-3, -60], [-8, -56], [-2, -57], [-5, -54]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, hcL);
-      for (const [x, y] of [[6, -46], [8, -48], [5, -47], [7, -50], [4, -49]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, L(hc, 0.82));
+      for (const [x, y] of [[-6, -59], [-3, -60], [-8, -56], [-2, -57], [-5, -54], [-4, -68], [-7, -65], [1, -69], [-2, -66], [-10, -60]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, hcL);
+      for (const [x, y] of [[6, -46], [8, -48], [5, -47], [7, -50], [4, -49], [10, -50], [12, -48], [9, -46]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, L(hc, 0.82));
       for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
         if (on[at(x, y)] || onSkin(x, y)) continue;
         let edge = false;
@@ -1683,7 +1711,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   if (headGear) { art('head'); flush(); }
   else if (capOn) {
     const ht = look.hat, htD = look.hatD, htL = L(ht, 1.2);
-    const o = hs === 5 ? -1 : 0;                                                                                             // afro: same cap, sitting on the upper center, brim still over the forehead
+    const o = 0;                                                                                                              // afro: the normal cap, pushed down into the front of the puff
     R(-5, -57 + o, 11, 1, ht); R(-6, -56 + o, 13, 5, ht); R(-7, -51 + o, 15, 2, htD);
     flush();
     D(-6, -56 + o, 1, 5, htD); D(0, -56 + o, 1, 4, htD); D(0, -58 + o, 1, 1, htD); D(-7, -50 + o, 15, 1, L(htD, 0.8));
@@ -1697,7 +1725,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
       F(-4, -58 + o, 9, 0.5, '#fcf0b8'); F(0, -61 + o, 0.5, 2, '#fcf0b8'); F(-2, -58.5 + o, 1, 0.5, '#e8382c'); F(2, -58.5 + o, 1, 0.5, '#3cbcfc'); }
   } else if (visorOn) {
     const ht = look.hat, htD = look.hatD;
-    const o = hs === 5 ? -1 : 0;
+    const o = 0;
     R(-6, -52 + o, 13, 2, ht); R(-7, -50 + o, 15, 1, htD);
     flush(); D(-6, -52 + o, 1, 2, htD);
     F(-5, -52 + o, 11, 0.5, L(ht, 1.2)); F(-6, -50.5 + o, 13, 0.5, L(ht, 0.8)); for (let k = -6; k <= 7; k += 1) F(k, -50 + o, 0.5, 0.5, L(htD, 1.25));
