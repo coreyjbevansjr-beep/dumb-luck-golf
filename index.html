@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.72';
+const GAME_VERSION = 'v8.99.73';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1396,8 +1396,9 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
-  else if (hs === 5) {                                                       // afro: a round puff behind and above the head, not over the eye
-    r(-4, -35, 6, 2, hc); r(-6, -33, 9, 3, hc); r(-7, -31, 6, 5, hc); r(-5, -28, 3, 2, hc);
+  else if (hs === 5) {                                                       // busy afro: a tall bumpy puff behind the head, clear of the eye
+    r(-3, -38, 4, 2, hc); r(-6, -36, 8, 2, hc); r(-8, -34, 10, 3, hc); r(-9, -32, 9, 4, hc); r(-8, -29, 7, 3, hc); r(-6, -27, 4, 2, hc);
+    r(-5, -35, 1, 1, shadeHex(hc, 0.72)); r(-3, -33, 1, 1, shadeHex(hc, 1.25)); r(-7, -31, 1, 1, shadeHex(hc, 0.7));
   }
   else if (hs) {
     r(-1, -29, 2, 2, hc); r(-1, -27, 1, 1, hc);                                  // back of the head
@@ -1598,13 +1599,14 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 5) {                                                                                                         // afro: round puff. Sides stay beside the face, never over the eyes (y -47).
-      if (!capOn) {
-        R(-3, -62, 7, 1, hc); R(-5, -61, 11, 1, hc); R(-7, -60, 15, 2, hc); R(-8, -58, 17, 3, hc); R(-9, -55, 19, 4, hc); R(-8, -51, 17, 2, hc);
-      }
-      R(-11, -56, 2, 2, hc); R(10, -56, 2, 2, hc);
-      R(-10, -54, 3, 4, hc); R(8, -54, 3, 4, hc);
-      if (capOn || visorOn) { R(-9, -50, 2, 2, hc); R(8, -50, 2, 2, hc); }
+    if (hs === 5) {                                                                                                         // busy afro: ~1.7x the head, tall, bumpy edge. Eyes sit at y -47, so the face stays clear.
+      R(-2, -74, 5, 2, hc); R(-5, -73, 4, 2, hc); R(2, -73, 5, 2, hc);
+      R(-7, -71, 6, 3, hc); R(0, -72, 6, 2, hc); R(4, -71, 5, 3, hc);
+      R(-10, -68, 6, 4, hc); R(-4, -69, 9, 3, hc); R(4, -68, 7, 4, hc);
+      R(-12, -65, 5, 4, hc); R(-6, -66, 13, 4, hc); R(6, -65, 7, 4, hc);
+      R(-12, -62, 5, 4, hc); R(-5, -63, 12, 4, hc); R(7, -62, 6, 4, hc);
+      R(-11, -58, 5, 4, hc); R(-4, -59, 10, 4, hc); R(6, -58, 6, 4, hc);
+      R(-10, -54, 4, 3, hc); R(7, -54, 4, 3, hc); R(-8, -52, 3, 2, hc); R(6, -52, 3, 2, hc);
     } else {
       if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
       if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
@@ -1618,8 +1620,10 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     }
     flush();
     if (hs === 5) {
-      if (!capOn) { D(-4, -59, 2, 1, hcD); D(2, -58, 2, 1, hcD); F(-6, -59, 3, 0.5, hcL); F(1, -58.5, 3, 0.5, hcL); }
-      D(-10, -54, 1, 3, hcD); D(9, -54, 1, 3, hcD); F(-9, -55, 0.5, 2, hcL); F(9.5, -55, 0.5, 2, hcL);
+      D(-6, -70, 2, 2, hcD); D(3, -69, 2, 2, hcD); D(-2, -66, 2, 2, hcD); D(7, -64, 2, 2, hcD);
+      D(-9, -62, 2, 2, hcD); D(1, -61, 2, 2, hcD); D(-4, -57, 2, 2, hcD); D(5, -56, 2, 2, hcD); D(-7, -54, 2, 1, hcD);
+      D(-3, -72, 2, 1, hcL); D(1, -68, 2, 1, hcL); D(-8, -65, 1, 1, hcL); D(4, -63, 2, 1, hcL); D(-1, -58, 2, 1, hcL); D(8, -60, 1, 1, hcL);
+      flush();
     } else if (hs) {
       if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
       if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); F(-10, -46, 0.5, 4, hcL); F(-9.5, -48, 0.5, 0.5, '#c88800'); }
@@ -1689,8 +1693,11 @@ function golferHDImg(app, gear, kind, scale) {
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
   if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
 }
-function hdStandScale(avail) {   // even scale when the full figure fits, otherwise 1. Both stay crisp (no smoothing).
-  return avail >= 64 * 2 + 4 ? 2 : 1;
+function hdStandScale(avail) {   // largest integer scale that keeps a tall afro inside the slot. Crisp, no smoothing.
+  const units = 74;
+  let s = 1;
+  for (let n = 4; n >= 1; n--) if (units * n + 4 <= avail) { s = n; break; }
+  return s;
 }
 function drawStandGolfer(cx, feetY, look, gear, avail) {   // the detailed standing golfer (same drawGolferHD as profiles). Integer scale, smoothing off.
   const s = hdStandScale(avail == null ? 70 : avail);
