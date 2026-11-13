@@ -186,6 +186,15 @@
   #acct .box-reveal .tier{font-size:14px;letter-spacing:2px;margin:8px 0}
   #acct .box-reveal .iname{font-size:18px;color:#f8d878;letter-spacing:2px}
   #acct .wallet-line{font-size:11px;letter-spacing:1px;color:#bcc8e0;text-align:center;margin:0 0 8px}
+  #acct .coin-counter{margin:0 0 12px;padding:8px 8px 10px;background:linear-gradient(#c48a48,#7a4620);border:3px solid #000;box-shadow:inset 0 0 0 2px #5c3214,inset 0 3px 0 #e0a060}
+  #acct .cc-sign{display:table;margin:0 auto 6px;background:#3c2410;color:#fce4a0;border:2px solid #000;font-size:11px;font-weight:800;letter-spacing:2px;padding:4px 8px}
+  #acct .cc-bal{margin:0 0 8px;text-align:center;font-size:12px;font-weight:800;letter-spacing:1px;color:#fce4a0;text-shadow:1px 1px 0 #000}
+  #acct .cc-soon{margin:6px 0 2px;text-align:center;font-size:12px;font-weight:800;letter-spacing:1px;color:#fce4a0}
+  #acct .cc-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  #acct .cc-item{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:88px;padding:6px 2px;background:#3c2410;border:2px solid #000;color:#fce4a0;font:inherit;font-size:9px;font-weight:800;letter-spacing:.5px;cursor:pointer;touch-action:manipulation}
+  #acct .cc-item img{width:36px;height:36px;object-fit:contain;image-rendering:pixelated}
+  #acct .cc-item b{color:#f8d878;font-size:11px}
+  #acct .cc-item.on{outline:2px solid #fce4a0;outline-offset:1px}
 
   #acct .btn.small.fact{flex:none;width:96px;padding:0;letter-spacing:1px;font-size:12px}
   #acct .item.fr span.fx{flex:none;width:44px}
@@ -374,7 +383,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.68';
+const GAME_VERSION = 'v8.99.69';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1690,7 +1699,38 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'golden_club', name: 'GOLDEN CLUB', slot: 'held', tier: 'legendary', req: 'MYSTERY BOX', rule: { box: true }, sort: 134 },
   { id: 'trail_ember', name: 'EMBER TRAIL', slot: 'trail', tier: 'common', req: '10 CAREER BIRDIES', rule: { stat: 'birdies', min: 10 }, sort: 100 },   // v8.80 ball trails
   { id: 'trail_comet', name: 'COMET TRAIL', slot: 'trail', tier: 'rare', req: '5 GREAT SAVES', rule: { stat: 'saves', min: 5 }, sort: 110 },
-  { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 }
+  { id: 'trail_aurora', name: 'AURORA TRAIL', slot: 'trail', tier: 'legendary', req: 'BIRDIE 5 BOUNTY HOLES', rule: { stat: 'bounty', min: 5 }, sort: 120 },
+  // v8.99.69 XP ranks. rule.local xp keeps them out of the server box table. Locked locker tiles show req.
+  { id: 'navy_cap', name: 'NAVY CAP', slot: 'head', tier: 'common', req: 'CLUB PRO RANK', rule: { local: 'xp', min: 500 }, sort: 140 },
+  { id: 'white_belt', name: 'WHITE BELT', slot: 'waist', tier: 'common', req: 'CLUB PRO RANK', rule: { local: 'xp', min: 500 }, sort: 141 },
+  { id: 'white_tee', name: 'WHITE TEE', slot: 'held', tier: 'common', req: 'CLUB PRO RANK', rule: { local: 'xp', min: 500 }, sort: 142 },
+  { id: 'tour_polo', name: 'TOUR POLO', slot: 'torso', tier: 'rare', req: 'TOUR PRO RANK', rule: { local: 'xp', min: 1500 }, sort: 150 },
+  { id: 'silver_chain', name: 'SILVER CHAIN', slot: 'neck', tier: 'rare', req: 'TOUR PRO RANK', rule: { local: 'xp', min: 1500 }, sort: 151 },
+  { id: 'stripe_ball', name: 'STRIPE BALL', slot: 'ball', tier: 'rare', req: 'TOUR PRO RANK', rule: { local: 'xp', min: 1500 }, sort: 152 },
+  { id: 'gold_visor', name: 'GOLD VISOR', slot: 'head', tier: 'rare', req: 'LEGEND RANK', rule: { local: 'xp', min: 4000 }, sort: 160 },
+  { id: 'tour_shades', name: 'TOUR SHADES', slot: 'face', tier: 'rare', req: 'LEGEND RANK', rule: { local: 'xp', min: 4000 }, sort: 161 },
+  { id: 'gold_belt', name: 'GOLD BELT', slot: 'waist', tier: 'rare', req: 'LEGEND RANK', rule: { local: 'xp', min: 4000 }, sort: 162 },
+  { id: 'champ_vest', name: 'CHAMP VEST', slot: 'torso', tier: 'legendary', req: 'CHAMPION RANK', rule: { local: 'xp', min: 7500 }, sort: 170 },
+  { id: 'star_ball', name: 'STAR BALL', slot: 'ball', tier: 'legendary', req: 'CHAMPION RANK', rule: { local: 'xp', min: 7500 }, sort: 171 },
+  { id: 'trail_night', name: 'NIGHT TRAIL', slot: 'trail', tier: 'legendary', req: 'CHAMPION RANK', rule: { local: 'xp', min: 7500 }, sort: 172 },
+  { id: 'master_glove', name: 'MASTER GLOVE', slot: 'hands', tier: 'legendary', req: 'MASTER RANK', rule: { local: 'xp', min: 12000 }, sort: 180 },
+  { id: 'wing_shoes', name: 'WING SHOES', slot: 'feet', tier: 'legendary', req: 'MASTER RANK', rule: { local: 'xp', min: 12000 }, sort: 181 },
+  { id: 'chest_star', name: 'CHEST STAR', slot: 'logo', tier: 'legendary', req: 'MASTER RANK', rule: { local: 'xp', min: 12000 }, sort: 182 },
+  { id: 'icon_jacket', name: 'ICON JACKET', slot: 'torso', tier: 'legendary', req: 'ICON RANK', rule: { local: 'xp', min: 18000 }, sort: 190 },
+  { id: 'icon_shades', name: 'ICON SHADES', slot: 'face', tier: 'legendary', req: 'ICON RANK', rule: { local: 'xp', min: 18000 }, sort: 191 },
+  { id: 'trail_icon', name: 'ICON TRAIL', slot: 'trail', tier: 'legendary', req: 'ICON RANK', rule: { local: 'xp', min: 18000 }, sort: 192 },
+  { id: 'hall_crown', name: 'HALL CROWN', slot: 'head', tier: 'legendary', req: 'HALL OF FAME RANK', rule: { local: 'xp', min: 26000 }, sort: 200 },
+  { id: 'hall_club', name: 'HALL CLUB', slot: 'held', tier: 'legendary', req: 'HALL OF FAME RANK', rule: { local: 'xp', min: 26000 }, sort: 201 },
+  { id: 'hall_ball', name: 'HALL BALL', slot: 'ball', tier: 'legendary', req: 'HALL OF FAME RANK', rule: { local: 'xp', min: 26000 }, sort: 202 },
+  // Coin counter. Not a box drop. Guests and #test buy from the local wallet; signed-in players use buy_gear.
+  { id: 'practice_tee', name: 'PRACTICE TEE', slot: 'held', tier: 'common', req: '100 COINS', rule: { coin: 100 }, sort: 210 },
+  { id: 'range_ball', name: 'RANGE BALL', slot: 'ball', tier: 'common', req: '150 COINS', rule: { coin: 150 }, sort: 211 },
+  { id: 'cream_belt', name: 'CREAM BELT', slot: 'waist', tier: 'common', req: '200 COINS', rule: { coin: 200 }, sort: 212 }
+];
+const COIN_SHOP = [
+  { id: 'practice_tee', name: 'PRACTICE TEE', slot: 'held', price: 100 },
+  { id: 'range_ball', name: 'RANGE BALL', slot: 'ball', price: 150 },
+  { id: 'cream_belt', name: 'CREAM BELT', slot: 'waist', price: 200 }
 ];
 /* v8.99.23 GIFT GEAR: owned by everyone (guests too); worn state lives on this device, never sent to the server */
 
@@ -1730,6 +1770,44 @@ function walletGrantItem(id, n) { if (!walletLocal()) return; n = n || 1; WALLET
 function walletSpendCoins(n) { if ((WALLET.coins || 0) < n) return false; WALLET.coins -= n; walletSave(WALLET); return true; }
 function walletAddCoins(n) { if (!walletLocal()) return; WALLET.coins = (WALLET.coins || 0) + n; walletSave(WALLET); }
 function walletAddBox(n) { if (!walletLocal()) return; WALLET.boxes = (WALLET.boxes || 0) + (n || 1); walletSave(WALLET); }
+let coinShopSoon = false, coinShopAsked = false;
+async function coinShopCheck() {   // one probe; a missing buy_gear RPC becomes the coming-soon counter
+  if (walletLocal() || !authOnline() || coinShopAsked) return;
+  coinShopAsked = true;
+  const r = await sb('/rest/v1/rpc/buy_gear', { method: 'POST', body: { p_item: '' } }, 'coinshop');
+  if (r.missing) coinShopSoon = true;
+  if (acctView === 'locker' && acctBox) acctBox.innerHTML = VIEWS.locker(acctOpts);
+}
+async function buyGear(id) {
+  const g = gearItem(id), price = g && g.rule ? (+g.rule.coin || 0) : 0;
+  if (!g || !price) return { ok: false, msg: 'NOT IN THE COIN SHOP' };
+  if (walletLocal()) walletRefresh();
+  if (walletOwnCount(id) > 0) { if (gearEquipped()[g.slot] !== id) localWear(g.slot, id); return { ok: true, bought: false }; }
+  if (walletLocal()) {
+    if (!walletSpendCoins(price)) return { ok: false, msg: 'NOT ENOUGH COINS' };
+    walletGrantItem(id, 1); localWear(g.slot, id); return { ok: true, bought: true };
+  }
+  const r = await sb('/rest/v1/rpc/buy_gear', { method: 'POST', body: { p_item: id } }, 'coinshop');
+  if (!r.ok) {
+    if (r.missing) { coinShopSoon = true; return { ok: false, soon: true }; }
+    const msg = String((r.data && (r.data.message || r.data.msg)) || '');
+    if (/not enough coins/i.test(msg)) return { ok: false, msg: 'NOT ENOUGH COINS' };
+    return { ok: false, msg: 'COULD NOT BUY' };
+  }
+  const d = r.data || {};
+  if (d && d.ok === false) {
+    const msg = String(d.msg || d.message || '');
+    if (/not enough coins/i.test(msg)) return { ok: false, msg: 'NOT ENOUGH COINS' };
+    return { ok: false, msg: 'COULD NOT BUY' };
+  }
+  if (d.owned && typeof d.owned === 'object') WALLET.owned = d.owned;
+  if (d.coins != null) WALLET.coins = +d.coins | 0;
+  try { await walletPull(); } catch (e) {}
+  try { await gearLoad(false); } catch (e) {}
+  if (gear.owned[id]) { try { await gearEquip(id, true); } catch (e) { localWear(g.slot, id); } }
+  else localWear(g.slot, id);
+  return { ok: true, bought: true };
+}
 function boxPickLocal() {   // #test / preview only — live open_box RPC rolls server-side
   let tot = 0; for (const x of BOX_DROP) tot += x.w; let r = Math.random() * tot;
   for (const x of BOX_DROP) { r -= x.w; if (r <= 0) return x; } return BOX_DROP[BOX_DROP.length - 1];
@@ -1811,6 +1889,7 @@ const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
 const LOCAL_EQ_KEY = 'dlg_local_wear_v2', LSTAT = { t: -1e9, c: null };
 function gearLocalRule(id) { const g = typeof gearItem === 'function' ? gearItem(id) : null; return g && g.rule && g.rule.local ? g.rule : null; }
 const gearIsLocal = id => !!id && (gearIsGift(id) || !!gearLocalRule(id));
+function gearIsCoin(id) { const g = gearItem(id); return !!(g && g.rule && g.rule.coin); }
 function gearLocalStat(k) { const now = performance.now(); if (!LSTAT.c || now - LSTAT.t > 1500) { try { LSTAT.c = careerLoad(); } catch (e) { LSTAT.c = {}; } LSTAT.t = now; } return +(LSTAT.c || {})[k] || 0; }
 function gearLocalOwned(id) { const r = gearLocalRule(id); return !!r && gearLocalStat(r.local) >= (r.min || 1); }
 function localWornMap() { try { let m = JSON.parse(localStorage.getItem(LOCAL_EQ_KEY) || 'null'); if (!m || typeof m !== 'object') { m = {}; const v = localStorage.getItem(GIFT_EQ_KEY) || ''; if (gearIsGift(v)) m.face = v; } return m; } catch (e) { return {}; } }
@@ -1871,7 +1950,7 @@ GEAR_ART.lucky_marker = (R, D, look, sl, o) => {   // shown in the locker; in pl
   F(-1, -5, 1, 0.5, G_GOLD_L); F(2, -3.5, 0.5, 1.5, G_GOLD_D); F(0, -3, 1, 0.5, '#00e800');
 };
 // v8.80 trails: locker icon = a little arc of the trail's colours (in play they colour the ball's flight trail)
-const TRAIL_GEAR = { trail_ember: ['#f83800', '#fc7c18', '#fcb838', '#fce4a0'], trail_comet: ['#fcfcfc', '#bcf0fc', '#3cbcfc', '#2c5cd8'], trail_aurora: ['#58f898', '#3cbcfc', '#9878f8', '#f878f8'] };
+const TRAIL_GEAR = { trail_ember: ['#f83800', '#fc7c18', '#fcb838', '#fce4a0'], trail_comet: ['#fcfcfc', '#bcf0fc', '#3cbcfc', '#2c5cd8'], trail_aurora: ['#58f898', '#3cbcfc', '#9878f8', '#f878f8'], trail_night: ['#101830', '#3c4c8c', '#c8b4fc', '#fcfcfc'], trail_icon: ['#f8d878', '#fcfcfc', '#d4af37', '#fff4c0'] };
 for (const id in TRAIL_GEAR) GEAR_ART[id] = (R, D) => { const c = TRAIL_GEAR[id]; for (let i = 0; i < 9; i++) { const x = -6 + i * 1.5, y = -2 - Math.round(Math.sin(i / 8 * Math.PI) * 6); R(Math.round(x), y, i > 6 ? 2 : 1, i > 6 ? 2 : 1, c[Math.min(3, Math.floor(i / 2.3))]); } D(7, -3, 1, 1, '#fcfcfc'); };
 GEAR_ART.birdie_glove = (R, D, look, sl, o) => {   // v8.65: lead-hand glove with a little blue bird
   const F = gF(o);
@@ -1912,6 +1991,25 @@ GEAR_ART.aviators = (R, D) => {   // legacy art (kept so an admin can still pick
   D(-1, -48, 3, 1, '#d4af37'); D(-6, -48, 1, 1, '#d4af37'); D(6, -48, 1, 1, '#d4af37'); D(-4, -47, 1, 1, '#5c7c9c'); D(3, -47, 1, 1, '#5c7c9c');
 };
 GEAR_ART.gold_buckle = (R, D) => { R(-2, -23, 5, 3, G_GOLD); D(-2, -23, 5, 1, '#fce4a0'); D(-1, -22, 3, 1, G_GOLD_D); };   // legacy art
+// v8.99.69 rank cosmetics + coin-counter pieces. Same outlined-part style as the locker icons above.
+GEAR_ART.navy_cap = (R, D) => { const N = '#1c2c6c'; R(-5, -57, 11, 1, N); R(-6, -56, 13, 5, N); R(-7, -51, 15, 2, '#101840'); D(-5, -55, 3, 2, '#3c4c8c'); D(2, -55, 2, 2, '#101840'); D(0, -54, 2, 1, '#f8d878'); };
+GEAR_ART.white_belt = (R, D) => { R(-7, -23, 15, 3, '#fcfcfc'); D(-7, -21, 15, 1, '#d0d4dc'); D(-2, -23, 4, 3, '#e8e8f0'); D(-1, -22, 2, 1, '#9aa0ac'); };
+GEAR_ART.white_tee = (R, D) => { R(13, -8, 3, 2, '#fcfcfc'); D(14, -18, 1, 10, '#f4f4f8'); D(13, -7, 3, 1, '#d0d4dc'); };
+GEAR_ART.tour_polo = (R, D) => { R(-8, -37, 17, 14, '#fcfcfc'); D(-8, -37, 3, 14, '#d8dce4'); D(-1, -37, 3, 6, '#1c2c6c'); D(3, -33, 3, 2, '#1c2c6c'); };
+GEAR_ART.silver_chain = (R, D) => { R(-1, -35, 3, 3, '#d8dce8'); D(-3, -38, 1, 1, '#b0b4c0'); D(-2, -37, 1, 1, '#f4f4f8'); D(-1, -36, 1, 1, '#b0b4c0'); D(3, -38, 1, 1, '#b0b4c0'); D(2, -37, 1, 1, '#f4f4f8'); D(1, -36, 1, 1, '#b0b4c0'); D(0, -34, 1, 1, '#3cbcfc'); };
+GEAR_ART.gold_visor = (R, D) => { R(-6, -53, 13, 2, G_GOLD); R(-7, -51, 15, 2, G_GOLD_D); D(-1, -53, 3, 1, '#fcfcfc'); D(-7, -50, 15, 1, '#a07010'); };
+GEAR_ART.tour_shades = (R, D) => { D(-6, -48, 13, 2, '#101018'); D(-5, -47, 4, 2, '#3cbcfc'); D(2, -47, 4, 2, '#3cbcfc'); D(-1, -47, 3, 1, '#101018'); D(-7, -48, 1, 1, '#101018'); D(7, -48, 1, 1, '#101018'); };
+GEAR_ART.gold_belt = (R, D) => { R(-7, -23, 15, 3, G_GOLD); D(-7, -21, 15, 1, G_GOLD_D); D(-2, -23, 4, 3, '#fce4a0'); D(-1, -22, 2, 1, '#a07010'); };
+GEAR_ART.champ_vest = (R, D) => { R(-7, -36, 15, 12, G_GOLD); D(-6, -35, 5, 10, '#183848'); D(2, -35, 5, 10, '#183848'); D(-1, -35, 3, 10, '#fce4a0'); D(3, -32, 2, 2, '#fcfcfc'); };
+GEAR_ART.master_glove = (R, D) => { R(9, -22, 3, 3, G_GOLD); D(9, -20, 3, 1, G_GOLD_D); D(10, -22, 1, 1, '#fcfcfc'); };
+GEAR_ART.wing_shoes = (R, D) => { R(-8, -4, 6, 3, '#fcfcfc'); R(3, -4, 6, 3, '#fcfcfc'); D(-8, -2, 6, 1, '#d0d4e0'); D(3, -2, 6, 1, '#d0d4e0'); D(-12, -6, 4, 1, '#e8e8f0'); D(9, -6, 4, 1, '#e8e8f0'); D(-12, -5, 2, 1, '#c8d0e0'); D(11, -5, 2, 1, '#c8d0e0'); };
+GEAR_ART.chest_star = (R, D) => { D(3, -35, 2, 1, G_GOLD); D(2, -34, 4, 1, G_GOLD); D(3, -33, 2, 1, G_GOLD); D(3, -34, 2, 1, '#fcfcfc'); };
+GEAR_ART.icon_jacket = (R, D) => { R(-8, -37, 17, 14, '#1c1c24'); R(-11, -37, 3, 12, '#1c1c24'); R(9, -37, 3, 12, '#1c1c24'); D(-1, -37, 3, 14, '#3c3c48'); D(3, -34, 3, 2, G_GOLD); D(-8, -37, 17, 1, '#3c3c48'); };
+GEAR_ART.icon_shades = (R, D) => { D(-6, -48, 13, 1, G_GOLD); D(-5, -47, 4, 2, '#101018'); D(2, -47, 4, 2, '#101018'); D(-1, -47, 3, 1, G_GOLD); D(-7, -48, 1, 1, G_GOLD); D(7, -48, 1, 1, G_GOLD); };
+GEAR_ART.hall_crown = (R, D) => { R(-6, -58, 13, 4, G_GOLD); D(-6, -61, 2, 3, G_GOLD); D(-1, -62, 3, 4, G_GOLD); D(5, -61, 2, 3, G_GOLD); D(-1, -57, 3, 2, '#c80000'); D(-6, -55, 13, 1, G_GOLD_D); };
+GEAR_ART.hall_club = (R, D) => { R(12, -6, 5, 4, '#1c1c24'); D(12, -28, 1, 22, G_GOLD); D(13, -5, 3, 2, '#fcfcfc'); D(14, -4, 1, 1, '#c80000'); };
+GEAR_ART.practice_tee = (R, D) => { R(13, -8, 3, 2, '#e8c888'); D(14, -18, 1, 10, '#f4e0b0'); D(13, -7, 3, 1, '#c89858'); };
+GEAR_ART.cream_belt = (R, D) => { R(-7, -23, 15, 3, '#f4e6c4'); D(-7, -21, 15, 1, '#d8c098'); D(-2, -23, 4, 3, G_GOLD); D(-1, -22, 2, 1, G_GOLD_D); };
 
 // ---- state
 const GEAR_KEY = 'dlg_gear_v1__';
@@ -1924,7 +2022,7 @@ function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.o
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
-  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && gearIsLocal(id) && gearOwned(id)) o[sl] = id; } }   // gift + local gear (cust1)
+  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && (gearIsLocal(id) || gearIsCoin(id)) && gearOwned(id)) o[sl] = id; } }   // gift + local gear + coin-counter wear
   gear.eqMemo = { rev: gear.rev, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
@@ -1933,7 +2031,7 @@ function gearSetOwned(list) { const o = {}; (Array.isArray(list) ? list : []).fo
 async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ earn anything newly qualified) when signed in
   gearLoadLocal();
   const c = await sb('/rest/v1/gear_catalog?select=*&order=sort.asc,id.asc', isSignedIn() ? {} : { noAuth: true }, 'gear');
-  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => (gearIsGift(g.id) || (g.rule && g.rule.local) || g.id === 'skeleton_mask') && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
+  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => (gearIsGift(g.id) || (g.rule && (g.rule.local || g.rule.coin)) || g.id === 'skeleton_mask') && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
   if (isSignedIn() && hasUsername()) {
     if (claim) { const r = await sb('/rest/v1/rpc/claim_gear', { method: 'POST', body: {} }, 'gear'); if (r.ok && Array.isArray(r.data) && r.data.length) r.data.forEach(id => { if (gear.fresh.indexOf(id) < 0) gear.fresh.push(id); }); }
     const m = await sb('/rest/v1/rpc/my_gear', { method: 'POST', body: {} }, 'gear'); if (m.ok) gearSetOwned(m.data);
@@ -1942,7 +2040,7 @@ async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ ea
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
   const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
-  if (gearIsLocal(id)) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
+  if (gearIsLocal(id) || (gearIsCoin(id) && (walletLocal() || !gear.owned[id]))) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
   if (on && localWornMap()[g.slot]) localWear(g.slot, '');
   if (!isSignedIn()) return { ok: false };
   const before = JSON.stringify(gear.owned);
@@ -2022,7 +2120,11 @@ const BALL_SKINS = {   // cust1: 5x5 in-play ball skins (k outline, a/b/c/d pale
   ball_gold: [[' kkk ', 'kcaak', 'kaaak', 'kaabk', ' kkk '], { a: '#f8d878', b: '#c88800', c: '#fcf0b8' }],
   ball_black: [[' kkk ', 'kcaak', 'kaaak', 'kaaak', ' kkk '], { a: '#202028', c: '#7c7c8c', k: '#000' }],
   ball_8: [[' kkk ', 'kaaak', 'kawak', 'kaaak', ' kkk '], { a: '#18181c', w: '#fcfcfc' }],
-  ball_tumble: [[' a b ', 'babab', ' bab ', 'babab', ' b a '], { a: '#c8a060', b: '#7c5c30' }, [' b a ', 'babab', ' bab ', 'babab', ' a b ']]
+  ball_tumble: [[' a b ', 'babab', ' bab ', 'babab', ' b a '], { a: '#c8a060', b: '#7c5c30' }, [' b a ', 'babab', ' bab ', 'babab', ' a b ']],
+  stripe_ball: [[' kkk ', 'krrrk', 'kwwrk', 'kwwwk', ' kkk '], { w: '#fcfcfc', r: '#e02020' }],
+  star_ball: [[' kkk ', 'kwswk', 'ksssk', 'kwswk', ' kkk '], { w: '#fcfcfc', s: '#f8d878' }],
+  hall_ball: [[' kkk ', 'kgkgk', 'kgggk', 'kgkgk', ' kkk '], { g: '#f8d878', k: '#1c1c24' }],
+  range_ball: [[' kkk ', 'kyyyk', 'kyyyk', 'kyydk', ' kkk '], { y: '#e8e030', d: '#c8a800' }]
 };
 const BALL_SPR = new Map();
 function ballSkinSprite(id, frame) {
@@ -2069,12 +2171,12 @@ const LOOK_ROWS = [
   ['SHOES', 'shoes', i => [SHOE_COLS[i][0], SHOE_COLS[i][2]]],
   ['GLOVE', 'glove', i => [GLOVE_COLS[i][0], GLOVE_COLS[i][1]]]
 ];
-const GEAR_ROWS = [['HEAD GEAR', 'head'], ['FACE', 'face'], ['NECK', 'neck'], ['HANDS', 'hands'], ['TORSO', 'torso'], ['CLUB', 'held'], ['BALL', 'ball'], ['TRAIL', 'trail']];   // v8.66 (v8.80: + TRAIL)
+const GEAR_ROWS = [['HEAD GEAR', 'head'], ['FACE', 'face'], ['NECK', 'neck'], ['HANDS', 'hands'], ['TORSO', 'torso'], ['WAIST', 'waist'], ['FEET', 'feet'], ['LOGO', 'logo'], ['CLUB', 'held'], ['BALL', 'ball'], ['TRAIL', 'trail']];   // v8.66 (v8.80: + TRAIL, v8.99.69: waist / feet / logo)
 const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
-const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', skeleton_mask: 'SKULL', dlg_shades: 'DLG', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA' };
+const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', skeleton_mask: 'SKULL', dlg_shades: 'DLG', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA', navy_cap: 'NAVY', white_belt: 'WHITE', white_tee: 'TEE', tour_polo: 'POLO', silver_chain: 'CHAIN', stripe_ball: 'STRIPE', gold_visor: 'VISOR', tour_shades: 'SHADES', gold_belt: 'GOLD', champ_vest: 'VEST', star_ball: 'STAR', trail_night: 'NIGHT', master_glove: 'GLOVE', wing_shoes: 'WINGS', chest_star: 'STAR', icon_jacket: 'JACKET', icon_shades: 'ICON', trail_icon: 'ICON', hall_crown: 'CROWN', hall_club: 'CLUB', hall_ball: 'HALL', practice_tee: 'TEE', range_ball: 'RANGE', cream_belt: 'CREAM' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
-function gearCanWear(id) { return !id || (gearIsLocal(id) ? gearOwned(id) : (isSignedIn() && gearOwned(id))); }
+function gearCanWear(id) { return !id || ((gearIsLocal(id) || gearIsCoin(id)) ? gearOwned(id) : (isSignedIn() && gearOwned(id))); }
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy, gear: {slot: item} (what Save will equip), gshow: {slot: item} (row cursor, may be locked), scroll }
 let lookDrag = null;
 function lookGearInit() { const eq = gearEquipped(); lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
@@ -2337,8 +2439,9 @@ function golferImg(appearance, scale) {
 
 /* ---- career data ---- */
 const CAREER_KEY = 'dlg_career_v1__';
-const CAREER_RANKS = [   // DLG Tour rank by lifetime XP
-  { name: 'AMATEUR', xp: 0 }, { name: 'CLUB PRO', xp: 500 }, { name: 'TOUR PRO', xp: 1500 }, { name: 'LEGEND', xp: 4000 }
+const CAREER_RANKS = [   // DLG Tour rank by lifetime XP. HALL is the short label when HALL OF FAME does not fit beside the pips.
+  { name: 'AMATEUR', xp: 0 }, { name: 'CLUB PRO', xp: 500 }, { name: 'TOUR PRO', xp: 1500 }, { name: 'LEGEND', xp: 4000 },
+  { name: 'CHAMPION', xp: 7500 }, { name: 'MASTER', xp: 12000 }, { name: 'ICON', xp: 18000 }, { name: 'HALL OF FAME', short: 'HALL', xp: 26000 }
 ];
 const CAREER_XP = { nine: 40, eighteen: 90, daily: 15, birdie: 10, eagle: 25, ace: 50, luck: 5, even: 20, under: 40, pb: 25, streak: 5, save: 10 };   // v8.78 save = GREAT SAVE
 const CAREER_TOURNEY = { name: 'DLG OPEN', line: '18 HOLES. ONE ATTEMPT.', prize: 'LOW SCORE WINS THE DROP', when: 'DATES TBA' };   // placeholder only
@@ -2361,11 +2464,11 @@ function careerClean(c) {
   return b;
 }
 function careerLoad(id) { try { return careerClean(JSON.parse(localStorage.getItem(CAREER_KEY + (id || careerId())) || 'null')); } catch (e) { return careerBlank(); } }
-function careerSave(c, id) { try { localStorage.setItem(CAREER_KEY + (id || careerId()), JSON.stringify(c)); } catch (e) {} }
+function careerSave(c, id) { try { localStorage.setItem(CAREER_KEY + (id || careerId()), JSON.stringify(c)); } catch (e) {} try { LSTAT.t = -1e9; } catch (e) {} }
 function careerRank(xp) {
   let i = 0; for (let k = 0; k < CAREER_RANKS.length; k++) if (xp >= CAREER_RANKS[k].xp) i = k;
-  const cur = CAREER_RANKS[i], next = CAREER_RANKS[i + 1] || null;
-  return { i, name: cur.name, next: next ? next.name : null, from: cur.xp, to: next ? next.xp : cur.xp, frac: next ? clamp((xp - cur.xp) / (next.xp - cur.xp), 0, 1) : 1 };
+  const cur = CAREER_RANKS[i], next = CAREER_RANKS[i + 1] || null, lab = r => (r && r.short) || (r && r.name) || null;
+  return { i, name: cur.name, short: lab(cur), next: next ? next.name : null, nextShort: next ? lab(next) : null, from: cur.xp, to: next ? next.xp : cur.xp, frac: next ? clamp((xp - cur.xp) / (next.xp - cur.xp), 0, 1) : 1 };
 }
 function dayBefore(d) { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); }
 function careerStreakNow(c) {   // a streak is alive if the last daily was today or yesterday (NY date)
@@ -2424,12 +2527,15 @@ function careerCommitRound(info) {   // info: { kind: front|back|full|daily, rel
   }
   const before = careerRank(c.xp).name;
   c.xp += xp;
+  const rankNow = careerRank(c.xp);
   c.recent.unshift({ kind: info.kind, rel: info.rel, strokes: info.strokes, date: info.date || nyDateStr() });
   c.recent = c.recent.slice(0, 5);
   c.look = { skin: player.skin, shirt: player.shirt, hat: player.hat, pants: player.pants };   // your golfer travels with the career
   c.updated = new Date().toISOString();
   careerSave(c);
-  careerLast = { xp, rankUp: careerRank(c.xp).name !== before ? careerRank(c.xp).name : null, pb, id: careerId() };
+  careerLast = { xp, rankUp: rankNow.name !== before ? rankNow.name : null, pb, id: careerId() };
+  if (careerLast.rankUp) careerMsg = { text: 'RANK UP  ' + careerLast.rankUp, t: 0 };
+  else if (careerMsg && /^RANK UP/.test(careerMsg.text)) careerMsg = null;
   careerPull();   // v8.54: merge with the cloud copy before pushing, so another device never gets overwritten
   try { if (walletLocal()) walletMaybeGrantRound(); } catch (e) {}   // v8.99.53: #test local box grant; live waits for careerPush
   return careerLast;
@@ -11295,7 +11401,8 @@ function renderCard() {
   const cu = REDUCED_MOTION ? 1 : clamp(st / 0.7, 0, 1);   // v8.60: strokes count up
   drawTextC(Math.round(cardInfo.total * cu) + ' STROKES', sumY, COL.white, 2);
   if (cu >= 1) drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel < 0 ? COL.lime : cardInfo.rel === 0 ? COL.white : COL.orange, 2);
-  if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, CARD_GOLD);
+  if (careerLast && careerLast.rankUp) { const up = careerLast.rankUp, fit = textW('RANK UP  ' + up) <= W - 12 ? up : (careerRank(careerLoad().xp).short || up); drawTextC('RANK UP  ' + fit, sumY + 46, CARD_GOLD); }
+  else if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, CARD_GOLD);
   {
     let saveMsg = saveWhere === 'saving' ? 'SAVING SCORE...' : saveWhere === 'error' ? 'SCORE NOT SAVED' : saveWhere === 'practice' ? 'PRACTICE - NOT SCORED' : 'SCORE SAVED TO LEADERBOARD';
     if (courseKind === 'match' && matchCtx) saveMsg = matchCtx.submitted ? 'SENT TO MATCH VS @' + matchCtx.other.name : matchCtx.msg ? 'MATCH SAVED ON DEVICE' : 'SENDING TO MATCH...';
@@ -11694,12 +11801,16 @@ function renderCareer() {
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
   if (isAdm) { const bx0 = tx + textW(name, nsc) + 4, by0 = C.y + 10 + (nsc === 2 ? 3 : 0); rect(bx0, by0 - 1, badgeW, 9, '#000'); rect(bx0, by0 - 1, badgeW - 1, 8, COL.orange); drawText('ADMIN', bx0 + 3, by0, '#000'); }
-  const pipX = C.x + C.w - 10 - CAREER_RANKS.length * 6, fullW = textW('DLG TOUR ') + 2 + textW(rk.name);
-  if (tx + fullW + 4 <= pipX) { careerSoft('DLG TOUR', tx, C.y + 30, '#d0d8e8'); careerSoft(rk.name, tx + textW('DLG TOUR ') + 2, C.y + 30, CAREER_YEL); }
-  else careerSoft(rk.name, tx, C.y + 30, CAREER_YEL);
-  for (let i = 0; i < CAREER_RANKS.length; i++) {   // rank pips
-    const px = C.x + C.w - 10 - (CAREER_RANKS.length - i) * 6;
-    rect(px, C.y + 30, 5, 7, '#000'); rect(px, C.y + 30, 4, 6, i <= rk.i ? CAREER_YEL : '#3c4c6c');
+  const nP = CAREER_RANKS.length; let stride = 6; const padR = 6;
+  while (stride > 4 && padR + nP * stride > C.w - (tx - C.x) - 24) stride--;
+  const pipX = C.x + C.w - padR - nP * stride;
+  const label = textW(rk.name) <= pipX - tx - 4 ? rk.name : rk.short;
+  const tour = 'DLG TOUR', fullW = textW(tour + ' ') + 2 + textW(label);
+  if (tx + fullW + 4 <= pipX) { careerSoft(tour, tx, C.y + 30, '#d0d8e8'); careerSoft(label, tx + textW(tour + ' ') + 2, C.y + 30, CAREER_YEL); }
+  else careerSoft(label, tx, C.y + 30, CAREER_YEL);
+  for (let i = 0; i < nP; i++) {   // rank pips (8): stay inside the card, left of the right edge
+    const px = C.x + C.w - padR - (nP - i) * stride;
+    rect(px, C.y + 30, Math.min(5, stride - 1), 7, '#000'); rect(px, C.y + 30, Math.min(4, stride - 1), 6, i <= rk.i ? CAREER_YEL : '#3c4c6c');
   }
   const bx = tx, by = C.y + 44, bw = tw, bh = 8;
   rect(bx, by, bw, bh, '#000'); rect(bx + 1, by + 1, bw - 2, bh - 2, '#183848');
@@ -11707,8 +11818,11 @@ function renderCareer() {
   if (fw > 0) { rect(bx + 1, by + 1, fw, bh - 2, COL.lime); rect(bx + 1, by + 1, fw, 1, '#b8f818'); }
   const xpTxt = unl ? 'TEST UNLOCK ON' : rk.next ? (c.xp + ' / ' + rk.to + ' XP') : (c.xp + ' XP');   // v8.99.41: progress to the next rank, honest MAX at the top
   careerSoft(xpTxt, bx, by + 12, COL.white);
-  const xpR = rk.next ? (rk.to - c.xp) + ' TO GO' : 'MAX RANK'; careerSoft(xpR, bx + bw - textW(xpR), by + 12, rk.next ? '#8fa0bc' : CAREER_YEL);
-  careerSoft(rk.next ? 'NEXT: ' + rk.next : 'TOP OF THE TOUR', bx, by + 24, '#8fa0bc');
+  const xpR = rk.next ? (rk.to - c.xp) + ' TO GO' : 'MAX RANK';
+  if (textW(xpTxt) + 6 + textW(xpR) <= bw) careerSoft(xpR, bx + bw - textW(xpR), by + 12, rk.next ? '#8fa0bc' : CAREER_YEL);
+  let nxt = rk.next ? 'NEXT: ' + rk.next : 'TOP OF THE TOUR';
+  if (rk.next && textW(nxt) > bw) nxt = 'NEXT: ' + rk.nextShort;
+  careerSoft(nxt, bx, by + 24, '#8fa0bc');
   { const B = L.look, on = pressDim('careerLook') || (mouse.seen && !isTouchUi() && hitBtn(mouse, B));   // v8.32: EDIT LOOK button, own row
     rect(B.x, B.y, B.w, B.h, '#000'); rect(B.x + 1, B.y + 1, B.w - 2, B.h - 2, on ? '#24406c' : '#183848'); rect(B.x + 1, B.y + 1, B.w - 2, 1, '#3c5c8c');
     const el = 'EDIT LOOK'; careerSoftC(el, B.x + B.w / 2, B.y + Math.round((B.h - 7) / 2), on ? CAREER_YEL : COL.white); }
@@ -11960,6 +12074,16 @@ const ADMIN_VIEWS = {
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
+function coinShopHtml() {
+  if (walletLocal()) walletRefresh();
+  if (!walletLocal() && coinShopSoon) return '<div class="coin-counter"><div class="cc-sign">COIN COUNTER</div><p class="cc-soon">COIN SHOP COMING SOON</p></div>';
+  const coins = WALLET.coins | 0, eq = gearEquipped();
+  const tiles = COIN_SHOP.map(it => {
+    const own = walletOwnCount(it.id) > 0, on = eq[it.slot] === it.id, lab = on ? 'ON' : own ? 'WEAR' : String(it.price);
+    return '<button type="button" class="cc-item' + (on ? ' on' : '') + '" data-a="cbuy" data-id="' + esc(it.id) + '"><img alt="" src="' + gearIcon(it.id, !own) + '"><span>' + esc(it.name) + '</span><b>' + lab + '</b></button>';
+  }).join('');
+  return '<div class="coin-counter"><div class="cc-sign">COIN COUNTER</div><p class="cc-bal">' + coins + ' COINS</p><div class="cc-row">' + tiles + '</div></div>';
+}
 const VIEWS = {
   feedback: () => { const o = acctOpts, cat = o.cat || 'idea', t = o.text || '';
     return head('FEEDBACK', 'fbClose') + '<p class="sub">FOUND A BUG OR HAVE AN IDEA? TELL US!</p><form data-f="feedback" novalidate>' +
@@ -12025,14 +12149,14 @@ const VIEWS = {
   },
   locker: o => {   // v8.64: every piece of gear; earned in colour, locked as dark outlines; tap = name · tier · how to get it
     const F = gear.filter, signed = isSignedIn() && hasUsername();
-    const items = gear.catalog.filter(g => (g.active !== false || gearOwned(g.id)) && (F === 'all' || g.tier === F)).sort((a, b) => (a.sort || 100) - (b.sort || 100));
+    const items = gear.catalog.filter(g => (g.active !== false || gearOwned(g.id)) && !gearIsCoin(g.id) && (F === 'all' || g.tier === F)).sort((a, b) => (a.sort || 100) - (b.sort || 100));
     const eq = lookEd && lookEd.gear ? lookEd.gear : gearEquipped(), sel = items.some(g => g.id === gear.sel) ? gearItem(gear.sel) : null;   // v8.66: from EDIT LOOK it shows (and changes) the draft
     let line = '&nbsp;';
     if (sel) { const T = GEAR_TIERS[sel.tier] || GEAR_TIERS.common, own = gearOwned(sel.id), w = gearWindow(sel);
       const how = own ? (eq[sel.slot] === sel.id ? (lookEd ? 'ON · SAVE IN EDIT LOOK' : 'WEARING · TAP TO REMOVE') : (lookEd ? 'TAP AGAIN TO TRY ON' : 'TAP AGAIN TO WEAR')) : esc(sel.req || '') + (w === 'ended' ? ' · EVENT OVER' : w === 'soon' ? ' · COMING SOON' : sel.available_until ? ' · ENDS ' + gearDay(sel.available_until) : '');
       line = '<b>' + esc(sel.name) + '</b> · <span style="color:' + T.col + '">' + T.name + '</span> · ' + how; }
     const segB = (k, lab) => '<button type="button" data-a="gfilt" data-n="' + k + '" class="' + (F === k ? 'on' : '') + '">' + lab + '</button>';
-    return head('LOCKER', 'lockBack') + '<div class="seg sm">' + segB('all', 'ALL') + segB('common', 'COMMON') + segB('rare', 'RARE') + segB('legendary', 'LEGEND') + '</div>' +
+    return head('LOCKER', 'lockBack') + coinShopHtml() + '<div class="seg sm">' + segB('all', 'ALL') + segB('common', 'COMMON') + segB('rare', 'RARE') + segB('legendary', 'LEGEND') + '</div>' +
       '<div class="ggrid">' + items.map(g => { const own = gearOwned(g.id); return '<button type="button" class="gtile t-' + esc(g.tier) + (own ? ' own' : '') + (eq[g.slot] === g.id ? ' on' : '') + (gear.sel === g.id ? ' sel' : '') + '" data-a="gsel" data-id="' + esc(g.id) + '" aria-label="' + esc(g.name) + '"><img alt="" src="' + gearIcon(g.id, !own) + '"></button>'; }).join('') + '</div>' +
       '<p class="gline">' + line + '</p>' +
       (signed ? '<form data-f="redeem" novalidate><label for="aCode">GOT A CODE?</label><div class="row"><input id="aCode" type="text" maxlength="14" placeholder="DLG-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" type="submit">REDEEM</button></div></form>'
@@ -12606,7 +12730,7 @@ async function showAcct(view, opts) {
     acctOpts.loading = false; if (r.ok) acctOpts.prof = r.data; else acctOpts.msg = r.msg;
   }
   if (view === 'prefs' && !acctOpts.msg) { acctOpts.loading = true; acctBox.innerHTML = VIEWS.prefs(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); const r = await loadMarketing(); if (acctView !== 'prefs') return; acctOpts.loading = false; if (!r.ok) acctOpts.msg = 'COULD NOT LOAD YOUR SETTING'; }
-  if (view === 'locker') { acctBox.innerHTML = VIEWS.locker(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await gearLoad(true); if (acctView !== 'locker') return; if (gear.fresh.length && !acctOpts.msg) { acctOpts.msg = 'NEW: ' + gear.fresh.map(id => (gearItem(id) || {}).name || id).join(', '); acctOpts.ok = true; gear.sel = gear.fresh[0]; } gear.fresh = []; }
+  if (view === 'locker') { acctBox.innerHTML = VIEWS.locker(acctOpts); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await gearLoad(true); try { await walletPull(); } catch (e) {} if (acctView !== 'locker') return; if (gear.fresh.length && !acctOpts.msg) { acctOpts.msg = 'NEW: ' + gear.fresh.map(id => (gearItem(id) || {}).name || id).join(', '); acctOpts.ok = true; gear.sel = gear.fresh[0]; } gear.fresh = []; coinShopCheck(); }
   if (view === 'friends') { acctBox.innerHTML = VIEWS.friends(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await Promise.all([loadFriends(), loadMatches(), loadH2H(), walletPull()]); if (acctView !== 'friends') return; }
   if (view === 'boxes' || view === 'challenge') { await walletPull(); }
   if (view === 'matches') { acctBox.innerHTML = VIEWS.matches(); acctEl.classList.add('on'); acctEl.setAttribute('aria-hidden', 'false'); await loadMatches(); if (acctView !== 'matches') return; }
@@ -12718,6 +12842,7 @@ if (acctEl) {
     if (a === 'fprof') { showAcct('friendProfile', { user: id, loading: true }); return; }
     if (a === 'lockBack') { hideAcct(); return; }   // v8.64: back to EDIT LOOK
     if (a === 'gfilt') { gear.filter = b.getAttribute('data-n'); acctBox.innerHTML = VIEWS.locker(acctOpts); return; }
+    if (a === 'cbuy') { const r = await buyGear(id); if (acctView !== 'locker') return; acctBox.innerHTML = VIEWS.locker(acctOpts); if (r.soon) acctMsg('COIN SHOP COMING SOON'); else if (!r.ok) acctMsg(r.msg || 'COULD NOT BUY'); else acctMsg(r.bought ? 'BOUGHT' : 'WEARING IT', true); return; }
     if (a === 'gsel') { const again = gear.sel === id; gear.sel = id; const g = gearItem(id);
       if (again && g && gearOwned(id) && isSignedIn() && lookEd) {   // v8.66: opened from EDIT LOOK -> it's part of the draft; SAVE there equips it
         const on = lookEd.gear[g.slot] !== id; if (on) lookEd.gear[g.slot] = id; else delete lookEd.gear[g.slot]; lookEd.gshow[g.slot] = on ? id : null; lookEd.gdirty = true; SFX.click(); acctBox.innerHTML = VIEWS.locker(acctOpts); return; }
