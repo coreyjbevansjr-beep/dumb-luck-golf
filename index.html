@@ -121,6 +121,10 @@
   #acct .gtile.t-common{box-shadow:inset 0 0 0 1px rgba(168,184,208,.25)}#acct .gtile.t-rare{box-shadow:inset 0 0 0 1px rgba(60,188,252,.3)}#acct .gtile.t-legendary{box-shadow:inset 0 0 0 1px rgba(248,216,120,.3)}
   #acct .gtile.sel{outline:2px solid #fcfcfc;outline-offset:2px}
   #acct .gtile.on::after{content:'';position:absolute;right:3px;top:3px;width:6px;height:6px;background:#00e800;border:1px solid #000}
+  #acct .gtile.lock img{opacity:.42}
+  #acct .gtile .grank{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:8px;font-weight:800;letter-spacing:.4px;color:#f8d878;text-shadow:1px 1px 0 #000;pointer-events:none}
+  #acct .gtile .glock{position:absolute;right:4px;top:5px;width:10px;height:8px;background:#d8e0ee;box-shadow:0 0 0 1px #000;pointer-events:none}
+  #acct .gtile .glock:before{content:"";position:absolute;left:2px;top:-6px;width:4px;height:5px;border:1px solid #d8e0ee;border-bottom:0;box-shadow:0 -1px 0 #000,1px 0 0 #000,-1px 0 0 #000}
   #acct .gline{min-height:20px;margin:12px 0 4px;font-size:11px;letter-spacing:.5px;line-height:1.5;color:#bcc8e0}
   #acct .gline b{color:#fcfcfc}
   #acct textarea.codes{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:14px;letter-spacing:1px;padding:8px;background:#0c1848;color:#fcfcfc;border:2px solid #3cbcfc;border-radius:0;min-height:120px}
@@ -195,6 +199,7 @@
   #acct .cc-item img{width:36px;height:36px;object-fit:contain;image-rendering:pixelated}
   #acct .cc-item b{color:#f8d878;font-size:11px}
   #acct .cc-item.on{outline:2px solid #fce4a0;outline-offset:1px}
+  #acct .cc-item.own{box-shadow:inset 0 0 0 2px #f8d878}
 
   #acct .btn.small.fact{flex:none;width:96px;padding:0;letter-spacing:1px;font-size:12px}
   #acct .item.fr span.fx{flex:none;width:44px}
@@ -383,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.69';
+const GAME_VERSION = 'v8.99.70';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1787,6 +1792,7 @@ async function buyGear(id) {
     if (!walletSpendCoins(price)) return { ok: false, msg: 'NOT ENOUGH COINS' };
     walletGrantItem(id, 1); localWear(g.slot, id); return { ok: true, bought: true };
   }
+  const coinsBefore = WALLET.coins | 0;
   const r = await sb('/rest/v1/rpc/buy_gear', { method: 'POST', body: { p_item: id } }, 'coinshop');
   if (!r.ok) {
     if (r.missing) { coinShopSoon = true; return { ok: false, soon: true }; }
@@ -1800,13 +1806,15 @@ async function buyGear(id) {
     if (/not enough coins/i.test(msg)) return { ok: false, msg: 'NOT ENOUGH COINS' };
     return { ok: false, msg: 'COULD NOT BUY' };
   }
+  // Already owned: the RPC returns ok and the same coin balance, with no debit.
   if (d.owned && typeof d.owned === 'object') WALLET.owned = d.owned;
   if (d.coins != null) WALLET.coins = +d.coins | 0;
+  const charged = d.coins != null ? (+d.coins | 0) < coinsBefore : false;
   try { await walletPull(); } catch (e) {}
   try { await gearLoad(false); } catch (e) {}
   if (gear.owned[id]) { try { await gearEquip(id, true); } catch (e) { localWear(g.slot, id); } }
   else localWear(g.slot, id);
-  return { ok: true, bought: true };
+  return { ok: true, bought: charged };
 }
 function boxPickLocal() {   // #test / preview only — live open_box RPC rolls server-side
   let tot = 0; for (const x of BOX_DROP) tot += x.w; let r = Math.random() * tot;
@@ -2003,13 +2011,18 @@ GEAR_ART.gold_belt = (R, D) => { R(-7, -23, 15, 3, G_GOLD); D(-7, -21, 15, 1, G_
 GEAR_ART.champ_vest = (R, D) => { R(-7, -36, 15, 12, G_GOLD); D(-6, -35, 5, 10, '#183848'); D(2, -35, 5, 10, '#183848'); D(-1, -35, 3, 10, '#fce4a0'); D(3, -32, 2, 2, '#fcfcfc'); };
 GEAR_ART.master_glove = (R, D) => { R(9, -22, 3, 3, G_GOLD); D(9, -20, 3, 1, G_GOLD_D); D(10, -22, 1, 1, '#fcfcfc'); };
 GEAR_ART.wing_shoes = (R, D) => { R(-8, -4, 6, 3, '#fcfcfc'); R(3, -4, 6, 3, '#fcfcfc'); D(-8, -2, 6, 1, '#d0d4e0'); D(3, -2, 6, 1, '#d0d4e0'); D(-12, -6, 4, 1, '#e8e8f0'); D(9, -6, 4, 1, '#e8e8f0'); D(-12, -5, 2, 1, '#c8d0e0'); D(11, -5, 2, 1, '#c8d0e0'); };
-GEAR_ART.chest_star = (R, D) => { D(3, -35, 2, 1, G_GOLD); D(2, -34, 4, 1, G_GOLD); D(3, -33, 2, 1, G_GOLD); D(3, -34, 2, 1, '#fcfcfc'); };
+GEAR_ART.chest_star = (R, D) => { R(3, -36, 2, 5, G_GOLD); R(1, -34, 6, 2, G_GOLD); D(3, -35, 2, 1, '#fff6c0'); D(2, -34, 4, 1, '#fff'); };
 GEAR_ART.icon_jacket = (R, D) => { R(-8, -37, 17, 14, '#1c1c24'); R(-11, -37, 3, 12, '#1c1c24'); R(9, -37, 3, 12, '#1c1c24'); D(-1, -37, 3, 14, '#3c3c48'); D(3, -34, 3, 2, G_GOLD); D(-8, -37, 17, 1, '#3c3c48'); };
 GEAR_ART.icon_shades = (R, D) => { D(-6, -48, 13, 1, G_GOLD); D(-5, -47, 4, 2, '#101018'); D(2, -47, 4, 2, '#101018'); D(-1, -47, 3, 1, G_GOLD); D(-7, -48, 1, 1, G_GOLD); D(7, -48, 1, 1, G_GOLD); };
 GEAR_ART.hall_crown = (R, D) => { R(-6, -58, 13, 4, G_GOLD); D(-6, -61, 2, 3, G_GOLD); D(-1, -62, 3, 4, G_GOLD); D(5, -61, 2, 3, G_GOLD); D(-1, -57, 3, 2, '#c80000'); D(-6, -55, 13, 1, G_GOLD_D); };
 GEAR_ART.hall_club = (R, D) => { R(12, -6, 5, 4, '#1c1c24'); D(12, -28, 1, 22, G_GOLD); D(13, -5, 3, 2, '#fcfcfc'); D(14, -4, 1, 1, '#c80000'); };
-GEAR_ART.practice_tee = (R, D) => { R(13, -8, 3, 2, '#e8c888'); D(14, -18, 1, 10, '#f4e0b0'); D(13, -7, 3, 1, '#c89858'); };
-GEAR_ART.cream_belt = (R, D) => { R(-7, -23, 15, 3, '#f4e6c4'); D(-7, -21, 15, 1, '#d8c098'); D(-2, -23, 4, 3, G_GOLD); D(-1, -22, 2, 1, G_GOLD_D); };
+GEAR_ART.practice_tee = (R, D) => { R(14, -22, 1, 14, '#f7f3ea'); R(12, -9, 5, 3, '#fff'); D(14, -21, 1, 5, '#fff'); D(12, -7, 5, 1, '#e4d8c4'); D(13, -8, 3, 1, '#f4efe4'); };
+GEAR_ART.cream_belt = (R, D) => { R(-7, -23, 15, 4, '#f6e7c8'); D(-7, -23, 15, 1, '#fff6e6'); D(-7, -20, 15, 1, '#d9c29a'); R(-2, -24, 5, 5, '#f8d878'); D(-1, -23, 3, 2, '#c89840'); };
+GEAR_ART.tee_wood = (R, D) => { R(14, -22, 1, 14, '#c88848'); R(12, -9, 5, 3, '#e0a868'); D(14, -21, 1, 5, '#f0c888'); D(12, -7, 5, 1, '#a06830'); };
+GEAR_ART.tee_neon = (R, D) => { R(14, -22, 1, 14, '#39ffb0'); R(12, -9, 5, 3, '#ff4ad8'); D(14, -21, 1, 5, '#e8fff4'); D(12, -7, 5, 1, '#c800a0'); };
+GEAR_ART.outfit_caddy = (R, D) => { R(-8, -36, 16, 13, '#1c6c38'); D(-7, -35, 5, 11, '#f4e6c4'); D(2, -35, 5, 11, '#f4e6c4'); D(-1, -35, 2, 11, '#14462d'); D(3, -32, 2, 2, '#f8d878'); D(-6, -30, 3, 2, '#0c4020'); };
+GEAR_ART.golden_hat = (R, D) => { R(-5, -57, 11, 1, G_GOLD); R(-6, -56, 13, 5, G_GOLD); R(-7, -51, 15, 2, G_GOLD_D); D(-5, -55, 4, 2, '#fce4a0'); D(2, -54, 3, 2, '#a07010'); D(0, -53, 2, 1, '#fcfcfc'); };
+GEAR_ART.golden_club = (R, D) => { R(12, -6, 5, 4, G_GOLD); D(12, -28, 1, 22, '#fce4a0'); D(13, -5, 3, 2, G_GOLD_D); D(14, -4, 1, 1, '#fcfcfc'); };
 
 // ---- state
 const GEAR_KEY = 'dlg_gear_v1__';
@@ -2084,7 +2097,12 @@ function gearIcon(id, locked) {
       } else o.drawImage(c1, x0, y0, w, h, ox, oy, w, h);
     }
   }
-  const url = out ? (() => { const big = mk(out.width * 2, out.height * 2), b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(out, 0, 0, big.width, big.height); return big.toDataURL(); })() : '';
+  if (!out) {   // missing art or a blank draw: a small colored mark, never an empty image
+    out = mk(28, 28); const o = out.getContext('2d'); o.imageSmoothingEnabled = false;
+    const slot = (gearItem(id) || {}).slot || '', col = slot === 'ball' ? '#fcfcfc' : slot === 'head' ? '#f8d878' : slot === 'torso' ? '#3cbcfc' : slot === 'held' ? '#e0a868' : '#f4e6c4';
+    o.fillStyle = '#000'; o.fillRect(4, 4, 20, 20); o.fillStyle = col; o.fillRect(6, 6, 16, 16); o.fillStyle = '#000'; o.fillRect(12, 8, 4, 12); o.fillRect(8, 12, 12, 4);
+  }
+  const url = (() => { const big = mk(out.width * 2, out.height * 2), b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(out, 0, 0, big.width, big.height); return big.toDataURL(); })();
   GEAR_ICON.set(key, url); return url;
 }
 // ---- show-off busts: one shared, cached renderer for leaderboards, the tournament field/board and the share card
@@ -2124,7 +2142,7 @@ const BALL_SKINS = {   // cust1: 5x5 in-play ball skins (k outline, a/b/c/d pale
   stripe_ball: [[' kkk ', 'krrrk', 'kwwrk', 'kwwwk', ' kkk '], { w: '#fcfcfc', r: '#e02020' }],
   star_ball: [[' kkk ', 'kwswk', 'ksssk', 'kwswk', ' kkk '], { w: '#fcfcfc', s: '#f8d878' }],
   hall_ball: [[' kkk ', 'kgkgk', 'kgggk', 'kgkgk', ' kkk '], { g: '#f8d878', k: '#1c1c24' }],
-  range_ball: [[' kkk ', 'kyyyk', 'kyyyk', 'kyydk', ' kkk '], { y: '#e8e030', d: '#c8a800' }]
+  range_ball: [[' kkk ', 'kwwwk', 'krrrk', 'kwwwk', ' kkk '], { w: '#fcfcfc', r: '#e23c3c' }]
 };
 const BALL_SPR = new Map();
 function ballSkinSprite(id, frame) {
@@ -11801,16 +11819,16 @@ function renderCareer() {
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
   if (isAdm) { const bx0 = tx + textW(name, nsc) + 4, by0 = C.y + 10 + (nsc === 2 ? 3 : 0); rect(bx0, by0 - 1, badgeW, 9, '#000'); rect(bx0, by0 - 1, badgeW - 1, 8, COL.orange); drawText('ADMIN', bx0 + 3, by0, '#000'); }
-  const nP = CAREER_RANKS.length; let stride = 6; const padR = 6;
-  while (stride > 4 && padR + nP * stride > C.w - (tx - C.x) - 24) stride--;
+  const nP = CAREER_RANKS.length; let stride = 8; const padR = 6;
+  while (stride > 5 && padR + nP * stride > C.w - (tx - C.x) - 36) stride--;
   const pipX = C.x + C.w - padR - nP * stride;
   const label = textW(rk.name) <= pipX - tx - 4 ? rk.name : rk.short;
   const tour = 'DLG TOUR', fullW = textW(tour + ' ') + 2 + textW(label);
   if (tx + fullW + 4 <= pipX) { careerSoft(tour, tx, C.y + 30, '#d0d8e8'); careerSoft(label, tx + textW(tour + ' ') + 2, C.y + 30, CAREER_YEL); }
   else careerSoft(label, tx, C.y + 30, CAREER_YEL);
-  for (let i = 0; i < nP; i++) {   // rank pips (8): stay inside the card, left of the right edge
-    const px = C.x + C.w - padR - (nP - i) * stride;
-    rect(px, C.y + 30, Math.min(5, stride - 1), 7, '#000'); rect(px, C.y + 30, Math.min(4, stride - 1), 6, i <= rk.i ? CAREER_YEL : '#3c4c6c');
+  for (let i = 0; i < nP; i++) {   // rank pips: a bit larger when the card has room
+    const px = C.x + C.w - padR - (nP - i) * stride, pw = stride - 1, ph = stride + 1;
+    rect(px, C.y + 28, pw, ph, '#000'); rect(px, C.y + 28, pw - 1, ph - 1, i <= rk.i ? CAREER_YEL : '#3c4c6c');
   }
   const bx = tx, by = C.y + 44, bw = tw, bh = 8;
   rect(bx, by, bw, bh, '#000'); rect(bx + 1, by + 1, bw - 2, bh - 2, '#183848');
@@ -12074,13 +12092,23 @@ const ADMIN_VIEWS = {
   adminLog: () => head('ADMIN LOG', 'go:admin') + '<div class="msg"></div>' + (admin.audit.length ? '<div class="list">' + admin.audit.map(a => '<div class="item"><div class="who">' + esc(String(a.action).toUpperCase().replace('_', ' ')) + ' <span style="color:#3cbcfc">' + esc(String(a.target || '').toUpperCase()) + '</span><span class="st">' + fmtTs(a.at) + (a.details && a.details.new ? ' → @' + esc(String(a.details.new).toUpperCase()) : '') + (a.details && a.details.name && a.action === 'delete_score' ? ' · ' + esc(a.details.name) + ' ' + esc(a.details.strokes) : '') + '</span></div></div>').join('') + '</div>' : '<p class="empty">NOTHING YET.</p>')
 };
 const FB_CATS = [['bug', 'BUG'], ['idea', 'IDEA'], ['other', 'OTHER']];
+function gearRankTag(g) {
+  const m = String((g && g.req) || '').match(/^(CLUB PRO|TOUR PRO|LEGEND|CHAMPION|MASTER|ICON|HALL OF FAME) RANK$/);
+  return m ? { 'CLUB PRO': 'CLUB', 'TOUR PRO': 'TOUR', 'LEGEND': 'LEGEND', 'CHAMPION': 'CHAMP', 'MASTER': 'MASTER', 'ICON': 'ICON', 'HALL OF FAME': 'HALL' }[m[1]] : '';
+}
+function gearTileHtml(g, eq) {
+  const own = gearOwned(g.id), src = gearIcon(g.id, false), tag = own ? '' : gearRankTag(g);
+  const mark = own ? '' : (tag ? '<span class="grank">' + tag + '</span>' : '<i class="glock" aria-hidden="true"></i>');
+  return '<button type="button" class="gtile t-' + esc(g.tier) + (own ? ' own' : ' lock') + (eq[g.slot] === g.id ? ' on' : '') + (gear.sel === g.id ? ' sel' : '') + '" data-a="gsel" data-id="' + esc(g.id) + '" aria-label="' + esc(g.name) + '">' + (src ? '<img alt="" src="' + src + '">' : '') + mark + '</button>';
+}
 function coinShopHtml() {
   if (walletLocal()) walletRefresh();
   if (!walletLocal() && coinShopSoon) return '<div class="coin-counter"><div class="cc-sign">COIN COUNTER</div><p class="cc-soon">COIN SHOP COMING SOON</p></div>';
   const coins = WALLET.coins | 0, eq = gearEquipped();
   const tiles = COIN_SHOP.map(it => {
-    const own = walletOwnCount(it.id) > 0, on = eq[it.slot] === it.id, lab = on ? 'ON' : own ? 'WEAR' : String(it.price);
-    return '<button type="button" class="cc-item' + (on ? ' on' : '') + '" data-a="cbuy" data-id="' + esc(it.id) + '"><img alt="" src="' + gearIcon(it.id, !own) + '"><span>' + esc(it.name) + '</span><b>' + lab + '</b></button>';
+    const own = walletOwnCount(it.id) > 0, on = eq[it.slot] === it.id, lab = on ? 'EQUIPPED' : own ? 'OWNED' : String(it.price);
+    const src = gearIcon(it.id, false);
+    return '<button type="button" class="cc-item' + (on ? ' on' : '') + (own ? ' own' : '') + '" data-a="cbuy" data-id="' + esc(it.id) + '">' + (src ? '<img alt="" src="' + src + '">' : '') + '<span>' + esc(it.name) + '</span><b>' + lab + '</b></button>';
   }).join('');
   return '<div class="coin-counter"><div class="cc-sign">COIN COUNTER</div><p class="cc-bal">' + coins + ' COINS</p><div class="cc-row">' + tiles + '</div></div>';
 }
@@ -12157,7 +12185,7 @@ const VIEWS = {
       line = '<b>' + esc(sel.name) + '</b> · <span style="color:' + T.col + '">' + T.name + '</span> · ' + how; }
     const segB = (k, lab) => '<button type="button" data-a="gfilt" data-n="' + k + '" class="' + (F === k ? 'on' : '') + '">' + lab + '</button>';
     return head('LOCKER', 'lockBack') + coinShopHtml() + '<div class="seg sm">' + segB('all', 'ALL') + segB('common', 'COMMON') + segB('rare', 'RARE') + segB('legendary', 'LEGEND') + '</div>' +
-      '<div class="ggrid">' + items.map(g => { const own = gearOwned(g.id); return '<button type="button" class="gtile t-' + esc(g.tier) + (own ? ' own' : '') + (eq[g.slot] === g.id ? ' on' : '') + (gear.sel === g.id ? ' sel' : '') + '" data-a="gsel" data-id="' + esc(g.id) + '" aria-label="' + esc(g.name) + '"><img alt="" src="' + gearIcon(g.id, !own) + '"></button>'; }).join('') + '</div>' +
+      '<div class="ggrid">' + items.map(g => gearTileHtml(g, eq)).join('') + '</div>' +
       '<p class="gline">' + line + '</p>' +
       (signed ? '<form data-f="redeem" novalidate><label for="aCode">GOT A CODE?</label><div class="row"><input id="aCode" type="text" maxlength="14" placeholder="DLG-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" type="submit">REDEEM</button></div></form>'
               : '<p class="sub">SIGN IN TO EARN AND KEEP GEAR</p>') + '<div class="msg"></div>';
