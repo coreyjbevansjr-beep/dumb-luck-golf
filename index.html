@@ -12674,7 +12674,7 @@ function lbiPageHtml(o) {
   else if (tab === 'field') h += F.length ? '<div class="lbif">' + F.map(n => '<button type="button" data-a="lbiPl" data-id="' + esc(n) + '">' + lbiMini(n) + '<span class="nm">' + at(n) + '</span></button>').join('') + '</div>' : '<p class="empty">NO ONE YET</p>';   // v8.99.49: full golfer + tap for a card
   else h += '<div class="lbipz"><div><b>1ST</b>IN-GAME GREEN JACKET<br>+ REAL DLG HAT<small style="display:block;margin-top:6px;font-size:10px;opacity:.75">JACKET IS IN-GAME ONLY. THE HAT SHIPS TO YOU AND UNLOCKS IN GAME TOO.</small></div><div><b>2ND-6TH</b>DLG CAMO HAT + LUCKY BALL MARKER</div><img src="shop/lucky-marker-front-720.webp" alt="LUCKY BALL MARKER" width="96" height="96" loading="lazy"></div>';
   h += '<button class="btn alt" data-a="lbiLookbook">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</button>';
-  h += c.rules_url ? '<a class="link" href="' + esc(c.rules_url) + '" target="_blank" rel="noopener">OFFICIAL RULES</a>' : '<span class="link lbidim">OFFICIAL RULES · SOON</span>';
+  h += '<a class="link" href="' + esc(c.rules_url || 'https://dumbluckgolf.com/tournament-rules.html') + '" target="_blank" rel="noopener">OFFICIAL RULES</a>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
   return h;
 }
