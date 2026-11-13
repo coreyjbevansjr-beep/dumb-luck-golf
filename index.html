@@ -12536,8 +12536,11 @@ function lbiDeadlineHtml() {
   return '<b>' + esc(d.label) + ' · ' + lbiLeft(lbiT(d.at) - lbiNow()) + ' LEFT</b><br>' + esc(lbiFmtDeadline(d.at));
 }
 function lbiHowHtml() {
+  const c = lbiCfg() || {}, windows = Array.isArray(c.r) ? c.r : [];
+  const schedule = windows.length === 4 ? '<p><strong>DAILY SCHEDULE · EASTERN</strong><br>' + windows.map((w, i) => 'ROUND ' + (i + 1) + ' · ' + esc(lbiFmtDay(w[0]))).join('<br>') + (c.lock_at ? '<br>RESULTS / PLAYOFF · ' + esc(lbiFmtDay(c.lock_at)) : '') + '</p>' : '';
   return '<details class="lbihow"><summary>HOW IT WORKS</summary>' +
-    '<p>4 rounds · 18 holes each. One counted round per round window. Lowest total strokes wins.</p>' +
+    '<p>4 rounds · 18 holes each. One counted round per day. Lowest total strokes wins.</p>' +
+    '<p>Play anytime from midnight to 11:59 p.m. Eastern each scoring day. Finish and submit before the next midnight.</p>' + schedule +
     '<p><strong>CUT AFTER DAY 2:</strong> The top 10 players plus anyone tied for 10th advance, based on total strokes from the first two rounds. Players who make the cut play Rounds 3 and 4.</p>' +
     '<p>Resume from your saved progress while the window is open. Finish and submit before the deadline.</p>' +
     '<p>Quit or miss the deadline: each unfinished hole scores 10.</p>' +
