@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.70';
+const GAME_VERSION = 'v8.99.71';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1663,6 +1663,15 @@ function golferHDImg(app, gear, kind, scale) {
   const src = golferHDCanvas(app, gear, kind), out = document.createElement('canvas'); out.width = src.width * scale; out.height = src.height * scale;
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
   if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
+}
+function hdStandScale(avail) {   // even scale when the full figure fits, otherwise 1. Both stay crisp (no smoothing).
+  return avail >= 64 * 2 + 4 ? 2 : 1;
+}
+function drawStandGolfer(cx, feetY, look, gear, avail) {   // the detailed standing golfer (same drawGolferHD as profiles). Integer scale, smoothing off.
+  const s = hdStandScale(avail == null ? 70 : avail);
+  ctx.imageSmoothingEnabled = false;
+  drawGolferHD(Math.round(cx), Math.round(feetY), s, look || lookOf(player), { gear: gear || {}, blink: false });
+  return s;
 }
 function lookPreviewGolfer(cx, feetY, look, gear, avatarScale=2) {   // EDIT LOOK preview: same tee patch as careerGolfer, detailed golfer on it (2 px per unit)
   const s = avatarScale+1, px = cx;
@@ -11136,9 +11145,8 @@ function renderCustom() {
     const cx0 = fitBay ? fitBay.x + Math.round((fitBay.w - cw) / 2) : Math.round(px - cw / 2);
     drawShopCounter(cx0, g.y - 2, cw, 10);
     ctx.globalAlpha = 0.35; czEllipse(px, g.y + 1, Math.max(8, 7 * s), Math.max(2, Math.round(s * 0.7)), '#000'); ctx.globalAlpha = 1;
-    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(s, s);
-    drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
-    ctx.restore();
+    const standX = Math.round(g.x + 3 * s);
+    drawStandGolfer(standX, g.y, lookOf(cz), gearEquipped(), g.y - (CZ_NAME.y + CZ_NAME.h + 4));
     const bs = Math.max(1, Math.floor(s / 2));
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(SPR.golfball, g.x + 9 * s, g.y - 5 * bs + Math.floor(bs / 2), 5 * bs, 5 * bs);
@@ -11349,7 +11357,7 @@ function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel 
       try { ctx.drawImage(playerBust(lookToJson(player), gearEquipped(), 'md'), x0, y - 4, 26, 30); } catch (e) {}
       drawText(who, x0 + bw + 8, y + 5, COL.blue, 2); }
     outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM', 2) / 2), 348, COL.white, 2);
-    ctx.save(); ctx.translate(58, 458); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookPlay(lookOf(player)), { finish: 1 }); ctx.restore();
+    ctx.imageSmoothingEnabled = false; drawStandGolfer(58, 458, lookOf(player), gearEquipped(), 90);
     dimg(SPR.walkA, 180, 410);
   } finally { ctx = saved; }
   const big = mk(SW * K, SH * K), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, SW * K, SH * K);
@@ -11705,16 +11713,14 @@ function careerDrawBack(key) {
   const br = careerBackR(), on = mouse.seen && !isTouchUi() && hitBtn(mouse, br);
   outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), pressDim(key) || on ? CAREER_YEL : COL.white);
 }
-function careerGolfer(cx, feetY, s, look, gdx) {   // the player's own golfer on a mown tee patch (same look as CUSTOMIZE)
-  const px = cx;
-  ctx.globalAlpha = 0.08; czEllipse(px, feetY - 14 * s, 16 * s, 17 * s, COL.white); czEllipse(px, feetY - 12 * s, 10 * s, 11 * s, COL.white); ctx.globalAlpha = 1;
-  const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
-  czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
-  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
-  ctx.globalAlpha = 0.28; czEllipse(px - s, feetY, 6 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(px - (gdx == null ? 3 : gdx) * s, feetY); ctx.scale(s, s);
-  drawGolfer(0, 0, 1, 76 + 6 * Math.sin(st * 2.2), look || lookOf(player));
-  ctx.restore();
+function careerGolfer(cx, feetY, s, look, gdx, maxH) {   // detailed standing golfer on the same tee patch. maxH keeps him inside the card.
+  const px = Math.round(cx), fy = Math.round(feetY), disc = Math.max(2, s | 0);
+  ctx.globalAlpha = 0.08; czEllipse(px, fy - 14 * disc, 16 * disc, 17 * disc, COL.white); czEllipse(px, fy - 12 * disc, 10 * disc, 11 * disc, COL.white); ctx.globalAlpha = 1;
+  const rx = 12 * disc, ry = Math.max(3, Math.round(2.2 * disc));
+  czEllipse(px, fy + 1, rx + 1, ry + 1, '#000'); czEllipse(px, fy, rx, ry, COL.grassL);
+  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * disc - disc, fy - ry + 2, 2 * disc, ry * 2 - 3, COL.fair2);
+  ctx.globalAlpha = 0.28; czEllipse(px - disc, fy, 6 * disc, Math.max(2, Math.round(disc * 0.9)), '#000'); ctx.globalAlpha = 1;
+  drawStandGolfer(px, fy, look || lookOf(player), gearEquipped(), maxH == null ? fy - ((SAFE.t || 0) + 16) : maxH);
 }
 function careerButton(r, label, lit, key, fsc) {   // gold CTA in the same frame language as the boards
   const on = lit || pressDim(key) || (mouse.seen && !isTouchUi() && hitBtn(mouse, r));
@@ -11814,7 +11820,7 @@ function renderCareer() {
   // career card: golfer + name + DLG Tour rank + XP bar
   const C = L.card;
   czBoard(C.x, C.y, C.w, C.h, 0.9, false);
-  careerGolfer(C.x + 27, C.y + 72, 2, undefined, CAREER_GDX);   // v8.99.41: golfer centred on his patch
+  careerGolfer(C.x + 27, C.y + 72, 2, undefined, CAREER_GDX, 68);   // detailed golfer, kept inside the card
   const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
@@ -13076,7 +13082,11 @@ function renderScene() {
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   try { drawGhostGolfer(); } catch (e) {}
-  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try { drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose()); } finally { V93.main = false; } }
+  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try {
+    const posed = golferPose();
+    if (state === 'aim' && !(posed.coil > 0) && !(posed.finish > 0) && posed.smear == null) drawStandGolfer(gsx + facingForGolfer() * 4, ggy, lookOf(player), gearEquipped(), 70);
+    else drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), posed);
+  } finally { V93.main = false; } }
   drawTurfKick();
   if (state === 'flight' || state === 'holed') drawTrail();
   aimPts = [];
