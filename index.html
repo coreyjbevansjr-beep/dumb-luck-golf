@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.74';
+const GAME_VERSION = 'v8.99.75';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1396,9 +1396,29 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
-  else if (hs === 5) {                                                       // busy afro wrapped over the crown, clear of the eye at y -27
-    r(-4, -38, 6, 2, hc); r(-7, -36, 10, 3, hc); r(-8, -33, 12, 4, hc); r(-2, -32, 6, 3, hc); r(-8, -30, 6, 4, hc);
-    r(-5, -35, 1, 1, shadeHex(hc, 0.72)); r(-2, -34, 1, 1, shadeHex(hc, 1.25)); r(-6, -31, 1, 1, shadeHex(hc, 0.7));
+  else if (hs === 5) {                                                       // round afro on the side-view head. Eye stays at (3, -27).
+    const cells = [];
+    const ax = 0.5, ay = -31, rx = 5.2, ry = 4.8, fx = 2.2, fy = -26.2, frx = 3.2, fry = 3.0;
+    for (let y = -38; y <= -24; y++) for (let x = -8; x <= 8; x++) {
+      const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+      const bump = (0.6 * Math.sin(ang * 5) + 0.3 * Math.sin(ang * 9 + 0.5)) / ((rx + ry) * 0.5);
+      if (Math.hypot(px / rx, py / ry) > 1 + bump) continue;
+      const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
+      if (fdx * fdx + fdy * fdy <= 1) continue;
+      cells.push([x, y]);
+    }
+    const has = (x, y) => cells.some(c => c[0] === x && c[1] === y);
+    for (const [x, y] of cells) r(x, y, 1, 1, shadeHex(hc, 0.72));
+    for (const [x, y] of [[-3, -34], [-1, -35], [-4, -32]]) if (has(x, y)) r(x, y, 1, 1, shadeHex(hc, 1.3));
+    for (const [x, y] of [[2, -30], [1, -32]]) if (has(x, y)) r(x, y, 1, 1, shadeHex(hc, 0.55));
+    for (const [x, y] of cells) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (has(nx, ny)) continue;
+        if (nx >= -1 && nx <= 4 && ny >= -29 && ny <= -24) continue;
+        r(nx, ny, 1, 1, K);
+      }
+    }
   }
   else if (hs) {
     r(-1, -29, 2, 2, hc); r(-1, -27, 1, 1, hc);                                  // back of the head
@@ -1598,15 +1618,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 5) {                                                                                                         // busy afro wrapped on the head. Face sits in the bottom center. Eyes are y -47.
-      R(-1, -73, 4, 2, hc); R(-5, -72, 4, 2, hc); R(3, -72, 4, 2, hc);
-      R(-8, -70, 17, 3, hc); R(-10, -67, 21, 4, hc);
-      R(-12, -64, 6, 5, hc); R(-5, -65, 11, 4, hc); R(6, -64, 7, 5, hc);
-      R(-12, -60, 5, 5, hc); R(8, -60, 5, 5, hc);
-      R(-7, -56, 15, 4, hc);                                                                                               // covers the skull top, down to the forehead
-      R(-6, -52, 13, 3, hc);                                                                                               // hairline on the forehead, above the eyes
-      R(-12, -56, 4, 10, hc); R(9, -56, 4, 10, hc);                                                                        // sides past the ears
-      R(-11, -46, 3, 5, hc); R(9, -46, 3, 5, hc);                                                                          // down to the jaw, outside the face
+    if (hs === 5) {                                                                                                         // round afro. Filled below, after this flush, so the ball has no internal outline.
     } else {
       if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
       if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
@@ -1620,9 +1632,41 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     }
     flush();
     if (hs === 5) {
-      D(-7, -68, 2, 2, hcD); D(2, -69, 2, 2, hcD); D(-3, -64, 2, 2, hcD); D(6, -63, 2, 2, hcD);
-      D(-10, -60, 2, 2, hcD); D(0, -58, 2, 2, hcD); D(8, -58, 2, 2, hcD); D(-5, -54, 2, 1, hcD); D(4, -53, 2, 1, hcD);
-      D(-2, -71, 2, 1, hcL); D(4, -67, 2, 1, hcL); D(-8, -65, 1, 1, hcL); D(1, -62, 2, 1, hcL); D(-9, -56, 1, 1, hcL); D(7, -55, 1, 1, hcL);
+      // A near-circle, a little wider than tall, centered just above the face. Diameter is about 1.7x the head.
+      // The face ellipse cuts the lower middle, so the puff's bottom edge curves in at the cheeks. No per-rect outline.
+      const ax = 0, ay = -51, rx = 10.5, ry = 10.2, fx = 0, fy = -44.6, frx = 5.5, fry = 5.5;
+      const X0 = -16, Y0 = -66, GW = 34, GH = 30, on = new Uint8Array(GW * GH);
+      const at = (x, y) => (y - Y0) * GW + (x - X0);
+      const box = (x, y) => x >= X0 && x < X0 + GW && y >= Y0 && y < Y0 + GH;
+      for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+        const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+        const bump = (0.75 * Math.sin(ang * 7) + 0.4 * Math.sin(ang * 13 + 0.4)) / ((rx + ry) * 0.5);
+        if (Math.hypot(px / rx, py / ry) > 1 + bump || y > -45) continue;
+        const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
+        if (fdx * fdx + fdy * fdy <= 1) continue;
+        on[at(x, y)] = 1;
+      }
+      const onSkin = (x, y) => (x >= -6 && x <= 6 && y >= -52 && y <= -40) || ((x === -7 || x === 7) && y >= -48 && y <= -46) || (x >= -2 && x <= 2 && y >= -40 && y <= -39);
+      for (let y = Y0; y < Y0 + GH; y++) {
+        let x = X0;
+        while (x < X0 + GW) {
+          if (!on[at(x, y)]) { x++; continue; }
+          let x2 = x + 1; while (x2 < X0 + GW && on[at(x2, y)]) x2++;
+          D(x, y, x2 - x, 1, hcD);
+          x = x2;
+        }
+      }
+      for (const [x, y] of [[-6, -59], [-3, -60], [-8, -56], [-2, -57], [-5, -54]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, hcL);
+      for (const [x, y] of [[6, -46], [8, -48], [5, -47], [7, -50], [4, -49]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, L(hc, 0.82));
+      for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+        if (on[at(x, y)] || onSkin(x, y)) continue;
+        let edge = false;
+        if (box(x + 1, y) && on[at(x + 1, y)]) edge = true;
+        else if (box(x - 1, y) && on[at(x - 1, y)]) edge = true;
+        else if (box(x, y + 1) && on[at(x, y + 1)]) edge = true;
+        else if (box(x, y - 1) && on[at(x, y - 1)]) edge = true;
+        if (edge) D(x, y, 1, 1, K);
+      }
       flush();
     } else if (hs) {
       if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
