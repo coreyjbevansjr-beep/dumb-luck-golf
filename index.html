@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.77';
+const GAME_VERSION = 'v8.99.78';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1297,7 +1297,8 @@ async function adminLoadPreorders() { const r = await adminRpc('admin_preorders'
 async function adminLoadFeedback() { const r = await adminRpc('admin_feedback', { p_limit: 100 }); admin.feedback = r.ok && Array.isArray(r.data) ? r.data : []; return r; }   // v8.36
 
 /* ================= v8.31: golfer look (EDIT LOOK) + detailed sprite ================= */
-const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY', 'AFRO'];
+const AFRO_ENABLED = false; // parked. Style index 5 and its drawing stay in this file; flip this to put AFRO back on the picker.
+const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY'].concat(AFRO_ENABLED ? ['AFRO'] : []);
 const HAIR_COLS = [['#2c1c10', 'BLACK'], ['#8c5028', 'BROWN'], ['#f8d878', 'BLONDE'], ['#c84c0c', 'RED'], ['#bcbcbc', 'GRAY'], ['#3cbcfc', 'BLUE']];
 const HAT_STYLES = ['CAP', 'VISOR', 'NONE'];
 const SHOE_COLS = [['#fcfcfc', '#a8a8a8', 'WHITE'], ['#2c2c2c', '#000000', 'BLACK'], ['#8c5028', '#5c3418', 'BROWN'], ['#f83800', '#a81000', 'RED'], ['#3cbcfc', '#0078f8', 'BLUE']];
@@ -1306,17 +1307,26 @@ const PANTS_D = c => shadeHex(c, 0.72);
 function shadeHex(c, k) { const n = parseInt(c.slice(1), 16); const f = v => Math.max(0, Math.min(255, Math.round(v * k))); return '#' + ((f(n >> 16) << 16) | (f((n >> 8) & 255) << 8) | f(n & 255)).toString(16).padStart(6, '0'); }
 const LOOK_KEYS = { skin: SKINS.length, hair: HAIR_STYLES.length, hairColor: HAIR_COLS.length, hatStyle: HAT_STYLES.length, hat: HATS.length, shirt: SHIRTS.length, pants: PANTS.length, shoes: SHOE_COLS.length, glove: GLOVE_COLS.length };
 const LOOK_DEFAULT = { skin: 1, hair: 1, hairColor: 1, hatStyle: 0, hat: 0, shirt: 0, pants: 0, shoes: 0, glove: 1 };
+function hairStyle(v) {   // a saved afro (index 5) falls back to the default style while AFRO is parked
+  if (!Number.isInteger(v)) return LOOK_DEFAULT.hair;
+  if (v === 5 && !AFRO_ENABLED) return LOOK_DEFAULT.hair;
+  return v >= 0 && v < HAIR_STYLES.length ? v : LOOK_DEFAULT.hair;
+}
 function cleanLook(o) {   // same shape the server CHECK accepts
   const out = {};
-  for (const k in LOOK_KEYS) { const v = o && o[k]; out[k] = Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : (player && Number.isInteger(player[k]) ? player[k] : LOOK_DEFAULT[k]); }
+  for (const k in LOOK_KEYS) {
+    const v = o && o[k];
+    if (k === 'hair') out.hair = Number.isInteger(v) ? hairStyle(v) : (player && Number.isInteger(player.hair) ? hairStyle(player.hair) : LOOK_DEFAULT.hair);
+    else out[k] = Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : (player && Number.isInteger(player[k]) ? player[k] : LOOK_DEFAULT[k]);
+  }
   return out;
 }
-function lookToJson(p) { const o = { v: 1 }; for (const k in LOOK_KEYS) o[k] = clamp(p[k] | 0, 0, LOOK_KEYS[k] - 1); return o; }
+function lookToJson(p) { const o = { v: 1 }; for (const k in LOOK_KEYS) o[k] = k === 'hair' ? hairStyle(p[k]) : clamp(p[k] | 0, 0, LOOK_KEYS[k] - 1); return o; }
 // fill new fields for players saved before v8.31
 for (const k in LOOK_DEFAULT) if (!Number.isInteger(player[k])) player[k] = LOOK_DEFAULT[k];
-try { const v = JSON.parse(localStorage.getItem('dlg_golf_player') || 'null'); if (v) for (const k of ['hair', 'hairColor', 'hatStyle', 'shoes', 'glove']) if (Number.isInteger(v[k])) player[k] = clamp(v[k], 0, LOOK_KEYS[k] - 1); } catch (e) {}
+try { const v = JSON.parse(localStorage.getItem('dlg_golf_player') || 'null'); if (v) for (const k of ['hair', 'hairColor', 'hatStyle', 'shoes', 'glove']) if (Number.isInteger(v[k])) player[k] = k === 'hair' ? hairStyle(v[k]) : clamp(v[k], 0, LOOK_KEYS[k] - 1); } catch (e) {}
 function lookOf(p) {
-  const g = k => Number.isInteger(p[k]) ? p[k] : (Number.isInteger(player[k]) ? player[k] : LOOK_DEFAULT[k]);
+  const g = k => { const v = Number.isInteger(p[k]) ? p[k] : (Number.isInteger(player[k]) ? player[k] : LOOK_DEFAULT[k]); return k === 'hair' ? hairStyle(v) : v; };
   const sk = SKINS[g('skin')], sh = SHIRTS[g('shirt')], ht = HATS[g('hat')], pa = PANTS[g('pants')], so = SHOE_COLS[g('shoes')], gl = GLOVE_COLS[g('glove')];
   return { skin: sk, skinD: shadeHex(sk, 0.8), shirt: sh[0], shirtD: sh[1], hat: ht[0], hatD: ht[1], pants: pa, pantsD: PANTS_D(pa), hatIdx: g('hat'),
            hair: g('hair'), hairC: HAIR_COLS[g('hairColor')][0], hatStyle: g('hatStyle'), shoe: so[0], shoeD: so[1], glove: gl[0] };
@@ -1396,7 +1406,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
-  else if (hs === 5) {                                                       // round afro on the side-view head. Eye stays at (3, -27).
+  else if (AFRO_ENABLED && hs === 5) {                                      // round afro on the side-view head. Eye stays at (3, -27). Parked while AFRO_ENABLED is false.
     const cells = [];
     const ax = 0.5, ay = -31, rx = 5.2, ry = 4.8, fx = 2.2, fy = -26.2, frx = 3.2, fry = 3.0;
     const hatBlobs = hst === 2 ? null : [[0, -37, 2.2, 3.0], [-2, -35, 2.2, 2.8], [-5, -32, 2.0, 4.4], [-1, -33, 2.4, 2.6], [-6, -29, 1.8, 3.2]];
@@ -1450,7 +1460,7 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
     if ((look.hatIdx | 0) === 10) { r(-1, -34, 1, 1, '#f8d878'); r(1, -35, 1, 1, '#f8d878'); r(3, -34, 1, 1, '#f8d878'); }
     if (GA && GA.head === 'camo_hat') { r(0, -32, 2, 1, '#2c2414'); r(3, -31, 1, 1, '#8c8c50'); r(-1, -30, 2, 1, '#8c8c50'); r(2, -30, 1, 1, '#2c2414'); r(0, -31, 3, 1, '#fc7c18'); }
   } else {
-    if (hs && hs !== 5) {
+    if (hs && !(hs === 5 && AFRO_ENABLED)) {
       r(-1, -30, 6, 1, hc); r(-2, -30, 1, 1, K); r(5, -30, 1, 1, K);
       if (hs === 4) { r(-1, -31, 2, 1, hc); r(2, -31, 2, 1, hc); r(-1, -32, 2, 1, K); r(2, -32, 2, 1, K); r(1, -31, 1, 1, K); r(4, -31, 1, 1, K); r(-2, -31, 1, 1, K); }
       else r(-1, -31, 6, 1, K);
@@ -1536,7 +1546,7 @@ const HD_SLOTS = {
 };
 const GEAR_ART = {};   // itemId -> (R, D, look, slot) => void   (R = outlined part, D = flat detail; sprite units)
 function hdLookFull(app) {   // a complete look from saved appearance; missing keys use the default golfer (never the viewer's own look)
-  const o = {}; for (const k in LOOK_KEYS) { const v = app && app[k]; o[k] = Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : LOOK_DEFAULT[k]; }
+  const o = {}; for (const k in LOOK_KEYS) { const v = app && app[k]; o[k] = k === 'hair' ? (Number.isInteger(v) ? hairStyle(v) : LOOK_DEFAULT.hair) : (Number.isInteger(v) && v >= 0 && v < LOOK_KEYS[k] ? v : LOOK_DEFAULT[k]); }
   return o;
 }
 function hdMix(a, b, k) { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16), m = sh => Math.round(((x >> sh) & 255) * (1 - k) + ((y >> sh) & 255) * k); return '#' + ((m(16) << 16) | (m(8) << 8) | m(0)).toString(16).padStart(6, '0'); }
@@ -1619,7 +1629,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     F(-3, -47, 1, 0.5, '#4c3420'); F(3, -47, 1, 0.5, '#4c3420'); F(-3, -47, 0.5, 0.5, '#fcfcfc'); F(3, -47, 0.5, 0.5, '#fcfcfc');   // iris + catchlight
     F(-4, -47.5, 2.5, 0.5, K); F(2.5, -47.5, 2.5, 0.5, K); F(-4, -45, 2, 0.5, L(sk, 0.9)); F(3, -45, 2, 0.5, L(sk, 0.9));       // lids
   }
-  const brow = hs && hs !== 5 ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
+  const brow = hs && !(hs === 5 && AFRO_ENABLED) ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
   F(-5, -49.5, 2, 0.5, brow); F(4, -49.5, 2, 0.5, brow);
   D(0, -46, 1, 2, skD); D(-2, -43, 5, 1, skD); D(-3, -44, 1, 1, skD); D(3, -44, 1, 1, skD);                                   // nose + smile
   F(0.5, -46.5, 0.5, 1.5, skL); F(-0.5, -44.5, 0.5, 0.5, skD); F(1, -44.5, 0.5, 0.5, skD);                                  // nose light + nostrils
@@ -1630,7 +1640,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 5) {                                                                                                         // round afro. Filled below, after this flush, so the ball has no internal outline.
+    if (AFRO_ENABLED && hs === 5) {                                                                                         // round afro. Filled below, after this flush, so the ball has no internal outline. Parked while AFRO_ENABLED is false.
     } else {
       if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
       if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
@@ -1643,7 +1653,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
       }
     }
     flush();
-    if (hs === 5) {
+    if (AFRO_ENABLED && hs === 5) {
       // A near-circle, a little wider than tall, centered just above the face. Diameter is about 1.7x the head.
       // The face ellipse cuts the lower middle, so the puff's bottom edge curves in at the cheeks. No per-rect outline.
       const ax = 0, ay = -51, ry = 10.2, fx = 0, fy = -44.6, frx = 5.5, fry = 5.5;
