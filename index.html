@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.70';
+const GAME_VERSION = 'v8.99.76';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1297,7 +1297,7 @@ async function adminLoadPreorders() { const r = await adminRpc('admin_preorders'
 async function adminLoadFeedback() { const r = await adminRpc('admin_feedback', { p_limit: 100 }); admin.feedback = r.ok && Array.isArray(r.data) ? r.data : []; return r; }   // v8.36
 
 /* ================= v8.31: golfer look (EDIT LOOK) + detailed sprite ================= */
-const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY'];
+const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY', 'AFRO'];
 const HAIR_COLS = [['#2c1c10', 'BLACK'], ['#8c5028', 'BROWN'], ['#f8d878', 'BLONDE'], ['#c84c0c', 'RED'], ['#bcbcbc', 'GRAY'], ['#3cbcfc', 'BLUE']];
 const HAT_STYLES = ['CAP', 'VISOR', 'NONE'];
 const SHOE_COLS = [['#fcfcfc', '#a8a8a8', 'WHITE'], ['#2c2c2c', '#000000', 'BLACK'], ['#8c5028', '#5c3418', 'BROWN'], ['#f83800', '#a81000', 'RED'], ['#3cbcfc', '#0078f8', 'BLUE']];
@@ -1373,13 +1373,17 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   }
   r(0, -8, 5, 6, look.pants); r(0, -8, 1, 6, look.pantsD); r(5, -12, 1, 10, K);   // front leg (seam = its own shade column)
   r(0, -2, 7, 1, look.shoe); r(0, -1, 7, 1, look.shoeD); r(7, -2, 1, 2, K); r(5, -2, 0, 0, K);
-  r(-5, -13, 10, 1, K); r(2, -13, 2, 1, '#f8d878');                              // belt + buckle
+  r(-5, -13, 10, 1, GA && GA.waist === 'white_belt' ? '#fcfcfc' : K); r(2, -13, 2, 1, GA && GA.waist === 'white_belt' ? '#e8e8f0' : '#f8d878');   // belt + buckle
   // ---- torso (rows -22..-14)
   r(-5, -22, 10, 9, look.shirt); r(-5, -22, 2, 9, look.shirtD);
   r(-6, -22, 1, 9, K); r(5, -22, 1, 9, K); r(-5, -23, 10, 1, K);
   if (GA) {
     if (GA.torso === 'champ_jacket') { r(2, -22, 2, 3, shirt0); r(2, -22, 1, 1, look.skin); r(3, -18, 1, 1, '#d4af37'); r(3, -16, 1, 1, '#d4af37'); r(-1, -20, 1, 1, '#d4af37'); r(-5, -14, 10, 1, '#0a2c1c'); }
-    if (GA.neck === 'ace_chain') { r(1, -22, 1, 1, '#f8d878'); r(2, -21, 1, 1, '#c88800'); r(3, -22, 1, 1, '#f8d878'); r(2, -20, 1, 1, '#fcfcfc'); }
+    if (GA.torso === 'tour_polo') { r(1, -21, 2, 5, '#1c2c6c'); r(3, -18, 2, 2, '#1c2c6c'); }
+    if (GA.torso === 'outfit_caddy') { r(1, -20, 3, 6, '#f4e6c4'); r(2, -18, 1, 2, '#f8d878'); }
+    if (GA.torso === 'champ_vest') { r(1, -20, 3, 6, '#183848'); r(2, -18, 1, 2, '#fcfcfc'); }
+    if (GA.torso === 'icon_jacket') { r(1, -20, 2, 5, '#3c3c48'); r(3, -18, 1, 2, '#f8d878'); }
+    if (GA.neck === 'ace_chain' || GA.neck === 'silver_chain') { r(1, -22, 1, 1, GA.neck === 'silver_chain' ? '#d8dce8' : '#f8d878'); r(2, -21, 1, 1, GA.neck === 'silver_chain' ? '#f4f4f8' : '#c88800'); r(3, -22, 1, 1, GA.neck === 'silver_chain' ? '#d8dce8' : '#f8d878'); r(2, -20, 1, 1, '#fcfcfc'); }
   }
   // ---- head (rows -29..-24), outline all round, nose bump, one eye, hint of a mouth
   r(-1, -29, 6, 6, look.skin);
@@ -1392,6 +1396,30 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
+  else if (hs === 5) {                                                       // round afro on the side-view head. Eye stays at (3, -27).
+    const cells = [];
+    const ax = 0.5, ay = -31, rx = hst === 2 ? 5.2 : 7.4, ry = 4.8, fx = 2.2, fy = -26.2, frx = 3.2, fry = 3.0;
+    for (let y = -40; y <= -24; y++) for (let x = -12; x <= 12; x++) {
+      const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+      const bump = (0.6 * Math.sin(ang * 5) + 0.3 * Math.sin(ang * 9 + 0.5)) / ((rx + ry) * 0.5);
+      if (Math.hypot(px / rx, py / ry) > 1 + bump) continue;
+      const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
+      if (fdx * fdx + fdy * fdy <= 1) continue;
+      cells.push([x, y]);
+    }
+    const has = (x, y) => cells.some(c => c[0] === x && c[1] === y);
+    for (const [x, y] of cells) r(x, y, 1, 1, shadeHex(hc, 0.72));
+    for (const [x, y] of [[-3, -34], [-1, -35], [-4, -32]]) if (has(x, y)) r(x, y, 1, 1, shadeHex(hc, 1.3));
+    for (const [x, y] of [[2, -30], [1, -32]]) if (has(x, y)) r(x, y, 1, 1, shadeHex(hc, 0.55));
+    for (const [x, y] of cells) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (has(nx, ny)) continue;
+        if (nx >= -1 && nx <= 4 && ny >= -29 && ny <= -24) continue;
+        r(nx, ny, 1, 1, shadeHex(hc, 0.24));
+      }
+    }
+  }
   else if (hs) {
     r(-1, -29, 2, 2, hc); r(-1, -27, 1, 1, hc);                                  // back of the head
     if (hs === 2) { r(-2, -29, 1, 7, hc); r(-1, -27, 1, 4, hc); r(-3, -29, 1, 7, K); r(-2, -22, 1, 0, K); }       // long: past the collar
@@ -1410,12 +1438,11 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
     if ((look.hatIdx | 0) === 10) { r(-1, -34, 1, 1, '#f8d878'); r(1, -35, 1, 1, '#f8d878'); r(3, -34, 1, 1, '#f8d878'); }
     if (GA && GA.head === 'camo_hat') { r(0, -32, 2, 1, '#2c2414'); r(3, -31, 1, 1, '#8c8c50'); r(-1, -30, 2, 1, '#8c8c50'); r(2, -30, 1, 1, '#2c2414'); r(0, -31, 3, 1, '#fc7c18'); }
   } else {
-    // no crown: hair (or a bald outline) on top of the head
-    if (hs) {
+    if (hs && hs !== 5) {
       r(-1, -30, 6, 1, hc); r(-2, -30, 1, 1, K); r(5, -30, 1, 1, K);
       if (hs === 4) { r(-1, -31, 2, 1, hc); r(2, -31, 2, 1, hc); r(-1, -32, 2, 1, K); r(2, -32, 2, 1, K); r(1, -31, 1, 1, K); r(4, -31, 1, 1, K); r(-2, -31, 1, 1, K); }
       else r(-1, -31, 6, 1, K);
-    } else r(-1, -30, 6, 1, K);
+    } else if (!hs) r(-1, -30, 6, 1, K);
     if (hst === 1) { r(-1, -29, 6, 1, look.hat); r(-2, -29, 1, 1, K); r(5, -29, 4, 1, look.hatD); r(9, -29, 1, 1, K); r(6, -28, 3, 1, K); r(6, -30, 3, 1, K); }   // visor band + brim
     if (GA && GA.head === 'underpar_visor') r(2, -29, 1, 1, '#00a800');
   }
@@ -1452,10 +1479,11 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   try { v93GearFx(sx, gy, dir, look, GA, hst, pk, pose); } catch (e) {}   // v8.93 gear shine + tee cap-tip
 }
 // v8.66: equipped gear on the in-game golfer. look.gear = { slot: itemId }; art ids resolve through the catalog (admin items reuse art)
-const PLAY_GEAR_SLOTS = ['head', 'face', 'neck', 'hands', 'torso', 'held'];
+const PLAY_GEAR_SLOTS = ['head', 'face', 'neck', 'hands', 'torso', 'waist', 'feet', 'logo', 'held'];
 const PLAY_GA = new Map();
 function playGearArt(g) {
-  const key = PLAY_GEAR_SLOTS.map(s => g[s] || '').join('|'); if (key === '|||||') return null;
+  if (!PLAY_GEAR_SLOTS.some(s => g[s])) return null;
+  const key = PLAY_GEAR_SLOTS.map(s => g[s] || '').join('|');
   let o = PLAY_GA.get(key); if (o !== undefined) return o;
   o = {}; for (const s of PLAY_GEAR_SLOTS) if (g[s]) o[s] = typeof gearArtOf === 'function' ? gearArtOf(g[s]) : g[s];
   if (PLAY_GA.size > 60) PLAY_GA.clear(); PLAY_GA.set(key, o); return o;
@@ -1463,9 +1491,14 @@ function playGearArt(g) {
 function playGearLook(look, GA) {
   const o = Object.assign({}, look);
   if (GA.torso === 'champ_jacket') { o.shirt = '#14462d'; o.shirtD = '#0a2c1c'; }
-  if (GA.head === 'camo_hat') { o.hat = '#5c6c2c'; o.hatD = '#3c4818'; o.hatIdx = -1; }
-  if (GA.head === 'underpar_visor') { o.hat = '#fcfcfc'; o.hatD = '#14462d'; o.hatIdx = -1; }
-  if (GA.hands === 'birdie_glove') o.glove = '#fcfcfc';
+  if (GA.torso === 'tour_polo') { o.shirt = '#fcfcfc'; o.shirtD = '#d8dce4'; }
+  if (GA.torso === 'outfit_caddy') { o.shirt = '#1c6c38'; o.shirtD = '#14462d'; }
+  if (GA.torso === 'champ_vest') { o.shirt = '#f8d878'; o.shirtD = '#c8a020'; }
+  if (GA.torso === 'icon_jacket') { o.shirt = '#1c1c24'; o.shirtD = '#3c3c48'; }
+  if (GA.head === 'camo_hat' || GA.head === 'navy_cap') { o.hat = GA.head === 'navy_cap' ? '#1c2c6c' : '#5c6c2c'; o.hatD = GA.head === 'navy_cap' ? '#101840' : '#3c4818'; o.hatIdx = -1; }
+  if (GA.head === 'underpar_visor' || GA.head === 'gold_visor') { o.hat = GA.head === 'gold_visor' ? '#f8d878' : '#fcfcfc'; o.hatD = GA.head === 'gold_visor' ? '#c88800' : '#14462d'; o.hatIdx = -1; }
+  if (GA.hands === 'birdie_glove' || GA.hands === 'master_glove') o.glove = '#fcfcfc';
+  if (GA.feet === 'wing_shoes') { o.shoe = '#fcfcfc'; o.shoeD = '#d0d4e0'; }
   return o;
 }
 function lookPlay(look, g) {   // attach equipped gear (own by default) to an in-game look
@@ -1574,7 +1607,7 @@ function drawGolferHD(cx, feetY, s, look, opt) {
     F(-3, -47, 1, 0.5, '#4c3420'); F(3, -47, 1, 0.5, '#4c3420'); F(-3, -47, 0.5, 0.5, '#fcfcfc'); F(3, -47, 0.5, 0.5, '#fcfcfc');   // iris + catchlight
     F(-4, -47.5, 2.5, 0.5, K); F(2.5, -47.5, 2.5, 0.5, K); F(-4, -45, 2, 0.5, L(sk, 0.9)); F(3, -45, 2, 0.5, L(sk, 0.9));       // lids
   }
-  const brow = hs ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
+  const brow = hs && hs !== 5 ? hc : skD; D(-5, -49, 3, 1, brow); D(3, -49, 3, 1, brow);
   F(-5, -49.5, 2, 0.5, brow); F(4, -49.5, 2, 0.5, brow);
   D(0, -46, 1, 2, skD); D(-2, -43, 5, 1, skD); D(-3, -44, 1, 1, skD); D(3, -44, 1, 1, skD);                                   // nose + smile
   F(0.5, -46.5, 0.5, 1.5, skL); F(-0.5, -44.5, 0.5, 0.5, skD); F(1, -44.5, 0.5, 0.5, skD);                                  // nose light + nostrils
@@ -1585,17 +1618,58 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                           // long: past the shoulders
-    if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                          // ponytail out the side
-    if (hs) {
-      if (!capOn) {
-        if (hs === 4) { R(-6, -54, 13, 4, hc); R(-5, -55, 3, 1, hc); R(-1, -55, 3, 1, hc); R(3, -55, 3, 1, hc); }
-        else { R(-5, -54, 11, 1, hc); R(-6, -53, 13, 3, hc); }
+    if (hs === 5) {                                                                                                         // round afro. Filled below, after this flush, so the ball has no internal outline.
+    } else {
+      if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
+      if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
+      if (hs) {
+        if (!capOn) {
+          if (hs === 4) { R(-6, -54, 13, 4, hc); R(-5, -55, 3, 1, hc); R(-1, -55, 3, 1, hc); R(3, -55, 3, 1, hc); }
+          else { R(-5, -54, 11, 1, hc); R(-6, -53, 13, 3, hc); }
+        }
+        R(-6, -50, 1, 3, hc); R(6, -50, 1, 3, hc);                                                                            // sideburns
       }
-      R(-6, -50, 1, 3, hc); R(6, -50, 1, 3, hc);                                                                              // sideburns
     }
     flush();
-    if (hs) {
+    if (hs === 5) {
+      // A near-circle, a little wider than tall, centered just above the face. Diameter is about 1.7x the head.
+      // The face ellipse cuts the lower middle, so the puff's bottom edge curves in at the cheeks. No per-rect outline.
+      const ax = 0, ay = -51, ry = 10.2, fx = 0, fy = -44.6, frx = 5.5, fry = 5.5;
+      const rx = capOn || visorOn ? 14.5 : 10.5;                                                                           // same ball; wider only so a normal cap still has 6px of hair on each side
+      const X0 = -20, Y0 = -66, GW = 42, GH = 30, on = new Uint8Array(GW * GH);
+      const at = (x, y) => (y - Y0) * GW + (x - X0);
+      const box = (x, y) => x >= X0 && x < X0 + GW && y >= Y0 && y < Y0 + GH;
+      for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+        const px = x + 0.5 - ax, py = y + 0.5 - ay, ang = Math.atan2(py / ry, px / rx);
+        const bump = (0.75 * Math.sin(ang * 7) + 0.4 * Math.sin(ang * 13 + 0.4)) / ((rx + ry) * 0.5);
+        if (Math.hypot(px / rx, py / ry) > 1 + bump || y > -45) continue;
+        const fdx = (x + 0.5 - fx) / frx, fdy = (y + 0.5 - fy) / fry;
+        if (fdx * fdx + fdy * fdy <= 1) continue;
+        on[at(x, y)] = 1;
+      }
+      const onSkin = (x, y) => (x >= -6 && x <= 6 && y >= -52 && y <= -40) || ((x === -7 || x === 7) && y >= -48 && y <= -46) || (x >= -2 && x <= 2 && y >= -40 && y <= -39);
+      for (let y = Y0; y < Y0 + GH; y++) {
+        let x = X0;
+        while (x < X0 + GW) {
+          if (!on[at(x, y)]) { x++; continue; }
+          let x2 = x + 1; while (x2 < X0 + GW && on[at(x2, y)]) x2++;
+          D(x, y, x2 - x, 1, hcD);
+          x = x2;
+        }
+      }
+      for (const [x, y] of [[-6, -59], [-3, -60], [-8, -56], [-2, -57], [-5, -54]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, hcL);
+      for (const [x, y] of [[6, -46], [8, -48], [5, -47], [7, -50], [4, -49]]) if (box(x, y) && on[at(x, y)]) D(x, y, 1, 1, L(hc, 0.82));
+      for (let y = Y0; y < Y0 + GH; y++) for (let x = X0; x < X0 + GW; x++) {
+        if (on[at(x, y)] || onSkin(x, y)) continue;
+        let edge = false;
+        if (box(x + 1, y) && on[at(x + 1, y)]) edge = true;
+        else if (box(x - 1, y) && on[at(x - 1, y)]) edge = true;
+        else if (box(x, y + 1) && on[at(x, y + 1)]) edge = true;
+        else if (box(x, y - 1) && on[at(x, y - 1)]) edge = true;
+        if (edge) D(x, y, 1, 1, L(hc, 0.24));                                                                                // near-black brown rim, darker than the wood wall
+      }
+      flush();
+    } else if (hs) {
       if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
       if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); F(-10, -46, 0.5, 4, hcL); F(-9.5, -48, 0.5, 0.5, '#c88800'); }
       if (!capOn && hs === 4) { D(-4, -53, 1, 1, hcD); D(0, -52, 1, 1, hcD); D(4, -53, 1, 1, hcD); D(-2, -51, 1, 1, hcD); D(2, -51, 1, 1, hcD);
@@ -1609,22 +1683,24 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   if (headGear) { art('head'); flush(); }
   else if (capOn) {
     const ht = look.hat, htD = look.hatD, htL = L(ht, 1.2);
-    R(-5, -57, 11, 1, ht); R(-6, -56, 13, 5, ht); R(-7, -51, 15, 2, htD);
+    const o = hs === 5 ? -1 : 0;                                                                                             // afro: same cap, sitting on the upper center, brim still over the forehead
+    R(-5, -57 + o, 11, 1, ht); R(-6, -56 + o, 13, 5, ht); R(-7, -51 + o, 15, 2, htD);
     flush();
-    D(-6, -56, 1, 5, htD); D(0, -56, 1, 4, htD); D(0, -58, 1, 1, htD); D(-7, -50, 15, 1, L(htD, 0.8));
-    F(-4, -57, 3, 0.5, htL); F(2, -57, 2.5, 0.5, htL); F(-3, -56.5, 0.5, 4, L(ht, 0.9)); F(3.5, -56.5, 0.5, 4, L(ht, 0.9));   // crown light + panel seams
-    F(-4.5, -55, 0.5, 0.5, htD); F(5, -55, 0.5, 0.5, htD); F(0, -58, 1, 0.5, htL);                                            // vents + button
-    for (let k = -6; k <= 7; k += 1) F(k, -51, 0.5, 0.5, L(htD, 1.25));                                                       // brim stitching
-    F(-6, -52, 13, 0.5, L(ht, 0.82));                                                                                          // crown meets brim
+    D(-6, -56 + o, 1, 5, htD); D(0, -56 + o, 1, 4, htD); D(0, -58 + o, 1, 1, htD); D(-7, -50 + o, 15, 1, L(htD, 0.8));
+    F(-4, -57 + o, 3, 0.5, htL); F(2, -57 + o, 2.5, 0.5, htL); F(-3, -56.5 + o, 0.5, 4, L(ht, 0.9)); F(3.5, -56.5 + o, 0.5, 4, L(ht, 0.9));
+    F(-4.5, -55 + o, 0.5, 0.5, htD); F(5, -55 + o, 0.5, 0.5, htD); F(0, -58 + o, 1, 0.5, htL);
+    for (let k = -6; k <= 7; k += 1) F(k, -51 + o, 0.5, 0.5, L(htD, 1.25));
+    F(-6, -52 + o, 13, 0.5, L(ht, 0.82));
     const hi = look.hatIdx | 0;
-    if (hi === 11) { D(-2, -55, 5, 3, '#14462d'); D(-1, -54, 3, 1, COL.lime); F(-2, -55, 5, 0.5, '#2c6c45'); F(-1.5, -53, 4, 0.5, '#0a2c1c'); }   // DLG cap badge
-    if (hi === 10) { D(-4, -60, 1, 2, '#f8d878'); D(0, -61, 1, 3, '#f8d878'); D(4, -60, 1, 2, '#f8d878'); D(-4, -58, 9, 1, '#f8d878');
-      F(-4, -58, 9, 0.5, '#fcf0b8'); F(0, -61, 0.5, 2, '#fcf0b8'); F(-2, -58.5, 1, 0.5, '#e8382c'); F(2, -58.5, 1, 0.5, '#3cbcfc'); }
+    if (hi === 11) { D(-2, -55 + o, 5, 3, '#14462d'); D(-1, -54 + o, 3, 1, COL.lime); F(-2, -55 + o, 5, 0.5, '#2c6c45'); F(-1.5, -53 + o, 4, 0.5, '#0a2c1c'); }
+    if (hi === 10) { D(-4, -60 + o, 1, 2, '#f8d878'); D(0, -61 + o, 1, 3, '#f8d878'); D(4, -60 + o, 1, 2, '#f8d878'); D(-4, -58 + o, 9, 1, '#f8d878');
+      F(-4, -58 + o, 9, 0.5, '#fcf0b8'); F(0, -61 + o, 0.5, 2, '#fcf0b8'); F(-2, -58.5 + o, 1, 0.5, '#e8382c'); F(2, -58.5 + o, 1, 0.5, '#3cbcfc'); }
   } else if (visorOn) {
     const ht = look.hat, htD = look.hatD;
-    R(-6, -52, 13, 2, ht); R(-7, -50, 15, 1, htD);
-    flush(); D(-6, -52, 1, 2, htD);
-    F(-5, -52, 11, 0.5, L(ht, 1.2)); F(-6, -50.5, 13, 0.5, L(ht, 0.8)); for (let k = -6; k <= 7; k += 1) F(k, -50, 0.5, 0.5, L(htD, 1.25));
+    const o = hs === 5 ? -1 : 0;
+    R(-6, -52 + o, 13, 2, ht); R(-7, -50 + o, 15, 1, htD);
+    flush(); D(-6, -52 + o, 1, 2, htD);
+    F(-5, -52 + o, 11, 0.5, L(ht, 1.2)); F(-6, -50.5 + o, 13, 0.5, L(ht, 0.8)); for (let k = -6; k <= 7; k += 1) F(k, -50 + o, 0.5, 0.5, L(htD, 1.25));
   }
   flush();
   if (bust) return;
@@ -1663,6 +1739,18 @@ function golferHDImg(app, gear, kind, scale) {
   const src = golferHDCanvas(app, gear, kind), out = document.createElement('canvas'); out.width = src.width * scale; out.height = src.height * scale;
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
   if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
+}
+function hdStandScale(avail) {   // largest integer scale that keeps a tall afro inside the slot. Crisp, no smoothing.
+  const units = 74;
+  let s = 1;
+  for (let n = 4; n >= 1; n--) if (units * n + 4 <= avail) { s = n; break; }
+  return s;
+}
+function drawStandGolfer(cx, feetY, look, gear, avail) {   // the detailed standing golfer (same drawGolferHD as profiles). Integer scale, smoothing off.
+  const s = hdStandScale(avail == null ? 70 : avail);
+  ctx.imageSmoothingEnabled = false;
+  drawGolferHD(Math.round(cx), Math.round(feetY), s, look || lookOf(player), { gear: gear || {}, blink: false });
+  return s;
 }
 function lookPreviewGolfer(cx, feetY, look, gear, avatarScale=2) {   // EDIT LOOK preview: same tee patch as careerGolfer, detailed golfer on it (2 px per unit)
   const s = avatarScale+1, px = cx;
@@ -2035,7 +2123,7 @@ function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.o
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
-  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && (gearIsLocal(id) || gearIsCoin(id)) && gearOwned(id)) o[sl] = id; } }   // gift + local gear + coin-counter wear
+  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && gearOwned(id) && (gearIsLocal(id) || gearIsCoin(id) || (g.rule && g.rule.box) || !gear.owned[id])) o[sl] = id; } }   // local wear wins when the server locker has no row (xp, coin, box)
   gear.eqMemo = { rev: gear.rev, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
@@ -2053,7 +2141,7 @@ async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ ea
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
   const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
-  if (gearIsLocal(id) || (gearIsCoin(id) && (walletLocal() || !gear.owned[id]))) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
+  if (gearIsLocal(id) || gearIsCoin(id) || (g.rule && g.rule.box) || !gear.owned[id]) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur && cur !== id) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
   if (on && localWornMap()[g.slot]) localWear(g.slot, '');
   if (!isSignedIn()) return { ok: false };
   const before = JSON.stringify(gear.owned);
@@ -2194,7 +2282,13 @@ const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
 const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', skeleton_mask: 'SKULL', dlg_shades: 'DLG', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA', navy_cap: 'NAVY', white_belt: 'WHITE', white_tee: 'TEE', tour_polo: 'POLO', silver_chain: 'CHAIN', stripe_ball: 'STRIPE', gold_visor: 'VISOR', tour_shades: 'SHADES', gold_belt: 'GOLD', champ_vest: 'VEST', star_ball: 'STAR', trail_night: 'NIGHT', master_glove: 'GLOVE', wing_shoes: 'WINGS', chest_star: 'STAR', icon_jacket: 'JACKET', icon_shades: 'ICON', trail_icon: 'ICON', hall_crown: 'CROWN', hall_club: 'CLUB', hall_ball: 'HALL', practice_tee: 'TEE', range_ball: 'RANGE', cream_belt: 'CREAM' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
-function gearCanWear(id) { return !id || ((gearIsLocal(id) || gearIsCoin(id)) ? gearOwned(id) : (isSignedIn() && gearOwned(id))); }
+function gearCanWear(id) {
+  if (!id) return true;
+  if (!gearOwned(id)) return false;
+  const g = gearItem(id);
+  if (gearIsLocal(id) || gearIsCoin(id) || (g && g.rule && g.rule.box)) return true;
+  return isSignedIn();
+}
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy, gear: {slot: item} (what Save will equip), gshow: {slot: item} (row cursor, may be locked), scroll }
 let lookDrag = null;
 function lookGearInit() { const eq = gearEquipped(); lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
@@ -11136,9 +11230,8 @@ function renderCustom() {
     const cx0 = fitBay ? fitBay.x + Math.round((fitBay.w - cw) / 2) : Math.round(px - cw / 2);
     drawShopCounter(cx0, g.y - 2, cw, 10);
     ctx.globalAlpha = 0.35; czEllipse(px, g.y + 1, Math.max(8, 7 * s), Math.max(2, Math.round(s * 0.7)), '#000'); ctx.globalAlpha = 1;
-    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(s, s);
-    drawGolfer(0, 0, 1, 76 + 7 * Math.sin(st * 2.4), lookOf(cz));
-    ctx.restore();
+    const standX = Math.round(g.x + 3 * s);
+    drawStandGolfer(standX, g.y, lookOf(cz), gearEquipped(), g.y - (CZ_NAME.y + CZ_NAME.h + 4));
     const bs = Math.max(1, Math.floor(s / 2));
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(SPR.golfball, g.x + 9 * s, g.y - 5 * bs + Math.floor(bs / 2), 5 * bs, 5 * bs);
@@ -11349,7 +11442,7 @@ function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel 
       try { ctx.drawImage(playerBust(lookToJson(player), gearEquipped(), 'md'), x0, y - 4, 26, 30); } catch (e) {}
       drawText(who, x0 + bw + 8, y + 5, COL.blue, 2); }
     outlined('DUMBLUCKGOLF.COM', Math.round(cx - textW('DUMBLUCKGOLF.COM', 2) / 2), 348, COL.white, 2);
-    ctx.save(); ctx.translate(58, 458); ctx.scale(2, 2); drawGolfer(0, 0, 1, -100, lookPlay(lookOf(player)), { finish: 1 }); ctx.restore();
+    ctx.imageSmoothingEnabled = false; drawStandGolfer(58, 458, lookOf(player), gearEquipped(), 90);
     dimg(SPR.walkA, 180, 410);
   } finally { ctx = saved; }
   const big = mk(SW * K, SH * K), bg = big.getContext('2d'); bg.imageSmoothingEnabled = false; bg.drawImage(c, 0, 0, SW * K, SH * K);
@@ -11705,16 +11798,14 @@ function careerDrawBack(key) {
   const br = careerBackR(), on = mouse.seen && !isTouchUi() && hitBtn(mouse, br);
   outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), pressDim(key) || on ? CAREER_YEL : COL.white);
 }
-function careerGolfer(cx, feetY, s, look, gdx) {   // the player's own golfer on a mown tee patch (same look as CUSTOMIZE)
-  const px = cx;
-  ctx.globalAlpha = 0.08; czEllipse(px, feetY - 14 * s, 16 * s, 17 * s, COL.white); czEllipse(px, feetY - 12 * s, 10 * s, 11 * s, COL.white); ctx.globalAlpha = 1;
-  const rx = 12 * s, ry = Math.max(3, Math.round(2.2 * s));
-  czEllipse(px, feetY + 1, rx + 1, ry + 1, '#000'); czEllipse(px, feetY, rx, ry, COL.grassL);
-  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * s - s, feetY - ry + 2, 2 * s, ry * 2 - 3, COL.fair2);
-  ctx.globalAlpha = 0.28; czEllipse(px - s, feetY, 6 * s, Math.max(2, Math.round(s * 0.9)), '#000'); ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(px - (gdx == null ? 3 : gdx) * s, feetY); ctx.scale(s, s);
-  drawGolfer(0, 0, 1, 76 + 6 * Math.sin(st * 2.2), look || lookOf(player));
-  ctx.restore();
+function careerGolfer(cx, feetY, s, look, gdx, maxH) {   // detailed standing golfer on the same tee patch. maxH keeps him inside the card.
+  const px = Math.round(cx), fy = Math.round(feetY), disc = Math.max(2, s | 0);
+  ctx.globalAlpha = 0.08; czEllipse(px, fy - 14 * disc, 16 * disc, 17 * disc, COL.white); czEllipse(px, fy - 12 * disc, 10 * disc, 11 * disc, COL.white); ctx.globalAlpha = 1;
+  const rx = 12 * disc, ry = Math.max(3, Math.round(2.2 * disc));
+  czEllipse(px, fy + 1, rx + 1, ry + 1, '#000'); czEllipse(px, fy, rx, ry, COL.grassL);
+  for (let k = -2; k <= 2; k += 2) rect(px + k * 3 * disc - disc, fy - ry + 2, 2 * disc, ry * 2 - 3, COL.fair2);
+  ctx.globalAlpha = 0.28; czEllipse(px - disc, fy, 6 * disc, Math.max(2, Math.round(disc * 0.9)), '#000'); ctx.globalAlpha = 1;
+  drawStandGolfer(px, fy, look || lookOf(player), gearEquipped(), maxH == null ? fy - ((SAFE.t || 0) + 16) : maxH);
 }
 function careerButton(r, label, lit, key, fsc) {   // gold CTA in the same frame language as the boards
   const on = lit || pressDim(key) || (mouse.seen && !isTouchUi() && hitBtn(mouse, r));
@@ -11814,7 +11905,7 @@ function renderCareer() {
   // career card: golfer + name + DLG Tour rank + XP bar
   const C = L.card;
   czBoard(C.x, C.y, C.w, C.h, 0.9, false);
-  careerGolfer(C.x + 27, C.y + 72, 2, undefined, CAREER_GDX);   // v8.99.41: golfer centred on his patch
+  careerGolfer(C.x + 27, C.y + 72, 2, undefined, CAREER_GDX, 68);   // detailed golfer, kept inside the card
   const tx = C.x + 52, tw = C.x + C.w - 8 - tx;
   const isAdm = admin.is && hasUsername(), badgeW = isAdm ? textW('ADMIN') + 6 : 0, nsc = textW(name, 2) + badgeW + 4 <= tw ? 2 : 1;
   careerSoft(name, tx, C.y + 10, COL.white, nsc);
@@ -13076,7 +13167,11 @@ function renderScene() {
   const gsx = Math.round(lastSpotForGolfer() - camX) - facingForGolfer() * 7;
   const ggy = Math.round(BASE - groundH(hole, lastSpotForGolfer()));
   try { drawGhostGolfer(); } catch (e) {}
-  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try { drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), golferPose()); } finally { V93.main = false; } }
+  if (['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) { V93.main = true; try {
+    const posed = golferPose();
+    if (state === 'aim' && !(posed.coil > 0) && !(posed.finish > 0) && posed.smear == null) drawStandGolfer(gsx + facingForGolfer() * 4, ggy, lookOf(player), gearEquipped(), 70);
+    else drawGolfer(gsx, ggy, facingForGolfer(), swingAng, lookPlay(lookOf(player)), posed);
+  } finally { V93.main = false; } }
   drawTurfKick();
   if (state === 'flight' || state === 'holed') drawTrail();
   aimPts = [];
