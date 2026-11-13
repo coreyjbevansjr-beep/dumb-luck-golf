@@ -388,7 +388,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.71';
+const GAME_VERSION = 'v8.99.72';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1297,7 +1297,7 @@ async function adminLoadPreorders() { const r = await adminRpc('admin_preorders'
 async function adminLoadFeedback() { const r = await adminRpc('admin_feedback', { p_limit: 100 }); admin.feedback = r.ok && Array.isArray(r.data) ? r.data : []; return r; }   // v8.36
 
 /* ================= v8.31: golfer look (EDIT LOOK) + detailed sprite ================= */
-const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY'];
+const HAIR_STYLES = ['BALD', 'SHORT', 'LONG', 'PONY', 'CURLY', 'AFRO'];
 const HAIR_COLS = [['#2c1c10', 'BLACK'], ['#8c5028', 'BROWN'], ['#f8d878', 'BLONDE'], ['#c84c0c', 'RED'], ['#bcbcbc', 'GRAY'], ['#3cbcfc', 'BLUE']];
 const HAT_STYLES = ['CAP', 'VISOR', 'NONE'];
 const SHOE_COLS = [['#fcfcfc', '#a8a8a8', 'WHITE'], ['#2c2c2c', '#000000', 'BLACK'], ['#8c5028', '#5c3418', 'BROWN'], ['#f83800', '#a81000', 'RED'], ['#3cbcfc', '#0078f8', 'BLUE']];
@@ -1373,13 +1373,17 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   }
   r(0, -8, 5, 6, look.pants); r(0, -8, 1, 6, look.pantsD); r(5, -12, 1, 10, K);   // front leg (seam = its own shade column)
   r(0, -2, 7, 1, look.shoe); r(0, -1, 7, 1, look.shoeD); r(7, -2, 1, 2, K); r(5, -2, 0, 0, K);
-  r(-5, -13, 10, 1, K); r(2, -13, 2, 1, '#f8d878');                              // belt + buckle
+  r(-5, -13, 10, 1, GA && GA.waist === 'white_belt' ? '#fcfcfc' : K); r(2, -13, 2, 1, GA && GA.waist === 'white_belt' ? '#e8e8f0' : '#f8d878');   // belt + buckle
   // ---- torso (rows -22..-14)
   r(-5, -22, 10, 9, look.shirt); r(-5, -22, 2, 9, look.shirtD);
   r(-6, -22, 1, 9, K); r(5, -22, 1, 9, K); r(-5, -23, 10, 1, K);
   if (GA) {
     if (GA.torso === 'champ_jacket') { r(2, -22, 2, 3, shirt0); r(2, -22, 1, 1, look.skin); r(3, -18, 1, 1, '#d4af37'); r(3, -16, 1, 1, '#d4af37'); r(-1, -20, 1, 1, '#d4af37'); r(-5, -14, 10, 1, '#0a2c1c'); }
-    if (GA.neck === 'ace_chain') { r(1, -22, 1, 1, '#f8d878'); r(2, -21, 1, 1, '#c88800'); r(3, -22, 1, 1, '#f8d878'); r(2, -20, 1, 1, '#fcfcfc'); }
+    if (GA.torso === 'tour_polo') { r(1, -21, 2, 5, '#1c2c6c'); r(3, -18, 2, 2, '#1c2c6c'); }
+    if (GA.torso === 'outfit_caddy') { r(1, -20, 3, 6, '#f4e6c4'); r(2, -18, 1, 2, '#f8d878'); }
+    if (GA.torso === 'champ_vest') { r(1, -20, 3, 6, '#183848'); r(2, -18, 1, 2, '#fcfcfc'); }
+    if (GA.torso === 'icon_jacket') { r(1, -20, 2, 5, '#3c3c48'); r(3, -18, 1, 2, '#f8d878'); }
+    if (GA.neck === 'ace_chain' || GA.neck === 'silver_chain') { r(1, -22, 1, 1, GA.neck === 'silver_chain' ? '#d8dce8' : '#f8d878'); r(2, -21, 1, 1, GA.neck === 'silver_chain' ? '#f4f4f8' : '#c88800'); r(3, -22, 1, 1, GA.neck === 'silver_chain' ? '#d8dce8' : '#f8d878'); r(2, -20, 1, 1, '#fcfcfc'); }
   }
   // ---- head (rows -29..-24), outline all round, nose bump, one eye, hint of a mouth
   r(-1, -29, 6, 6, look.skin);
@@ -1392,6 +1396,9 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   if (GA && GA.face === 'skeleton_mask' && !pk) { r(0, -28, 5, 5, '#ecead8'); r(1, -27, 1, 1, '#141418'); r(3, -27, 1, 1, '#141418'); r(2, -25, 3, 1, '#141418'); r(3, -25, 1, 1, '#ecead8'); }
   if (GA && GA.face === 'streak_shades' && !pk) { r(0, -27, 5, 1, '#101018'); r(2, -27, 2, 1, '#fc5c00'); r(3, -27, 1, 1, '#f8d878'); }
   if (pk) {}
+  else if (hs === 5) {                                                       // afro: a round puff behind and above the head, not over the eye
+    r(-4, -35, 6, 2, hc); r(-6, -33, 9, 3, hc); r(-7, -31, 6, 5, hc); r(-5, -28, 3, 2, hc);
+  }
   else if (hs) {
     r(-1, -29, 2, 2, hc); r(-1, -27, 1, 1, hc);                                  // back of the head
     if (hs === 2) { r(-2, -29, 1, 7, hc); r(-1, -27, 1, 4, hc); r(-3, -29, 1, 7, K); r(-2, -22, 1, 0, K); }       // long: past the collar
@@ -1452,10 +1459,11 @@ function drawGolfer(sx, gy, dir, ang, look=lookOf(player), pose = {}) {
   try { v93GearFx(sx, gy, dir, look, GA, hst, pk, pose); } catch (e) {}   // v8.93 gear shine + tee cap-tip
 }
 // v8.66: equipped gear on the in-game golfer. look.gear = { slot: itemId }; art ids resolve through the catalog (admin items reuse art)
-const PLAY_GEAR_SLOTS = ['head', 'face', 'neck', 'hands', 'torso', 'held'];
+const PLAY_GEAR_SLOTS = ['head', 'face', 'neck', 'hands', 'torso', 'waist', 'feet', 'logo', 'held'];
 const PLAY_GA = new Map();
 function playGearArt(g) {
-  const key = PLAY_GEAR_SLOTS.map(s => g[s] || '').join('|'); if (key === '|||||') return null;
+  if (!PLAY_GEAR_SLOTS.some(s => g[s])) return null;
+  const key = PLAY_GEAR_SLOTS.map(s => g[s] || '').join('|');
   let o = PLAY_GA.get(key); if (o !== undefined) return o;
   o = {}; for (const s of PLAY_GEAR_SLOTS) if (g[s]) o[s] = typeof gearArtOf === 'function' ? gearArtOf(g[s]) : g[s];
   if (PLAY_GA.size > 60) PLAY_GA.clear(); PLAY_GA.set(key, o); return o;
@@ -1463,9 +1471,14 @@ function playGearArt(g) {
 function playGearLook(look, GA) {
   const o = Object.assign({}, look);
   if (GA.torso === 'champ_jacket') { o.shirt = '#14462d'; o.shirtD = '#0a2c1c'; }
-  if (GA.head === 'camo_hat') { o.hat = '#5c6c2c'; o.hatD = '#3c4818'; o.hatIdx = -1; }
-  if (GA.head === 'underpar_visor') { o.hat = '#fcfcfc'; o.hatD = '#14462d'; o.hatIdx = -1; }
-  if (GA.hands === 'birdie_glove') o.glove = '#fcfcfc';
+  if (GA.torso === 'tour_polo') { o.shirt = '#fcfcfc'; o.shirtD = '#d8dce4'; }
+  if (GA.torso === 'outfit_caddy') { o.shirt = '#1c6c38'; o.shirtD = '#14462d'; }
+  if (GA.torso === 'champ_vest') { o.shirt = '#f8d878'; o.shirtD = '#c8a020'; }
+  if (GA.torso === 'icon_jacket') { o.shirt = '#1c1c24'; o.shirtD = '#3c3c48'; }
+  if (GA.head === 'camo_hat' || GA.head === 'navy_cap') { o.hat = GA.head === 'navy_cap' ? '#1c2c6c' : '#5c6c2c'; o.hatD = GA.head === 'navy_cap' ? '#101840' : '#3c4818'; o.hatIdx = -1; }
+  if (GA.head === 'underpar_visor' || GA.head === 'gold_visor') { o.hat = GA.head === 'gold_visor' ? '#f8d878' : '#fcfcfc'; o.hatD = GA.head === 'gold_visor' ? '#c88800' : '#14462d'; o.hatIdx = -1; }
+  if (GA.hands === 'birdie_glove' || GA.hands === 'master_glove') o.glove = '#fcfcfc';
+  if (GA.feet === 'wing_shoes') { o.shoe = '#fcfcfc'; o.shoeD = '#d0d4e0'; }
   return o;
 }
 function lookPlay(look, g) {   // attach equipped gear (own by default) to an in-game look
@@ -1585,17 +1598,29 @@ function drawGolferHD(cx, feetY, s, look, opt) {
   // ---- hair (under the hat)
   const capOn = !headGear && hst === 0, visorOn = !headGear && hst === 1;
   if (!hideHair) {
-    if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                           // long: past the shoulders
-    if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                          // ponytail out the side
-    if (hs) {
+    if (hs === 5) {                                                                                                         // afro: round puff. Sides stay beside the face, never over the eyes (y -47).
       if (!capOn) {
-        if (hs === 4) { R(-6, -54, 13, 4, hc); R(-5, -55, 3, 1, hc); R(-1, -55, 3, 1, hc); R(3, -55, 3, 1, hc); }
-        else { R(-5, -54, 11, 1, hc); R(-6, -53, 13, 3, hc); }
+        R(-3, -62, 7, 1, hc); R(-5, -61, 11, 1, hc); R(-7, -60, 15, 2, hc); R(-8, -58, 17, 3, hc); R(-9, -55, 19, 4, hc); R(-8, -51, 17, 2, hc);
       }
-      R(-6, -50, 1, 3, hc); R(6, -50, 1, 3, hc);                                                                              // sideburns
+      R(-11, -56, 2, 2, hc); R(10, -56, 2, 2, hc);
+      R(-10, -54, 3, 4, hc); R(8, -54, 3, 4, hc);
+      if (capOn || visorOn) { R(-9, -50, 2, 2, hc); R(8, -50, 2, 2, hc); }
+    } else {
+      if (hs === 2) { R(-8, -50, 2, 12, hc); R(7, -50, 2, 12, hc); }                                                         // long: past the shoulders
+      if (hs === 3) { R(-10, -50, 3, 3, hc); R(-11, -47, 3, 6, hc); }                                                        // ponytail out the side
+      if (hs) {
+        if (!capOn) {
+          if (hs === 4) { R(-6, -54, 13, 4, hc); R(-5, -55, 3, 1, hc); R(-1, -55, 3, 1, hc); R(3, -55, 3, 1, hc); }
+          else { R(-5, -54, 11, 1, hc); R(-6, -53, 13, 3, hc); }
+        }
+        R(-6, -50, 1, 3, hc); R(6, -50, 1, 3, hc);                                                                            // sideburns
+      }
     }
     flush();
-    if (hs) {
+    if (hs === 5) {
+      if (!capOn) { D(-4, -59, 2, 1, hcD); D(2, -58, 2, 1, hcD); F(-6, -59, 3, 0.5, hcL); F(1, -58.5, 3, 0.5, hcL); }
+      D(-10, -54, 1, 3, hcD); D(9, -54, 1, 3, hcD); F(-9, -55, 0.5, 2, hcL); F(9.5, -55, 0.5, 2, hcL);
+    } else if (hs) {
       if (hs === 2) { D(-8, -50, 1, 12, hcD); D(7, -41, 2, 1, hcD); F(8, -49, 0.5, 7, hcL); F(-7, -46, 0.5, 5, hcD); F(8, -40, 0.5, 1, hcD); }
       if (hs === 3) { D(-11, -47, 1, 6, hcD); D(-10, -48, 1, 1, '#f8d878'); F(-10, -46, 0.5, 4, hcL); F(-9.5, -48, 0.5, 0.5, '#c88800'); }
       if (!capOn && hs === 4) { D(-4, -53, 1, 1, hcD); D(0, -52, 1, 1, hcD); D(4, -53, 1, 1, hcD); D(-2, -51, 1, 1, hcD); D(2, -51, 1, 1, hcD);
@@ -2044,7 +2069,7 @@ function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.o
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
   if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
-  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && (gearIsLocal(id) || gearIsCoin(id)) && gearOwned(id)) o[sl] = id; } }   // gift + local gear + coin-counter wear
+  { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && gearOwned(id) && (gearIsLocal(id) || gearIsCoin(id) || (g.rule && g.rule.box) || !gear.owned[id])) o[sl] = id; } }   // local wear wins when the server locker has no row (xp, coin, box)
   gear.eqMemo = { rev: gear.rev, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
@@ -2062,7 +2087,7 @@ async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ ea
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
   const g = gearItem(id); if (!g || !gearOwned(id)) return { ok: false };
-  if (gearIsLocal(id) || (gearIsCoin(id) && (walletLocal() || !gear.owned[id]))) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
+  if (gearIsLocal(id) || gearIsCoin(id) || (g.rule && g.rule.box) || !gear.owned[id]) { if (!on) { localWear(g.slot, ''); return { ok: true }; } const cur = isSignedIn() ? Object.keys(gear.owned).find(k => gear.owned[k].equipped && (gearItem(k) || {}).slot === g.slot) : null; localWear(g.slot, id); if (cur && cur !== id) { const r = await gearEquip(cur, false); return { ok: r.ok }; } return { ok: true }; }
   if (on && localWornMap()[g.slot]) localWear(g.slot, '');
   if (!isSignedIn()) return { ok: false };
   const before = JSON.stringify(gear.owned);
@@ -2203,7 +2228,13 @@ const LOOK_N = () => LOOK_ROWS.length + GEAR_ROWS.length;
 const GEAR_SHORT = { ace_chain: 'CHAIN', birdie_glove: 'BIRDIE', underpar_visor: 'VISOR', streak_shades: 'SHADES', skeleton_mask: 'SKULL', dlg_shades: 'DLG', pumpkin_head: 'PUMPKIN', champ_jacket: 'JACKET', lucky_club: 'LUCKY', camo_hat: 'CAMO', lucky_marker: 'MARKER', trail_ember: 'EMBER', trail_comet: 'COMET', trail_aurora: 'AURORA', navy_cap: 'NAVY', white_belt: 'WHITE', white_tee: 'TEE', tour_polo: 'POLO', silver_chain: 'CHAIN', stripe_ball: 'STRIPE', gold_visor: 'VISOR', tour_shades: 'SHADES', gold_belt: 'GOLD', champ_vest: 'VEST', star_ball: 'STAR', trail_night: 'NIGHT', master_glove: 'GLOVE', wing_shoes: 'WINGS', chest_star: 'STAR', icon_jacket: 'JACKET', icon_shades: 'ICON', trail_icon: 'ICON', hall_crown: 'CROWN', hall_club: 'CLUB', hall_ball: 'HALL', practice_tee: 'TEE', range_ball: 'RANGE', cream_belt: 'CREAM' };
 function gearShort(id) { if (!id) return 'NONE'; if (GEAR_SHORT[id]) return GEAR_SHORT[id]; const g = gearItem(id), w = String(g ? g.name : id).toUpperCase().split(/[\s_-]+/); return w[w.length - 1].slice(0, 8); }
 function gearOpts(slot) { return [null].concat(gear.catalog.filter(g => g.slot === slot && (g.active !== false || gearOwned(g.id))).sort((a, b) => (a.sort || 100) - (b.sort || 100)).map(g => g.id)); }
-function gearCanWear(id) { return !id || ((gearIsLocal(id) || gearIsCoin(id)) ? gearOwned(id) : (isSignedIn() && gearOwned(id))); }
+function gearCanWear(id) {
+  if (!id) return true;
+  if (!gearOwned(id)) return false;
+  const g = gearItem(id);
+  if (gearIsLocal(id) || gearIsCoin(id) || (g && g.rule && g.rule.box)) return true;
+  return isSignedIn();
+}
 let lookEd = null;   // { draft, orig, row, msg, msgT, busy, gear: {slot: item} (what Save will equip), gshow: {slot: item} (row cursor, may be locked), scroll }
 let lookDrag = null;
 function lookGearInit() { const eq = gearEquipped(); lookEd.gear = Object.assign({}, eq); lookEd.gshow = Object.assign({}, eq); lookEd.gdirty = false; }
