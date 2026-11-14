@@ -393,7 +393,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.81';
+const GAME_VERSION = 'v8.99.82';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1783,14 +1783,14 @@ function golferHDImg(app, gear, kind, scale) {
   const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(src, 0, 0, out.width, out.height); u = out.toDataURL();
   if (HD_URL.size > 80) HD_URL.delete(HD_URL.keys().next().value); HD_URL.set(key, u); return u;
 }
-function hdStandScale(avail) {   // largest integer scale that keeps a tall afro inside the slot. Crisp, no smoothing.
-  const units = 74;
+function hdStandScale(avail, units) {   // largest integer scale that fits. 74 keeps a parked afro inside; the fitting bay passes the real height. Crisp, no smoothing.
+  units = units || 74;
   let s = 1;
-  for (let n = 4; n >= 1; n--) if (units * n + 4 <= avail) { s = n; break; }
+  for (let n = 5; n >= 1; n--) if (units * n + 4 <= avail) { s = n; break; }
   return s;
 }
-function drawStandGolfer(cx, feetY, look, gear, avail) {   // the detailed standing golfer (same drawGolferHD as profiles). Integer scale, smoothing off.
-  const s = hdStandScale(avail == null ? 70 : avail);
+function drawStandGolfer(cx, feetY, look, gear, avail, units) {   // the detailed standing golfer (same drawGolferHD as profiles). Integer scale, smoothing off.
+  const s = hdStandScale(avail == null ? 70 : avail, units);
   ctx.imageSmoothingEnabled = false;
   drawGolferHD(Math.round(cx), Math.round(feetY), s, look || lookOf(player), { gear: gear || {}, blink: false });
   return s;
@@ -6645,13 +6645,45 @@ if (window.visualViewport) {
 }
 
 const czIsOpt = r => r >= 1 && r <= 4;
+const CZ_HEAD_GEAR = ['camo_hat', 'navy_cap', 'underpar_visor', 'gold_visor', 'pumpkin_head'];   // these paint over the hat colour
+const CZ_TORSO_GEAR = ['tour_polo', 'champ_jacket', 'champ_vest', 'icon_jacket', 'outfit_caddy'];   // these paint over the shirt colour
+function czWearNow() { return (cz && cz.wear) || gearEquipped(); }
+function czOwnedGear(id) { return gearOwned(id) || czWearNow()[ (gearItem(id) || {}).slot ] === id; }
+function czChoices(r) {
+  if (r === 1) return CZ_HEAD_GEAR.filter(czOwnedGear).map(id => ({ gear: id })).concat(HATS.map((_, i) => ({ hat: i })));
+  if (r === 3) return CZ_TORSO_GEAR.filter(id => gearItem(id) && czOwnedGear(id)).map(id => ({ gear: id })).concat(SHIRTS.map((_, i) => ({ shirt: i })));
+  if (r === 5) return Object.keys(TRAIL_GEAR).filter(czOwnedGear).map(id => ({ gear: id })).concat(TRAIL_IDS.map(id => ({ trail: id })));
+  return null;
+}
+function czChoiceAt(r) {
+  const w = czWearNow(), list = czChoices(r) || [];
+  if (r === 1 && w.head && CZ_HEAD_GEAR.includes(w.head)) return list.findIndex(c => c.gear === w.head);
+  if (r === 3 && w.torso && CZ_TORSO_GEAR.includes(w.torso)) return list.findIndex(c => c.gear === w.torso);
+  if (r === 5 && w.trail && TRAIL_GEAR[w.trail]) return list.findIndex(c => c.gear === w.trail);
+  if (r === 1) return list.findIndex(c => c.hat === cz.hat);
+  if (r === 3) return list.findIndex(c => c.shirt === cz.shirt);
+  if (r === 5) return list.findIndex(c => c.trail === (cz.trail || 'white'));
+  return -1;
+}
+function czApplyChoice(r, c) {
+  if (!cz.wear) cz.wear = Object.assign({}, gearEquipped());
+  if (r === 1) { if (c.gear) cz.wear.head = c.gear; else delete cz.wear.head; if (c.hat != null) cz.hat = c.hat; }
+  else if (r === 3) { if (c.gear) cz.wear.torso = c.gear; else delete cz.wear.torso; if (c.shirt != null) cz.shirt = c.shirt; }
+  else if (r === 5) { if (c.gear) cz.wear.trail = c.gear; else delete cz.wear.trail; if (c.trail) cz.trail = c.trail; }
+}
 function czCycle(r, d) {
   const [key, list] = CZ_OPTS[r];
   const n = list.length;
   cz[key] = (cz[key] + d + n) % n;
   SFX.tick();
 }
-function czStep(r, d) { if (r === 5) cycleTrail(d); else czCycle(r, d); }   // v8.14: rows 1-4 look, 5 trail
+function czStep(r, d) {   // hat / shirt / trail follow the cosmetic that is actually on the golfer, then the plain colours
+  const list = czChoices(r);
+  if (!list) { czCycle(r, d); return; }
+  let i = czChoiceAt(r); if (i < 0) i = 0;
+  czApplyChoice(r, list[(i + d + list.length) % list.length]);
+  SFX.tick();
+}
 function cycleTrail(d) {
   let i = TRAIL_IDS.indexOf(cz.trail || 'white');
   if (i < 0) i = 0;
@@ -6687,11 +6719,22 @@ function czDone() {
   if (!name) { cz.warn = 3; cz.row = 0; SFX.sad(); openKb(); return; }
   if (!hatUnlocked(cz.hat)) cz.hat = 0;
   player = Object.assign({}, player, { name, skin: cz.skin, shirt: cz.shirt, hat: cz.hat, pants: cz.pants }); savePlayer(); try { saveAppearance(); } catch (e) {}
+  czCommitWear();
   if (cz.trail && trailUnlocked(cz.trail)) { unlocks.trail = cz.trail; saveUnlocks(); }
   else if (cz.trail && !trailUnlocked(cz.trail)) { /* keep prior unlocked trail */ }
   hideNameOverlay();
   const from = cz.from; cz = null; SFX.click();
   if (from === 'play' || from === 'daily') startRound(); else setState('title');
+}
+function czCommitWear() {   // only the slots the fitting rows actually edit; cancel leaves the saved set alone
+  if (!cz || !cz.wear) return;
+  const was = gearEquipped(), now = cz.wear;
+  for (const slot of ['head', 'torso', 'trail']) {
+    const a = was[slot] || '', b = now[slot] || '';
+    if (a === b) continue;
+    if (a) gearEquip(a, false);
+    if (b) gearEquip(b, true);
+  }
 }
 function czCancel() { hideNameOverlay(); const from = cz && cz.from; cz = null; SFX.click(); setState(from === 'play' ? 'course' : 'title'); }
 function customKey(e) {
@@ -11316,15 +11359,15 @@ function renderCustom() {
     outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, col, 2);
   }
 
-  // Keep the complete, crisp golfer centred above a compact display counter.
+  // Keep the complete, crisp golfer centred on the counter. The parked afro is not drawn, so the old 74-unit budget left him small in this bay.
   {
     const feetY = stage.y + stage.h - 12;
     const avail = Math.max(24, feetY - stage.y - 26);
-    const scale = hdStandScale(avail), center = Math.round(stage.x + stage.w / 2);
+    const units = AFRO_ENABLED ? 74 : 62, scale = hdStandScale(avail, units), center = Math.round(stage.x + stage.w / 2);
     const counterW = Math.min(stage.w - 12, Math.max(56, 44 * scale));
     drawShopCounter(Math.round(center - counterW / 2), feetY - 1, counterW, 9);
     ctx.globalAlpha = 0.3; czEllipse(center, feetY + 1, 14 * scale, Math.max(2, scale), '#000'); ctx.globalAlpha = 1;
-    drawStandGolfer(center, feetY, lookOf(cz), gearEquipped(), avail);
+    drawStandGolfer(center, feetY, lookOf(cz), czWearNow(), avail, units);
   }
 
   // Fitting board — the same clubhouse plank as the menu, not the navy card
@@ -11347,19 +11390,30 @@ function renderCustom() {
     rect(sx0, sy0, sw, sh, '#000'); rect(sx0 + 1, sy0 + 1, sw - 2, sh - 2, f ? '#fff0a0' : '#f0e4c0'); rect(sx0 + 2, sy0 + 2, sw - 4, sh - 4, '#2a1608');
     const ix = sx0 + 3, iy = sy0 + 3, iw = sw - 6, ih = sh - 6;
     let locked = false;
-    if (r === 5) {
-      const tid = cz.trail || 'white', cols = CZ_TRAIL_COLS[tid] || CZ_TRAIL_COLS.white;
-      locked = !trailUnlocked(tid);
+    const cover = (r === 1 && czWearNow().head && CZ_HEAD_GEAR.includes(czWearNow().head)) ? czWearNow().head
+      : (r === 3 && czWearNow().torso && CZ_TORSO_GEAR.includes(czWearNow().torso)) ? czWearNow().torso
+      : (r === 5 && czWearNow().trail && TRAIL_GEAR[czWearNow().trail]) ? czWearNow().trail : '';
+    if (r === 5 || (cover && TRAIL_GEAR[cover])) {
+      const tid = cover || cz.trail || 'white', cols = cover ? TRAIL_GEAR[cover] : (CZ_TRAIL_COLS[tid] || CZ_TRAIL_COLS.white);
+      locked = !cover && !trailUnlocked(tid);
       rect(ix, iy, iw, ih, '#3a2210');
       if (locked) ctx.globalAlpha = 0.35;
       const nd = 7, dx0 = ix + Math.round((iw - (nd * 7 - 4)) / 2);
       const tY = iy + ih - 7, dY = iy + Math.max(1, Math.floor((tY - iy - 4) / 2));
       for (let i = 0; i < nd; i++) rect(dx0 + i * 7, dY, 3, 3, cols[i % cols.length]);
-      const tn = tid.toUpperCase().slice(0, 7), tw = textW(tn), lockW = locked ? 10 : 0, tx = ix + Math.round((iw - tw - lockW) / 2) + lockW;
+      const tn = (cover ? gearShort(cover) : tid.toUpperCase()).slice(0, 7), tw = textW(tn), lockW = locked ? 10 : 0, tx = ix + Math.round((iw - tw - lockW) / 2) + lockW;
       ctx.globalAlpha = 1;
       drawText(tn, tx, tY, locked ? '#a08060' : (f ? '#fff4c0' : CREAM));
       if (locked) czPadlock(tx - 7, sy0 + Math.round(sh / 2), COL.orange);
       locked = false;   // padlock already drawn beside the name
+    } else if (cover) {
+      const painted = playGearLook(lookOf(cz), cover === czWearNow().head ? { head: cover } : { torso: cover });
+      const main = cover === czWearNow().head ? painted.hat : painted.shirt, shade = cover === czWearNow().head ? painted.hatD : painted.shirtD;
+      const band = Math.max(3, Math.round(ih / 3));
+      rect(ix, iy, iw, ih, main);
+      if (shade) rect(ix, iy + ih - band, iw, band, shade);
+      const nm = gearShort(cover), nw = textW(nm), nx = ix + Math.round((iw - nw) / 2), ny = iy + Math.max(1, Math.round((ih - band - 7) / 2));
+      drawText(nm, nx + 1, ny + 1, '#1a0c04'); drawText(nm, nx, ny, f ? '#fff4c0' : CREAM);
     } else {
       const main = [null, lk.hat, lk.skin, lk.shirt, lk.pants][r], shade = r === 1 ? lk.hatD : r === 3 ? lk.shirtD : null;
       locked = r === 1 && !hatUnlocked(cz.hat);
@@ -11373,8 +11427,8 @@ function renderCustom() {
   // LOCKED hint in the reserved band under the board (only when the focused choice is locked)
   {
     let hint = '';
-    if (cz.row === 1 && !hatUnlocked(cz.hat)) hint = 'LOCKED - ' + (hatEarnHint(cz.hat) || 'EARN TO UNLOCK');
-    else if (cz.row === 5 && !trailUnlocked(cz.trail || 'white')) hint = 'LOCKED - ' + (trailEarnHint(cz.trail) || 'EARN TO UNLOCK');
+    if (cz.row === 1 && !(CZ_HEAD_GEAR.includes(czWearNow().head)) && !hatUnlocked(cz.hat)) hint = 'LOCKED - ' + (hatEarnHint(cz.hat) || 'EARN TO UNLOCK');
+    else if (cz.row === 5 && !TRAIL_GEAR[czWearNow().trail] && !trailUnlocked(cz.trail || 'white')) hint = 'LOCKED - ' + (trailEarnHint(cz.trail) || 'EARN TO UNLOCK');
     if (hint) {
       const hy = CZ_LOCK.y + Math.max(0, Math.floor((CZ_LOCK.h - 12) / 2));
       const hw = Math.min(W - 16, textW(hint) + 12), hx = Math.round(colX - hw / 2);
