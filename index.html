@@ -393,7 +393,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.82';
+const GAME_VERSION = 'v8.99.83';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5816,7 +5816,17 @@ function layoutChrome() {
       let panelY = teeY - gapTee - lockH - panelH;
       let stageTop = nameY + nameH + 8;
       let guard = 0;
-      while (P > 20 && panelY - 6 - stageTop < FIG * 3 && guard++ < 20) { P--; panelH = 5 * P + 12; panelY = teeY - gapTee - lockH - panelH; }
+      const stageRoom = () => {
+        const nh = Math.max(Math.ceil(40 / sy), Math.min(nameH, stageTop - 4 - nameY));
+        return Math.max(36, panelY - nameY - nh - 14);
+      };
+      const fitUnits = AFRO_ENABLED ? 74 : 64;
+      // Give the preview bay enough height for the largest crisp golfer that can fill it. Stop at the same row minimum the layout already allows.
+      while (P > 20 && guard++ < 40) {
+        const room = stageRoom(), avail = Math.max(24, room - 26), sc = hdStandScale(avail, fitUnits);
+        if (fitUnits * sc >= room * 0.7) break;
+        P--; panelH = 5 * P + 12; panelY = teeY - gapTee - lockH - panelH;
+      }
       let stageBot = panelY - 6;
       if (stageBot - stageTop < FIG * 2 + 4) stageTop = Math.max(CZ_HEAD_Y + 16, nameY + Math.min(nameH, Math.ceil(46 / sy)) );
       stageBot = Math.max(stageTop + FIG * 2, panelY - 4);
@@ -11359,14 +11369,16 @@ function renderCustom() {
     outlined(ph, Math.round(colX - textW(ph, 2) / 2), ny, col, 2);
   }
 
-  // Keep the complete, crisp golfer centred on the counter. The parked afro is not drawn, so the old 74-unit budget left him small in this bay.
+  // Largest crisp scale that fits under the label. 64 units is the sole through the tallest headwear (crown / pumpkin / camo); the parked afro still uses 74.
   {
-    const feetY = stage.y + stage.h - 12;
-    const avail = Math.max(24, feetY - stage.y - 26);
-    const units = AFRO_ENABLED ? 74 : 62, scale = hdStandScale(avail, units), center = Math.round(stage.x + stage.w / 2);
-    const counterW = Math.min(stage.w - 12, Math.max(56, 44 * scale));
-    drawShopCounter(Math.round(center - counterW / 2), feetY - 1, counterW, 9);
-    ctx.globalAlpha = 0.3; czEllipse(center, feetY + 1, 14 * scale, Math.max(2, scale), '#000'); ctx.globalAlpha = 1;
+    const labelBot = stage.y + 22, innerTop = labelBot + 2, innerBot = stage.y + stage.h - 2;
+    const avail = Math.max(24, innerBot - innerTop);
+    const units = AFRO_ENABLED ? 74 : 64, scale = hdStandScale(avail, units), center = Math.round(stage.x + stage.w / 2);
+    const standH = Math.max(8, 3 * scale), fig = units * scale, slack = Math.max(0, avail - fig - standH);
+    const feetY = innerTop + Math.floor(slack / 2) + fig;
+    const counterW = Math.min(stage.w - 16, Math.max(48, 20 * scale));
+    drawShopCounter(Math.round(center - counterW / 2), feetY - 1, counterW, standH);
+    ctx.globalAlpha = 0.3; czEllipse(center, feetY + 1, 12 * scale, Math.max(2, scale), '#000'); ctx.globalAlpha = 1;
     drawStandGolfer(center, feetY, lookOf(cz), czWearNow(), avail, units);
   }
 
