@@ -4625,7 +4625,7 @@ const CLUBS_PRO = [
   ['L WEDGE', 'LW', 60, 74.1, 63, 44, 80, .56, .72, 1, 4],         ['PUTTER', 'PT', 0, 66, 0, 0, 0, 0, 1, 1, 5]
 ].map(([name, sn, loft, v, def, min, max, spin, wk, rk, lg]) => ({ name, sn, loft, v, def, min, max, spin, wk, rk, lg, splash: sn === 'SW' || sn === 'LW' }));
 let CLUB_SET = 'std';
-const G = 60, WIND_K = 0.62;   // v8.99.21 staged: ~+-5% carry at 4 MPH, ~+-12% at 12 MPH (was 1.35: ~+-20-35% at 12 MPH); the yardage is now still-air
+const G = 60, WIND_K = 1.05;   // Stronger, deterministic wind: judge still-air yardage, direction and trajectory. About -21% / +16% driver carry at 12 MPH on flat ground.
 const PUTT_CAPV = 3.5, CUP_STOP_R = 0.25, LIP_KEEP = 0.7;
 // v8.27: the cup scales with putt distance: full 'near' forgiveness inside 8Y, easing to the v8.24 strictness by 10.1Y
 const PUTT_NEAR = { capV: 5, stopR: 0.8, lip: 0.7, d0: 8, d1: 10.1 };
@@ -4688,7 +4688,7 @@ function launchVel(clubIdx, angDeg, power, errPx, lie, dir, dist, o) {
   if (lie === 'rough') spin *= 0.3; else if (lie === 'sand' && !splash) spin *= 0.6;
   let rollK = clamp(1 - 0.014 * rel, 0.65, 1.12) * clamp(1 - 0.02 * errPx, 0.7, 1.3) * (c.rk || 1);   // v8.99.2 rk: per-club rollout (pro set only)
   if (splash) { rollK *= 0.45; spin = Math.max(spin, 0.5); }
-  let windK = clamp(1 + 0.016 * rel, 0.6, 1.4) * (c.wk || 1) * (chip ? 0.45 : 1);   // v8.99.21 staged: chips barely feel it
+  let windK = clamp(1 + 0.022 * rel, 0.55, 1.6) * (c.wk || 1) * (chip ? 0.45 : 1);   // v8.99.21 staged: chips barely feel it
   if (kind === 'punch') { windK *= 0.7; rollK = Math.min(1.45, rollK * 1.2); spin *= 0.5; }   // under the wind, runs out
   else if (kind === 'flop') { windK *= 1.1; rollK *= 0.6; spin += 0.25; }                       // up and soft, the wind gets it
   else if (kind === 'bump') { windK *= 0.6; rollK = Math.min(1.45, Math.max(rollK, 1.12) * 1.25); spin = 0; }   // low chip that rolls
@@ -6054,7 +6054,7 @@ const HELP_TEXT = [
   '#CLUBS',
   '-PICK BY DISTANCE: DRIVER GOES FARTHEST, THEN HYBRID, IRON, 9 IRON AND WEDGE.',
   '-THE GAME PICKS A CLUB FOR YOU EACH SHOT. CHANGE IT WITH KEYS 1-6, Q/E, OR TAP THE CLUB BOX.',
-  '-THE YARDS NEXT TO THE CLUB NAME SHOW A FULL SWING FROM WHERE YOU ARE, WITH THE LIE AND WIND.',
+  '-THE YARDS NEXT TO THE CLUB NAME SHOW A FULL SWING IN STILL AIR, WITH YOUR LIE AND LOFT. ADJUST FOR THE WIND.',
   '',
   '#PUTTING',
   '-ON THE GREEN YOU GET THE PUTTER. SHORT PUTT = SHORT TAP. THE RED FLAG ON THE METER SHOWS ABOUT HOW HARD TO HIT IT.',
@@ -6062,7 +6062,8 @@ const HELP_TEXT = [
   '-ROLL IT GENTLY: TOO FAST AND IT LIPS OUT.',
   '',
   '#TIPS',
-  '-WATCH THE WIND: INTO IT YOU GO SHORTER, WITH IT YOU GO LONGER.',
+  '-WATCH THE WIND: HEADWINDS SHORTEN CARRY; TAILWINDS ADD DISTANCE. CLUB UP INTO THE WIND AND CLUB DOWN WITH IT.',
+  '-HIGH SHOTS FEEL MORE WIND. A LOW PUNCH STAYS UNDER IT AND RUNS FARTHER AFTER LANDING.',
   '-ROUGH AND SAND SLOW THE BALL. NEAR THE GREEN, SPLASH OUT OF SAND WITH THE WEDGE.',
   '-WATER = +1 STROKE AND A DROP.',
   '-PERFECT: FULL POWER AND A DEAD-CENTER TAP GIVES A LITTLE EXTRA DISTANCE.',
