@@ -98,6 +98,11 @@
   #acct .btn.alt{background:#183848;color:#fcfcfc;box-shadow:inset 0 -3px 0 #0c1848;border-color:#fcfcfc}
   #acct .btn.small,#acct .row .btn{margin-top:0;min-height:44px;font-size:13px;letter-spacing:2px;width:auto;padding:0 12px}
   #acct .btn:disabled{opacity:.55}
+  #acct span.admfr{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 8px;font-size:13px;font-weight:700;letter-spacing:1px;color:#58d854;white-space:nowrap}
+  #acct .item.admpl{flex-wrap:wrap;align-items:flex-start;gap:6px 8px}
+  #acct .item.admpl .who{flex:1 1 100%;min-width:0}
+  #acct .item.admpl .acts{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+  #acct .item.admpl .acts .btn{flex:0 1 auto;width:auto}
   #acct .link{display:block;width:100%;background:none;border:0;color:#fcfcfc;font:inherit;font-size:13px;letter-spacing:1px;margin-top:10px;min-height:44px;cursor:pointer;text-decoration:underline}
   #acct .msg{min-height:18px;font-size:12px;letter-spacing:1px;margin-top:10px;text-align:center;color:#fc9838;line-height:1.4}
   #acct .msg.ok{color:#58d854}
@@ -388,7 +393,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.80';
+const GAME_VERSION = 'v8.99.81';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -12185,8 +12190,11 @@ const ADMIN_VIEWS = {
   adminPlayers: o => {
     let h = head('PLAYERS', 'go:admin') + '<form data-f="adminSearch" novalidate><div class="row"><input id="aQ" type="text" maxlength="12" placeholder="SEARCH USERNAME" autocapitalize="off" spellcheck="false" value="' + esc(o.q || '') + '"><button class="btn" type="submit">FIND</button></div></form><div class="msg"></div>';
     if (!admin.players.length) return h + '<p class="empty">NO PLAYERS FOUND.</p>';
-    return h + '<div class="list">' + admin.players.map(p => '<div class="item"><div class="who wr">' + at(p.username) + (p.banned ? '<span class="ban">BANNED</span>' : '') + '<span class="st">' + p.rounds + ' ROUNDS · ' + p.xp + ' XP · ' + p.matches + ' MATCHES</span></div>' +
-      '<button class="btn small" data-a="pview" data-id="' + esc(p.username) + '">VIEW</button>' + (p.admin ? '' : '<button class="btn small alt" data-a="prename" data-id="' + esc(p.username) + '">RENAME</button><button class="btn small ' + (p.banned ? '' : 'alt') + '" data-a="' + (p.banned ? 'punban' : 'pban') + '" data-id="' + esc(p.username) + '">' + (p.banned ? 'UNBAN' : 'BAN') + '</button>') + '</div>').join('') + '</div>';
+    const fr = u => { const me = myName(), n = String(u || '').toUpperCase(); if (me && n === me) return '';
+      const f = (social.friends || []).find(x => String(x.friend_username || '').toUpperCase() === n && x.status === 'accepted');
+      return f ? '<span class="admfr">FRIENDS</span>' : '<button class="btn small alt" data-a="paddf" data-id="' + esc(u) + '">ADD FRIEND</button>'; };
+    return h + '<div class="list">' + admin.players.map(p => '<div class="item admpl"><div class="who wr">' + at(p.username) + (p.banned ? '<span class="ban">BANNED</span>' : '') + '<span class="st">' + p.rounds + ' ROUNDS · ' + p.xp + ' XP · ' + p.matches + ' MATCHES</span></div><div class="acts">' +
+      fr(p.username) + '<button class="btn small" data-a="pview" data-id="' + esc(p.username) + '">VIEW</button>' + (p.admin ? '' : '<button class="btn small alt" data-a="prename" data-id="' + esc(p.username) + '">RENAME</button><button class="btn small ' + (p.banned ? '' : 'alt') + '" data-a="' + (p.banned ? 'punban' : 'pban') + '" data-id="' + esc(p.username) + '">' + (p.banned ? 'UNBAN' : 'BAN') + '</button>') + '</div></div>').join('') + '</div>';
   },
   adminPlayer: o => {   // v8.96 player card
     const P = admin.player || {}; let h = head('PLAYER', 'go:adminPlayers');
@@ -12926,7 +12934,7 @@ async function showAcct(view, opts) {
     if (view === 'admin') { admin.stats = null; acctBox.innerHTML = VIEWS.admin(); const r = await adminLoadStats(); if (acctView !== view) return; if (!r.ok) acctOpts.msg = r.msg; }
     if (view === 'adminScores') await adminLoadScores();
     if (view === 'adminPlayer') { admin.player = null; acctBox.innerHTML = VIEWS.adminPlayer(acctOpts); await adminLoadPlayer(acctOpts.user); }
-    if (view === 'adminPlayers' && !acctOpts.keep) await adminLoadPlayers(acctOpts.q || '');
+    if (view === 'adminPlayers' && !acctOpts.keep) await Promise.all([adminLoadPlayers(acctOpts.q || ''), loadFriends()]);
     if (view === 'adminLog') await adminLoadAudit();
     if (view === 'adminGear') { const r = await adminRpc('admin_gear_list', {}); admin.gear = r.ok && Array.isArray(r.data) ? r.data : []; if (!r.ok) acctOpts.msg = r.msg; }
     if (view === 'adminStore') await Promise.all([loadShopItems(true), adminLoadPreorders(), adminLoadSpooky()]);
@@ -13138,6 +13146,17 @@ if (acctEl) {
     if (a === 'prename') { showAcct('adminRename', { user: id, draft: '' }); return; }
     if (a === 'pban') { showAcct('adminBan', { user: id }); return; }
     if (a === 'punban') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } const r = await adminRpc('admin_unban_user', { p_username: id }); showAcct('adminPlayers', r.ok ? { msg: '@' + id.toUpperCase() + ' UNBANNED', ok: true } : { msg: r.msg }); return; }
+    if (a === 'paddf') {   // one tap: admin_add_friend writes an accepted friendship (no request)
+      acctBusy(true); const r = await adminRpc('admin_add_friend', { p_username: id }); acctBusy(false);
+      if (!r.ok) { acctMsg(/could not find the function|PGRST202/i.test(r.msg) ? 'ADD FRIEND IS NOT ON THE SERVER YET' : r.msg); return; }
+      const prev = (social.friends || []).slice();
+      const fr = await loadFriends();
+      if (!fr.ok) social.friends = prev;
+      if (!(social.friends || []).some(f => f.status === 'accepted' && String(f.friend_username || '').toUpperCase() === id.toUpperCase())) {
+        social.friends = (social.friends || []).filter(f => String(f.friend_username || '').toUpperCase() !== id.toUpperCase());
+        social.friends.push({ id: '', status: 'accepted', direction: 'out', friend_id: '', friend_username: id });
+      }
+      showAcct('adminPlayers', { q: acctOpts.q || '', keep: 1, msg: 'FRIENDS WITH @' + id.toUpperCase(), ok: true }); return; }
     if (a === 'mresult') { showAcct('result', { id }); return; }
     if (a === 'rematch') { const m = social.matches.find(x => x.id === id); const o = m && matchOther(m); await loadFriends(); const f = o && social.friends.find(x => x.friend_id === o.id && x.status === 'accepted'); if (f) showAcct('challenge', { fid: f.id, holes: m.holes }); else acctMsg('NOT FRIENDS ANYMORE'); return; }
   });
