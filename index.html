@@ -393,7 +393,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.83';
+const GAME_VERSION = 'v8.99.84';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6429,36 +6429,8 @@ function drawToast() {
 /* v8.99.23 one-time THANK YOU card: free DLG SHADES + a promo line (edit GIFT_PROMO to change the hat-drop wording) */
 const GIFT_PROMO = 'NEW HAT DROP 11.22';
 const GIFT_SEEN_KEY = 'dlg_gift_shades_seen_v1';
-/* v8.99.28 one-time SPOOKY CUP CHAMPION card (title screen only, never over a round). REGISTER = the account sign-up
-   (an account is what enters a cup); signed-in players just close it. */
-const WIN_SEEN_KEY = 'dlg_spooky_win_seen_v1';
-const WIN_DAKOTA_SRC = 'data:image/png;base64,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';
-function winCardMaybe() {
-  try { if (localStorage.getItem(WIN_SEEN_KEY)) return; } catch (e) { return; }
-  if (state !== 'title' || document.getElementById('winCard') || document.getElementById('giftCard')) return;
-  try { localStorage.setItem(WIN_SEEN_KEY, '1'); } catch (e) {}
-  const inn = isSignedIn(), F = 'ui-monospace,Menlo,Consolas,monospace';
-  const d = document.createElement('div'); d.id = 'winCard'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-label', 'Spooky Cup champion');
-  d.style.cssText = 'position:fixed;inset:0;z-index:61;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62);padding:12px;box-sizing:border-box;touch-action:manipulation;overflow-y:auto';
-  const prize = (src, t) => '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="height:86px;display:flex;align-items:flex-end;justify-content:center">' + src + '</div><div style="font-size:11px;letter-spacing:1px;color:#fcfcfc;font-weight:700">' + t + '</div></div>';
-  d.innerHTML = '<div style="position:relative;max-width:330px;width:100%;margin:auto;background:#000;border:3px solid #f8d878;padding:14px 12px 12px;font-family:' + F + ';color:#fcfcfc;text-align:center;box-sizing:border-box">' +
-    '<button data-w="x" aria-label="Close" style="position:absolute;top:4px;right:4px;width:32px;height:32px;background:none;border:0;color:#a8b8d8;font:700 16px ' + F + ';-webkit-appearance:none">✕</button>' +
-    '<div style="color:#f8a038;font-size:12px;letter-spacing:3px;font-weight:700">SPOOKY CUP CHAMPION</div>' +
-    '<div style="color:#f8d878;font-size:24px;letter-spacing:4px;font-weight:700;margin-top:4px">DAKOTA</div>' +
-    '<div style="font-size:12px;letter-spacing:1px;color:#58d854;font-weight:700;margin-top:2px">8 STROKES · -7</div>' +
-    '<div style="display:flex;gap:8px;margin:12px 0 4px">' +
-      prize('<img alt="DAKOTA in the Skeleton Mask" src="' + WIN_DAKOTA_SRC + '" style="height:84px;image-rendering:pixelated">', 'SKELETON MASK') +
-      prize('<img alt="Lucky Ball Marker" src="shop/lucky-marker-front.webp?v=848" style="width:64px;height:64px">', 'LUCKY BALL MARKER') + '</div>' +
-    '<div style="font-size:12px;letter-spacing:1px;color:#a8b8d8;margin-top:8px">' + (inn ? 'NEXT CUP IS COMING. BE READY.' : 'NEXT CUP IS COMING. GET IN.') + '</div>' +
-    '<button data-w="go" style="width:100%;margin-top:10px;font:700 14px ' + F + ';letter-spacing:2px;padding:12px 6px;border:2px solid #58d854;background:#00a800;color:#fcfcfc;-webkit-appearance:none;border-radius:0">' + (inn ? 'LET\'S GO' : 'REGISTER FOR NEXT TOURNAMENT') + '</button></div>';
-  document.body.appendChild(d);
-  try { trackEvent('spooky_win_card', {}); } catch (e) {}
-  d.addEventListener('click', ev => {
-    const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
-    const k = b ? b.getAttribute('data-w') : 'x'; d.remove(); SFX.click(); setTimeout(invWelcomeMaybe, 700);
-    if (k === 'go') { try { trackEvent('spooky_win_register', { signed_in: inn }); } catch (e) {} if (!inn && state === 'title') showAcct('signup'); }
-    else setTimeout(giftCardMaybe, 300);
-  });
+function winCardMaybe() {   // the Spooky Cup ended; this champion card stays retired
+  return;
 }
 function giftCardMaybe() {
   try { if (localStorage.getItem(GIFT_SEEN_KEY)) return; } catch (e) { return; }
@@ -7750,7 +7722,7 @@ function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   setState('title');
-  setTimeout(winCardMaybe, 400); setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.28 champion card first; v8.99.23 one-time thank-you gift card
+  setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.84 champion card retired; v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
