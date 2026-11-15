@@ -393,7 +393,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.84';
+const GAME_VERSION = 'v8.99.85';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6011,9 +6011,12 @@ function ovActivate(i, dir = 1) {
     if (i === 0) resumeGame();
     else if (i === 1) openSettings('pause');
     else if (i === 2) {
-      if (lbiQuitCounted()) {   // v8.63
-        if (lbiQuitArm < performance.now()) { lbiQuitArm = performance.now() + 3000; SFX.click(); showToast(['QUIT THE ROUND?', 'HOLES LEFT SCORE 10', 'TAP QUIT AGAIN'], 2800); return; }
-        lbiQuitArm = 0; lbiQuit(); quitToMenu(); lbiOpen('board'); return;
+      if (lbiQuitCounted()) {   // leaving does not forfeit; the round stays open until the window closes
+        const rnd = lbiCtx.rnd, c = lbiCfg() || {};
+        const end = rnd === 5 ? c.playoff_end : c.r && c.r[rnd - 1] && c.r[rnd - 1][1];
+        const by = end && lbiFmtDeadline(end);
+        showToast(['ROUND SAVED', by ? 'FINISH BY ' + by : 'FINISH BEFORE IT CLOSES', 'HOLE IN PLAY SCORES 10']);
+        quitToMenu(); lbiOpen('board'); return;
       }
       quitToMenu();
     }
@@ -12498,7 +12501,7 @@ const LBI_FORCE = /^#test/.test(location.hash) && /[#&]lbi(&|=|$)/.test(location
 const LBI_RNAME = ['ROUND 1', 'ROUND 2', 'MOVING DAY', 'FINAL ROUND'];
 const LBI_LUCK_MISHIT = 0.03, LBI_LUCK_TREE = 0.04;   // DUMB LUCK is rarer in the tournament
 const LBI_AFTER_KEY = 'dlg_lbi_after_auth', LBI_Q_KEY = 'dlg_lbi_q_v1';
-let lbiCtx = null, lbiQ = [], lbiFlushing = false, lbiQuitArm = 0;
+let lbiCtx = null, lbiQ = [], lbiFlushing = false;
 try { lbiQ = JSON.parse(localStorage.getItem(LBI_Q_KEY) || '[]') || []; } catch (e) { lbiQ = []; }
 function lbiNow() { return Date.now() + LBI.skew; }
 function lbiCfg() { return LBI.info && LBI.info.cfg; }
@@ -12633,7 +12636,7 @@ function lbiHowHtml() {
     '<p>Play anytime from midnight to 11:59 p.m. Eastern each scoring day. Finish and submit before the next midnight.</p>' + schedule +
     '<p><strong>CUT AFTER DAY 2:</strong> The top 10 players plus anyone tied for 10th advance, based on total strokes from the first two rounds. Players who make the cut play Rounds 3 and 4.</p>' +
     '<p>Resume from your saved progress while the window is open. Finish and submit before the deadline.</p>' +
-    '<p>Quit or miss the deadline: each unfinished hole scores 10.</p>' +
+    '<p>Leaving is fine. Come back before the round closes. The hole you leave mid-way scores 10. Holes not played by the deadline score 10.</p>' +
     '<p>Practice does not count toward your tournament score.</p></details>';
 }
 function lbiMineHtml(B) {
@@ -12654,7 +12657,7 @@ function lbiReadyHtml(o) {
     '<div data-lbi-phase="' + lbiPageKey() + '"></div>' +
     (end ? '<p class="lbidate"><b>FINISH &amp; SUBMIT BEFORE</b><br>' + esc(lbiFmtDeadline(end)) + '</p>' : '') +
     '<div class="lbiready"><p><strong>This counts toward your tournament score.</strong> ' + (rnd === 5 ? 'Play the assigned playoff hole.' : 'One counted 18-hole round in this window.') + '</p>' +
-    '<p>Resume uses your saved progress. Finish and submit before the window closes.</p><p>Quit or miss the deadline: <strong>each unfinished hole scores 10.</strong></p></div><div class="msg"></div>' +
+    '<p>Resume uses your saved progress. Finish and submit before the window closes.</p><p>Leaving is fine. Come back before the window closes. The hole you leave mid-way scores 10. Holes not played by the deadline score 10.</p></div><div class="msg"></div>' +
     (ready ? '<button class="btn" data-a="lbiStart" data-n="' + rnd + '">' + (r && !r.closed ? 'RESUME COUNTED ROUND' : 'START COUNTED ROUND') + '</button>' : '<p class="empty">ROUND UNAVAILABLE · CHECK THE BOARD</p>') +
     '<button class="btn alt" data-a="lbiBack">BACK TO TOURNAMENT</button>';
 }
@@ -12680,7 +12683,7 @@ function lbiAction() {   // [label, data-a, data-n, alt?] or a status line
   if (me.mc) return { s: 'MISSED THE CUT' };
   if (p.k === 'live') { const r = lbiMyRound(p.rnd);
     if (!r) return ['TEE OFF · ' + LBI_RNAME[p.rnd - 1], 'lbiPlay', p.rnd];
-    if (!r.closed) return ['RESUME · HOLE ' + (r.thru + 1), 'lbiPlay', p.rnd];
+    if (!r.closed && (r.thru == null || r.thru < 18)) return ['RESUME · HOLE ' + ((r.thru | 0) + 1), 'lbiPlay', p.rnd];
     return { s: LBI_RNAME[p.rnd - 1] + ' IN · ' + lbiTp(r.tp), ok: 1 }; }
   if (p.k === 'final' && p.playoff && me.playoff) { const r = lbiMyRound(5);
     if (!c.playoff_hole) return { s: 'PLAYOFF HOLE SOON' };
@@ -12897,7 +12900,7 @@ function lbiTeeHook() { if (!lbiCtx) return; lbiCtx.shots = []; lbiCtx.teeAt = p
 function lbiShotHook() { if (lbiCtx && lbiCtx.shots) lbiCtx.shots.push(Math.round(performance.now() - (lbiCtx.teeAt || 0))); }
 function lbiHoleHook(n) { if (!lbiCtx || lbiCtx.practice) return; lbiSend('lbi_hole', { p_round: lbiCtx.rnd, p_hole: holeIdx + 1, p_strokes: n, p_shots: (lbiCtx.shots || []).slice(0, 10) }); }
 function lbiQuitCounted() { return courseKind === 'lbi' && lbiCtx && !lbiCtx.practice && state !== 'card'; }
-function lbiQuit() { lbiSend('lbi_quit', { p_round: lbiCtx.rnd }); lbiCtx.quit = true; }
+function lbiQuit() { /* leaving a counted round does not forfeit it */ }
 function lbiCardMsg() {
   if (!lbiCtx || lbiCtx.practice) return ['PRACTICE - NOT SCORED', COL.orange];
   if (lbiCtx.err) return [lbiCtx.err.slice(0, 34), COL.orange];
