@@ -246,6 +246,50 @@
   #acct .lbit tr.mc td{color:#7c8cac}
   #acct .lbit tr.cut td{border:0;border-top:2px dashed #fc9838;color:#fc9838;font-size:10px;letter-spacing:2px;padding:3px 0;text-align:center}
   #acct .lbit td.acts{white-space:nowrap}#acct .lbit td.acts .btn{min-height:30px;padding:0 5px;font-size:10px;letter-spacing:1px;margin:1px}
+  /* v8.99.86 public tournament board: TV rows, no sideways scroll */
+  #acct .lbimine.tv{background:#f2f0e6;border:3px solid #0e4a2c;box-shadow:0 0 0 3px #000;padding:8px 8px 10px;color:#141414}
+  #acct .lbimine.tv h3{color:#0e4a2c}
+  #acct .lbimine.tv .you{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px;text-align:center}
+  #acct .lbimine.tv .you b{font-size:28px;line-height:1;color:#141414}
+  #acct .lbimine.tv .you b.under{color:#c41a1a}
+  #acct .lbimine.tv .you span{display:block;font-size:10px;letter-spacing:1px;color:#6c6c60;margin-top:2px}
+  #acct .lbimine.tv p{color:#0e4a2c}
+  #acct .lbib{border:3px solid #0e4a2c;background:#f2f0e6;color:#141414;box-shadow:0 0 0 3px #000}
+  #acct .lbibh,#acct button.lbibr{display:grid;grid-template-columns:46px minmax(0,1fr) 56px 46px;align-items:center;column-gap:4px;width:100%;box-sizing:border-box}
+  #acct .lbibh{background:#0e4a2c;color:#e8c870;font-size:11px;letter-spacing:1px;padding:7px 6px;text-align:center}
+  #acct .lbibh .pl{text-align:left;padding-left:34px}
+  #acct button.lbibr{min-height:44px;margin:0;padding:4px 6px;border:0;border-bottom:1px solid #d8d4c4;background:#f2f0e6;color:#141414;font:inherit;font-weight:700;letter-spacing:0;text-align:center;cursor:pointer;-webkit-appearance:none;appearance:none}
+  #acct button.lbibr.me{background:#f4e0a0}
+  #acct button.lbibr.mc{color:#6c6c60}
+  #acct button.lbibr .pos{font-size:16px}
+  #acct button.lbibr .who{display:flex;align-items:center;gap:6px;min-width:0;text-align:left}
+  #acct button.lbibr .nm{font-size:14px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #acct button.lbibr .tot{font-size:22px;line-height:1}
+  #acct button.lbibr .tot.under{color:#c41a1a}
+  #acct button.lbibr .thru{font-size:16px}
+  #acct .lbib img.lbub{width:28px;height:32px;margin:0;background:#0e4a2c;flex:none}
+  #acct .lbicut{background:#0e4a2c;color:#f4ead0;text-align:center;letter-spacing:3px;font-size:12px;font-weight:700;padding:8px 0}
+  #acct .lbisc{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.72);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:12px;box-sizing:border-box}
+  #acct .lbiscb{width:min(420px,100%);margin:auto;background:#f2f0e6;color:#141414;border:3px solid #0e4a2c;box-shadow:0 0 0 3px #000;padding:10px 8px 12px;box-sizing:border-box}
+  #acct .lbiscb .top{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  #acct .lbiscb h3{flex:1;margin:0;font-size:16px;letter-spacing:1px;text-align:left;color:#0e4a2c}
+  #acct .lbiscb .x{flex:none;width:44px;height:44px;background:#0e4a2c;color:#f4ead0;border:0;font:inherit;font-weight:700;font-size:18px;cursor:pointer}
+  #acct .lbiscb .rts{display:flex;gap:6px;margin:0 0 8px}
+  #acct .lbiscb .rts button{flex:1;min-height:44px;background:#0e4a2c;color:#f4ead0;border:2px solid #0e4a2c;font:inherit;font-weight:700;font-size:12px;letter-spacing:1px;cursor:pointer}
+  #acct .lbiscb .rts button.on{background:#f4e0a0;color:#141414}
+  #acct .lbiscb .meta{font-size:12px;letter-spacing:.5px;color:#6c6c60;margin:0 0 8px}
+  #acct .lbiscb .meta b{color:#141414}
+  #acct .lbiscb .meta b.under{color:#c41a1a}
+  #acct .nine{display:grid;grid-template-columns:42px repeat(9,minmax(0,1fr)) 30px;gap:2px 1px;align-items:center;margin:0 0 8px;font-size:11px;font-weight:700}
+  #acct .nine .lab{color:#0e4a2c;font-size:10px;letter-spacing:0}
+  #acct .nine .mk{display:inline-flex;align-items:center;justify-content:center;min-width:16px;min-height:16px;padding:0 1px;box-sizing:border-box;font-size:11px;line-height:1}
+  #acct .nine .birdie{color:#c41a1a;border:1.5px solid #c41a1a;border-radius:50%;min-width:18px;min-height:18px}
+  #acct .nine .eagle{color:#c41a1a;border:1.5px solid #c41a1a;border-radius:50%;padding:1px}
+  #acct .nine .eagle span{display:inline-flex;align-items:center;justify-content:center;min-width:14px;min-height:14px;border:1.5px solid #c41a1a;border-radius:50%;padding:0 1px}
+  #acct .nine .bogey{border:1.5px solid #141414;min-width:16px;min-height:16px}
+  #acct .nine .dbl{border:1.5px solid #141414;padding:1px}
+  #acct .nine .dbl span{display:inline-flex;align-items:center;justify-content:center;min-width:14px;min-height:14px;border:1.5px solid #141414;padding:0 1px}
+  #acct .nine .under{color:#c41a1a}
   #acct img.lbub{width:22px;height:25px;image-rendering:pixelated;vertical-align:middle;margin:-4px 4px -4px 0;background:#183848}
   #acct .lbif{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-top:12px;font-size:13px}
   #acct .lbif button{display:flex;align-items:center;gap:6px;min-width:0;padding:3px 4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -393,7 +437,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.85';
+const GAME_VERSION = 'v8.99.86';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -12639,15 +12683,28 @@ function lbiHowHtml() {
     '<p>Leaving is fine. Come back before the round closes. The hole you leave mid-way scores 10. Holes not played by the deadline score 10.</p>' +
     '<p>Practice does not count toward your tournament score.</p></details>';
 }
+function lbiThruTxt(v) { return v == null ? '-' : v >= 18 ? 'F' : String(v); }
+function lbiUnderCls(v) { return v != null && v < 0 ? ' under' : ''; }
+function lbiPosLabel(rows, i) {
+  const r = rows[i], p = r.pos == null ? '-' : String(r.pos);
+  if (/^t/i.test(p) || r.total == null) return p.toUpperCase();
+  if (!/^\d+$/.test(p)) return p;
+  const mates = rows.filter(o => o.total === r.total && /^\d+$/.test(String(o.pos)));
+  if (mates.length < 2) return p;
+  return 'T' + Math.min(...mates.map(o => Number(o.pos)));
+}
 function lbiMineHtml(B) {
   const me = LBI.info && LBI.info.me; if (!isSignedIn() || !hasUsername() || !me || !me.registered) return '';
-  const row = ((B && B.rows) || []).find(r => String(r.u || '').toUpperCase() === myName()), p = lbiPhase();
+  const rows = (B && B.rows) || [], ix = rows.findIndex(r => String(r.u || '').toUpperCase() === myName()), row = ix >= 0 ? rows[ix] : null, p = lbiPhase();
   const rnd = p.rnd || (p.playoff ? 5 : 0), r = rnd ? lbiMyRound(rnd) : null;
-  const thru = row && row.thru != null ? row.thru : r && r.thru != null ? r.thru : '-';
+  const thru = row && row.thru != null ? row.thru : r && r.thru != null ? r.thru : null;
+  const tot = row ? row.total : null;
   const note = me.status === 'removed' ? 'NOT IN THE FIELD' : me.mc || (row && row.mc) ? 'MISSED THE CUT' : !row ? 'REGISTERED · NO SCORES YET' : '';
-  return '<section class="lbimine" aria-label="Your tournament standing"><h3>YOUR STANDING</h3><div class="lbics">' +
-    [['POS', row && row.pos != null ? row.pos : '-'], ['TOTAL', lbiTp(row && row.total)], ['TODAY', lbiTp(row && row.today)], ['THRU', thru]].map(([k, v]) => '<div><b>' + esc(v) + '</b>' + k + '</div>').join('') +
-    '</div>' + (note ? '<p>' + note + '</p>' : '') + '</section>';
+  return '<section class="lbimine tv" aria-label="Your tournament standing"><h3>YOUR STANDING</h3><div class="you">' +
+    '<div><b class="' + lbiUnderCls(tot).trim() + '">' + esc(lbiTp(tot)) + '</b><span>TOT</span></div>' +
+    '<div><b>' + esc(ix >= 0 ? lbiPosLabel(rows, ix) : '-') + '</b><span>POS</span></div>' +
+    '<div><b>' + esc(lbiThruTxt(thru)) + '</b><span>THRU</span></div></div>' +
+    (note ? '<p>' + note + '</p>' : '') + '</section>';
 }
 function lbiReadyHtml(o) {
   const rnd = +o.rnd, r = lbiMyRound(rnd), a = lbiAction(), ready = Array.isArray(a) && a[1] === 'lbiPlay' && a[2] === rnd;
@@ -12692,7 +12749,78 @@ function lbiAction() {   // [label, data-a, data-n, alt?] or a status line
   if (p.k === 'pre') return { s: "YOU'RE IN", ok: 1 };
   return null;
 }
+function lbiBoardTv(B) {
+  const rows = (B && B.rows) || [], mine = hasUsername() ? myName() : '';
+  if (!rows.length) return '<p class="empty">NO SCORES YET</p>';
+  let h = '<div class="lbib"><div class="lbibh"><span>POS</span><span class="pl">PLAYER</span><span>TOT</span><span>THRU</span></div>';
+  let cutDrawn = false;
+  rows.forEach((r, i) => {
+    if (B.cut_done && r.mc && !cutDrawn) { cutDrawn = true; h += '<div class="lbicut">' + (B.cut == null ? 'MISSED CUT' : 'CUT ' + lbiTp(B.cut)) + '</div>'; }
+    const me = String(r.u || '').toUpperCase() === mine;
+    h += '<button type="button" class="lbibr' + (me ? ' me' : '') + (r.mc ? ' mc' : '') + '" data-a="lbiSc" data-id="' + esc(r.u) + '"><span class="pos">' + esc(lbiPosLabel(rows, i)) + '</span><span class="who">' + lbiBust(r.u) + '<span class="nm">' + esc(String(r.u || '').toUpperCase()) + '</span></span><span class="tot' + lbiUnderCls(r.total) + '">' + lbiTp(r.total) + '</span><span class="thru">' + esc(lbiThruTxt(r.thru)) + '</span></button>';
+  });
+  return h + '</div>';
+}
+function lbiSumNine(arr, from) {
+  let s = 0, any = false;
+  for (let i = from; i < from + 9; i++) { if (arr[i] == null || arr[i] === '') continue; any = true; s += Number(arr[i]); }
+  return any ? s : '';
+}
+function lbiMk(score, par) {
+  if (score == null || score === '') return '<span class="mk"></span>';
+  const d = par == null || par === '' ? 0 : Number(score) - Number(par);
+  const cls = d <= -2 ? 'eagle' : d === -1 ? 'birdie' : d === 1 ? 'bogey' : d >= 2 ? 'dbl' : '';
+  const num = (cls === 'eagle' || cls === 'dbl') ? '<span>' + esc(score) + '</span>' : esc(score);
+  return '<span class="mk' + (cls ? ' ' + cls : '') + (d < 0 ? ' under' : '') + '">' + num + '</span>';
+}
+function lbiNine(label, scores, pars, from) {
+  let holes = '', prow = '', srow = '';
+  for (let i = 0; i < 9; i++) {
+    const n = from + i;
+    holes += '<span>' + (n + 1) + '</span>';
+    prow += '<span>' + (pars[n] == null ? '' : esc(pars[n])) + '</span>';
+    srow += lbiMk(scores[n], pars[n]);
+  }
+  return '<div class="nine"><span class="lab">HOLE</span>' + holes + '<span class="lab">' + label + '</span><span class="lab">PAR</span>' + prow + '<span>' + lbiSumNine(pars, from) + '</span><span class="lab">SCORE</span>' + srow + '<span>' + lbiSumNine(scores, from) + '</span></div>';
+}
+function lbiScorecardHtml(data, ri) {
+  const rounds = (data && data.rounds) || [], rd = rounds[ri] || null, u = String((data && data.u) || '').toUpperCase();
+  let h = '<div class="lbisc"><div class="lbiscb"><div class="top"><h3>' + esc(u) + '</h3><button type="button" class="x" data-a="lbiScX" aria-label="CLOSE">X</button></div>';
+  if (!rd) return h + '<p class="empty">NO CARD YET</p></div></div>';
+  if (rounds.length > 1) h += '<div class="rts">' + rounds.map((x, i) => '<button type="button" data-a="lbiScR" data-n="' + i + '" class="' + (i === ri ? 'on' : '') + '">R' + esc(x.r) + '</button>').join('') + '</div>';
+  h += '<p class="meta">' + rounds.map(x => (x.r === 5 ? 'PO' : 'R' + (x.r == null ? '' : x.r)) + ' <b class="' + lbiUnderCls(x.tp).trim() + '">' + lbiTp(x.tp) + '</b>').join(' · ') + '</p>';
+  const pars = rd.pars || [], s = rd.s || [];
+  const front = lbiSumNine(s, 0), back = lbiSumNine(s, 9);
+  const played = front !== '' || back !== '';
+  const totS = played ? Number(front || 0) + Number(back || 0) : '';
+  const totP = Number(lbiSumNine(pars, 0) || 0) + Number(lbiSumNine(pars, 9) || 0);
+  const rel = rd.tp != null ? rd.tp : played ? totS - totP : null;
+  h += '<p class="meta">' + esc(rd.r === 5 ? 'PLAYOFF' : 'ROUND ' + (rd.r == null ? '' : rd.r)) + (rd.course ? ' · ' + esc(String(rd.course).toUpperCase()) : '') + '</p><p class="meta">THRU ' + esc(lbiThruTxt(rd.thru)) + ' · <b class="' + lbiUnderCls(rel).trim() + '">' + lbiTp(rel) + '</b>' + (played ? ' · ' + totS + ' STROKES' : '') + '</p>';
+  h += lbiNine('OUT', s, pars, 0) + lbiNine('IN', s, pars, 9);
+  return h + '<p class="meta">TOT <b>' + (played ? totS : '-') + '</b>' + (totP ? ' · PAR ' + totP : '') + '</p></div></div>';
+}
+function lbiMountCard(card, ri) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = lbiScorecardHtml(card, ri);
+  const el = wrap.firstElementChild;
+  if (!el) return;
+  try { el.dataset.card = JSON.stringify(card); } catch (e) {}
+  const old = acctBox.querySelector('.lbisc');
+  if (old) old.replaceWith(el); else acctBox.appendChild(el);
+}
+async function lbiShowCard(username) {
+  const old = acctBox.querySelector('.lbisc'); if (old) old.remove();
+  const host = document.createElement('div');
+  host.className = 'lbisc';
+  host.innerHTML = '<div class="lbiscb"><div class="top"><h3>' + esc(String(username || '').toUpperCase()) + '</h3><button type="button" class="x" data-a="lbiScX" aria-label="CLOSE">X</button></div><p class="empty">LOADING...</p></div>';
+  acctBox.appendChild(host);
+  const r = await lbiRpc('lbi_card', { p_username: username }, true);
+  if (!host.isConnected) return;
+  if (!r || !r.ok || !r.data) { const p = host.querySelector('.empty'); if (p) p.textContent = r && r.ok ? 'NO CARD YET' : 'COULD NOT LOAD'; return; }
+  lbiMountCard(r.data, 0);
+}
 function lbiBoardHtml(B, admin) {
+  if (!admin) return lbiBoardTv(B);
   const rows = (B && B.rows) || [], mine = hasUsername() ? myName() : '';
   if (!rows.length) return '<p class="empty">NO SCORES YET</p>';
   let h = '<div class="lbiw"><table class="lbit"><tr><th>POS</th><th class="pl">PLAYER</th><th>TODAY</th><th>THRU</th><th>TOT</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th>' + (admin ? '<th></th>' : '') + '</tr>';
@@ -13118,6 +13246,9 @@ if (acctEl) {
       if (a === 'lbiOpen') { lbiOpen('board'); return; }
       if (a === 'lbiPl') { const d = document.createElement('div'); d.innerHTML = lbiCard(id || b.getAttribute('data-id')); acctBox.appendChild(d.firstChild); SFX.click(); return; }   // v8.99.49
       if (a === 'lbiPlX') { const c = acctBox.querySelector('.lbic'); if (c) c.remove(); return; }
+      if (a === 'lbiSc') { lbiShowCard(id); return; }
+      if (a === 'lbiScX') { const c = acctBox.querySelector('.lbisc'); if (c) c.remove(); return; }
+      if (a === 'lbiScR') { const c = b.closest('.lbisc'); if (!c || !c.dataset.card) return; let card; try { card = JSON.parse(c.dataset.card); } catch (e) { return; } lbiMountCard(card, +b.getAttribute('data-n') || 0); return; }
       if (a === 'lbiTab') { acctOpts.tab = b.getAttribute('data-n'); lbiRender(); return; }
       if (a === 'lbiGate') { try { sessionStorage.setItem(LBI_AFTER_KEY, '1'); } catch (e) {} showAcct('lbiGate'); return; }
       if (a === 'lbiReg') { acctBusy(true); const r = await lbiRpc('lbi_register', {}); acctBusy(false); if (!r.ok) { acctMsg(lbiErr(r)); return; } try { trackEvent('lbi_register', {}); } catch (e) {} await lbiRefresh(); lbiRender(); return; }
