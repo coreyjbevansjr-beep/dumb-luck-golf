@@ -299,6 +299,7 @@
   #acct .lbiscb .rts button{flex:1;min-height:44px;background:#0e4a2c;color:#f4ead0;border:2px solid #0e4a2c;font:inherit;font-weight:700;font-size:12px;letter-spacing:1px;cursor:pointer}
   #acct .lbiscb .rts button.on{background:#f4e0a0;color:#141414}
   #acct .lbiscb .meta{font-size:12px;letter-spacing:.5px;color:#6c6c60;margin:0 0 8px}
+  #acct .lbiscb .played{color:#0e4a2c;font-weight:700}
   #acct .lbiscb .meta b{color:#141414}
   #acct .lbiscb .meta b.under{color:#c41a1a}
   #acct .nine{display:grid;grid-template-columns:42px repeat(9,minmax(0,1fr)) 30px;gap:2px 1px;align-items:center;margin:0 0 8px;font-size:11px;font-weight:700}
@@ -544,7 +545,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.90';
+const GAME_VERSION = 'v8.99.91';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -13030,10 +13031,30 @@ function lbiNine(label, scores, pars, from) {
   }
   return '<div class="nine"><span class="lab">HOLE</span>' + holes + '<span class="lab">' + label + '</span><span class="lab">PAR</span>' + prow + '<span>' + lbiSumNine(pars, from) + '</span><span class="lab">SCORE</span>' + srow + '<span>' + lbiSumNine(scores, from) + '</span></div>';
 }
+function lbiScoredHoles(rd) {
+  const s = (rd && rd.s) || [];
+  let n = 0;
+  for (let i = 0; i < s.length; i++) if (s[i] != null && s[i] !== '') n++;
+  return n;
+}
+function lbiPlayedLine(rounds) {
+  let rnds = 0, holes = 0, open = null;
+  (rounds || []).forEach(rd => {
+    const n = lbiScoredHoles(rd);
+    if (n > 0) { rnds++; holes += n; }
+    const thru = rd && rd.thru != null && rd.thru !== '' ? Number(rd.thru) : null;
+    if (rd && !rd.closed && thru != null && thru < 18 && n > 0) open = rd;
+  });
+  const line = (rnds === 1 ? '1 ROUND' : rnds + ' ROUNDS') + ' · ' + (holes === 1 ? '1 HOLE PLAYED' : holes + ' HOLES PLAYED');
+  if (!open) return line;
+  const tag = Number(open.r) === 5 ? 'PLAYOFF' : 'R' + (open.r == null ? '' : open.r);
+  return line + ' · ' + tag + ' THRU ' + open.thru;
+}
 function lbiScorecardHtml(data, ri) {
   const rounds = (data && data.rounds) || [], rd = rounds[ri] || null, u = String((data && data.u) || '').toUpperCase();
   let h = '<div class="lbisc"><div class="lbiscb"><div class="top"><h3>' + esc(u) + '</h3><button type="button" class="x" data-a="lbiScX" aria-label="CLOSE">X</button></div>';
-  if (!rd) return h + '<p class="empty">NO ROUNDS YET</p></div></div>';
+  h += '<p class="meta played">' + esc(lbiPlayedLine(rounds)) + '</p>';
+  if (!rd) return h + '</div></div>';
   if (rounds.length > 1) h += '<div class="rts">' + rounds.map((x, i) => '<button type="button" data-a="lbiScR" data-n="' + i + '" class="' + (i === ri ? 'on' : '') + '">R' + esc(x.r) + '</button>').join('') + '</div>';
   h += '<p class="meta">' + rounds.map(x => (x.r === 5 ? 'PO' : 'R' + (x.r == null ? '' : x.r)) + ' <b class="' + lbiUnderCls(x.tp).trim() + '">' + lbiTp(x.tp) + '</b>').join(' · ') + '</p>';
   const pars = rd.pars || [], s = rd.s || [];
@@ -13063,8 +13084,10 @@ async function lbiShowCard(username) {
   acctBox.appendChild(host);
   const r = await lbiRpc('lbi_card', { p_username: username }, true);
   if (!host.isConnected) return;
-  if (!r || !r.ok || !r.data) { const p = host.querySelector('.empty'); if (p) p.textContent = r && r.ok ? 'NO ROUNDS YET' : 'COULD NOT LOAD'; return; }
-  lbiMountCard(r.data, 0);
+  if (!r || !r.ok) { const p = host.querySelector('.empty'); if (p) p.textContent = 'COULD NOT LOAD'; return; }
+  const data = r.data && typeof r.data === 'object' ? r.data : { u: username, rounds: [] };
+  if (!Array.isArray(data.rounds)) data.rounds = [];
+  lbiMountCard(data, 0);
 }
 function lbiBoardHtml(B, admin) {
   if (!admin) return lbiBoardTv(B);
