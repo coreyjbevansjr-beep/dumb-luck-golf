@@ -458,7 +458,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.88';
+const GAME_VERSION = 'v8.99.89';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6518,7 +6518,7 @@ function giftCardMaybe() {
   try { trackEvent('gift_card', { item: 'dlg_shades' }); } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
-    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click(); lbiPopHoldUntil = Date.now() + 800; setTimeout(invWelcomeMaybe, 500); try { lbiPopMaybe(); } catch (e) {}
+    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click(); setTimeout(invWelcomeMaybe, 500); try { lbiPopMaybe(); } catch (e) {}
     if (k === 'eq') { gearEquip('dlg_shades', true); showToast(['DLG SHADES ON', 'CHANGE IT IN EDIT LOOK'], 2600); try { trackEvent('gift_equip', { item: 'dlg_shades' }); } catch (e) {} }
     else if (k === 'shop' && state === 'title') { try { trackEvent('shop_tap', { mode: 'gift' }); } catch (e) {} if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} } else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); } }
   });
@@ -7789,9 +7789,9 @@ function openRoundTip(forceTouch) {
 function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(); lockInput(280); SFX.click(); }
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
-  setState('title');
   lbiPopBootUntil = Date.now() + 1600;
-  setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.84 champion card retired; v8.99.23 one-time thank-you gift card
+  setState('title');
+  setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.84 champion card retired; v8.99.89 welcome card no longer auto-opens; v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
@@ -7802,7 +7802,7 @@ function dismissSplash() {
   } catch (e) {}
 }
 function dismissA2HS() {
-  a2hs.show = false; SFX.click(); lbiPopHoldUntil = Date.now() + 800; setTimeout(invWelcomeMaybe, 500);
+  a2hs.show = false; SFX.click(); setTimeout(invWelcomeMaybe, 500); try { lbiPopMaybe(); } catch (e) {}
   try { localStorage.setItem('dlg_a2hs_v1', '1'); } catch (e) {}
 }
 function renderSplash() {
@@ -12621,7 +12621,7 @@ async function lbiLoadBoard() { const [b, f, l] = await Promise.all([lbiRpc('lbi
   if (l.ok && l.data && typeof l.data === 'object') { const m = {}; for (const k in l.data) m[k.toLowerCase()] = l.data[k] || {}; LBI.looks = m; } }   // v8.64: busts (look + gear)
 const LBI_POP_KEY = 'dlg_lbi_pop_v88';
 const LBI_POP_FORCE = /^#test/.test(location.hash) && /[#&]live(?:&|=|$)/.test(location.hash);
-let lbiPopDone = false, lbiPopBusy = false, lbiPopBootUntil = 0, lbiPopHoldUntil = 0;
+let lbiPopDone = false, lbiPopBusy = false, lbiPopBootUntil = 0;
 try { if (sessionStorage.getItem(LBI_POP_KEY) === '1') lbiPopDone = true; } catch (e) {}
 function lbiPopMark() { lbiPopDone = true; try { sessionStorage.setItem(LBI_POP_KEY, '1'); } catch (e) {} }
 function lbiPopRound() {
@@ -12643,10 +12643,8 @@ function lbiPopBlocked() {
   return false;
 }
 function lbiPopSoon() {
-  if (Date.now() < lbiPopHoldUntil) return true;
   if (Date.now() >= lbiPopBootUntil) return false;
   try { if (!localStorage.getItem(GIFT_SEEN_KEY)) return true; } catch (e) {}
-  if (!AUTH_TEST) { try { if (sessionStorage.getItem('dlg_inv_welcome_v58') !== '1' && !invWelcomeSeen && !(location.hash && !/^#(?:welcome|lookbook)$/.test(location.hash))) return true; } catch (e) {} }
   return false;
 }
 function lbiPopRow(r, pos, mine) {
@@ -12687,11 +12685,13 @@ async function lbiPopMaybe() {
   if (lbiPopDone || lbiPopBusy) return;
   if (AUTH_TEST && !LBI_POP_FORCE) return;
   if (!isSignedIn() || !hasUsername()) return;
-  if (!LBI.info) return;
-  if (!lbiShown()) { lbiPopMark(); return; }
   if (lbiPopBlocked() || lbiPopSoon()) return;
   lbiPopBusy = true;
   try {
+    if (!LBI.info) { try { await lbiLoad(true); } catch (e) {} }
+    if (!LBI.info) return;
+    if (!lbiShown()) { lbiPopMark(); return; }
+    if (lbiPopBlocked() || lbiPopSoon()) return;
     const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]);
     if (!b.ok || !b.data) { lbiPopMark(); return; }
     LBI.board = b.data;
@@ -13049,12 +13049,11 @@ let invIntroTimer=null;
 // v8.99.58: optional arrival lookbook, with no interruption to deep links or counted rounds.
 let invWelcomePriorPause=false,invWelcomePriorFocus=null,invWelcomeArrival=false,invWelcomeReadonly=false,invWelcomeSeen=false;
 function invWelcomeRemember(){invWelcomeSeen=true;try{sessionStorage.setItem('dlg_inv_welcome_v58','1');}catch(e){}}
-function invWelcomeMaybe(force){
- if(!force&&AUTH_TEST)return;
+function invWelcomeMaybe(force){ // v8.99.89: no automatic boot card. #welcome, #lookbook, and the lookbook button still open it.
+ const book=location.hash==='#lookbook', welcome=location.hash==='#welcome';
+ if(!force&&!book&&!welcome)return;
  if(state!=='title'||a2hs.show||paused||ov||menuPopup||(acctEl&&acctEl.classList.contains('on'))||authReturn||document.getElementById('winCard')||document.getElementById('giftCard'))return;
- if(location.hash&&!/^#(?:welcome|lookbook)$/.test(location.hash))return;
- try{if(sessionStorage.getItem('dlg_inv_welcome_v58')==='1')return;}catch(e){}
- if(!invWelcomeSeen)invWelcomeOpen(false);
+ invWelcomeOpen(book);
 }
 function invWelcomeOpen(book){
  const el=document.getElementById('invWelcome');if(!el||!el.hidden){if(book)invWelcomeBook();return;}
