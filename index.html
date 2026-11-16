@@ -271,6 +271,25 @@
   #acct .lbib img.lbub{width:28px;height:32px;margin:0;background:#0e4a2c;flex:none}
   #acct .lbicut{background:#0e4a2c;color:#f4ead0;text-align:center;letter-spacing:3px;font-size:12px;font-weight:700;padding:8px 0}
   #acct .lbins{background:#16603a;color:#d7e6da;text-align:center;letter-spacing:2px;font-size:11px;font-weight:700;padding:6px 0}
+  #lbiPop{position:fixed;inset:0;z-index:32;display:flex;align-items:flex-start;justify-content:center;background:rgba(0,0,0,.72);padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));box-sizing:border-box;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
+  #lbiPop .card{width:min(390px,100%);margin:auto;background:#f2f0e6;color:#141414;border:3px solid #0e4a2c;box-shadow:0 0 0 3px #000;padding:8px;box-sizing:border-box}
+  #lbiPop .top{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  #lbiPop h2{flex:1;margin:0;font-size:15px;letter-spacing:1px;color:#0e4a2c;text-align:left}
+  #lbiPop .rnd{margin:2px 0 0;font-size:11px;letter-spacing:1px;color:#6c6c60;font-weight:700}
+  #lbiPop .x{flex:none;width:44px;height:44px;background:#0e4a2c;color:#f4ead0;border:0;font:inherit;font-weight:700;font-size:18px;cursor:pointer}
+  #lbiPop .hd,#lbiPop .rw{display:grid;grid-template-columns:42px minmax(0,1fr) 52px 42px;align-items:center;column-gap:4px}
+  #lbiPop .hd{background:#0e4a2c;color:#e8c870;font-size:11px;letter-spacing:1px;padding:6px 4px;text-align:center}
+  #lbiPop .hd .pl{text-align:left;padding-left:34px}
+  #lbiPop .rw{min-height:44px;border-bottom:1px solid #d8d4c4;background:#f2f0e6;font-weight:700;text-align:center;padding:2px 4px;box-sizing:border-box}
+  #lbiPop .rw.me{background:#f4e0a0}
+  #lbiPop .pos,#lbiPop .thru{font-size:15px}
+  #lbiPop .tot{font-size:20px;line-height:1}
+  #lbiPop .tot.under{color:#c41a1a}
+  #lbiPop .who{display:flex;align-items:center;gap:6px;min-width:0;text-align:left}
+  #lbiPop .nm{font-size:13px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #lbiPop img.lbub{width:28px;height:32px;margin:0;background:#0e4a2c;image-rendering:pixelated;flex:none}
+  #lbiPop .note{background:#16603a;color:#d7e6da;text-align:center;letter-spacing:2px;font-size:11px;font-weight:700;padding:5px 0}
+  #lbiPop .go{display:block;width:100%;min-height:44px;margin-top:8px;background:#0e4a2c;color:#f4ead0;border:0;font:inherit;font-weight:700;letter-spacing:1px;cursor:pointer}
   #acct .lbisc{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.72);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:12px;box-sizing:border-box}
   #acct .lbiscb{width:min(420px,100%);margin:auto;background:#f2f0e6;color:#141414;border:3px solid #0e4a2c;box-shadow:0 0 0 3px #000;padding:10px 8px 12px;box-sizing:border-box}
   #acct .lbiscb .top{display:flex;align-items:center;gap:8px;margin:0 0 8px}
@@ -415,7 +434,7 @@
    <p class="invw-eyebrow">PRACTICE IS OPEN</p><h2 id="invWelcomeTitle">Welcome to<br><em>Magnolia Pines.</em></h2>
    <img src="invitational-hero.webp" width="1280" height="560" alt="The Magnolia Pines gallery at the yellow DLG flag">
    <p>Explore all 18 holes, meet the new obstacles, and step into the gallery. Tap a gallery speech bubble to chirp back.</p>
-   <div class="invw-actions"><button type="button" id="invwExplore">EXPLORE THE LOOKBOOK</button><button type="button" id="invwPractice">PRACTICE NOW</button></div>
+   <div class="invw-actions"><button type="button" id="invwExplore">EXPLORE THE LOOKBOOK</button><button type="button" id="invwPractice" hidden>PRACTICE NOW</button></div>
    <button type="button" id="invwContinue" class="invw-plain">CONTINUE TO THE GAME</button><p class="invw-credit">Built by @scorey. Made for the gallery.</p>
   </div>
   <iframe id="invwFrame" title="Magnolia Pines course lookbook" hidden></iframe>
@@ -439,7 +458,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.87';
+const GAME_VERSION = 'v8.99.88';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5531,7 +5550,7 @@ function setState(s) {
   const from = state;
   state = s; st = 0; lockInput(250); if (s !== 'card' && s !== 'board') { try { a2hsHide(); } catch (e) {} }   // v8.55: never over gameplay
   if (s !== 'custom') { try { hideNameOverlay(); } catch (e) {} }   // v8.99.64: name field only lives on the customize screen
-  if (s === 'title') refreshTitleLB();
+  if (s === 'title') { refreshTitleLB(); try { lbiPopMaybe(); } catch (e) {} }
   // quick fade between major screens (not every swing state)
   const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
   if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s };
@@ -6499,7 +6518,7 @@ function giftCardMaybe() {
   try { trackEvent('gift_card', { item: 'dlg_shades' }); } catch (e) {}
   d.addEventListener('click', ev => {
     const b = ev.target.closest('button'); if (!b && ev.target !== d) return;
-    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click(); setTimeout(invWelcomeMaybe, 500);
+    const k = b ? b.getAttribute('data-g') : 'ok'; d.remove(); SFX.click(); lbiPopHoldUntil = Date.now() + 800; setTimeout(invWelcomeMaybe, 500); try { lbiPopMaybe(); } catch (e) {}
     if (k === 'eq') { gearEquip('dlg_shades', true); showToast(['DLG SHADES ON', 'CHANGE IT IN EDIT LOOK'], 2600); try { trackEvent('gift_equip', { item: 'dlg_shades' }); } catch (e) {} }
     else if (k === 'shop' && state === 'title') { try { trackEvent('shop_tap', { mode: 'gift' }); } catch (e) {} if (SHOP_URL) { try { window.open(SHOP_URL, '_blank', 'noopener'); } catch (e) {} } else { menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems(); } }
   });
@@ -7771,6 +7790,7 @@ function closeRoundTip() { if (!roundTip) return; roundTip = false; markTipSeen(
 function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   setState('title');
+  lbiPopBootUntil = Date.now() + 1600;
   setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.84 champion card retired; v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
@@ -7782,7 +7802,7 @@ function dismissSplash() {
   } catch (e) {}
 }
 function dismissA2HS() {
-  a2hs.show = false; SFX.click(); setTimeout(invWelcomeMaybe, 500);
+  a2hs.show = false; SFX.click(); lbiPopHoldUntil = Date.now() + 800; setTimeout(invWelcomeMaybe, 500);
   try { localStorage.setItem('dlg_a2hs_v1', '1'); } catch (e) {}
 }
 function renderSplash() {
@@ -12222,6 +12242,7 @@ function hideAcct() {
   try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
   acctEl.classList.remove('on'); acctEl.setAttribute('aria-hidden', 'true'); acctView = null;
   lockInput(300);
+  try { lbiPopMaybe(); } catch (e) {}
 }
 function acctMsg(t, ok) { const m = acctBox.querySelector('.msg'); if (m) { m.textContent = t || ''; m.classList.toggle('ok', !!ok); } }
 function acctBusy(on) { acctBox.querySelectorAll('button,input').forEach(b => { if (!b.classList.contains('back')) b.disabled = !!on; }); }
@@ -12598,6 +12619,92 @@ async function lbiLoad(force) {
 }
 async function lbiLoadBoard() { const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]); if (b.ok && b.data) LBI.board = b.data; if (f.ok && Array.isArray(f.data)) LBI.field = f.data;
   if (l.ok && l.data && typeof l.data === 'object') { const m = {}; for (const k in l.data) m[k.toLowerCase()] = l.data[k] || {}; LBI.looks = m; } }   // v8.64: busts (look + gear)
+const LBI_POP_KEY = 'dlg_lbi_pop_v88';
+const LBI_POP_FORCE = /^#test/.test(location.hash) && /[#&]live(?:&|=|$)/.test(location.hash);
+let lbiPopDone = false, lbiPopBusy = false, lbiPopBootUntil = 0, lbiPopHoldUntil = 0;
+try { if (sessionStorage.getItem(LBI_POP_KEY) === '1') lbiPopDone = true; } catch (e) {}
+function lbiPopMark() { lbiPopDone = true; try { sessionStorage.setItem(LBI_POP_KEY, '1'); } catch (e) {} }
+function lbiPopRound() {
+  const p = lbiPhase();
+  if (p.k === 'live') return LBI_RNAME[p.rnd - 1] || '';
+  if (p.k === 'gap') return LBI_RNAME[p.next - 1] || '';
+  if (p.k === 'pre') return 'REGISTRATION';
+  if (p.k === 'final') return p.playoff ? 'PLAYOFF' : 'FINAL';
+  if (p.k === 'done') return 'FINAL';
+  return '';
+}
+function lbiPopBlocked() {
+  if (state !== 'title') return true;
+  if (acctOpen() || a2hs.show || paused || ov || menuPopup || authReturn) return true;
+  if (document.getElementById('giftCard') || document.getElementById('winCard') || document.getElementById('a2hs') || document.getElementById('lbiPop')) return true;
+  const w = document.getElementById('invWelcome'); if (w && !w.hidden) return true;
+  const a = document.getElementById('courseArrival'); if (a && !a.hidden) return true;
+  const name = document.getElementById('nameOverlay'); if (name && name.classList.contains('on')) return true;
+  return false;
+}
+function lbiPopSoon() {
+  if (Date.now() < lbiPopHoldUntil) return true;
+  if (Date.now() >= lbiPopBootUntil) return false;
+  try { if (!localStorage.getItem(GIFT_SEEN_KEY)) return true; } catch (e) {}
+  if (!AUTH_TEST) { try { if (sessionStorage.getItem('dlg_inv_welcome_v58') !== '1' && !invWelcomeSeen && !(location.hash && !/^#(?:welcome|lookbook)$/.test(location.hash))) return true; } catch (e) {} }
+  return false;
+}
+function lbiPopRow(r, pos, mine) {
+  const me = mine && String(r.u || '').toUpperCase() === mine;
+  return '<div class="rw' + (me ? ' me' : '') + '"><span class="pos">' + esc(pos) + '</span><span class="who">' + lbiBust(r.u) + '<span class="nm">' + esc(String(r.u || '').toUpperCase()) + '</span></span><span class="tot' + lbiUnderCls(r.total) + '">' + lbiTp(r.total) + '</span><span class="thru">' + esc(lbiThruTxt(r.thru)) + '</span></div>';
+}
+function lbiPopHtml(board) {
+  const rows = ((board && board.rows) || []).filter(r => r && r.total != null && r.total !== '' && isFinite(Number(r.total)));
+  if (!rows.length) return '';
+  const mine = hasUsername() ? myName() : '', me = LBI.info && LBI.info.me;
+  const top = rows.slice(0, 5);
+  let extra = '';
+  if (me && me.registered && me.status !== 'removed' && mine) {
+    const ix = rows.findIndex(r => String(r.u || '').toUpperCase() === mine);
+    if (ix >= 5) extra = lbiPopRow(rows[ix], lbiPosLabel(rows, ix), mine);
+    else if (ix < 0) extra = '<div class="note">NOT STARTED</div>' + lbiPopRow({ u: mine }, '-', mine);
+  }
+  const rnd = lbiPopRound();
+  return '<div class="card" role="dialog" aria-label="Live leaderboard"><div class="top"><div><h2>LIVE LEADERBOARD</h2>' + (rnd ? '<p class="rnd">' + esc(rnd) + '</p>' : '') + '</div><button type="button" class="x" data-x aria-label="CLOSE">X</button></div><div class="hd"><span>POS</span><span class="pl">PLAYER</span><span>TOT</span><span>THRU</span></div>' +
+    top.map((r, i) => lbiPopRow(r, lbiPosLabel(rows, i), mine)).join('') + extra +
+    '<button type="button" class="go" data-go>FULL BOARD</button></div>';
+}
+function lbiPopClose() { const el = document.getElementById('lbiPop'); if (el) el.remove(); }
+function lbiPopShow(board) {
+  if (lbiPopBlocked()) return false;
+  const html = lbiPopHtml(board); if (!html) return false;
+  const el = document.createElement('div'); el.id = 'lbiPop'; el.innerHTML = html;
+  el.addEventListener('click', e => {
+    if (e.target.closest('[data-x]') || e.target === el) { lbiPopClose(); return; }
+    if (e.target.closest('[data-go]')) { lbiPopClose(); lbiOpen('board'); }
+  });
+  for (const t of ['pointerdown', 'pointerup', 'touchstart', 'wheel']) el.addEventListener(t, e => e.stopPropagation(), { passive: true });
+  document.body.appendChild(el);
+  lbiPopMark();
+  return true;
+}
+async function lbiPopMaybe() {
+  if (lbiPopDone || lbiPopBusy) return;
+  if (AUTH_TEST && !LBI_POP_FORCE) return;
+  if (!isSignedIn() || !hasUsername()) return;
+  if (!LBI.info) return;
+  if (!lbiShown()) { lbiPopMark(); return; }
+  if (lbiPopBlocked() || lbiPopSoon()) return;
+  lbiPopBusy = true;
+  try {
+    const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]);
+    if (!b.ok || !b.data) { lbiPopMark(); return; }
+    LBI.board = b.data;
+    if (f.ok && Array.isArray(f.data)) LBI.field = f.data;
+    if (l.ok && l.data && typeof l.data === 'object') { const m = {}; for (const k in l.data) m[k.toLowerCase()] = l.data[k] || {}; LBI.looks = m; }
+    const rows = (b.data.rows || []).filter(r => r && r.total != null && r.total !== '' && isFinite(Number(r.total)));
+    if (!rows.length) { lbiPopMark(); return; }
+    if (lbiPopBlocked() || lbiPopSoon()) return;
+    if (!lbiPopShow(b.data)) return;
+  } catch (e) { lbiPopMark(); }
+  finally { lbiPopBusy = false; }
+}
+setInterval(() => { if (!document.hidden) lbiPopMaybe(); }, 1500);
 function lbiLook(u) { return (LBI.looks || {})[String(u || '').toLowerCase()] || {}; }
 function lbiMini(u) { const L = lbiLook(u); return '<img class="lbim" alt="" src="' + golferHDImg(L.appearance, L.gear, 'full', 1) + '">'; }
 function lbiCard(u) {   // v8.99.49: player card over the field (full-size golfer, name, board stats when they have any)
@@ -12682,8 +12789,7 @@ function lbiHowHtml() {
     '<p>Play anytime from midnight to 11:59 p.m. Eastern each scoring day. Finish and submit before the next midnight.</p>' + schedule +
     '<p><strong>CUT AFTER DAY 2:</strong> The top 10 players plus anyone tied for 10th advance, based on total strokes from the first two rounds. Players who make the cut play Rounds 3 and 4.</p>' +
     '<p>Resume from your saved progress while the window is open. Finish and submit before the deadline.</p>' +
-    '<p>Leaving is fine. Come back before the round closes. The hole you leave mid-way scores 10. Holes not played by the deadline score 10.</p>' +
-    '<p>Practice does not count toward your tournament score.</p></details>';
+    '<p>Leaving is fine. Come back before the round closes. The hole you leave mid-way scores 10. Holes not played by the deadline score 10.</p></details>';
 }
 function lbiThruTxt(v) { return v == null ? '-' : v >= 18 ? 'F' : String(v); }
 function lbiUnderCls(v) { return v != null && v < 0 ? ' under' : ''; }
@@ -12886,7 +12992,6 @@ function lbiPageHtml(o) {
   if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
   if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
   else if (a && a.s) h += '<p class="big lbis' + (a.ok ? ' ok' : '') + '">' + esc(a.s) + '</p>';
-  h += '<button class="btn alt lbipractice" data-a="lbiPrac">PRACTICE NOW · DOES NOT COUNT</button>';
   h += lbiHowHtml();
   h += '<div class="msg"></div><div class="seg lbitabs">' + [['board', 'BOARD'], ['field', 'FIELD' + (I.field_n ? ' ' + I.field_n : '')], ['prizes', 'PRIZES']].map(([k, l]) => '<button type="button" data-a="lbiTab" data-n="' + k + '" class="' + (k === tab ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
   if (tab === 'board') h += lbiMineHtml(B) + lbiBoardHtml(B, false);
@@ -12970,6 +13075,7 @@ function invWelcomeClose(){
  if(invWelcomeArrival)document.getElementById('courseArrival').style.visibility='';
  if(invWelcomePriorFocus&&invWelcomePriorFocus.isConnected)invWelcomePriorFocus.focus();
  invWelcomeArrival=false;invWelcomeReadonly=false;
+ try { lbiPopMaybe(); } catch (e) {}
 }
 function invWelcomePlay(hash){
  if(invWelcomeReadonly)return;
