@@ -544,7 +544,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.89';
+const GAME_VERSION = 'v8.99.90';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1358,7 +1358,7 @@ async function loadFriendProfile(username) {
 }
 
 /* ---- v8.30 admin (server decides: public.admin_whoami; nothing about admin is stored client-side) ---- */
-const admin = { is: false, names: [], checked: false, stats: null, scores: [], scoreSort: 'recent', players: [], audit: [], unlock: false };
+const admin = { is: false, names: [], checked: false, stats: null, scores: [], scoreSort: 'recent', players: [], audit: [], unlock: false, lbiRecent: [] };
 function isAdminUser(name) { return !!name && admin.names.some(n => n.toLowerCase() === String(name).replace(/^@/, '').toLowerCase()); }
 const LB_SHOW_ADMINS = ['scorey'];   // v8.99.40: Corey's admin account plays for real, so it shows on every board
 function lbHideAdmin(name) { return isAdminUser(name) && !LB_SHOW_ADMINS.includes(String(name).replace(/^@/, '').toLowerCase()); }
@@ -1378,11 +1378,13 @@ async function adminRpc(fn, body) { const r = await sb('/rest/v1/rpc/' + fn, { m
 async function adminLoadStats() {   // v8.96: 7d + 30d stats, last 30d of public scores, newest accounts (all existing admin-gated RPCs / public reads)
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
   const ex = admHideMine();   // v8.98
-  const [r, r30, sc, np, s2, rt] = await Promise.all([adminRpc('admin_stats', { p_days: 7, p_exclude: ex }), adminRpc('admin_stats', { p_days: 30, p_exclude: ex }),
-    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=1000', {}, 'admin'), adminRpc('admin_players', { p_query: '' }), adminRpc('admin_stats2', { p_days: 30, p_exclude: ex }), adminRpc('admin_ratings', {})]);
+  const [r, r30, sc, np, s2, rt, lb] = await Promise.all([adminRpc('admin_stats', { p_days: 7, p_exclude: ex }), adminRpc('admin_stats', { p_days: 30, p_exclude: ex }),
+    sb('/rest/v1/scores?select=id,name,strokes,to_par,mode,created_at&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=1000', {}, 'admin'), adminRpc('admin_players', { p_query: '' }), adminRpc('admin_stats2', { p_days: 30, p_exclude: ex }), adminRpc('admin_ratings', {}),
+    adminRpc('admin_lbi_recent', { p_limit: 20 }).catch(() => ({ ok: false }))]);
   admin.stats = r.ok ? r.data : null; admin.stats30 = r30.ok ? r30.data : null; admin.s2 = s2.ok ? s2.data : null;   // v8.97
   admin.rt = rt.ok ? rt.data : null;   // v8.98
   admin.recent = sc.ok && Array.isArray(sc.data) ? sc.data : []; admin.newp = np.ok && Array.isArray(np.data) ? np.data : [];
+  admin.lbiRecent = lb && lb.ok && Array.isArray(lb.data) ? lb.data : [];
   return r;
 }
 async function adminLoadPlayer(name) {   // v8.96: one player's card (profiles/careers are signed-in reads, scores are public; email stays server-side)
@@ -1429,6 +1431,16 @@ function admRatings(X) {   // v8.98: thumbs (admin votes left out server-side)
 const admPct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
 const admMode = m => String(m || '?').replace(/[_-]+/g, ' ').toUpperCase();
 const admAgo = t => { const d = (Date.now() - Date.parse(t)) / 1000; if (!(d >= 0)) return ''; return d < 3600 ? Math.max(1, Math.round(d / 60)) + 'M' : d < 86400 ? Math.round(d / 3600) + 'H' : Math.round(d / 86400) + 'D'; };
+function admLbiLine(x) {   // v8.99.90: tournament round in the admin recent feed
+  const rnd = Number(x.r) === 5 ? 'PLAYOFF' : 'R' + (x.r == null ? '?' : x.r);
+  const thru = x.thru == null || x.thru === '' ? null : Number(x.thru);
+  const tp = x.tp == null || x.tp === '' || !isFinite(Number(x.tp)) ? '-' : (Number(x.tp) > 0 ? '+' : '') + Number(x.tp);
+  const strokes = x.strokes == null ? '-' : x.strokes;
+  const st = x.closed && thru != null && thru >= 18 ? '<span style="color:#f8d878">FINAL</span>'
+    : !x.closed ? '<span style="color:#58d854">THRU ' + (thru == null ? '-' : thru) + '</span>'
+    : '<span style="color:#7c8cac">THRU ' + (thru == null ? '-' : thru) + '</span>';
+  return { t: x.t, h: at(x.u) + ' LBI ' + rnd + ' <span style="color:#f8d878">' + strokes + ' (' + tp + ')</span> ' + st };
+}
 function admSeries(S, key, days) {   // daily rows (newest first, gaps missing) -> oldest..today array
   const m = {}; (S && S.daily || []).forEach(d => { m[String(d.day).slice(0, 10)] = +d[key] || 0; });
   const out = [], et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -12357,9 +12369,10 @@ const ADMIN_VIEWS = {
     const modes = {}; rec.forEach(s => { const k = admMode(s.mode), o = modes[k] || (modes[k] = { n: 0, b: null }); o.n++; if (!o.b || s.to_par < o.b.to_par) o.b = s; });
     const top = Object.entries(modes).sort((a, b) => b[1].n - a[1].n).slice(0, 5);
     if (top.length && !admin.s2) h += '<p class="sec">TOP MODES · 30D</p><div class="feed">' + top.map(([k, o]) => '<div><span>' + esc(k) + ' · ' + o.n + '</span><span>BEST ' + esc(String(o.b.name).toUpperCase()) + ' ' + (o.b.to_par > 0 ? '+' : '') + o.b.to_par + '</span></div>').join('') + '</div>';
-    const feed = rec.slice(0, 10).map(s => ({ t: s.created_at, h: at(s.name) + ' ' + esc(admMode(s.mode)) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span>' }))
+    const feed = rec.slice(0, 12).map(s => ({ t: s.created_at, h: at(s.name) + ' ' + esc(admMode(s.mode)) + ' <span style="color:#f8d878">' + s.strokes + ' (' + (s.to_par > 0 ? '+' : '') + s.to_par + ')</span>' }))
       .concat(np.filter(p => Date.parse(p.created_at) >= wk).slice(0, 6).map(p => ({ t: p.created_at, h: at(p.username) + ' <span style="color:#58d854">JOINED</span>' })))
-      .sort((a, b) => Date.parse(b.t) - Date.parse(a.t)).slice(0, 10);
+      .concat((admin.lbiRecent || []).map(admLbiLine))
+      .sort((a, b) => Date.parse(b.t) - Date.parse(a.t)).slice(0, 15);
     h += '<p class="sec">RECENT ACTIVITY</p>' + (feed.length ? '<div class="feed">' + feed.map(f => '<div><span>' + f.h + '</span><span>' + admAgo(f.t) + '</span></div>').join('') + '</div>' : '<p class="empty">NOTHING YET</p>');
     h += '<details><summary>DAILY TABLE (ET)</summary><table><tr><th>DAY</th><th>PLAYERS</th><th>ROUNDS</th><th>FINISHED</th></tr>' +
       (S30.daily || []).map(d => '<tr><td>' + fmtDay(d.day) + '</td><td>' + d.players + '</td><td>' + d.rounds + '</td><td>' + d.finishes + '</td></tr>').join('') + '</table></details>';
