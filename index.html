@@ -12689,7 +12689,7 @@ async function lbiPopMaybe() {
   lbiPopBusy = true;
   try {
     if (!LBI.info) { try { await lbiLoad(true); } catch (e) {} }
-    if (!LBI.info) return;
+    if (!LBI.info) { lbiPopMark(); return; }
     if (!lbiShown()) { lbiPopMark(); return; }
     if (lbiPopBlocked() || lbiPopSoon()) return;
     const [b, f, l] = await Promise.all([lbiRpc('lbi_board', {}, true), lbiRpc('lbi_field', {}, true), lbiRpc('lbi_looks', {}, true)]);
