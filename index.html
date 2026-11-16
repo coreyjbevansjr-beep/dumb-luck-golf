@@ -391,6 +391,84 @@
 
 #courseArrival{overflow:auto}#courseArrival [hidden]{display:none!important}
 
+/* Invitational scoreboard: event identity, readable scores, restrained gold trim. */
+#acct .box:has(>.lbi-shell){max-width:560px;background:#f4f1e7;border:1px solid #c8ad6b;box-shadow:0 20px 70px #0008;padding:0;color:#1c3027}
+#acct .lbi-shell{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c3027;padding:0 20px 22px}
+#acct .lbi-shell>.top{margin:0 -20px 16px;padding:22px 20px 20px;background:#123e2c;border-bottom:3px solid #c8ad6b;gap:12px;align-items:flex-start}
+#acct .lbi-shell>.top h2{font:400 26px/1.15 Georgia,serif;color:#fbf5df;letter-spacing:.3px;text-shadow:none;text-align:left;max-width:350px}
+#acct .lbi-shell>.top>span{display:none}
+#acct .lbi-shell>.top .back{color:#dfd5b7;font:600 11px/1.2 ui-monospace,monospace;letter-spacing:.7px;padding:10px 0;margin:0;min-width:62px;min-height:44px;flex:none}
+#acct .lbi-shell>.lbist{display:table;margin:0 auto 10px;padding:5px 12px;background:#e4e9dc;border:1px solid #c9d4c3;color:#234d35;font:700 11px/1.4 ui-monospace,monospace;letter-spacing:1px}
+#acct .lbi-shell>.lbidate{margin:0 0 12px;padding:0;color:#6a7165;font:12px/1.65 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0}
+#acct .lbi-shell>.lbidate b{color:#284d38;font-weight:650}
+#acct .lbi-shell>.lbis{font:600 13px/1.5 ui-monospace,monospace;letter-spacing:.6px;margin:8px 0 12px;color:#435a48}
+#acct .lbi-shell>.lbis.ok{color:#245a39}
+#acct .lbi-shell>.btn{font-size:13px;letter-spacing:1px;min-height:46px;border:1px solid #b39754;background:#dec78a;color:#143c2a;box-shadow:none;margin:12px 0}
+#acct .lbi-shell>.lbihow{border-color:#d4d6c8;color:#4d5c4e;font:13px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:10px 0 12px}
+#acct .lbi-shell>.lbihow summary{color:#3c5943;font-size:11px;letter-spacing:1px;padding:13px 0;min-height:44px;text-transform:uppercase}
+#acct .lbi-shell>.msg:empty{display:none}
+#acct .lbi-shell>.lbitabs{gap:0;padding:3px;background:#e5e7db;border:1px solid #d5d8c9;margin:14px 0 16px}
+#acct .lbi-shell>.lbitabs button{background:transparent;color:#63715e;border:0;box-shadow:none;min-height:42px;font:700 11px/1.2 ui-monospace,monospace;letter-spacing:1px}
+#acct .lbi-shell>.lbitabs button.on{background:#174a34;color:#fff4d4;box-shadow:0 1px 3px #0002}
+#acct .lbi-shell .lbimine.tv{margin:0 0 18px;padding:16px 12px;background:#fffdf6;border:1px solid #d0d4c4;border-top:3px solid #b99b52;box-shadow:none}
+#acct .lbi-shell .lbimine.tv h3{font:700 10px/1.4 ui-monospace,monospace;letter-spacing:1.8px;text-align:left;color:#67745d;margin:0 0 14px 5px}
+#acct .lbi-shell .lbimine.tv .you{grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+#acct .lbi-shell .lbimine.tv .you>div+div{border-left:1px solid #e1e3d8}
+#acct .lbi-shell .lbimine.tv .you b{font:650 33px/1.1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-variant-numeric:tabular-nums;color:#173f2d}
+#acct .lbi-shell .lbimine.tv .you b.under{color:#b62e28}
+#acct .lbi-shell .lbimine.tv .you span{font:700 9px/1.4 ui-monospace,monospace;letter-spacing:1.1px;color:#75806b;margin-top:6px}
+#acct .lbi-shell .lbimine.tv p{font:11px/1.5 ui-monospace,monospace;color:#66765c;margin:12px 0 0}
+#acct .lbi-shell .lbib{border:1px solid #ced3c2;box-shadow:none;background:#fffdf7;overflow:hidden}
+#acct .lbi-shell .lbibh,#acct .lbi-shell button.lbibr{grid-template-columns:42px minmax(0,1fr) 62px 42px;column-gap:8px}
+#acct .lbi-shell .lbibh{padding:10px 12px;background:#194631;color:#e4d3a0;font:600 10px/1.4 ui-monospace,monospace;letter-spacing:1.2px}
+#acct .lbi-shell .lbibh .pl{padding-left:0}
+#acct .lbi-shell button.lbibr{padding:10px 12px;min-height:60px;background:#fffdf7;border-bottom:1px solid #e0e3d6;color:#22392b;font-family:inherit}
+#acct .lbi-shell button.lbibr:nth-of-type(even){background:#f0f2e8}
+#acct .lbi-shell button.lbibr.me{background:#f4e8bc;box-shadow:inset 3px 0 #bda050}
+#acct .lbi-shell button.lbibr .pos{font:700 16px/1.2 ui-monospace,monospace;color:#54634d}
+#acct .lbi-shell button.lbibr .nm{font:650 14px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:.3px}
+#acct .lbi-shell button.lbibr .who{gap:9px}
+#acct .lbi-shell button.lbibr .tot{font:700 25px/1.1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-variant-numeric:tabular-nums;color:#234631}
+#acct .lbi-shell button.lbibr .tot.under{color:#b62e28}
+#acct .lbi-shell button.lbibr .thru{font:600 14px/1.2 ui-monospace,monospace;color:#738069}
+#acct .lbi-shell .lbib img.lbub{width:28px;height:32px;background:#dbe3d1;border-radius:2px}
+#acct .lbi-shell .lbicut,#acct .lbi-shell .lbins{padding:10px 8px;font:650 10px/1.4 ui-monospace,monospace;letter-spacing:1px;color:#4e6047;background:#e4e9d9;border-top:1px solid #c9d1bd}
+#acct .lbi-shell .lbicut{background:#214e36;color:#ecdeae;border-top:2px solid #bba369}
+#acct .lbi-shell button.lbibr.mc,#acct .lbi-shell button.lbibr.mc .tot,#acct .lbi-shell button.lbibr.mc .tot.under{color:#87907f}
+#acct .lbi-shell>.link{color:#486248;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.5px;margin:12px 0 0}
+#acct .lbi-shell>.empty{color:#68775f}
+#acct .lbi-shell button:focus-visible,#lbiPop button:focus-visible{outline:3px solid #b79745;outline-offset:2px}
+#acct .lbi-shell .lbipz{color:#243d2b}
+#acct .lbi-shell .lbipz div{border-color:#c6cebb;background:#fffdf7}
+/* Matching clubhouse scorecard for the live-placement popup. */
+#lbiPop{background:rgba(7,24,16,.76);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom))}
+#lbiPop .card{width:min(440px,100%);background:#f7f4e9;border:1px solid #bba36b;box-shadow:0 24px 80px #0007;padding:0 18px 18px}
+#lbiPop .top{margin:0 -18px 14px;padding:22px 18px 20px;background:#123e2c;border-bottom:3px solid #c8ad6b;align-items:flex-start;gap:12px}
+#lbiPop .top>div{flex:1;min-width:0}
+#lbiPop .eyebrow{display:block;font:650 9px/1.4 ui-monospace,monospace;letter-spacing:1.7px;color:#d7c58e;margin-bottom:7px}
+#lbiPop h2{font:400 27px/1.13 Georgia,serif;letter-spacing:.1px;color:#faf3da;margin:0}
+#lbiPop .rnd{font:600 10px/1.5 ui-monospace,monospace;letter-spacing:1px;color:#b7c8af;margin-top:9px}
+#lbiPop .x{width:44px;height:44px;border:1px solid #527058;background:transparent;color:#f1e4bc;font:400 22px/1 system-ui;flex:0 0 44px;margin:0}
+#lbiPop .hd,#lbiPop .rw{grid-template-columns:36px minmax(0,1fr) 58px 36px;gap:7px}
+#lbiPop .hd{padding:9px 8px;background:#e3e8d8;color:#5c6e53;font:700 9px/1.4 ui-monospace,monospace;letter-spacing:1px;border-bottom:1px solid #d2d8c5}
+#lbiPop .hd .pl{padding-left:0}
+#lbiPop .rw{min-height:59px;padding:10px 8px;background:#fbfaf2;border-color:#dfe3d5}
+#lbiPop .rw:nth-of-type(even){background:#f0f2e8}
+#lbiPop .rw.me{background:#f3e6b6;box-shadow:inset 3px 0 #b99c4e}
+#lbiPop .pos{font:700 15px/1.2 ui-monospace,monospace;color:#526448}
+#lbiPop .thru{font:600 13px/1.2 ui-monospace,monospace;color:#7a846f}
+#lbiPop .tot{font:700 25px/1.1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#22472e;font-variant-numeric:tabular-nums}
+#lbiPop .tot.under{color:#b62e28}
+#lbiPop .who{gap:8px}
+#lbiPop .nm{font:650 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:.25px}
+#lbiPop img.lbub{background:#dbe3d1;width:28px;height:32px;border-radius:2px}
+#lbiPop .note{padding:8px;font:650 9px/1.4 ui-monospace,monospace;letter-spacing:1.2px;color:#5f7056;background:#e3e8d8}
+#lbiPop .go{min-height:48px;margin-top:16px;background:#184a32;color:#fbf2d5;font:650 12px/1.4 ui-monospace,monospace;letter-spacing:1.4px;border:1px solid #184a32}
+@media(hover:hover){#lbiPop .x:hover{background:#2a573b}#acct .lbi-shell button.lbibr:hover{background:#e6ecdc}#acct .lbi-shell button.lbibr.me:hover{background:#eddfaa}#lbiPop .go:hover{background:#245c40}}
+@media(max-width:380px){#acct .lbi-shell{padding:0 12px 16px}#acct .lbi-shell>.top{margin-left:-12px;margin-right:-12px;padding:18px 12px;gap:7px}#acct .lbi-shell>.top h2{font-size:22px}#acct .lbi-shell .lbibh,#acct .lbi-shell button.lbibr{grid-template-columns:32px minmax(0,1fr) 48px 32px;gap:4px;padding-left:8px;padding-right:8px}#acct .lbi-shell button.lbibr .nm{font-size:12px}#acct .lbi-shell button.lbibr .tot{font-size:23px}#acct .lbi-shell button.lbibr .who{gap:5px}#acct .lbi-shell .lbib img.lbub{width:24px;height:28px}#lbiPop .card{padding:0 12px 14px}#lbiPop .top{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}#lbiPop h2{font-size:24px}#lbiPop .hd,#lbiPop .rw{grid-template-columns:28px minmax(0,1fr) 46px 28px;gap:4px}#lbiPop .nm{font-size:12px}#lbiPop .who{gap:5px}#lbiPop img.lbub{width:24px;height:28px}#lbiPop .tot{font-size:23px}}
+@media(prefers-reduced-motion:reduce){#lbiPop{backdrop-filter:none;-webkit-backdrop-filter:none}}
+#acct:has(.lbi-shell){background:rgba(7,24,16,.76);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://dumbluckgolf.com/#org","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","logo":"https://dumbluckgolf.com/icon-512.png?v=88","sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]},{"@type":"WebSite","@id":"https://dumbluckgolf.com/#site","name":"Dumb Luck Golf","url":"https://dumbluckgolf.com/","publisher":{"@id":"https://dumbluckgolf.com/#org"},"sameAs":["https://www.instagram.com/dumbluckgolfing/","https://www.youtube.com/@dumbluckgolf"]}]}</script>
 </head>
@@ -12663,7 +12741,7 @@ function lbiPopHtml(board) {
     else if (ix < 0) extra = '<div class="note">NOT STARTED</div>' + lbiPopRow({ u: mine }, '-', mine);
   }
   const rnd = lbiPopRound();
-  return '<div class="card" role="dialog" aria-label="Live leaderboard"><div class="top"><div><h2>LIVE LEADERBOARD</h2>' + (rnd ? '<p class="rnd">' + esc(rnd) + '</p>' : '') + '</div><button type="button" class="x" data-x aria-label="CLOSE">X</button></div><div class="hd"><span>POS</span><span class="pl">PLAYER</span><span>TOT</span><span>THRU</span></div>' +
+  return '<div class="card" role="dialog" aria-label="Live leaderboard"><div class="top"><div><span class="eyebrow">LIVE TOURNAMENT STANDINGS</span><h2>Dumb Luck Invitational</h2>' + (rnd ? '<p class="rnd">' + esc(rnd) + '</p>' : '') + '</div><button type="button" class="x" data-x aria-label="CLOSE">X</button></div><div class="hd"><span>POS</span><span class="pl">PLAYER</span><span>TOT</span><span>THRU</span></div>' +
     top.map((r, i) => lbiPopRow(r, lbiPosLabel(rows, i), mine)).join('') + extra +
     '<button type="button" class="go" data-go>FULL BOARD</button></div>';
 }
@@ -12987,7 +13065,7 @@ function lbiPageHtml(o) {
   const I = LBI.info, c = lbiCfg();
   if (!I || !c) return head('TOURNAMENT', 'lbiClose') + (I ? '<p class="empty">NOT OPEN YET</p>' : '<p class="empty">LOADING...</p>') + '<div class="msg"></div>';
   const tab = o.tab || 'board', a = lbiAction(), B = LBI.board || {}, F = LBI.field || [];
-  let h = head(esc(lbiDispName(c.name)), 'lbiClose') + '<p class="sub lbist" data-lbi-status data-lbi-phase="' + lbiPageKey() + '">' + esc(lbiPageStatusLine()) + '</p>' + '<p class="lbidate" data-lbi-deadline>' + lbiDeadlineHtml() + '</p>';
+  let h = '<div class="lbi-shell">' + head(esc(lbiDispName(c.name)), 'lbiClose') + '<p class="sub lbist" data-lbi-status data-lbi-phase="' + lbiPageKey() + '">' + esc(lbiPageStatusLine()) + '</p>' + '<p class="lbidate" data-lbi-deadline>' + lbiDeadlineHtml() + '</p>';
   if (I.preview) h += '<p class="sub" style="color:#fc9838">ADMIN PREVIEW · PLAYERS SEE THIS ' + lbiFmtDay(c.reg_open) + '</p>';
   if (c.locked && I.winner) h += '<p class="big">🏆 ' + at(I.winner) + '</p>';
   if (Array.isArray(a)) h += '<button class="btn" data-a="' + a[1] + '"' + (a[2] ? ' data-n="' + a[2] + '"' : '') + '>' + esc(a[0]) + '</button>';
@@ -13000,7 +13078,7 @@ function lbiPageHtml(o) {
   h += '<button class="btn alt" data-a="lbiLookbook">EXPLORE MAGNOLIA PINES · COURSE LOOKBOOK</button>';
   h += '<a class="link" href="' + esc(c.rules_url || 'https://dumbluckgolf.com/tournament-rules.html') + '" target="_blank" rel="noopener">OFFICIAL RULES</a>';
   if (I.admin) h += '<button class="link" data-a="lbiAdmin">ADMIN</button>';
-  return h;
+  return h + '</div>';
 }
 function lbiGateHtml() { return '<div class="top"><span style="width:66px"></span><h2>' + esc(lbiDispName((lbiCfg() || {}).name) || 'TOURNAMENT') + '</h2><button class="back" data-a="lbiGateX" aria-label="CLOSE">X</button></div>' +
   '<p class="sub">SIGN IN TO ENTER</p><button class="btn" data-a="go:signup">CREATE ACCOUNT</button><button class="btn alt" data-a="go:login">SIGN IN</button>'; }
