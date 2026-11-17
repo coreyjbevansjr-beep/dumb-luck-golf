@@ -545,7 +545,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.91';
+const GAME_VERSION = 'v8.99.92';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6176,8 +6176,8 @@ function ovActivate(i, dir = 1) {
     else if (i === 1) openSettings('pause');
     else if (i === 2) {
       if (lbiQuitCounted()) {   // leaving does not forfeit; the round stays open until the window closes
-        const rnd = lbiCtx.rnd, c = lbiCfg() || {};
-        const end = rnd === 5 ? c.playoff_end : c.r && c.r[rnd - 1] && c.r[rnd - 1][1];
+        const rnd = lbiCtx.rnd;
+        const end = lbiRoundEnd(rnd);
         const by = end && lbiFmtDeadline(end);
         showToast(['ROUND SAVED', by ? 'FINISH BY ' + by : 'FINISH BEFORE IT CLOSES', 'HOLE IN PLAY SCORES 10']);
         quitToMenu(); lbiOpen('board'); return;
@@ -12681,6 +12681,22 @@ function lbiTp(v) { return v == null ? '-' : v === 0 ? 'E' : v > 0 ? '+' + v : S
 function lbiDispName(n) { return String(n || '').replace(/LUCKY\s+BOUNCE/gi, 'DUMB LUCK'); }   // v8.99.37: renamed for display; server config name untouched
 function lbiName(short) { const n = lbiDispName(String((lbiCfg() || {}).name || 'THE DUMB LUCK INVITATIONAL').toUpperCase()); return short && textW(n) > 196 ? n.replace(/^THE /, '') : n; }
 function lbiMyRound(r) { const me = LBI.info && LBI.info.me; return me && (me.rounds || []).find(x => x.r === r) || null; }
+function lbiLateR1() {   // v8.99.92: one player may finish R1 after the public window, until late_r1_until
+  const me = LBI.info && LBI.info.me;
+  if (!me || !me.registered || me.status === 'removed' || me.mc || !me.late_r1_until) return null;
+  const until = lbiT(me.late_r1_until);
+  if (!(until > lbiNow())) return null;
+  const r1 = lbiMyRound(1);
+  if (r1 && r1.closed) return null;
+  return me.late_r1_until;
+}
+function lbiRoundEnd(rnd) {   // in a round, prefer the deadline lbi_start returned (late R1 sends ends)
+  if (lbiCtx && !lbiCtx.practice && lbiCtx.rnd === rnd && lbiCtx.ends) return lbiCtx.ends;
+  if (rnd === 1) { const late = lbiLateR1(); if (late) return late; }
+  const c = lbiCfg() || {};
+  if (rnd === 5) return c.playoff_end || null;
+  return (c.r && c.r[rnd - 1] && c.r[rnd - 1][1]) || null;
+}
 /* where we are in the week: pre (registration) | live | gap | final (waiting on lock / playoff) | done (locked) */
 function lbiPhase() {
   const c = lbiCfg(); if (!c) return { k: 'none' };
@@ -12868,6 +12884,8 @@ function lbiFmtDeadline(iso) {
 }
 function lbiDeadline() {
   const c = lbiCfg(), p = lbiPhase(), t = lbiNow(); if (!c || p.k === 'done') return null;
+  const late = lbiLateR1();
+  if (late) return { label: 'ROUND 1 CLOSES', at: late };
   if ((p.k === 'pre' || p.k === 'live') && !(LBI.info.me && LBI.info.me.registered) && t >= lbiT(c.reg_open) && t < lbiT(c.reg_close)) return { label: 'REGISTRATION CLOSES', at: c.reg_close };
   if (p.k === 'pre' || p.k === 'gap') return { label: LBI_RNAME[p.next - 1] + ' OPENS', at: new Date(p.at).toISOString() };
   if (p.k === 'live') return { label: LBI_RNAME[p.rnd - 1] + ' CLOSES', at: new Date(p.ends).toISOString() };
@@ -12875,7 +12893,7 @@ function lbiDeadline() {
   if (p.k === 'final' && lbiT(c.lock_at) > t) return { label: 'RESULTS / PLAYOFF DAY', at: c.lock_at };
   return null;
 }
-function lbiPageKey() { const p = lbiPhase(); return [p.k, p.rnd, p.next, !!p.playoff, lbiNow() < lbiT((lbiCfg() || {}).reg_close)].join(':'); }
+function lbiPageKey() { const p = lbiPhase(); return [p.k, p.rnd, p.next, !!p.playoff, lbiNow() < lbiT((lbiCfg() || {}).reg_close), lbiLateR1() ? 1 : 0].join(':'); }
 function lbiPageStatusLine() { const p = lbiPhase(); return p.k === 'live' ? LBI_RNAME[p.rnd - 1] : lbiStatusLine(); }
 function lbiDeadlineHtml() {
   const d = lbiDeadline(); if (!d || !lbiFmtDeadline(d.at)) return '';
@@ -12904,7 +12922,7 @@ function lbiPosLabel(rows, i) {
 function lbiMineHtml(B) {
   const me = LBI.info && LBI.info.me; if (!isSignedIn() || !hasUsername() || !me || !me.registered) return '';
   const rows = (B && B.rows) || [], ix = rows.findIndex(r => String(r.u || '').toUpperCase() === myName()), row = ix >= 0 ? rows[ix] : null, p = lbiPhase();
-  const rnd = p.rnd || (p.playoff ? 5 : 0), r = rnd ? lbiMyRound(rnd) : null;
+  const rnd = lbiLateR1() ? 1 : (p.rnd || (p.playoff ? 5 : 0)), r = rnd ? lbiMyRound(rnd) : null;
   const thru = row && row.thru != null ? row.thru : r && r.thru != null ? r.thru : null;
   const tot = row ? row.total : null;
   const note = me.status === 'removed' ? 'NOT IN THE FIELD' : me.mc || (row && row.mc) ? 'MISSED THE CUT' : !row ? 'REGISTERED · NO SCORES YET' : '';
@@ -12916,7 +12934,7 @@ function lbiMineHtml(B) {
 }
 function lbiReadyHtml(o) {
   const rnd = +o.rnd, r = lbiMyRound(rnd), a = lbiAction(), ready = Array.isArray(a) && a[1] === 'lbiPlay' && a[2] === rnd;
-  const c = lbiCfg() || {}, end = rnd === 5 ? c.playoff_end : c.r && c.r[rnd - 1] && c.r[rnd - 1][1];
+  const end = lbiRoundEnd(rnd);
   return head(rnd === 5 ? 'COUNTED PLAYOFF' : 'COUNTED ROUND', 'lbiBack') +
     '<p class="sub">' + esc(rnd === 5 ? 'PLAYOFF' : LBI_RNAME[rnd - 1] || '') + '</p>' +
     '<div data-lbi-phase="' + lbiPageKey() + '"></div>' +
@@ -12946,6 +12964,7 @@ function lbiAction() {   // [label, data-a, data-n, alt?] or a status line
   if (!me || !me.registered) return t >= lbiT(c.reg_open) && t < lbiT(c.reg_close) || (I.preview && t < lbiT(c.reg_close)) ? ['REGISTER', 'lbiReg'] : { s: 'REGISTRATION CLOSED' };
   if (me.status === 'removed') return { s: 'NOT IN THE FIELD' };
   if (me.mc) return { s: 'MISSED THE CUT' };
+  if (lbiLateR1()) { const r1 = lbiMyRound(1); return [r1 && !r1.closed ? 'RESUME ROUND 1' : 'PLAY ROUND 1 (LATE)', 'lbiPlay', 1]; }
   if (p.k === 'live') { const r = lbiMyRound(p.rnd);
     if (!r) return ['TEE OFF · ' + LBI_RNAME[p.rnd - 1], 'lbiPlay', p.rnd];
     if (!r.closed && (r.thru == null || r.thru < 18)) return ['RESUME · HOLE ' + ((r.thru | 0) + 1), 'lbiPlay', p.rnd];
@@ -13265,7 +13284,7 @@ function lbiBegin(d, practice, from) {
     lbiCtx = { practice: true, rnd, course: (c.courses || [])[rnd - 1] || 'full', from: Math.max(0, Math.min(17, from|0)), prev: [] };
     weather = pickWeather(); setCourseHoles('lbi', lbiHoles(lbiCtx.course, rnd));
   } else {
-    lbiCtx = { practice: false, rnd: d.rnd, course: d.course, seed: String(d.seed || ''), ph: d.playoff_hole, from: d.from | 0, prev: (d.scores || []).map(v => v == null ? undefined : v), err: '', sentTp: null };
+    lbiCtx = { practice: false, rnd: d.rnd, course: d.course, seed: String(d.seed || ''), ph: d.playoff_hole, from: d.from | 0, prev: (d.scores || []).map(v => v == null ? undefined : v), err: '', sentTp: null, ends: d.ends || null };
     weather = pickWeather(mulberry32(seedFromStr('LBI-W-' + lbiCtx.seed)));
     setCourseHoles('lbi', lbiHoles(d.course, d.rnd, d.playoff_hole));
   }
