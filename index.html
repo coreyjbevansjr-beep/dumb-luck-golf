@@ -590,7 +590,10 @@ function viewportCssSize() {
       const portrait = aw <= Math.max(iw, vw) && iw < ih, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
       const sw0 = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
       const lv = document.documentElement.clientHeight || 0;   // v8.99.39: also trust the 100lvh body
-      if (Math.abs(sw0 - aw) <= 2 && sh > ah) { ah = sh; grow = true; }   // v8.99.40: always the full physical screen in the Home Screen app else if (lv > ah && lv - ah <= 160) { ah = lv; grow = true; }
+      // Only close a small gap (home indicator / status bar). A resume or a bad
+      // viewport can report a hole of a few hundred px; growing into that pushes
+      // the title board below the grass and the cream fill paints upward over the shop.
+      if (Math.abs(sw0 - aw) <= 2 && sh > ah && sh - ah <= 96) { ah = sh; grow = true; }
     }
   } catch (e) {}
   if (document.body) document.body.style.height = grow ? ah + 'px' : '';
@@ -668,6 +671,8 @@ function resize() {
   layoutChrome();
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
+addEventListener('pageshow', () => { try { resize(); } catch (e) {} });   // bfcache resume: remeasure, don't keep a stale short viewport
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { try { resize(); } catch (e) {} } });
 if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 document.addEventListener('fullscreenchange', resize); document.addEventListener('webkitfullscreenchange', resize);
 document.addEventListener('gesturestart', e => { if (typeof state !== 'undefined' && ['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) e.preventDefault(); });   // v8.20: pinch zoom allowed outside a swing
@@ -5867,22 +5872,42 @@ function layoutChrome() {
     ldW = Math.min(W - 40, Math.round(W * 0.78));   // logo size unchanged
     ldH = Math.round(lh0 * ldW / lw0);
     LOGO_Y = skyTop;
-    const logoBot = LOGO_Y + ldH, sidePad = 8, boardW = W - sidePad * 2;
+    let logoBot = LOGO_Y + ldH;
+    const sidePad = 8, boardW = W - sidePad * 2;
     // v8.99.32: board height fits the rows it actually has (champion + up to TLB_MAX_LIST more)
     const nRows = tlbRowCount(), nList = Math.max(0, Math.min(TLB_MAX_LIST, nRows - 1));
     let boardH = 26 + 44 + (nList ? 4 + nList * 16 : 0) + 6;
     const safeBot = (SAFE.b || 0) + 4, dogMin = Math.max(36, 28 + safeBot);
-    // spread the spare height evenly: logo->menu, menu->board, and extra grass under the board
-    let spare = H - dogMin - logoBot - menuH - boardH;
-    if (spare < 20) { boardH = Math.max(26 + 44 + 6, boardH + spare - 20); const fitN = Math.max(0, Math.floor((boardH - 80) / 16)); const snapH = 26 + 44 + (fitN ? 4 + fitN * 16 : 0) + 6; spare += boardH - snapH + (boardH + spare - 20 - boardH); boardH = snapH; spare = Math.max(20, H - dogMin - logoBot - menuH - boardH); }   // v8.99.33: snap to whole rows
-    let g1 = Math.min(28, Math.round(spare / 3)), g2 = Math.round((spare - g1) / 2);
-    g2 = Math.max(10, g2);
+    const grass = H - dogMin, minBoard = 26 + 44 + 6, gapFloor = 8;
+    // The board has to sit between the menu and the grass. A negative height is what
+    // painted the blank cream panel up over the PRO SHOP (fillRect walks upward).
+    let guard = 0;
+    while (LOGO_Y + ldH + menuH + gapFloor * 2 + minBoard > grass && ldH > 72 && guard++ < 12) {
+      ldH -= 12; ldW = Math.round(lw0 * ldH / lh0);
+    }
+    logoBot = LOGO_Y + ldH;
+    let room = grass - (logoBot + menuH + gapFloor * 2);
+    if (room < boardH) {
+      const fitN = Math.max(0, Math.floor((room - minBoard) / 16));
+      boardH = 26 + 44 + (fitN ? 4 + fitN * 16 : 0) + 6;
+      if (logoBot + menuH + gapFloor * 2 + boardH > grass) boardH = minBoard;
+    }
+    let spare = grass - logoBot - menuH - boardH;
+    let g1 = Math.min(28, Math.max(gapFloor, Math.round(Math.max(spare, gapFloor * 2) / 3)));
+    let g2 = Math.max(gapFloor, Math.round((Math.max(spare, gapFloor * 2) - g1) / 2));
+    if (logoBot + g1 + menuH + g2 + boardH > grass) {
+      const over = logoBot + g1 + menuH + g2 + boardH - grass;
+      if (g2 - over >= gapFloor) g2 -= over; else { g1 = Math.max(gapFloor, g1 - (over - (g2 - gapFloor))); g2 = gapFloor; }
+    }
     MENU_Y0 = logoBot + g1;
-    const boardY = MENU_Y0 + menuH + g2;
-    TITLE_FAIR = Math.min(H - dogMin, boardY + boardH);
+    let boardY = MENU_Y0 + menuH + g2;
+    const fits = boardY + boardH <= grass + 1 && boardY >= MENU_Y0 + menuH - 2;
+    if (!fits) boardH = 0;
+    else if (boardY + boardH > grass) boardY = grass - boardH;
+    TITLE_FAIR = Math.min(grass, boardH ? boardY + boardH : grass);
     FOLLOW_BTN.on = !!ML.fw; FOLLOW_BTN.w = ML.fw; FOLLOW_BTN.h = ML.fh; FOLLOW_BTN.x = ML.fx; FOLLOW_BTN.y = MENU_Y0 + ML.fy;
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    TLB_R.w = boardW; TLB_R.h = TITLE_FAIR - boardY; TLB_R.tall = true; TLB_R.rows = nRows;
+    TLB_R.w = boardW; TLB_R.h = boardH; TLB_R.tall = boardH >= 48; TLB_R.rows = nRows;
     TLB_R.x = sidePad;
     TLB_R.y = boardY;
     TITLE_RIDGE = Math.max(MENU_Y0 + menuH + 8, TLB_R.y + Math.round(TLB_R.h * 0.35));
@@ -7092,6 +7117,7 @@ let tlbFlipRows = null, tlbFlipAt = -9;
 function drawTitleBoard() {   // v8.99.32: old-school major-championship manual scoreboard
   if (H > W * 1.15 && TLB_R.rows !== tlbRowCount()) layoutChrome();   // refit the board to its rows
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
+  if (!(h >= 48) || !(w >= 80)) return;   // no room above the grass: show nothing rather than a blank cream slab
   const lbHead = (lx, ly) => { lx = Math.round(lx); ly = Math.round(ly); [...'LEADERS'].forEach((c, i) => { drawText(c, lx + i * 7, ly, '#f4ead0'); drawText(c, lx + i * 7 + 1, ly, '#f4ead0'); }); };   // v8.99.37: same crisp 1x bitmap glyphs as the names (2px strokes, 7px pitch), no shadow/outline
   const GRN = '#0e4a2c', GRN2 = '#16603a', CREAM = '#f4ead0', BOARD = '#f2f0e6', SLOT = '#cdc9b6', INK = '#000000', RED = '#b80c0c';   // v8.99.37: max-contrast ink
   const ring = (rx, ry, rw, rh, c) => { rect(rx, ry, rw, 1, c); rect(rx, ry + rh - 1, rw, 1, c); rect(rx, ry, 1, rh, c); rect(rx + rw - 1, ry, 1, rh, c); };
