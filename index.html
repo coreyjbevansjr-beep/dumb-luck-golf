@@ -11228,7 +11228,7 @@ function hatDropTick() {   // existing frame loop only; the strings change at mo
   ps.el.querySelectorAll('[data-drop]').forEach(n => { if (n.textContent !== hatDropShop) n.textContent = hatDropShop; });
 }
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
-  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '$50', badge: '16 MADE', spec: '', fallback: 'soon' },
+  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '$50', badge: '', spec: '', fallback: 'soon' },
   { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$8', badge: '', spec: '40MM CLAY CHIP', stock: 'SOLD OUT', soldOut: true, url: () => NEW_MARKER_LINK }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
@@ -11399,13 +11399,13 @@ function psRender() {
         : '<div class="ps-art hat"><img alt="" src="' + SHOP_HAT_SRC[0] + '"></div>';
       if (psLocked(it)) return '<div class="ps-card locked" aria-disabled="true" aria-label="' + psEsc(it.name) + ' - locked">' +   // v8.99.31: the hat shows as a locked item
         '<div class="ps-stage">' + art + '<span class="ps-lock" aria-hidden="true"></span></div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price"></div><span class="ps-soon ps-locked">LOCKED</span></div>';
-      return '<div class="ps-card" data-ps="open" data-id="' + it.id + '" role="button" tabindex="0" aria-label="' + psEsc(it.name) + '">' + (it.badge ? '<span class="ps-badge">' + it.badge + '</span>' : '') +
+      return '<div class="ps-card" data-ps="open" data-id="' + it.id + '" role="button" tabindex="0" aria-label="' + psEsc(it.name) + '">' + (it.badge && it.id !== 'camo_snapback' ? '<span class="ps-badge">' + psEsc(it.badge) + '</span>' : '') +
         '<div class="ps-stage">' + art + '</div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price">' + psEsc(it.price || '') + '</div>' + psCtaHtml(it) + '</div>';
     }).join('') + '</div>';
   } else {
     const it = items.find(i => i.id === ps.detail), g = SHOP_GALLERY[it.id] || [], c = shopCta(it);
     ps.gal = Math.max(0, Math.min(g.length - 1, ps.gal));
-    const tags = [it.badge ? '<span>' + it.badge + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : c.kind === 'buy' && it.stock ? '<span class="g">' + psEsc(it.stock) + '</span>' : ''].join('');
+    const tags = [it.badge && it.id !== 'camo_snapback' ? '<span>' + psEsc(it.badge) + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : c.kind === 'buy' && it.stock && it.id !== 'camo_snapback' ? '<span class="g">' + psEsc(it.stock) + '</span>' : ''].join('');
     body.innerHTML = '<div class="ps-detail"><button class="ps-back" data-ps="back">‹ SHOP</button>' +
       '<div class="ps-gal"><div class="ps-main" data-ps="next"><div class="ps-track" style="transform:translateX(' + (-100 * ps.gal) + '%)">' + g.map(s => '<img alt="" src="' + s + '">').join('') + '</div>' +
       (g.length > 1 ? '<button class="ps-arw l" data-ps="prev" aria-label="Previous photo">‹</button><button class="ps-arw r" data-ps="next" aria-label="Next photo">›</button>' : '') + '</div>' +
