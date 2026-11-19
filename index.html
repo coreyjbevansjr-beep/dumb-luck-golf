@@ -656,7 +656,7 @@ function resize() {
   // painted their white borders upward over the minimap and the HUD.
   const HUD_H = H > W * 1.15 && H >= 380 ? 54 + LOFT_BAND() + SAFE.b : 54;   // v8.26: portrait adds the loft band below meter + club
   PLAY_H = Math.max(PLAY0, H - HUD_H);
-  const dirtBand = PLAY0 - BASE0;            // 14px dirt under tee line (original framing)
+  const dirtBand = Math.max(PLAY0 - BASE0, 46);            // 14px dirt under tee line (original framing)
   const extraPlay = Math.max(0, PLAY_H - PLAY0);
   BASE = BASE0 + Math.floor(extraPlay * 0.55);
   if (BASE > PLAY_H - dirtBand) BASE = PLAY_H - dirtBand;
@@ -6137,7 +6137,7 @@ function layoutChrome() {
     {
       const dTop = BASE + 1, dH = Math.max(0, PLAY_H - 1 - dTop);
       const mPad = Math.max(1, Math.round(3 / cssSy));
-      const mh = Math.max(12, Math.min(44, dH - 2 * mPad));
+      const mh = Math.max(12, Math.min(48, dH - 2 * mPad));
       const left = sl + pad, right = W - sr - pad;
       MM_BOX.w = Math.max(60, Math.min(236, right - left)); MM_BOX.h = mh;
       MM_BOX.x = Math.round((left + right - MM_BOX.w) / 2);
@@ -10864,80 +10864,80 @@ function mmSegs(hl) {
   out.push({ x0, x1: hl.len, s });
   return out;
 }
+/* Yardage-book overview: real ground profile; geometric distances only, never shot predictions. */
 function mmCarries(hl, bx) {
   const dir = Math.sign(hl.cup - bx) || 1, out = [];
   for (const s of mmSegs(hl)) {
     if (s.s !== 'water' && s.s !== 'sand') continue;
-    const far = dir > 0 ? s.x1 : s.x0;
-    if ((far - bx) * dir <= 1) continue;
-    out.push({ s: s.s, x0: Math.min(s.x0, s.x1), x1: Math.max(s.x0, s.x1), far, carry: Math.round(Math.abs(far - bx)), pri: s.s === 'water' ? 0 : 1 });
+    const near = dir > 0 ? s.x0 : s.x1, far = dir > 0 ? s.x1 : s.x0;
+    // Keep only hazards between the ball and the pin, including the hazard under the ball.
+    if ((far - bx) * dir <= 0 || (near - hl.cup) * dir >= 0) continue;
+    out.push({ s: s.s, x0: s.x0, x1: s.x1, far, carry: Math.ceil(Math.abs(far - bx)) });
   }
-  out.sort((a, b) => a.pri - b.pri || a.carry - b.carry);
+  return out.sort((a, b) => a.carry - b.carry);
+}
+function mmYardages(hl, bx, width) {
+  const out = []; let used = 0;
+  for (const h of mmCarries(hl, bx)) {
+    const label = (h.s === 'water' ? 'WATER ' : 'SAND ') + h.carry + 'Y', w = textW(label);
+    if (used + w > width) break;
+    out.push(Object.assign({ label, w }, h)); used += w + 12;
+    if (out.length === 2) break;
+  }
   return out;
 }
 function drawMiniMap() {
   if (!hole || !ball) return;
   const b = mmRect(); if (b.w < 40) return;
-  box(b.x, b.y, b.w, b.h);
-  const yd = Math.round(Math.abs(hole.cup - ball.x)), pin = 'PIN ' + yd + 'Y';
-  const tall = b.h >= 26;
-  let mmx, mmw, top, bot;
-  if (tall) {
-    drawText(pin, b.x + 4, b.y + 2, COL.white);
-    mmx = b.x + 3; mmw = b.w - 6; top = b.y + 11; bot = b.y + b.h - 3;
-  } else {
-    drawText(pin, b.x + 4, b.y + Math.round((b.h - 7) / 2), COL.white);
-    mmx = b.x + 8 + textW('PIN 999Y'); mmw = b.x + b.w - 3 - mmx; top = b.y + 2; bot = b.y + b.h - 2;
+  const ink = '#eff5e6', muted = '#afc8b9', waterC = '#82d9fc', sandC = '#f0d8a0';
+  // The overview has a fixed, quiet home below the course, outside the swing controls.
+  rect(b.x, b.y, b.w, b.h, '#53796b'); rect(b.x+1,b.y+1,b.w-2,b.h-2,'#102d29');
+  const pin = 'PIN ' + Math.round(Math.abs(hole.cup-ball.x)) + 'Y';
+  drawText(pin,b.x+4,b.y+3,ink);
+  const carries = mmYardages(hole,ball.x,b.w-10), hint = carries.length ? 'TO CLEAR' : 'HOLE OVERVIEW';
+  drawTextR(hint,b.x+b.w-4,b.y+3,muted);
+  const mx=b.x+5,mw=b.w-11,top=b.y+13,bot=b.y+b.h-12,sc=mw/hole.len;
+  if (bot-top<6) return;
+  const obstacles=hiddenColliders(hole);
+  let lo=Infinity,hi=-Infinity;
+  for(let x=0;x<=hole.len;x+=4){const h=groundH(hole,x);lo=Math.min(lo,h);hi=Math.max(hi,h);}
+  for(const o of obstacles)hi=Math.max(hi,o.h1);
+  const vs=Math.min(.35,(bot-top-3)/Math.max(1,hi-lo)), px=x=>Math.round(mx+clamp(x,0,hole.len)*sc);
+  const py=h=>Math.round(bot-2-(h-lo)*vs);
+  const paint={tee:'#d4f0a0',fair:'#65b957',rough:'#356c43',sand:sandC,water:waterC,green:'#a0e879',end:'#356c43',ob:'#747c80'};
+  // One world sample per map column preserves slopes and true hazard boundaries.
+  for(let i=0;i<=mw;i++){
+    const wx=clamp(i/sc,0,hole.len),y=py(groundH(hole,wx)),s=surfAt(hole,wx);
+    rect(mx+i,y,1,Math.max(1,bot-y),'#234938'); rect(mx+i,y,1,Math.min(3,bot-y+1),paint[s]||paint.fair);
   }
-  if (mmw < 12 || bot - top < 4) return;
-  const labelH = tall ? 8 : 0, stripTop = top + labelH, stripH = Math.max(4, bot - stripTop);
-  const sc = mmw / hole.len, segs = mmSegs(hole);
-  const paint = { tee: '#d4f0a0', fair: '#58d854', rough: '#2c6c20', sand: '#f0d8a0', water: '#3cbcfc', green: '#8cf068', end: '#3c8c28', ob: '#3c3c3c' };
-  for (const s of segs) {
-    const x0 = Math.round(mmx + s.x0 * sc), x1 = Math.max(x0 + 1, Math.round(mmx + s.x1 * sc)), c = paint[s.s] || paint.fair;
-    rect(x0, stripTop, x1 - x0, stripH, c);
-    if (s.s === 'water') { rect(x0, stripTop, x1 - x0, 1, '#9cdcfc'); rect(x0, stripTop + stripH - 2, x1 - x0, 2, '#0078f8'); }
-    else if (s.s === 'sand') rect(x0, stripTop + stripH - 1, x1 - x0, 1, '#c8a060');
-    else if (s.s === 'green') rect(x0, stripTop, x1 - x0, 1, '#d8f8b0');
+  // Stylized scenery is deliberately subordinate to collidable obstacles.
+  for(const [kind,dx] of hole.deco||[]){
+    if(dx<0||dx>hole.len||!['tree','oak','cactus','bush'].includes(kind))continue;
+    const x=px(dx+12),y=py(groundH(hole,dx+12));
+    rect(x,y-4,1,4,'#96b184'); rect(x-1,y-6,3,3,'#59835b');
   }
-  for (const d of hole.deco || []) {
-    const kind = d[0], dx = d[1];
-    if (dx < 0 || dx > hole.len) continue;
-    const x = Math.round(mmx + dx * sc);
-    if (kind === 'tree' || kind === 'oak') { rect(x, stripTop, 1, Math.min(6, stripH), '#102810'); rect(x - 1, stripTop, 3, 2, '#1c4014'); }
-    else if (kind === 'cactus') rect(x, stripTop, 1, Math.min(5, stripH), '#3c8c28');
-    else if (kind === 'bush') rect(x, stripTop, 2, 2, '#245018');
+  for(const o of obstacles){
+    const x=px(o.x0),x1=px(o.x1),y=Math.max(top,py(o.h1)),y1=py(o.h0);
+    const moving=['bell','waterwheel','windmill','slide'].includes(o.kind),c=moving?'#f8c56a':'#b9c4c5';
+    if(moving){rect(x,y,Math.max(2,x1-x),1,c);rect(x,y,1,Math.max(2,y1-y),c);rect(x1,y,1,Math.max(2,y1-y),c);rect(x,y1,Math.max(2,x1-x),1,c);}
+    else rect(x,y,Math.max(2,x1-x),Math.max(2,y1-y),c);
   }
-  for (const m of hole.movers || []) {
-    if (m.x == null || m.x < 0 || m.x > hole.len) continue;
-    rect(Math.round(mmx + m.x * sc), stripTop, 1, stripH, '#e8c870');
+  for(const p of hole.pads||[])rect(px(p.x0),py(groundH(hole,p.x0))-1,Math.max(2,px(p.x1)-px(p.x0)),2,'#d8a6ff');
+  for(const r of hole.ramps||[]){const x=px(r.x),y=py(groundH(hole,r.x));rect(x-1,y-2,2,2,'#d8a6ff');}
+  let tx=b.x+5;
+  for(const h of carries){
+    const c=h.s==='water'?waterC:sandC,x=px(h.far),y=py(groundH(hole,h.far));
+    rect(x,y-3,1,4,c);drawText(h.label,tx,b.y+b.h-9,c);tx+=h.w+12;
   }
-  for (const w of hole.walls || []) {
-    const x = Math.round(mmx + clamp(w.x, 0, hole.len) * sc);
-    rect(x, stripTop, Math.max(1, Math.round((w.ww || 2) * sc)), stripH, '#8c8c8c');
-  }
-  const cxm = Math.round(mmx + clamp(hole.cup, 0, hole.len) * sc);
-  rect(cxm, stripTop - 6, 1, stripH + 6, '#fcfcfc');
-  rect(cxm + 1, stripTop - 6, 3, 2, COL.red);
-  const bx = clamp(ball.x, 0, hole.len), bxm = Math.round(mmx + bx * sc);
-  if (Math.floor(st * 4) % 2 || state !== 'flight') rect(bxm - 1, stripTop + Math.round(stripH / 2) - 1, 3, 3, '#fcfcfc');
-  if (labelH >= 7) {
-    const placed = [];
-    for (const h of mmCarries(hole, bx)) {
-      if (placed.length >= 4) break;
-      const text = h.carry + 'Y', tw = textW(text);
-      let x = Math.round(mmx + (h.x0 + h.x1) / 2 * sc - tw / 2);
-      x = clamp(x, mmx, mmx + mmw - tw);
-      if (placed.some(p => x < p.x + p.w + 2 && x + tw + 2 > p.x)) continue;
-      placed.push({ x, w: tw });
-      drawText(text, x, top, h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
-      const tx = clamp(Math.round(mmx + h.far * sc), mmx, mmx + mmw - 1);
-      rect(tx, top + 7, 1, Math.max(1, stripTop - top - 7), h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
-    }
-  }
-  const ha = hidAlpha();
-  if (ha > 0) { ctx.globalAlpha = ha; for (const o of hidList) { const x0 = Math.round(mmx + clamp(o.x0, 0, hole.len) * sc), x1 = Math.max(x0 + 1, Math.round(mmx + clamp(o.x1, 0, hole.len) * sc)); rect(x0, stripTop, x1 - x0, 2, HID_GOLD); } ctx.globalAlpha = 1; }
+  if(!carries.length)drawText('NO WATER / SAND AHEAD',b.x+5,b.y+b.h-9,muted);
+  const cx=px(hole.cup),cy=py(groundH(hole,hole.cup));
+  rect(cx,cy-7,1,8,ink);rect(cx+1,cy-7,3,2,'#fc7a6a');
+  const bx=px(ball.x),by=py(groundH(hole,ball.x));
+  rect(bx-2,by-3,5,5,'#102d29');rect(bx-1,by-2,3,3,'#fff');
+  const ha=hidAlpha();
+  if(ha>0){ctx.save();ctx.globalAlpha=ha;for(const o of hidList)rect(px(o.x0),py(o.h1),Math.max(2,px(o.x1)-px(o.x0)),2,HID_GOLD);ctx.restore();}
 }
+
 /* compact 9-hole card in the top-right of the play area; fades when the ball flies under it */
 function drawMiniCard() {
   if (!hole) return;
@@ -12622,7 +12622,7 @@ const VIEWS = {
     '<button class="btn" type="submit">SAVE USERNAME</button></form><div class="msg"></div>',
   prefs: () => { if (acctOpts.loading) return head('SETTINGS') + '<p class="empty">LOADING...</p>'; const k = account.mkt; return head('SETTINGS') + '<p class="sub">SIGNED IN AS ' + at(myName()) + '</p><form data-f="prefs" novalidate>' +
     '<label class="chk mkt"><input id="aMkt" type="checkbox"' + (k ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
-    '<button class="btn" type="submit">SAVE</button></form>' + (a2hsKind() ? '<button class="btn alt" data-a="a2hs">ADD TO HOME SCREEN</button>' : '') + '<div class="msg"></div>'; },
+    '<button class="btn" type="submit">SAVE</button></form>' + (a2hsKind() ? '<button class="btn alt" data-a="a2hs">ADD TO HOME SCREEN</button>' : '') + '<a href="/install.html" target="_blank" rel="noopener" style="display:block;padding:12px 0;color:#f8d878;text-decoration:underline">HOME SCREEN SETUP GUIDE ↗</a><div class="msg"></div>'; },
   friends: () => {
     const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn fadd" type="submit">ADD</button></div></form><div class="msg"></div>';
@@ -13419,6 +13419,7 @@ function a2hsShow(force) {
     '<div style="color:#f8d878;margin-bottom:8px">ADD TO HOME SCREEN</div>' +
     (kind === 'install' ? '<button data-i style="background:#f8d878;color:#0c1c4c;border:0;padding:9px 22px;font:bold 12px monospace;letter-spacing:2px">INSTALL</button>'
       : '<div style="display:flex;align-items:center;justify-content:center;gap:10px">1 ' + share + '<span style="opacity:.6">&rarr;</span> 2 ' + plus + '</div>');
+  el.innerHTML += '<a href="/install.html" target="_blank" rel="noopener" style="display:block;margin-top:12px;color:#f8d878;text-decoration:underline">STEP-BY-STEP GUIDE ↗</a>';
   el.addEventListener('pointerdown', e => e.stopPropagation()); el.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
   el.addEventListener('click', async e => {
     e.stopPropagation();
