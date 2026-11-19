@@ -545,7 +545,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.93';
+const GAME_VERSION = 'v8.99.94';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -590,7 +590,10 @@ function viewportCssSize() {
       const portrait = aw <= Math.max(iw, vw) && iw < ih, sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
       const sw0 = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
       const lv = document.documentElement.clientHeight || 0;   // v8.99.39: also trust the 100lvh body
-      if (Math.abs(sw0 - aw) <= 2 && sh > ah) { ah = sh; grow = true; }   // v8.99.40: always the full physical screen in the Home Screen app else if (lv > ah && lv - ah <= 160) { ah = lv; grow = true; }
+      // Only close a small gap (home indicator / status bar). A resume or a bad
+      // viewport can report a hole of a few hundred px; growing into that pushes
+      // the title board below the grass and the cream fill paints upward over the shop.
+      if (Math.abs(sw0 - aw) <= 2 && sh > ah && sh - ah <= 96) { ah = sh; grow = true; }
     }
   } catch (e) {}
   if (document.body) document.body.style.height = grow ? ah + 'px' : '';
@@ -668,6 +671,8 @@ function resize() {
   layoutChrome();
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
+addEventListener('pageshow', () => { try { resize(); } catch (e) {} });   // bfcache resume: remeasure, don't keep a stale short viewport
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { try { resize(); } catch (e) {} } });
 if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 document.addEventListener('fullscreenchange', resize); document.addEventListener('webkitfullscreenchange', resize);
 document.addEventListener('gesturestart', e => { if (typeof state !== 'undefined' && ['aim', 'power', 'accuracy', 'swing', 'flight'].includes(state)) e.preventDefault(); });   // v8.20: pinch zoom allowed outside a swing
@@ -5867,22 +5872,42 @@ function layoutChrome() {
     ldW = Math.min(W - 40, Math.round(W * 0.78));   // logo size unchanged
     ldH = Math.round(lh0 * ldW / lw0);
     LOGO_Y = skyTop;
-    const logoBot = LOGO_Y + ldH, sidePad = 8, boardW = W - sidePad * 2;
+    let logoBot = LOGO_Y + ldH;
+    const sidePad = 8, boardW = W - sidePad * 2;
     // v8.99.32: board height fits the rows it actually has (champion + up to TLB_MAX_LIST more)
     const nRows = tlbRowCount(), nList = Math.max(0, Math.min(TLB_MAX_LIST, nRows - 1));
     let boardH = 26 + 44 + (nList ? 4 + nList * 16 : 0) + 6;
     const safeBot = (SAFE.b || 0) + 4, dogMin = Math.max(36, 28 + safeBot);
-    // spread the spare height evenly: logo->menu, menu->board, and extra grass under the board
-    let spare = H - dogMin - logoBot - menuH - boardH;
-    if (spare < 20) { boardH = Math.max(26 + 44 + 6, boardH + spare - 20); const fitN = Math.max(0, Math.floor((boardH - 80) / 16)); const snapH = 26 + 44 + (fitN ? 4 + fitN * 16 : 0) + 6; spare += boardH - snapH + (boardH + spare - 20 - boardH); boardH = snapH; spare = Math.max(20, H - dogMin - logoBot - menuH - boardH); }   // v8.99.33: snap to whole rows
-    let g1 = Math.min(28, Math.round(spare / 3)), g2 = Math.round((spare - g1) / 2);
-    g2 = Math.max(10, g2);
+    const grass = H - dogMin, minBoard = 26 + 44 + 6, gapFloor = 8;
+    // The board has to sit between the menu and the grass. A negative height is what
+    // painted the blank cream panel up over the PRO SHOP (fillRect walks upward).
+    let guard = 0;
+    while (LOGO_Y + ldH + menuH + gapFloor * 2 + minBoard > grass && ldH > 72 && guard++ < 12) {
+      ldH -= 12; ldW = Math.round(lw0 * ldH / lh0);
+    }
+    logoBot = LOGO_Y + ldH;
+    let room = grass - (logoBot + menuH + gapFloor * 2);
+    if (room < boardH) {
+      const fitN = Math.max(0, Math.floor((room - minBoard) / 16));
+      boardH = 26 + 44 + (fitN ? 4 + fitN * 16 : 0) + 6;
+      if (logoBot + menuH + gapFloor * 2 + boardH > grass) boardH = minBoard;
+    }
+    let spare = grass - logoBot - menuH - boardH;
+    let g1 = Math.min(28, Math.max(gapFloor, Math.round(Math.max(spare, gapFloor * 2) / 3)));
+    let g2 = Math.max(gapFloor, Math.round((Math.max(spare, gapFloor * 2) - g1) / 2));
+    if (logoBot + g1 + menuH + g2 + boardH > grass) {
+      const over = logoBot + g1 + menuH + g2 + boardH - grass;
+      if (g2 - over >= gapFloor) g2 -= over; else { g1 = Math.max(gapFloor, g1 - (over - (g2 - gapFloor))); g2 = gapFloor; }
+    }
     MENU_Y0 = logoBot + g1;
-    const boardY = MENU_Y0 + menuH + g2;
-    TITLE_FAIR = Math.min(H - dogMin, boardY + boardH);
+    let boardY = MENU_Y0 + menuH + g2;
+    const fits = boardY + boardH <= grass + 1 && boardY >= MENU_Y0 + menuH - 2;
+    if (!fits) boardH = 0;
+    else if (boardY + boardH > grass) boardY = grass - boardH;
+    TITLE_FAIR = Math.min(grass, boardH ? boardY + boardH : grass);
     FOLLOW_BTN.on = !!ML.fw; FOLLOW_BTN.w = ML.fw; FOLLOW_BTN.h = ML.fh; FOLLOW_BTN.x = ML.fx; FOLLOW_BTN.y = MENU_Y0 + ML.fy;
     LOGO_DRAW.w = ldW; LOGO_DRAW.h = ldH; LOGO_DRAW.x = Math.round((W - ldW) / 2);
-    TLB_R.w = boardW; TLB_R.h = TITLE_FAIR - boardY; TLB_R.tall = true; TLB_R.rows = nRows;
+    TLB_R.w = boardW; TLB_R.h = boardH; TLB_R.tall = boardH >= 48; TLB_R.rows = nRows;
     TLB_R.x = sidePad;
     TLB_R.y = boardY;
     TITLE_RIDGE = Math.max(MENU_Y0 + menuH + 8, TLB_R.y + Math.round(TLB_R.h * 0.35));
@@ -7092,6 +7117,7 @@ let tlbFlipRows = null, tlbFlipAt = -9;
 function drawTitleBoard() {   // v8.99.32: old-school major-championship manual scoreboard
   if (H > W * 1.15 && TLB_R.rows !== tlbRowCount()) layoutChrome();   // refit the board to its rows
   const { x, y, w, h } = TLB_R, lit = tlbHover && !menuPopup && !ov, pulse = lit && Math.floor(st * 4) % 2 === 0;
+  if (!(h >= 48) || !(w >= 80)) return;   // no room above the grass: show nothing rather than a blank cream slab
   const lbHead = (lx, ly) => { lx = Math.round(lx); ly = Math.round(ly); [...'LEADERS'].forEach((c, i) => { drawText(c, lx + i * 7, ly, '#f4ead0'); drawText(c, lx + i * 7 + 1, ly, '#f4ead0'); }); };   // v8.99.37: same crisp 1x bitmap glyphs as the names (2px strokes, 7px pitch), no shadow/outline
   const GRN = '#0e4a2c', GRN2 = '#16603a', CREAM = '#f4ead0', BOARD = '#f2f0e6', SLOT = '#cdc9b6', INK = '#000000', RED = '#b80c0c';   // v8.99.37: max-contrast ink
   const ring = (rx, ry, rw, rh, c) => { rect(rx, ry, rw, 1, c); rect(rx, ry + rh - 1, rw, 1, c); rect(rx, ry, 1, rh, c); rect(rx + rw - 1, ry, 1, rh, c); };
@@ -10879,64 +10905,98 @@ function drawMiniMap() {
   if (!hole || !ball) return;
   const b = mmRect(); if (b.w < 40) return;
   box(b.x, b.y, b.w, b.h);
-  const yd = Math.round(Math.abs(hole.cup - ball.x)), pin = 'PIN ' + yd + 'Y';
+  const bx = clamp(ball.x, 0, hole.len);
+  const yd = Math.round(Math.abs(hole.cup - bx)), pin = 'PIN ' + yd + 'Y';
   const tall = b.h >= 26;
-  let mmx, mmw, top, bot;
-  if (tall) {
-    drawText(pin, b.x + 4, b.y + 2, COL.white);
-    mmx = b.x + 3; mmw = b.w - 6; top = b.y + 11; bot = b.y + b.h - 3;
-  } else {
-    drawText(pin, b.x + 4, b.y + Math.round((b.h - 7) / 2), COL.white);
-    mmx = b.x + 8 + textW('PIN 999Y'); mmw = b.x + b.w - 3 - mmx; top = b.y + 2; bot = b.y + b.h - 2;
+  drawText(pin, b.x + 4, b.y + 2, COL.white);
+  const mmx = b.x + 3, mmw = b.w - 6;
+  const skyTop = b.y + (tall ? 11 : 10), bot = b.y + b.h - 2;
+  if (mmw < 16 || bot - skyTop < 8) return;
+  const labelH = tall ? 8 : 0, plotTop = skyTop + labelH, plotH = bot - plotTop;
+  const n = Math.max(2, Math.floor(mmw)), sc = n / hole.len;
+  const hs = new Float32Array(n), ss = new Array(n);
+  let lo = 1e9, hi = -1e9;
+  for (let i = 0; i < n; i++) {
+    const x = clamp((i + 0.5) / sc, 0, hole.len), s = surfAt(hole, x), h = groundH(hole, x);
+    ss[i] = s; hs[i] = h;
+    if (s !== 'water') { if (h < lo) lo = h; if (h > hi) hi = h; }
   }
-  if (mmw < 12 || bot - top < 4) return;
-  const labelH = tall ? 8 : 0, stripTop = top + labelH, stripH = Math.max(4, bot - stripTop);
-  const sc = mmw / hole.len, segs = mmSegs(hole);
-  const paint = { tee: '#d4f0a0', fair: '#58d854', rough: '#2c6c20', sand: '#f0d8a0', water: '#3cbcfc', green: '#8cf068', end: '#3c8c28', ob: '#3c3c3c' };
-  for (const s of segs) {
-    const x0 = Math.round(mmx + s.x0 * sc), x1 = Math.max(x0 + 1, Math.round(mmx + s.x1 * sc)), c = paint[s.s] || paint.fair;
-    rect(x0, stripTop, x1 - x0, stripH, c);
-    if (s.s === 'water') { rect(x0, stripTop, x1 - x0, 1, '#9cdcfc'); rect(x0, stripTop + stripH - 2, x1 - x0, 2, '#0078f8'); }
-    else if (s.s === 'sand') rect(x0, stripTop + stripH - 1, x1 - x0, 1, '#c8a060');
-    else if (s.s === 'green') rect(x0, stripTop, x1 - x0, 1, '#d8f8b0');
+  if (!(hi > lo)) { lo = Math.min(...hs); hi = lo + 8; }
+  const scale = (plotH - 8) / Math.max(8, hi - lo);
+  const gyOf = h => clamp(Math.round(bot - 6 - (h - lo) * scale), plotTop + 2, bot - 8);
+  const EARTH = '#4a3018';
+  const cap = { tee: '#c6e888', fair: '#62c840', rough: '#52963a', sand: '#ecd4a4', green: '#8ad85c', end: '#52963a', ob: '#52963a' };
+  const ys = new Array(n);
+  for (let i = 0; i < n; i++) ys[i] = ss[i] === 'water' ? 0 : gyOf(hs[i]);
+  for (let i = 0; i < n; i++) if (ss[i] === 'water') {
+    let L = i, R = i;
+    while (L > 0 && ss[L] === 'water') L--;
+    while (R < n - 1 && ss[R] === 'water') R++;
+    const bank = Math.max(ss[L] === 'water' ? gyOf(lo) : ys[L], ss[R] === 'water' ? gyOf(lo) : ys[R]);
+    ys[i] = clamp(bank + 4, plotTop + 6, bot - 3);
   }
-  for (const d of hole.deco || []) {
-    const kind = d[0], dx = d[1];
-    if (dx < 0 || dx > hole.len) continue;
-    const x = Math.round(mmx + dx * sc);
-    if (kind === 'tree' || kind === 'oak') { rect(x, stripTop, 1, Math.min(6, stripH), '#102810'); rect(x - 1, stripTop, 3, 2, '#1c4014'); }
-    else if (kind === 'cactus') rect(x, stripTop, 1, Math.min(5, stripH), '#3c8c28');
-    else if (kind === 'bush') rect(x, stripTop, 2, 2, '#245018');
-  }
-  for (const m of hole.movers || []) {
-    if (m.x == null || m.x < 0 || m.x > hole.len) continue;
-    rect(Math.round(mmx + m.x * sc), stripTop, 1, stripH, '#e8c870');
-  }
-  for (const w of hole.walls || []) {
-    const x = Math.round(mmx + clamp(w.x, 0, hole.len) * sc);
-    rect(x, stripTop, Math.max(1, Math.round((w.ww || 2) * sc)), stripH, '#8c8c8c');
-  }
-  const cxm = Math.round(mmx + clamp(hole.cup, 0, hole.len) * sc);
-  rect(cxm, stripTop - 6, 1, stripH + 6, '#fcfcfc');
-  rect(cxm + 1, stripTop - 6, 3, 2, COL.red);
-  const bx = clamp(ball.x, 0, hole.len), bxm = Math.round(mmx + bx * sc);
-  if (Math.floor(st * 4) % 2 || state !== 'flight') rect(bxm - 1, stripTop + Math.round(stripH / 2) - 1, 3, 3, '#fcfcfc');
-  if (labelH >= 7) {
-    const placed = [];
-    for (const h of mmCarries(hole, bx)) {
-      if (placed.length >= 4) break;
-      const text = h.carry + 'Y', tw = textW(text);
-      let x = Math.round(mmx + (h.x0 + h.x1) / 2 * sc - tw / 2);
-      x = clamp(x, mmx, mmx + mmw - tw);
-      if (placed.some(p => x < p.x + p.w + 2 && x + tw + 2 > p.x)) continue;
-      placed.push({ x, w: tw });
-      drawText(text, x, top, h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
-      const tx = clamp(Math.round(mmx + h.far * sc), mmx, mmx + mmw - 1);
-      rect(tx, top + 7, 1, Math.max(1, stripTop - top - 7), h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
+  for (let i = 0; i < n; i++) {
+    const s = ss[i], gy = ys[i];
+    const x = mmx + i, deep = bot - gy;
+    if (s === 'water') {
+      rect(x, gy, 1, 1, '#c8f4ff');
+      if (deep > 1) rect(x, gy + 1, 1, deep - 1, '#2f92d4');
+      if (deep > 3) rect(x, bot - 2, 1, 2, '#1868a8');
+    } else {
+      const c = cap[s] || cap.fair;
+      rect(x, gy, 1, 1, c);
+      if (deep > 1) rect(x, gy + 1, 1, 1, c);
+      if (deep > 2) rect(x, gy + 2, 1, 1, '#2a1c0c');
+      if (deep > 3) rect(x, gy + 3, 1, deep - 3, EARTH);
     }
   }
-  const ha = hidAlpha();
-  if (ha > 0) { ctx.globalAlpha = ha; for (const o of hidList) { const x0 = Math.round(mmx + clamp(o.x0, 0, hole.len) * sc), x1 = Math.max(x0 + 1, Math.round(mmx + clamp(o.x1, 0, hole.len) * sc)); rect(x0, stripTop, x1 - x0, 2, HID_GOLD); } ctx.globalAlpha = 1; }
+  for (const o of hole.oaks || []) {
+    const i = clamp(Math.round(((o.x0 + o.x1) / 2) * sc), 0, n - 1), x = mmx + i, gy = ys[i];
+    rect(x, gy - 2, 1, 2, '#3c2814'); rect(x - 1, gy - 4, 3, 2, '#2a6a28');
+  }
+  for (const m of hole.movers || []) {
+    if (m.kind !== 'windmill' || m.x < 0 || m.x > hole.len) continue;
+    const i = clamp(Math.round(m.x * sc), 0, n - 1), x = mmx + i, gy = ys[i];
+    rect(x, gy - 4, 1, 4, '#c8b898'); rect(x - 1, gy - 4, 3, 1, '#c8b898');
+  }
+  const ci = clamp(Math.round(hole.cup * sc), 0, n - 1), cxm = mmx + ci, gyC = ys[ci];
+  const pole = Math.min(8, gyC - plotTop);
+  rect(cxm, gyC - pole, 1, pole, '#fcfcfc');
+  rect(cxm + 1, gyC - pole, 4, 2, '#e02020');
+  const bi = clamp(Math.round(bx * sc), 0, n - 1), bxm = mmx + bi, gyB = ys[bi];
+  if (Math.floor(st * 4) % 2 || state !== 'flight') {
+    rect(bxm - 2, gyB - 4, 5, 5, '#000');
+    rect(bxm - 1, gyB - 3, 3, 3, '#fcfcfc');
+  }
+  if (labelH >= 7) {
+    const pinR = { x: b.x + 4, y: b.y + 2, w: textW(pin) + 2, h: 8 };
+    const flagR = { x: cxm - 1, y: gyC - pole, w: 6, h: pole + 2 };
+    const hitR = (a, r) => a.x < r.x + r.w && a.x + a.w > r.x && a.y < r.y + r.h && a.y + a.h > r.y;
+    const placed = [];
+    for (const h of mmCarries(hole, bx)) {
+      if (placed.length >= 3) break;
+      const text = h.carry + 'Y', tw = textW(text);
+      let x = Math.round(mmx + (h.x0 + h.x1) / 2 * sc - tw / 2);
+      const y = skyTop;
+      const ok = xx => {
+        if (xx < mmx || xx + tw > mmx + mmw) return false;
+        const r = { x: xx, y, w: tw, h: 7 };
+        if (hitR(r, pinR) || hitR(r, flagR) || placed.some(p => hitR(r, p))) return false;
+        return true;
+      };
+      if (!ok(x)) {
+        let found = false;
+        for (let k = 2; k <= 30 && !found; k += 2) for (const xx of [x - k, x + k]) if (ok(xx)) { x = xx; found = true; break; }
+        if (!found) continue;
+      }
+      placed.push({ x, y, w: tw, h: 7 });
+      drawText(text, x, y, '#d7e6ea');
+      const tx = clamp(Math.round(mmx + h.far * sc), mmx, mmx + mmw - 1);
+      const fi = clamp(Math.round(h.far * sc), 0, n - 1);
+      const y1 = y + 7, y2 = ys[fi];
+      if (y2 > y1) rect(tx, y1, 1, y2 - y1, '#d7e6ea');
+    }
+  }
 }
 /* compact 9-hole card in the top-right of the play area; fades when the ball flies under it */
 function drawMiniCard() {
@@ -11168,7 +11228,7 @@ function hatDropTick() {   // existing frame loop only; the strings change at mo
   ps.el.querySelectorAll('[data-drop]').forEach(n => { if (n.textContent !== hatDropShop) n.textContent = hatDropShop; });
 }
 const SHOP_ITEMS = [   // v8.50: fallback = what the card does with no Shopify mapping (store_links)
-  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '$50', badge: '16 MADE', spec: '', fallback: 'soon' },
+  { id: 'camo_snapback', name: 'Camo Script Hat', short: 'Camo Script Hat', price: '$50', badge: '', spec: '', fallback: 'soon' },
   { id: 'lucky_marker', name: 'LUCKY BALL MARKER', short: 'LUCKY BALL MARKER', price: '$8', badge: '', spec: '40MM CLAY CHIP', stock: 'SOLD OUT', soldOut: true, url: () => NEW_MARKER_LINK }];
 const shopState = { status: null, loaded: false, at: 0, links: {}, linksOk: false };   // status: { id: 'active'|'hidden'|'archived' } from the server, null = built-in
 async function loadShopItems(force) {
@@ -11339,13 +11399,13 @@ function psRender() {
         : '<div class="ps-art hat"><img alt="" src="' + SHOP_HAT_SRC[0] + '"></div>';
       if (psLocked(it)) return '<div class="ps-card locked" aria-disabled="true" aria-label="' + psEsc(it.name) + ' - locked">' +   // v8.99.31: the hat shows as a locked item
         '<div class="ps-stage">' + art + '<span class="ps-lock" aria-hidden="true"></span></div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price"></div><span class="ps-soon ps-locked">LOCKED</span></div>';
-      return '<div class="ps-card" data-ps="open" data-id="' + it.id + '" role="button" tabindex="0" aria-label="' + psEsc(it.name) + '">' + (it.badge ? '<span class="ps-badge">' + it.badge + '</span>' : '') +
+      return '<div class="ps-card" data-ps="open" data-id="' + it.id + '" role="button" tabindex="0" aria-label="' + psEsc(it.name) + '">' + (it.badge && it.id !== 'camo_snapback' ? '<span class="ps-badge">' + psEsc(it.badge) + '</span>' : '') +
         '<div class="ps-stage">' + art + '</div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price">' + psEsc(it.price || '') + '</div>' + psCtaHtml(it) + '</div>';
     }).join('') + '</div>';
   } else {
     const it = items.find(i => i.id === ps.detail), g = SHOP_GALLERY[it.id] || [], c = shopCta(it);
     ps.gal = Math.max(0, Math.min(g.length - 1, ps.gal));
-    const tags = [it.badge ? '<span>' + it.badge + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : c.kind === 'buy' && it.stock ? '<span class="g">' + psEsc(it.stock) + '</span>' : ''].join('');
+    const tags = [it.badge && it.id !== 'camo_snapback' ? '<span>' + psEsc(it.badge) + '</span>' : '', c.kind === 'preorder' ? '<span class="g">PREORDER</span>' : c.kind === 'buy' && it.stock && it.id !== 'camo_snapback' ? '<span class="g">' + psEsc(it.stock) + '</span>' : ''].join('');
     body.innerHTML = '<div class="ps-detail"><button class="ps-back" data-ps="back">‹ SHOP</button>' +
       '<div class="ps-gal"><div class="ps-main" data-ps="next"><div class="ps-track" style="transform:translateX(' + (-100 * ps.gal) + '%)">' + g.map(s => '<img alt="" src="' + s + '">').join('') + '</div>' +
       (g.length > 1 ? '<button class="ps-arw l" data-ps="prev" aria-label="Previous photo">‹</button><button class="ps-arw r" data-ps="next" aria-label="Next photo">›</button>' : '') + '</div>' +
