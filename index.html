@@ -80,6 +80,13 @@
     padding:calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
     box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;touch-action:pan-y}
   #acct.on{display:block}
+  /* Account panels must cover the extended iPhone Home Screen viewport too.
+     Keep the game's grass continuation out of the OS safe-area backing. */
+  #acct{bottom:auto;height:100%;min-height:100dvh}
+  @media (display-mode: standalone), (display-mode: fullscreen){#acct{height:100lvh}}
+  html:has(#acct.on){background-color:#081028 !important;background-image:none !important}
+  body:has(#acct.on) #gtop,body:has(#acct.on) #gbot,body:has(#acct.on) #groundFill{visibility:hidden}
+
   #acct .stlink{display:flex;gap:6px;margin:-2px 0 10px;flex-wrap:wrap}#acct .stlink input{flex:1 1 140px;width:auto !important;font-size:16px !important;padding:8px !important}
   #acct .box{max-width:440px;margin:0 auto;background:#000;border:3px solid #fcfcfc;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5);padding:14px 14px 16px}
   #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px}
@@ -545,7 +552,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.96';
+const GAME_VERSION = 'v8.99.97';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
