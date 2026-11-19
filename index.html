@@ -545,7 +545,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.92';
+const GAME_VERSION = 'v8.99.93';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -10843,34 +10843,100 @@ function mmHit(p) {
   const r = hitExpand(mmRect()), y2 = Math.min(r.y + r.h, PLAY_H);
   return hit(p, { x: r.x, y: r.y, w: r.w, h: Math.max(0, y2 - r.y) }) || hit(p, mmPad());
 }
+function mmSegs(hl) {
+  const pts = hl && hl.def && hl.def.pts;
+  const out = [];
+  if (pts && pts.length > 1) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const x0 = pts[i][0], s = pts[i][1], x1 = pts[i + 1][0];
+      if (!(x1 > x0)) continue;
+      const prev = out[out.length - 1];
+      if (prev && prev.s === s) prev.x1 = x1; else out.push({ x0, x1, s });
+    }
+    return out;
+  }
+  if (!hl) return out;
+  let s = surfAt(hl, 0), x0 = 0;
+  for (let x = 1; x <= hl.len; x++) {
+    const n = surfAt(hl, x);
+    if (n !== s) { out.push({ x0, x1: x, s }); x0 = x; s = n; }
+  }
+  out.push({ x0, x1: hl.len, s });
+  return out;
+}
+function mmCarries(hl, bx) {
+  const dir = Math.sign(hl.cup - bx) || 1, out = [];
+  for (const s of mmSegs(hl)) {
+    if (s.s !== 'water' && s.s !== 'sand') continue;
+    const far = dir > 0 ? s.x1 : s.x0;
+    if ((far - bx) * dir <= 1) continue;
+    out.push({ s: s.s, x0: Math.min(s.x0, s.x1), x1: Math.max(s.x0, s.x1), far, carry: Math.round(Math.abs(far - bx)), pri: s.s === 'water' ? 0 : 1 });
+  }
+  out.sort((a, b) => a.pri - b.pri || a.carry - b.carry);
+  return out;
+}
 function drawMiniMap() {
-  if (!hole) return;
+  if (!hole || !ball) return;
   const b = mmRect(); if (b.w < 40) return;
   box(b.x, b.y, b.w, b.h);
   const yd = Math.round(Math.abs(hole.cup - ball.x)), pin = 'PIN ' + yd + 'Y';
-  let mmx, mmw, mmy, k, top;
-  if (b.h >= 24) {          // stacked: PIN on top, map below, scaled up to the box height
-    drawText(pin, b.x + 4, b.y + 3, COL.white);
-    mmx = b.x + 3; mmw = b.w - 6; mmy = b.y + b.h - 3; k = Math.max(1, (b.h - 3) / 21); top = b.y + 11;
-  } else {                  // one row (short dirt strip): PIN left, map right
+  const tall = b.h >= 26;
+  let mmx, mmw, top, bot;
+  if (tall) {
+    drawText(pin, b.x + 4, b.y + 2, COL.white);
+    mmx = b.x + 3; mmw = b.w - 6; top = b.y + 11; bot = b.y + b.h - 3;
+  } else {
     drawText(pin, b.x + 4, b.y + Math.round((b.h - 7) / 2), COL.white);
-    mmx = b.x + 8 + textW('PIN 999Y'); mmw = b.x + b.w - 3 - mmx; mmy = b.y + b.h - 2; k = (b.h - 3) / 15; top = b.y + 1;
+    mmx = b.x + 8 + textW('PIN 999Y'); mmw = b.x + b.w - 3 - mmx; top = b.y + 2; bot = b.y + b.h - 2;
   }
-  if (mmw < 12) return;
-  const sc = mmw / hole.len, room = Math.max(2, mmy - top);
-  for (let i = 0; i < mmw; i++) {
-    const wx = Math.floor(i / sc), s = surfAt(hole, wx), hh = groundH(hole, wx) * 0.15;
-    const c = { water: COL.water, sand: COL.sand, green: COL.green2, rough: COL.grassD }[s] || COL.grass;
-    const th = Math.min(room - 2, Math.max(1, Math.round((3 + hh) * k)));
-    rect(mmx + i, mmy - th, 1, th, c);
+  if (mmw < 12 || bot - top < 4) return;
+  const labelH = tall ? 8 : 0, stripTop = top + labelH, stripH = Math.max(4, bot - stripTop);
+  const sc = mmw / hole.len, segs = mmSegs(hole);
+  const paint = { tee: '#d4f0a0', fair: '#58d854', rough: '#2c6c20', sand: '#f0d8a0', water: '#3cbcfc', green: '#8cf068', end: '#3c8c28', ob: '#3c3c3c' };
+  for (const s of segs) {
+    const x0 = Math.round(mmx + s.x0 * sc), x1 = Math.max(x0 + 1, Math.round(mmx + s.x1 * sc)), c = paint[s.s] || paint.fair;
+    rect(x0, stripTop, x1 - x0, stripH, c);
+    if (s.s === 'water') { rect(x0, stripTop, x1 - x0, 1, '#9cdcfc'); rect(x0, stripTop + stripH - 2, x1 - x0, 2, '#0078f8'); }
+    else if (s.s === 'sand') rect(x0, stripTop + stripH - 1, x1 - x0, 1, '#c8a060');
+    else if (s.s === 'green') rect(x0, stripTop, x1 - x0, 1, '#d8f8b0');
   }
-  const cxm = Math.round(mmx + hole.cup * sc), pTop = Math.max(top, mmy - Math.round(12 * k)), pH = Math.max(3, Math.round(7 * k));
-  rect(cxm, pTop, 1, pH, COL.white); rect(cxm + 1, pTop, k < 0.7 ? 2 : 3, k > 1.5 ? 3 : 2, COL.red);
-  const bx = clamp(ball.x, 0, hole.len), bxm = Math.round(mmx + bx * sc), bs = k > 1.5 ? 4 : k < 0.7 ? 2 : 3;
-  const by = Math.max(top, mmy - Math.round((6 + groundH(hole, bx) * 0.15) * k));
-  if (Math.floor(st * 4) % 2 || state !== 'flight') rect(bxm - (bs >> 1), by, bs, bs, COL.white);
-  const ha = hidAlpha();   // v8.77: hidden colliders on the mini map while they're shown
-  if (ha > 0) { ctx.globalAlpha = ha; for (const o of hidList) { const x0 = Math.round(mmx + clamp(o.x0, 0, hole.len) * sc), x1 = Math.max(x0 + 1, Math.round(mmx + clamp(o.x1, 0, hole.len) * sc)); rect(x0 - 1, top, x1 - x0 + 2, 3, '#000'); rect(x0, top + 1, x1 - x0, 1, HID_GOLD); } ctx.globalAlpha = 1; }
+  for (const d of hole.deco || []) {
+    const kind = d[0], dx = d[1];
+    if (dx < 0 || dx > hole.len) continue;
+    const x = Math.round(mmx + dx * sc);
+    if (kind === 'tree' || kind === 'oak') { rect(x, stripTop, 1, Math.min(6, stripH), '#102810'); rect(x - 1, stripTop, 3, 2, '#1c4014'); }
+    else if (kind === 'cactus') rect(x, stripTop, 1, Math.min(5, stripH), '#3c8c28');
+    else if (kind === 'bush') rect(x, stripTop, 2, 2, '#245018');
+  }
+  for (const m of hole.movers || []) {
+    if (m.x == null || m.x < 0 || m.x > hole.len) continue;
+    rect(Math.round(mmx + m.x * sc), stripTop, 1, stripH, '#e8c870');
+  }
+  for (const w of hole.walls || []) {
+    const x = Math.round(mmx + clamp(w.x, 0, hole.len) * sc);
+    rect(x, stripTop, Math.max(1, Math.round((w.ww || 2) * sc)), stripH, '#8c8c8c');
+  }
+  const cxm = Math.round(mmx + clamp(hole.cup, 0, hole.len) * sc);
+  rect(cxm, stripTop - 6, 1, stripH + 6, '#fcfcfc');
+  rect(cxm + 1, stripTop - 6, 3, 2, COL.red);
+  const bx = clamp(ball.x, 0, hole.len), bxm = Math.round(mmx + bx * sc);
+  if (Math.floor(st * 4) % 2 || state !== 'flight') rect(bxm - 1, stripTop + Math.round(stripH / 2) - 1, 3, 3, '#fcfcfc');
+  if (labelH >= 7) {
+    const placed = [];
+    for (const h of mmCarries(hole, bx)) {
+      if (placed.length >= 4) break;
+      const text = h.carry + 'Y', tw = textW(text);
+      let x = Math.round(mmx + (h.x0 + h.x1) / 2 * sc - tw / 2);
+      x = clamp(x, mmx, mmx + mmw - tw);
+      if (placed.some(p => x < p.x + p.w + 2 && x + tw + 2 > p.x)) continue;
+      placed.push({ x, w: tw });
+      drawText(text, x, top, h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
+      const tx = clamp(Math.round(mmx + h.far * sc), mmx, mmx + mmw - 1);
+      rect(tx, top + 7, 1, Math.max(1, stripTop - top - 7), h.s === 'water' ? '#9cdcfc' : '#f0d8a0');
+    }
+  }
+  const ha = hidAlpha();
+  if (ha > 0) { ctx.globalAlpha = ha; for (const o of hidList) { const x0 = Math.round(mmx + clamp(o.x0, 0, hole.len) * sc), x1 = Math.max(x0 + 1, Math.round(mmx + clamp(o.x1, 0, hole.len) * sc)); rect(x0, stripTop, x1 - x0, 2, HID_GOLD); } ctx.globalAlpha = 1; }
 }
 /* compact 9-hole card in the top-right of the play area; fades when the ball flies under it */
 function drawMiniCard() {
