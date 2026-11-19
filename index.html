@@ -545,7 +545,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.94';
+const GAME_VERSION = 'v8.99.95';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -657,8 +657,8 @@ function resize() {
   // Always recompute. A later safe-area inset (iPhone home indicator) must shrink the play
   // area too; skipping this left the loft pills with a negative height, and fillRect then
   // painted their white borders upward over the minimap and the HUD.
-  const HUD_H = H > W * 1.15 && H >= 380 ? 54 + LOFT_BAND() + SAFE.b : 54;   // v8.26: portrait adds the loft band below meter + club
-  PLAY_H = Math.max(PLAY0, H - HUD_H);
+  const HUD_H = H > W * 1.15 && H >= 380 ? 78 + LOFT_BAND() + SAFE.b : 70;   // v8.26: portrait adds the loft band below meter + club
+  PLAY_H = Math.max(150, H - HUD_H);
   const dirtBand = PLAY0 - BASE0;            // 14px dirt under tee line (original framing)
   const extraPlay = Math.max(0, PLAY_H - PLAY0);
   BASE = BASE0 + Math.floor(extraPlay * 0.55);
@@ -3520,38 +3520,50 @@ function coursePromoPlacement(hl) {
   for (const x of [76, 100, 124, 148]) {
     if (x + width > hl.cup - 50 || !['fair','rough','tee'].includes(surfAt(hl,x + width / 2))) continue;
     if (Math.abs(groundH(hl,x) - groundH(hl,x + width)) > 8) continue;
+    let safe=true,low=Infinity,high=-Infinity;for(let dx=0;dx<=width;dx++){const sf=surfAt(hl,x+dx),gh=groundH(hl,x+dx);if(!['fair','rough','tee'].includes(sf))safe=false;low=Math.min(low,gh);high=Math.max(high,gh);}if(!safe||high-low>10)continue;
     if ((hl.deco || []).some(d => d[1] > x - 35 && d[1] < x + width)) continue;
-    if ((hl.walls || []).some(w => w[0] > x - 12 && w[0] < x + width + 12)) continue;
+    if ((hl.walls || []).some(w => w.x + (w.ww || 6) / 2 > x - 12 && w.x - (w.ww || 6) / 2 < x + width + 12)) continue;
     if ((hl.movers || []).some(m => m.x > x - 20 && m.x < x + width + 20)) continue;
     return { x, rail };
   }
   return null;
 }
-function coursePromoFace(n, rail, scale = 4) {
-  const key = 'face:' + n + ':' + !!rail + ':' + scale;
-  if (PROMO_ART.has(key)) return PROMO_ART.get(key);
-  const p=COURSE_PROMOS[n], h=rail?24:32, cv2=mk(96*scale,h*scale),g=cv2.getContext('2d');
-  g.scale(scale,scale);g.fillStyle='#fcfcf8';g.fillRect(0,0,96,h);
-  g.strokeStyle='#25342d';g.lineWidth=0.6;g.strokeRect(.3,.3,95.4,h-.6);
-  g.fillStyle=p.color;g.fillRect(0,0,2.5,h);
-  g.textAlign='left';g.textBaseline='middle';
-  const label=n===3?'HAT DROP':['Instagram','YouTube','TikTok'][n];
-  g.fillStyle='#17241e';g.font='700 '+(rail?10:12)+'px Arial, sans-serif';
-  g.fillText(label,8,rail?8:10.5);
-  g.fillStyle='#364b40';g.font=(n===3?'500 ':'600 ')+(rail?7.8:8.4)+'px Arial, sans-serif';
-  const sub=n===3?'Coming soon':p.handle.toLowerCase();
-  g.fillText(sub,8,rail?18:24);
-  // A small quiet arrow indicates the sign links out.
-  g.strokeStyle=p.color;g.lineWidth=1;g.beginPath();g.moveTo(84,rail?10:12);g.lineTo(89,rail?5:7);g.moveTo(85,rail?5:7);g.lineTo(89,rail?5:7);g.lineTo(89,rail?9:11);g.stroke();
-  PROMO_ART.set(key,cv2);return cv2;
+function coursePromoFace(n,rail,scale=4){
+  const key='face:'+n+':'+!!rail+':'+scale;if(PROMO_ART.has(key))return PROMO_ART.get(key);
+  const p=COURSE_PROMOS[n],h=rail?24:32,c=mk(96*scale,h*scale),g=c.getContext('2d');g.scale(scale,scale);
+  const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(x,y,w,h);};
+  // A real sign: oak surround, brass inset, and an opaque dark enamel face.
+  R(0,0,96,h,'#080c0b');R(1,1,94,h-2,'#805632');R(2,2,92,h-4,'#d4b875');R(3,3,90,h-6,'#132e28');
+  R(1,1,94,1,'#bb8b50');R(2,h-2,92,1,'#493019');
+  for(const x of [2,93])for(const y of [2,h-3])R(x,y,1,1,'#eee2bb');
+  const iy=rail?6:13,ix=7;
+  if(n===0){R(ix,iy,13,12,'#cf4d86');R(ix+2,iy+2,9,8,'#132e28');g.strokeStyle='#fff6df';g.lineWidth=1.3;g.strokeRect(ix+1.4,iy+1.4,10.2,9.2);g.beginPath();g.arc(ix+6.5,iy+6,2.7,0,Math.PI*2);g.stroke();R(ix+9,iy+2,1.5,1.5,'#fff6df');}
+  else if(n===1){R(ix,iy+1,14,10,'#cf3832');g.fillStyle='#fff6df';g.beginPath();g.moveTo(ix+5,iy+3);g.lineTo(ix+5,iy+9);g.lineTo(ix+10,iy+6);g.fill();}
+  else if(n===2){R(ix+7,iy,2,9,'#3cd4d0');R(ix+9,iy+2,4,2,'#f36a84');R(ix+2,iy+8,7,4,'#3cd4d0');R(ix+4,iy+9,3,1,'#132e28');R(ix+6,iy,2,9,'#fff6df');R(ix+1,iy+8,6,3,'#fff6df');}
+  else{R(ix+1,iy+2,11,7,'#9caa45');R(ix+3,iy+1,7,2,'#728332');R(ix,iy+9,16,2,'#d4b875');R(ix+2,iy+9,12,1,'#f8d878');R(ix+3,iy+4,3,2,'#53652d');R(ix+8,iy+3,3,2,'#c1bd65');R(ix+7,iy+6,4,2,'#6c7938');}
+  g.textAlign='left';g.textBaseline='top';
+  if(!rail){text3(g,'DUMB LUCK GOLF',7,5,'#d4b875');R(65,7,23,1,'#5e6d52');}
+  const label=n===3?'HAT DROP':['INSTAGRAM','YOUTUBE','TIKTOK'][n];
+  g.fillStyle='#fff6df';g.font='800 '+(n===3?9.3:8.7)+'px Arial, sans-serif';g.fillText(label,25,rail?4:13);
+  const sub=n===3?'COMING SOON':p.handle.toLowerCase();g.font='600 '+(rail?5.8:6.4)+'px Arial, sans-serif';g.fillStyle='#e1d6ad';
+  g.fillText(sub,rail?25:7,rail?15:24);
+  // Small pixel arrow, matching the actual tap target.
+  R(87,rail?6:14,3,1,'#f8d878');R(89,rail?6:14,1,3,'#f8d878');R(86,rail?9:17,3,1,'#f8d878');
+  PROMO_ART.set(key,c);return c;
 }
-function coursePromoArt(n, rail) {
+function coursePromoArt(n,rail){
   const key=n+':'+!!rail;if(PROMO_ART.has(key))return PROMO_ART.get(key);
-  const h=rail?32:40, faceH=rail?24:32, cv2=mk(96,h),g=cv2.getContext('2d');
-  g.fillStyle='#433c32';g.fillRect(14,faceH,2,h-faceH);g.fillRect(80,faceH,2,h-faceH);
+  const faceH=rail?24:32,c=mk(96,faceH+8),g=c.getContext('2d');
   g.imageSmoothingEnabled=true;g.drawImage(coursePromoFace(n,rail),0,0,96,faceH);
-  PROMO_ART.set(key,cv2);return cv2;
+  g.fillStyle='#0008';g.fillRect(2,faceH,94,2);PROMO_ART.set(key,c);return c;
 }
+function coursePromoGeometry(hl,x,rail){
+  const faceH=rail?24:32;let highest=-Infinity;
+  // Check every yard across the face, including slope crests missed by a center-only anchor.
+  for(let dx=0;dx<=96;dx++)highest=Math.max(highest,groundH(hl,x+dx));
+  return {faceH,top:Math.floor(BASE-highest-faceH-7)};
+}
+
 let coursePromoLayer = null, coursePromoLayerCount = 0;
 function resetCoursePromoLayer() {
   coursePromoLayerCount=0;
@@ -3573,12 +3585,16 @@ function crispCoursePromo(n,rail,sx,sy) {
   if(el.dataset.promo!==key){el.src=img.toDataURL();el.dataset.promo=key;}
   Object.assign(el.style,{display:'block',left:(r.left+a.x*r.width/W)+'px',top:(r.top+a.y*r.height/H)+'px',width:((b.x-a.x)*r.width/W)+'px',height:((b.y-a.y)*r.height/H)+'px'});
 }
-function drawCoursePromo(hl, cam, x, rail, n) {
-  const img=coursePromoArt(n,rail),sx=Math.round(x-cam),gy=BASE-groundH(hl,x+48),sy=Math.round(gy-img.height-4),faceH=rail?24:32;
+function drawCoursePromo(hl,cam,x,rail,n){
+  const img=coursePromoArt(n,rail),sx=Math.round(x-cam),shape=coursePromoGeometry(hl,x,rail),sy=shape.top,faceH=shape.faceH;
   if(sx>W||sx+96<0)return;
-  for(const post of [15,81]){const bottom=Math.round(BASE-groundH(hl,x+post)+2);rect(sx+post-1,sy+faceH,2,Math.max(0,bottom-sy-faceH),'#433c32');}
+  // Each post reaches its own ground height, so sloping hills cannot swallow the panel.
+  for(const post of [14,81]){const bottom=Math.round(BASE-groundH(hl,x+post)+2),height=Math.max(0,bottom-sy-faceH);
+    rect(sx+post-1,sy+faceH,4,height,'#20170f');rect(sx+post,sy+faceH,2,height,'#805632');
+    rect(sx+post-2,bottom-2,6,2,'#493019');
+  }
   ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(img,sx,sy);ctx.restore();
-  if(hl===hole && !ov && !roundTip && ['aim','power','accuracy','swing','flight','holed'].includes(state))crispCoursePromo(n,rail,sx,sy);
+  if(hl===hole&&!ov&&!roundTip&&['aim','power','accuracy','swing','flight','holed'].includes(state))crispCoursePromo(n,rail,sx,sy);
   if(hl===hole&&state==='aim'&&!paused){const a=w2s(sx,sy),b=w2s(sx+96,sy+faceH);coursePromoHits.push({x:a.x,y:a.y,w:b.x-a.x,h:b.y-a.y,n});}
 }
 function coursePromoTap(p,e) {
@@ -4560,18 +4576,6 @@ function drawYardage() {
   yardRects = {};
   if (!hole || !ball || paused || ov) return;
   const Z = worldZoom();
-  if (['aim', 'power', 'accuracy'].includes(state)) {
-    const g = w2s(ball.x - camX, BASE - groundH(hole, ball.x)), yd = Math.abs(hole.cup - ball.x);
-    const onGreen = surfAt(hole, ball.x) === 'green', t = onGreen ? Math.max(1, Math.round(yd * 3)) + ' FT' : Math.round(yd) + 'Y';
-    const y = Math.round(Math.min(g.y + 5 * Z, PLAY_H - 13));
-    let cx = g.x;
-    if (hole.rh) {   // v8.99.19: keep the pin chip off the Rush Hour tunnel headwalls
-      const cw = (textW(t) + 18) * 0.5, lo = w2s(hole.rh.x0 - RH_TUN - 7 - camX, 0).x, ro = w2s(hole.rh.x1 + RH_TUN + 7 - camX, 0).x;
-      if (ball.x < hole.rh.x0 + 4 && cx + cw > lo) cx = Math.round(lo - cw - 2);
-      else if (ball.x > hole.rh.x1 - 4 && cx - cw < ro) cx = Math.round(ro + cw + 2);
-    }
-    yardRects.pin = yChip([['flag', 0], [t, COL.white]], cx, y, 1);
-  }
   if (state === 'aim' && touchDown && touchDown.drag && clubIdx !== PUTT_I && aimTip) {   // loft readout at the tip of the line while the thumb drags
     const t = String(Math.round(angle)), q = aimTip;
     const r = yChip([[t + ' ', '#f8d878']], q.x + facing * 12, Math.max((SAFE.t || 0) + 2, q.y - 16), 1);
@@ -6130,20 +6134,20 @@ function layoutChrome() {
     const meterR = 2 + 138;                          // drawMeter box spans x 2..139
     const cx0 = meterR + 2, cx1 = Math.min(196 + 58, W - sr - 2);   // right edge lines up with the TOTAL/TEE column
     CLUB_BTN.x = cx0; CLUB_BTN.w = Math.max(40, cx1 - cx0);
-    CLUB_BTN.y = HUD_Y0 + 28; CLUB_BTN.h = 24;       // same band as the meter box
+    CLUB_BTN.y = HUD_Y0 + 38; CLUB_BTN.h = 30;       // same band as the meter box
     // dead-zone: never left of the meter edge (meter taps still swing), up over the TOTAL/TEE cells, down to the screen edge
     // v8.26 loft pill [UP | angle | DOWN], styled like the club button
     {
-      const tapW = Math.max(26, Math.ceil(44 / cssSy)), port = H - HUD_Y0 > 60;
+      const tapW = Math.max(26, Math.ceil(44 / cssSy)), port = H > W * 1.15 && H >= 380;
       const roomBelow = y => Math.max(0, H - (SAFE.b || 0) - y - 2);
       if (port) {   // portrait: own band under the club button, same width as it. Never taller than the gap, and never a negative height.
-        const y = HUD_Y0 + 54, h = Math.min(32, tapW, roomBelow(y));
+        const y = HUD_Y0 + 72, h = Math.min(30, Math.max(28,tapW), roomBelow(y));
         if (h >= 18 && y >= PLAY_H) {
           LOFT_PILL.x = CLUB_BTN.x; LOFT_PILL.w = CLUB_BTN.w; LOFT_PILL.y = y; LOFT_PILL.h = h;
           Object.assign(SHOT_PILL, { x: 2, y, w: Math.min(138, CLUB_BTN.x - 6), h });
         } else { LOFT_PILL.w = 0; LOFT_PILL.h = 0; SHOT_PILL.w = 0; SHOT_PILL.h = 0; }
       } else {      // wide: right of the club button + TEE column, spanning HUD rows 2-3
-        LOFT_PILL.x = CLUB_BTN.x + CLUB_BTN.w + 4; LOFT_PILL.y = HUD_Y0 + 15; LOFT_PILL.h = 37;
+        LOFT_PILL.x = CLUB_BTN.x + CLUB_BTN.w + 4; LOFT_PILL.y = HUD_Y0 + 38; LOFT_PILL.h = 30;
         LOFT_PILL.w = Math.min(tapW * 2 + 30, W - sr - 2 - LOFT_PILL.x);
       }
       const aw = Math.max(0, Math.min(tapW, Math.floor((LOFT_PILL.w - 20) / 2)));
@@ -6151,7 +6155,7 @@ function layoutChrome() {
       Object.assign(LOFT_DN, { x: LOFT_PILL.x + Math.max(0, LOFT_PILL.w - aw), y: LOFT_PILL.y, w: aw, h: Math.max(0, LOFT_PILL.h) });
       if (!port) { const sx = LOFT_PILL.x + LOFT_PILL.w + 4, sw = Math.min(84, W - sr - 2 - sx); Object.assign(SHOT_PILL, sw >= 60 ? { x: sx, y: LOFT_PILL.y, w: sw, h: LOFT_PILL.h } : { x: 0, y: -99, w: 0, h: 0 }); }
     }
-    CLUB_PAD.x = meterR + 1; CLUB_PAD.y = CLUB_BTN.y - clubGap;
+    CLUB_PAD.x = meterR + 1; CLUB_PAD.y = CLUB_BTN.y - 2;
     CLUB_PAD.w = Math.min(W, CLUB_BTN.x + CLUB_BTN.w + clubGap) - CLUB_PAD.x;
     CLUB_PAD.h = Math.max(CLUB_BTN.h, H - CLUB_PAD.y);
     PAUSE_PAD.x = Math.max(0, PAUSE_BTN.x - pad);
@@ -6393,40 +6397,40 @@ const loftShown = () => state === 'aim' && !paused && !ov && !roundTip && hole &
 const shotPillShown = () => ['aim', 'power', 'accuracy'].includes(state) && !paused && !ov && !roundTip && hole && ball && SHOT_PILL.w >= 60 && shotKindsNow().length > 1 && (state === 'aim' || shotKind !== 'n');
 const inShotCtl = p => state === 'aim' && shotPillShown() && hit(p, SHOT_PILL);
 const inLoftCtl = p => loftShown() && hit(p, LOFT_PILL);
-function drawLoftControl() {   // v8.26: compact [UP 35deg DOWN] pill in the bottom HUD, club-button style (hidden for the putter)
-  if (!loftShown() || LOFT_PILL.h < 16 || LOFT_PILL.y < PLAY_H) return;
-  const P = LOFT_PILL, YEL = '#f8d878';
-  ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
-  const edge = (x, y, w, h, c) => { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); };
-  edge(P.x, P.y, P.w, P.h, COL.white);
-  const seg = (r, up) => {
-    const on = loftHold === (up ? 'up' : 'down'), c = on ? YEL : COL.white;
-    if (on) { ctx.globalAlpha = 0.7; rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, '#1c2c5c'); ctx.globalAlpha = 1; }
-    rect(up ? r.x + r.w - 1 : r.x, r.y + 3, 1, r.h - 6, COL.gray);   // divider
-    const tx = Math.round(r.x + r.w / 2), ty = Math.round(r.y + r.h / 2);
-    for (let i = 0; i < 5; i++) rect(tx - i, up ? ty - 3 + i : ty + 1 - i, i * 2 + 1, 1, c);
-  };
-  seg(LOFT_UP, true); seg(LOFT_DN, false);
-  const a = String(Math.round(angle)), mid = LOFT_UP.x + LOFT_UP.w, mw = LOFT_DN.x - mid;
-  const big = textW(a, 2) + 4 <= mw && P.h >= 22, sc = big ? 2 : 1, tw = textW(a, sc) + 3;
-  const ax = Math.round(mid + (mw - tw) / 2), ay = Math.round(P.y + (P.h - 7 * sc) / 2) + (P.h >= 30 ? 3 : 0), col = angFlash > 0 ? YEL : COL.white;
-  drawText(a, ax, ay, col, sc, sc);
-  edge(ax + tw - 2, ay, 3, 3, col);   // degree ring
-  if (P.y >= HUD_Y0 + 50 && !shotPillShown()) drawTextR('LOFT ANGLE', P.x - 6, Math.round(P.y + (P.h - 7) / 2), COL.gray);   // portrait band label
-  if (P.h >= 30) drawText('LOFT', Math.round(mid + (mw - textW('LOFT')) / 2), P.y + 3, COL.gray);
+/* Original pixel HUD palette, with shared spacing and clearer labels. */
+function hudTile(P,active=false,border=COL.white){
+  ctx.save();ctx.globalAlpha=.55;rect(P.x,P.y,P.w,P.h,'#000');ctx.restore();
+  rect(P.x,P.y,P.w,1,border);rect(P.x,P.y+P.h-1,P.w,1,border);
+  rect(P.x,P.y,1,P.h,border);rect(P.x+P.w-1,P.y,1,P.h,border);
+  if(active){rect(P.x+1,P.y+1,P.w-2,1,'#f8d878');}
 }
-function drawShotPill() {   // v8.78: [ SHOT  PUNCH  . . o . ] tap to cycle; dimmed (not tappable) while swinging
-  if (!shotPillShown() || SHOT_PILL.h < 16 || SHOT_PILL.y < PLAY_H) return;
-  const P = SHOT_PILL, ks = shotKindsNow(), k = shotKindValid(), on = k !== 'n', YEL = '#f8d878', live = state === 'aim';
-  ctx.globalAlpha = 0.55; rect(P.x, P.y, P.w, P.h, '#000'); ctx.globalAlpha = 1;
-  const c = live ? (on ? YEL : COL.white) : COL.gray;
-  rect(P.x, P.y, P.w, 1, c); rect(P.x, P.y + P.h - 1, P.w, 1, c); rect(P.x, P.y, 1, P.h, c); rect(P.x + P.w - 1, P.y, 1, P.h, c);
-  const lab = SHOT_LABEL[k], sc = P.h >= 22 && textW(lab, 2) + 40 <= P.w ? 2 : 1, ty = Math.round(P.y + (P.h - 7 * sc) / 2) - (P.h >= 30 ? 3 : 0);
-  drawText(lab, Math.round(P.x + (P.w - textW(lab, sc)) / 2), ty, on ? YEL : COL.white, sc, sc);
-  const dy = P.h >= 30 ? P.y + P.h - 7 : P.y + P.h - 4, dx0 = Math.round(P.x + P.w / 2 - (ks.length * 6 - 2) / 2);
-  ks.forEach((q, i) => rect(dx0 + i * 6, dy, q === k ? 4 : 2, 2, q === k ? c : COL.gray));
-  if (P.h >= 30) drawText('SHOT', P.x + 4, P.y + 3, COL.gray);
+function hudFit(text,x,y,maxWidth,col,scale=2){
+  while(scale>1&&textW(text,scale)>maxWidth)scale-=.25;
+  drawText(text,x,y,col,scale);
 }
+function drawLoftControl() {
+  const P=LOFT_PILL;
+  if(!hole||clubIdx===PUTT_I||!['aim','power','accuracy','swing','flight'].includes(state)||P.w<60||P.h<20||P.y<PLAY_H)return;
+  const live=state==='aim'&&!paused&&!ov,ink=live?COL.white:COL.gray;
+  hudTile(P,live&&loftHold!=null);
+  for(const [r,up] of [[LOFT_UP,true],[LOFT_DN,false]]){
+    const tx=Math.round(r.x+r.w/2),ty=Math.round(r.y+r.h/2)+2;
+    if(live&&loftHold===(up?'up':'down'))rect(r.x+1,r.y+1,r.w-2,r.h-2,'#5c3820');
+    for(let i=0;i<4;i++)rect(tx-i,up?ty-3+i:ty+1-i,i*2+1,1,ink);
+  }
+  const mid=LOFT_UP.x+LOFT_UP.w,mw=LOFT_DN.x-mid,t=String(Math.round(angle)),sc=textW(t,2)+5<=mw?2:1;
+  drawText('LOFT',Math.round(mid+(mw-textW('LOFT'))/2),P.y+3,COL.gray);
+  const ax=Math.round(mid+(mw-textW(t,sc)-4)/2),ay=P.y+13;
+  drawText(t,ax,ay,angFlash>0?'#f8d878':ink,sc);rect(ax+textW(t,sc)+1,ay,3,1,ink);rect(ax+textW(t,sc)+1,ay+2,3,1,ink);rect(ax+textW(t,sc)+1,ay,1,3,ink);rect(ax+textW(t,sc)+3,ay,1,3,ink);
+}
+function drawShotPill() {
+  if(!hole||!ball||!['aim','power','accuracy','swing','flight'].includes(state)||SHOT_PILL.w<60||SHOT_PILL.h<20||SHOT_PILL.y<PLAY_H||shotKindsNow().length<=1)return;
+  const P=SHOT_PILL,k=shotKindValid(),live=state==='aim',lab=SHOT_LABEL[k];hudTile(P,k!=='n'&&live);
+  drawText('SHOT TYPE',P.x+5,P.y+3,COL.gray);
+  hudFit(lab,P.x+5,P.y+14,P.w-18,live?COL.white:COL.gray,2);
+  drawText('>',P.x+P.w-10,P.y+15,live?'#f8d878':COL.gray);
+}
+
 function drawPauseButton() {   // top-left so it never clashes with the scorecard
   if (!GAME_STATES.includes(state) || paused) return;
   const ox = PAUSE_BTN.x + Math.floor((PAUSE_BTN.w - 14) / 2), oy = PAUSE_BTN.y + Math.floor((PAUSE_BTN.h - 14) / 2);
@@ -6434,22 +6438,16 @@ function drawPauseButton() {   // top-left so it never clashes with the scorecar
   rect(ox, oy, 14, 1, COL.white); rect(ox, oy + 13, 14, 1, COL.white); rect(ox, oy, 1, 14, COL.white); rect(ox + 13, oy, 1, 14, COL.white);
   rect(ox + 4, oy + 3, 2, 8, COL.white); rect(ox + 8, oy + 3, 2, 8, COL.white);
 }
-function drawClubButton() {   // v8.10: HUD bottom-right club swap — right of the power meter, own dead-zone
-  if (!GAME_STATES.includes(state) || paused || !hole) return;
-  const b = CLUB_BTN;
-  ctx.globalAlpha = 0.55; rect(b.x, b.y, b.w, b.h, '#000'); ctx.globalAlpha = 1;
-  rect(b.x, b.y, b.w, 1, '#f8d878'); rect(b.x, b.y + b.h - 1, b.w, 1, '#f8d878');
-  rect(b.x, b.y, 1, b.h, '#f8d878'); rect(b.x + b.w - 1, b.y, 1, b.h, '#f8d878');
-  const nm = CLUBS[clubIdx].name, yd = clubYards();
-  if (CLUB_SET === 'pro') { drawClubPro(b, CLUBS[clubIdx], yd); return; }
-  // Full name always — button width is sized for the longest club in layoutChrome
-  let sx = (b.h >= 20 && textW(nm, 2) <= b.w - 12) ? 2 : 1;   // roomy HUD corner: chunky 2x label like the HUD title text
-  while (sx > 0.5 && textW(nm, sx) > b.w - 6) sx -= 0.25;
-  const tw = textW(nm, sx), th = Math.round(7 * sx), yw = yd ? textW(yd) : 0, both = yd && tw + 6 + yw <= b.w - 8;   // v8.22: 'IRON 169Y'
-  const x0 = b.x + Math.round((b.w - (both ? tw + 6 + yw : tw)) / 2), ny = b.y + Math.round((b.h - th) / 2);
-  drawText(nm, x0, ny, state === 'aim' ? '#f8d878' : COL.white, sx, sx);
-  if (both) drawText(yd, x0 + tw + 6, ny + th - 7, state === 'aim' ? COL.white : COL.gray);
+function drawClubButton() {
+  if(!GAME_STATES.includes(state)||paused||!hole)return;
+  const P=CLUB_BTN,live=state==='aim',C=CLUBS[clubIdx],name=CLUB_SET==='pro'?C.sn:C.name;
+  hudTile(P,live,'#f8d878');const yd=clubYards(),meta=(clubIdx===PUTT_I?'RANGE ': 'STILL AIR ')+yd;
+  drawText(P.w>100?'STILL AIR':'CLUB',P.x+5,P.y+3,COL.gray);
+  if(P.w>100)drawTextR(yd,P.x+P.w-6,P.y+3,'#f8d878');
+  hudFit(name,P.x+5,P.y+14,P.w-18,live?COL.white:COL.gray,P.h>=28?2:1.5);
+  drawText('>',P.x+P.w-10,P.y+15,live?'#f8d878':COL.gray);
 }
+
 function drawClubPro(b, C, yd) {   // v8.99.2 pro set: big short name, then loft over carry (minimal; no box beyond the button)
   const on = state === 'aim', sx = b.h >= 22 ? 2 : 1.5, tw = textW(C.sn, sx), th = Math.round(7 * sx);
   const l1 = clubIdx === PUTT_I ? 'PUTT' : C.loft + '\u00b0', l2 = clubIdx === PUTT_I ? 'R=' + yd : 'C ' + yd, sw = Math.max(textW(l1), textW(l2));
@@ -8092,6 +8090,7 @@ cv.addEventListener('pointerdown', e => {
     if (ak) { nudgeAngle(ak === 'up' ? 1 : -1); held[ak] = 0; loftHold = ak; try { cv.setPointerCapture(e.pointerId); } catch (err) {} }
     touchDown = null; return;
   }
+  if (GAME_STATES.includes(state) && ((LOFT_PILL.w>=60 && hit(p,LOFT_PILL)) || (SHOT_PILL.w>=60 && hit(p,SHOT_PILL)))) { touchDown=null; return; }
   if (state === 'done' && RATE_UP.on && (hitBtn(p, RATE_UP) || hitBtn(p, RATE_DN))) {   // v8.98: hole thumbs never advance the hole
     rateTap(p, RATE_UP, RATE_DN, e, () => rateHoleKey(holeIdx)); touchDown = null; return;
   }
@@ -8849,14 +8848,14 @@ function todTint(hl) {
    LAB. Each fan is a unique build (height, body, skin, hair, outfit, hat, prop, idle pose) themed per course, drawn once per pose
    frame into a small cached sprite and culled offscreen. Crowd murmur / hush / ooh / groan / cheer / applause are real CC0
    outdoor recordings (audio/, v8.99.3: EQ'd, spread L/R, breeze+birds bed) played through WebAudio (silent when muted or paused), and a few PG heckles pop as speech bubbles that never sit on the ball, aim line or HUD. */
-let crowdT = 0;
+let crowdT = 0, galleryCheerAt = -Infinity;
 const CROWD_SHIRTS = ['#f83800', '#3cbcfc', '#f8d878', '#fcfcfc', '#58d854', '#f878f8', '#fc9838', '#2c5cd8'];
 const CROWD_PANTS = ['#2c2c3c', '#384c7c', '#5c4c38', '#1c1c1c', '#6c6c74', '#24402c'];
 const CROWD_HATS = ['#f83800', '#fcfcfc', '#2c5cd8', '#1c1c1c', '#58d854', '#f8d878'];
 function crowdEvent() { return courseKind === 'spooky' || courseKind === 'lbi'; }
 function crowdOn() { if (courseKind === 'lab' || (typeof LAB !== 'undefined' && LAB.on)) return false; const tk = (hole && hole.theme) || ''; return tk !== 'deep' && tk !== 'lava'; }
 function crowdTheme(hl) { const t = (hl && hl.theme) || ''; if (/^hr/.test(t)) return 'hr'; if (/^nyc/.test(t)) return 'nyc'; if (t === 'moon' || t === 'mars') return 'space'; if (t === 'spooky' || courseKind === 'spooky') return 'spooky'; if (/^tropic/.test(t) || t === 'pier') return 'beach'; if (t === 'snow') return 'snow'; if (t === 'desert' || t === 'pyramid' || t === 'canyon') return 'desert'; if (t === 'farm' || t === 'patch') return 'farm'; if (t === 'stadium') return 'stadium'; return 'club'; }   // v8.99.14 course-themed crowds
-function crowdCheer(k, success) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); if (!caVoices('cheer', k || 1, !!success)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
+function crowdCheer(k, success) { if (!crowdOn() || SIM) return; crowdT = Math.max(crowdT, 1.7 * (k || 1)); galleryCheerAt = performance.now() / 1000; if (!caVoices('cheer', k || 1, !!success)) { noise(0.9, 0.035); noise(0.5, 0.025, 0.35); } }
 /* ---- palettes ---- */
 const FAN_HAIR = ['#1c1410', '#1c1410', '#2c1c10', '#4c2c18', '#4c2c18', '#8c5028', '#a86c38', '#d8a860', '#f0d088', '#c84c0c'];
 const FAN_PANTS = ['#2c2c3c', '#384c7c', '#c8b48c', '#1c1c1c', '#6c6c74', '#24402c', '#e8e4d8', '#5c4c38', '#1c2c4c'];
@@ -8877,7 +8876,7 @@ const FAN_PAL = {
 };
 function fanPick(R, a) { return a[Math.floor(R() * a.length) % a.length]; }
 function fanMake(R, th, row, night) {
-  const P = FAN_PAL[th] || FAN_PAL.club, far = row >= 2, sh = c => night < 1 ? shadeHex(c, night) : c, f = { far };
+  const P = FAN_PAL[th] || FAN_PAL.club, far = row >= 2, sh = c => night < 1 || far ? shadeHex(c, night * (far ? 0.86 : 1)) : c, f = { far };
   f.kid = !far && R() < 0.1; f.fem = R() < 0.46;
   const b = R(); f.hw = f.kid ? 2 : b < 0.22 ? 2 : b < 0.82 ? 3 : 4; f.belly = !f.kid && f.hw >= 3 && R() < 0.22;
   const tl = R(); f.legH = f.kid ? 4 : 6 + (tl < 0.25 ? 0 : tl < 0.78 ? 1 : 2) - (f.fem && tl < 0.5 ? 0 : 0); f.torH = f.kid ? 5 : 6 + (R() < 0.5 ? 1 : 0) + (f.hw === 4 ? 1 : 0); f.headH = 5;
@@ -8982,23 +8981,18 @@ function crowdSpotsAll(hl) {
   // v8.99.5: never overlap an obstacle / hazard / prop: nudge a spectator up to 90 yd to a free gap in the same row, else drop them
   const KO = crowdKeepOut(hl), kept = [], lost = [];
   for (const p of out) {
-    const free = x => { const q = { x, f: p.f }, b = crowdBox(q); return !crowdHit(b, KO) && (p.row >= 2 || !crowdHit(b, KO.soft)) && x > -40 && x < hl.len + 40 && !kept.some(o => o.row === p.row && Math.abs(o.x - x) < 3); };
+    const free = x => { const q = { x, f: p.f }, b = crowdBox(q); return !crowdHit(b, KO) && (p.row >= 2 || !crowdHit(b, KO.soft)) && x > -40 && x < hl.len + 40 && !kept.some(o => o.row === p.row && Math.abs(o.x - x) < p.f.hw + o.f.hw + (p.row >= 2 ? 2 : 4)); };
     if (free(p.x)) { kept.push(p); continue; }
-    let x = null; for (let d = 2; d <= 90 && x == null; d += 2) x = free(p.x + d) ? p.x + d : free(p.x - d) ? p.x - d : null;
+    let x = null; for (let d = 2; d <= 28 && x == null; d += 2) x = free(p.x + d) ? p.x + d : free(p.x - d) ? p.x - d : null;
     if (x != null) { p.x = x; kept.push(p); } else lost.push(p);
   }
-  // v8.99.6: keep it full: anyone still without a spot refills the nearest open gap anywhere along the hole (any row, incl. the bands past either end)
-  for (const p of lost) { let best = null;
-    for (const row of [p.row, 3, 2, 1, 0]) { const fr = x => { const b = crowdBox({ x, f: p.f }); return !crowdHit(b, KO) && (row >= 2 || !crowdHit(b, KO.soft)) && !kept.some(o => o.row === row && Math.abs(o.x - x) < 3); };
-      for (let d = 0; d <= hl.len + 120; d += 2) { const x = fr(p.x + d) && p.x + d <= hl.len + 36 ? p.x + d : fr(p.x - d) && p.x - d >= -40 ? p.x - d : null; if (x != null) { if (!best || d < best.d) best = { x, row, d }; break; } if (best && d >= best.d) break; }
-      if (best && best.row === p.row) break; }
-    if (best) { p.x = best.x; if (best.row !== p.row) { p.row = best.row; p.z = p.z === 'g' && best.row >= 2 ? 'g' : p.z; } kept.push(p); } }
+  // Unplaced spectators stay out of the playing corridor; overflow can use the existing stands.
   kept.forEach(p => { p.bk = crowdHit(crowdBox(p), KO.soft); });   // behind scenery -> drawn in the 'back' pass before trees / props
   // v8.99.8: viewing structures where the hole has no dry open ground (island / moat / water-heavy holes, tight tees): bleachers or a dock-style deck
   // past either end of the hole (never over play, hazards, obstacles or the cup); their fans sit / stand on the tiers
   hl._stands = []; let nst = 0;
   try { let wet = 0; for (let x = 0; x <= hl.len; x++) { const s = surfAt(hl, x); if (s === 'water' || s === 'ob') wet++; }
-    const need = wet / Math.max(1, hl.len) >= 0.15 || hl.drop != null || lost.length >= 6; if (need) {
+    const need = wet / Math.max(1, hl.len) >= 0.15 || hl.drop != null; if (need) {
       const dock = wet / Math.max(1, hl.len) >= 0.25, cand = [[-46, -16], [hl.len + 6, hl.len + 34]];
       for (const [x0, x1] of cand) { if (crowdHit([x0 - 2, x1 + 2], KO)) continue; let Hm = -1e9; for (let x = x0; x <= x1; x += 2) Hm = Math.max(Hm, groundH(hl, clamp(x, 0, hl.len)));
         const st = { x0, x1, Hm, dock, tiers: [[2, 4], [3, 10]] }; hl._stands.push(st);
@@ -9020,7 +9014,7 @@ function fanPoseNow(p, t, cheer) {
   const f = p.f, rk = crowdReact && crowdReact.t > 0 ? crowdReact.kind : null, hush = v93Hush(), beat = t * 9 * f.tempo + p.ph, still = REDUCED_MOTION;
   let pose = f.pose, fb = 0;
   if (hec && hec.p === p && hec.t < hec.dur) pose = 'shout';
-  else if (cheer) pose = f.pose === 'shoulders' ? 'shoulders' : 'up';
+  else if (cheer && ((galZ && galZ.on) || t - galleryCheerAt >= Math.min(.30, Math.abs(p.x - (hole ? hole.cup : p.x)) * .001) + hash(p.i * 13 + 5) * .22)) pose = f.pose === 'shoulders' ? 'shoulders' : hash(p.i * 7 + 1) < .38 ? 'clap' : 'up';
   else if (rk === 'groan') pose = hash(p.i * 7 + 8) < 0.55 ? 'head' : hash(p.i * 5 + 1) < 0.5 ? 'hips' : f.pose;
   else if (rk === 'clap') pose = f.pose === 'shoulders' ? 'shoulders' : 'clap';
   else if (rk === 'ooh') pose = hash(p.i * 3 + 2) < 0.6 ? 'ooh' : f.pose;
@@ -9151,7 +9145,7 @@ function fanSprite(p, s) {
 }
 function drawFan(sx, gy, p, t, cheer) { const s = fanPoseNow(p, t, cheer); ctx.globalAlpha = p.f.far ? 0.22 : 0.28; rect(sx - p.f.hw - 2, gy - 1, p.f.hw * 2 + 5, p.f.far ? 1 : 2, '#000'); ctx.globalAlpha = 1;
   ctx.drawImage(fanSprite(p, s), sx + s.shift - FAN_FX, gy - s.hop - FAN_FY); }
-const FAN_DEPTH = [2, 3, 7, 11];   // v8.99.15: front row stands on the verge, behind the rope
+const FAN_DEPTH = [2, 5, 10, 17];   // v8.99.15: front row stands on the verge, behind the rope
 const ROPE_COL = '#d8d2c0', ROPE_STAKE = '#a8a290';   // v8.99.15: one thin muted off-white rope + small stakes on every course (was a bright theme colour that read as a line on the fairway)
 function crowdRope(hl, cam, s0, s1, dy, col, stake, tall) {
   col = ROPE_COL; stake = ROPE_STAKE; ctx.globalAlpha = 0.78;
@@ -9170,7 +9164,7 @@ function drawCrowd(hl, cam, C, pass) {
   const bank = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.6 : 0.82), runs = [];
   sp.forEach(p => { if (p.row < 2 || p.st || !vis(p)) return; const sx = Math.round(p.x - cam), last = runs[runs.length - 1]; if (last && sx - last[1] < 12 && last[2] === p.z) last[1] = Math.max(last[1], sx); else if (!last || sx > last[1]) runs.push([sx, sx, p.z]); else last[0] = Math.min(last[0], sx); });
   runs.sort((a, b) => a[0] - b[0]);
-  for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(13, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
+  for (const [a, b] of runs) for (let sx = Math.max(0, a - 7); sx <= Math.min(W - 1, b + 7); sx++) { const x = sx + cam, gy = Math.round(BASE - groundH(hl, x)), e = Math.min(sx - (a - 7), (b + 7) - sx), hgt = Math.min(19, 3 + e * 2); rect(sx, gy - hgt, 1, hgt, bank); if (e >= 2) rect(sx, gy - hgt, 1, 1, shadeHex(bank, 1.12)); }
   { const fr = []; sp.forEach(p => { if (p.row || p.st || !vis(p)) return; const sx = Math.round(p.x - cam); fr.push([sx - 6, sx + 6]); });   // v8.99.15: a 2px rough verge under the front row (off the playing surface)
     const vg = shadeHex((C && (C.grassD || C.grass)) || '#3c7c3c', themeOf(hl).stars ? 0.7 : 0.9);
     for (const [a, b] of fr) for (let sx = Math.max(0, a); sx <= Math.min(W - 1, b); sx++) { const x = sx + cam, sf = x < 0 ? 'rough' : surfAt(hl, x); if (sf === 'green' || sf === 'water' || sf === 'sand') continue; rect(sx, Math.round(BASE - groundH(hl, x)) - 2, 1, 2, vg); } }
@@ -9588,8 +9582,9 @@ function lgReact(filter, pose, dur, spread) {   // staggered per-fan poses (a ri
     const at = T + Math.random() * (spread == null ? 0.3 : spread); LG.r.set(p.i, { pose: ps, at, until: at + dur * (0.7 + Math.random() * 0.6) }); }
 }
 const lgNear = (x, r) => p => Math.abs(p.x - x) < r;
-function lgSay(list, opts) {   // bubble + blip, rate-limited by hype (chattier when the crowd is up OR when it turns on you)
-  const T = lgT(), gap = (2.2 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50)) * (FANS.away > 0 ? 0.5 : 1);   // v8.99.14 away game: rival fans chirp ~2x if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
+function lgSay(list, opts) {
+  const T = lgT(), gap = (3.4 + 3.8 * (1 - Math.abs(LG.hype - 50) / 50)) * (FANS.away > 0 ? .75 : 1);
+  if (!(opts && opts.force) && (T - LG.sayT < gap || hec)) return false;
   if (hec && opts && opts.force) hec = null;
   if (!(opts && opts.noCast) && list !== LG_PROMO && Math.random() < 0.4 && lgCastSay(opts && opts.kind ? opts.kind : (opts && opts.heck ? 'bad' : (state === 'aim' ? 'pre' : 'good')), opts && opts.near != null ? { near: opts.near } : null)) { LG.sayT = T; return true; }
   if (FANS.away > 0 && opts && opts.heck && Math.random() < 0.8 && list !== LG_PROMO) { const l2 = lgPick(Math.random() < 0.5 ? lgAway('pre') : list); if (lgRivalSay(l2, opts)) { LG.sayT = T; return true; } }
@@ -9762,8 +9757,8 @@ function lgTick(dt) {   // called from crowdTick when LIVE GALLERY is on
   if (state === 'aim' && holeIdx === 0 && strokes === 0 && FANS.away && !LG.awayMsg && st > 0.3) { LG.awayMsg = true; crowdSpots(hole); if (FANS.away > 0 && ghostPlay) showMsg('AWAY GAME! @' + ghostPlay.name + ' FANS', '#f83800', 2.2); else if (FANS.away < 0) showMsg('HOME CROWD!', '#f8d878', 1.8); }
   try { sfTick(dt); lgChirpTick(); } catch (e) {}
   const hk = rk + '|' + holeIdx; if (LG.promoH !== hk) { LG.promoH = hk; if (LG.promoLeft == null) LG.promoLeft = 1 + Math.floor(Math.random() * 3); LG.promo = --LG.promoLeft <= 0; if (LG.promo) LG.promoLeft = 2 + Math.floor(Math.random() * 3); }   // v8.99.11: brand shout-out about every 3rd hole (2-4 apart), max 1 per hole, between shots only
-  if (LG.promo && !LG.clutch && state === 'aim' && st >= 1.6 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true, noCast: true })) LG.promoUsed.push(line); }   // no repeats within a round
-  if (state === 'aim' && LG.swKey !== key) { LG.swKey = key; LG.sw = Math.random() < Math.min(0.9, (LG.clutch ? 0.5 : (clubIdx === PUTT_I ? 0.3 : 0.42) * (LG.debut ? 1.4 : 1) * (FANS.away > 0 ? 2 : FANS.away < 0 ? 0.75 : 1))) ? { at: Math.random() < 0.6 ? 'power' : 'accuracy', delay: 0.12 + Math.random() * 0.35, done: false, lone: LG.clutch } : null;
+  if (LG.promo && !LG.clutch && state === 'aim' && st >= 3.2 && !hec && (!LG.plan || LG.plan.done || LG.plan.at !== 'aim')) { LG.promo = false; if (LG.promoR !== rk || !LG.promoUsed) { LG.promoR = rk; LG.promoUsed = []; } let left = LG_PROMO.filter(l => !LG.promoUsed.includes(l)); if (!left.length) { LG.promoUsed = []; left = LG_PROMO.slice(); } const line = left[Math.floor(Math.random() * left.length)]; if (lgSay([line], { force: true, noCast: true })) LG.promoUsed.push(line); }   // no repeats within a round
+  if (state === 'aim' && LG.swKey !== key) { LG.swKey = key; LG.sw = Math.random() < Math.min(0.9, (LG.clutch ? 0.5 : (clubIdx === PUTT_I ? 0.42 : 0.58) * (LG.debut ? 1.4 : 1) * (FANS.away > 0 ? 2 : FANS.away < 0 ? 0.75 : 1))) ? { at: Math.random() < 0.6 ? 'power' : 'accuracy', delay: 0.12 + Math.random() * 0.35, done: false, lone: LG.clutch } : null;
     if (LG.debut && holeIdx === 0 && strokes === 0 && !LG.debutHeck) { LG.debutHeck = true; LG.sw = { at: 'power', delay: 0.2, done: false }; } }   // v8.99.14: debut round always gets a first-tee heckle   // v8.99.12: mid-swing distraction (real golf energy)
   if (LG.sw && !LG.sw.done && state === LG.sw.at && st >= LG.sw.delay) { LG.sw.done = true; if (hec && hec.lg && !hec.heck) hec = null;
     if (LG.sw.lone) { const line = hecPickLine(LG_LONE), vis = crowdSpots(hole).filter(p => { const sx = w2s(p.x - camX, 0).x; return sx > 4 && sx < W - 4 && !p.f.costume; }), p = vis[Math.floor(Math.random() * vis.length)];
@@ -10046,7 +10041,7 @@ function crowdStands(hl, cam) {   // v8.99.8 simple pixel bleachers / dock deck 
 }
 function v93Stand(hl, cam, sp, t, cheer) {
   const back = sp.filter(p => p.z === 'g' && p.row < 2 && p.x > hl.cup); if (back.length < 5) return;
-  let x0 = 1e9, x1 = -1e9; back.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }); x0 -= 4; x1 += 4; if (x1 - x0 < 28) return;
+  let x0 = 1e9, x1 = -1e9; back.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); }); x0 -= 4; x1 = Math.min(x1 + 4,x0 + 60); if (x1 - x0 < 28) return;
   const s0 = Math.round(x0 - cam), s1 = Math.round(x1 - cam); if (s1 < 0 || s0 > W) return;
   let top = 1e9; for (let x = x0; x <= x1; x += 2) top = Math.min(top, Math.round(BASE - groundH(hl, x)));
   const night = themeOf(hole).stars ? 0.72 : 1, S = c => shadeHex(c, night), K = '#000', tiers = 3, th = 6, rise = 10;
@@ -10168,7 +10163,7 @@ function drawCourse(hl, cam) {
   if (hl === hole) drawCrowd(hl, cam, C, 'back');   // v8.99.6: fans standing behind scenery, drawn before it
   // trees, bushes, cacti and the oak stand on the ground
   for (const [kind, dx] of hl.deco) {
-    if (kind === 'board') { drawCoursePromo(hl, cam, dx, false, coursePromoIndex(hl) % 4); continue; }
+    if (kind === 'board') continue;
     const img = kind === 'tree' ? th.tree || TREE : kind === 'oak' ? th.oak || OAK : kind === 'cactus' ? CACTUS : kind === 'board' ? BILLBOARD : th.bush || BUSH, sx = Math.round(dx - cam);
     if (sx > W || sx + img.width < 0) continue;
     const gy = BASE - groundH(hl, dx + img.width / 2);
@@ -10179,8 +10174,9 @@ function drawCourse(hl, cam) {
     else ctx.drawImage(img, sx, Math.round(gy - img.height + 4));
   }
   const promo = coursePromoPlacement(hl);
-  if (promo) drawCoursePromo(hl, cam, promo.x, promo.rail, coursePromoIndex(hl) % 4);
   if (hl === hole) drawCrowd(hl, cam, C);   // v8.80 gallery; v8.99.4: drawn BEFORE the pads / walls / ramps / movers so obstacles (e.g. the HAUNTED GRAVEYARD ghost) are never hidden behind fans
+  for(const [kind,dx] of hl.deco||[])if(kind==='board')drawCoursePromo(hl,cam,dx,false,coursePromoIndex(hl)%4);
+  if(promo)drawCoursePromo(hl,cam,promo.x,promo.rail,coursePromoIndex(hl)%4);
   // Daily specials: bounce pads (on ground), rock walls, moving barriers
   const t = performance.now() / 1000;
   if (hl.pads) for (const p of hl.pads) {
@@ -10768,7 +10764,7 @@ function hudCell(i, y, text, col, border) {
   drawText(text, x + Math.round((w - textW(text)) / 2), y + 2, col);
 }
 const MZ = 20, ML = 112;                                       // meter: x of the sweet-spot line, pixels for 100% power
-function meterMarker(x, col) { const my = HUD_Y0 + 37; rect(x - 2, my, 5, 14, '#000'); rect(x - 1, my + 1, 3, 12, col); }
+function meterMarker(x, col) { const my = HUD_Y0 + 51; rect(x - 2, my, 5, 14, '#000'); rect(x - 1, my + 1, 3, 12, col); }
 /* v8.21 aim hint (kept for the test probe; v8.22 no longer draws it on the meter) */
 let aimHintCache = null;
 function aimHint() {
@@ -10783,8 +10779,8 @@ function aimHint() {
   return aimHintCache.t;
 }
 function drawMeter() {
-  box(2, HUD_Y0 + 28, 138, 24);
-  const mx = p => Math.round(MZ + p * ML), y0 = HUD_Y0 + 40, gz = mx(PERFECT_POW), ge = mx(1);
+  hudTile({x:2,y:HUD_Y0+38,w:138,h:30},false,COL.lime);
+  const mx = p => Math.round(MZ + p * ML), y0 = HUD_Y0 + 54, gz = mx(PERFECT_POW), ge = mx(1);
   const sw = Math.round(sweetErr() / 128 * ML), blink = Math.floor(performance.now() / 120) % 2;
   rect(5, y0 - 1, 133, 11, '#000'); rect(6, y0, 131, 9, '#2c2c2c');
   rect(6, y0, MZ - 6, 9, '#5c1c00');                           // late = hook side
@@ -10804,16 +10800,16 @@ function drawMeter() {
   if (state === 'power') meterMarker(mx(meter.pos), COL.white);
   if (state === 'accuracy') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), COL.white); }
   if (state === 'swing' || state === 'flight') { rect(mx(meter.power), y0 - 2, 1, 13, '#f8d878'); meterMarker(mx(meter.acc), shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange); }
-  let label = isTouchUi() ? 'TAP = SWING' : 'SPACE/CLICK = SWING', lc = COL.white;
-  if (state === 'aim' && shortGameNow()) { label = (clubIdx === PUTT_I ? 'PUTT' : 'CHIP') + ': RED FLAG = HOLE'; lc = COL.white; }
-  if (state === 'power') label = meter.short ? 'STOP NEAR THE FLAG' : isTouchUi() ? 'TAP = SET POWER' : 'SET POWER';
-  else if (state === 'accuracy') { label = 'STOP IN BRACKETS!'; lc = COL.lime; }
+  let label = isTouchUi() ? 'TAP TO SWING' : 'CLICK / SPACE', lc = COL.white;
+  if (state === 'aim' && shortGameNow()) { label = 'RED FLAG = HOLE'; lc = COL.white; }
+  if (state === 'power') label = meter.short ? 'SET POWER' : isTouchUi() ? 'SET POWER' : 'SET POWER';
+  else if (state === 'accuracy') { label = 'SET ACCURACY'; lc = COL.lime; }
   else if (state === 'swing' || state === 'flight') {
     label = shotPerfect ? 'PERFECT!' : shotSweet ? (clubIdx === PUTT_I ? 'GOOD PUTT' : 'CLEAN HIT') : (clubIdx === PUTT_I ? 'OFF LINE' : errPx > 0 ? 'SLICE' : 'HOOK');
     lc = shotPerfect ? '#f8d878' : shotSweet ? COL.lime : COL.orange;
   }
-  drawText(label, 6, HUD_Y0 + 30, lc);
-  if (['power', 'accuracy', 'swing', 'flight'].includes(state)) drawTextR(Math.round(showP * 100) + '%', 136, HUD_Y0 + 30, showP >= PERFECT_POW ? '#f8d878' : COL.white);
+  drawText(label, 6, HUD_Y0 + 41, lc);
+  if (['power', 'accuracy', 'swing', 'flight'].includes(state)) drawTextR(Math.round(showP * 100) + '%', 136, HUD_Y0 + 41, showP >= PERFECT_POW ? '#f8d878' : COL.white);
   // weather chip (just above HUD, right side)
   if (weather && weather.label) {
     const wl = weatherChipLabel(), ww = textW(wl) + 14;
@@ -10827,32 +10823,25 @@ function drawMeter() {
   }
 }
 function drawHUD() {
-  rect(0, PLAY_H, W, 1, '#000');
-  // solid dirt under the HUD (not a striped grass slab)
-  const hb = Math.max(0, H - PLAY_H);
-  if (hb > 0) {
-    rect(0, PLAY_H + 1, W, hb, COL.dirt);
-    for (let i = 0; i < 90; i++) rect(Math.floor(hash(i * 3) * W), PLAY_H + 1 + Math.floor(hash(i * 5 + 1) * Math.max(1, hb - 2)), 2, 1, i % 2 ? COL.dirtD : COL.dirtL);
-  }
-  if (!hole) return;
-  const rel = relSoFar();
-  const y1 = HUD_Y0 + 2, y2 = HUD_Y0 + 15;
-  // row 1: hole, par, stroke, total
-  hudCell(0, y1, 'HOLE ' + displayHoleNum(holeIdx), holeIdx === bountyIdx ? '#f8d878' : COL.white);
-  if (holeIdx === bountyIdx) { const [bx, bw] = HUD_COLS[0], cx = bx + bw - 6, cy = y1 + 5; rect(cx - 1, cy - 2, 3, 5, '#f8d878'); rect(cx - 2, cy - 1, 5, 3, '#f8d878'); rect(cx, cy - 1, 1, 3, '#a87c28'); }   // v8.79 bounty coin
-  hudCell(1, y1, 'PAR ' + hole.par, COL.white);
-  hudCell(2, y1, 'STROKE ' + strokes, COL.white);
-  hudCell(3, y1, 'TOTAL ' + fmtRel(rel), rel <= 0 ? COL.lime : COL.orange);
-  // row 2: club (tap to change), angle, wind, lie
-  hudCell(0, y2, CLUB_SET === 'pro' && clubIdx !== PUTT_I && textW(CLUBS[clubIdx].name + ' ' + CLUBS[clubIdx].loft + '\u00b0') <= HUD_COLS[0][1] - 4 ? CLUBS[clubIdx].name + ' ' + CLUBS[clubIdx].loft + '\u00b0' : CLUBS[clubIdx].name, COL.orange, state === 'aim' ? COL.white : COL.lime);
-  const at = clubIdx === PUTT_I ? 'R=' + puttRange(Math.abs(hole.cup - (state === 'flight' ? lastSpot : ball.x))) + 'Y' : 'ANG ' + Math.round(angle);
-  hudCell(1, y2, at, angFlash > 0 ? '#f8d878' : COL.white, angFlash > 0 ? COL.white : COL.lime);
-  windHud = true;   // v8.96: wind lives top-middle now (#windInd); the lie cell takes both right columns
-  const lie = surfAt(hole, ball.x), lieName = lieLabel(), lc = lie === 'sand' ? COL.sand : lie === 'rough' || ball.divot ? '#f8d878' : COL.lime, lx = HUD_COLS[2][0], lw = HUD_COLS[3][0] + HUD_COLS[3][1] - lx;   // v8.78: + DIVOT / UP / DN
-  box(lx, y2, lw, 11); drawText(lieName, lx + Math.round((lw - textW(lieName)) / 2), y2 + 2, lc);
-  drawMeter();
-  drawMiniMap();   // v8.10: minimap + yardage moved into the dirt strip (was here, bottom-right of the HUD)
+  rect(0,PLAY_H,W,H-PLAY_H,COL.dirt);rect(0,PLAY_H,W,1,'#000');
+  const hb=Math.max(0,H-PLAY_H);
+  for(let i=0;i<90;i++)rect(Math.floor(hash(i*3)*W),PLAY_H+1+Math.floor(hash(i*5+1)*Math.max(1,hb-2)),2,1,i%2?COL.dirtD:COL.dirtL);
+  box(2,HUD_Y0+1,W-4,35,COL.lime);
+  if(!hole||!ball)return;
+  const x=(SAFE.l||0)+5,right=W-(SAFE.r||0)-6,y=HUD_Y0,ref=state==='flight'?lastSpot:ball.x;
+  const d=Math.abs(hole.cup-ref),onGreen=surfAt(hole,ref)==='green',dist=onGreen?Math.max(1,Math.round(d*3)):Math.round(d),val=String(dist),unit=onGreen?'FT':'Y';
+  drawText(val,x,y+4,COL.white,3);drawText(unit,x+textW(val,3)+3,y+17,'#f8d878');
+  drawText('TO PIN',x,y+27,COL.gray);
+  const sx=x+86,rel=relSoFar(),total=fmtRel(rel),holeLabel='H'+displayHoleNum(holeIdx)+' / PAR '+hole.par;
+  drawText(holeLabel,sx,y+4,holeIdx===bountyIdx?'#f8d878':COL.white);
+  drawText('SHOT '+(strokes+(['aim','power','accuracy'].includes(state)?1:0)),sx,y+17,COL.white);
+  const lie=lieLabel(),lc=surfAt(hole,ref)==='sand'?COL.sand:COL.white;
+  drawText(lie,sx,y+27,lc);
+  drawTextR(total,right,y+5,rel<0?COL.lime:rel>0?COL.orange:COL.white,2);
+  drawTextR('TOTAL',right,y+24,COL.gray);
+  windHud=true;drawMeter();drawMiniMap();
 }
+
 /* v8.10: mini map rect — dirt strip, right side; slides left of the weather chip if they would touch */
 function mmRect() {
   const b = Object.assign({}, MM_BOX);
