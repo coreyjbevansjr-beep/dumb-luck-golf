@@ -84,12 +84,14 @@
      Keep the game's grass continuation out of the OS safe-area backing. */
   #acct{bottom:auto;height:100%;min-height:100dvh}
   @media (display-mode: standalone), (display-mode: fullscreen){#acct{height:100lvh}}
+  /* The panel still covers the screen. The content starts below the status bar and ends above the home indicator. */
+  #acct.on{top:0 !important;bottom:0 !important;left:0;right:0;height:auto !important;min-height:100% !important;box-sizing:border-box;padding:calc(8px + var(--acct-top, env(safe-area-inset-top, 0px))) 12px calc(20px + var(--acct-bot, env(safe-area-inset-bottom, 0px)))}
   html:has(#acct.on){background-color:#081028 !important;background-image:none !important}
   body:has(#acct.on) #gtop,body:has(#acct.on) #gbot,body:has(#acct.on) #groundFill{visibility:hidden}
 
   #acct .stlink{display:flex;gap:6px;margin:-2px 0 10px;flex-wrap:wrap}#acct .stlink input{flex:1 1 140px;width:auto !important;font-size:16px !important;padding:8px !important}
   #acct .box{max-width:440px;margin:0 auto;background:#000;border:3px solid #fcfcfc;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5);padding:14px 14px 16px}
-  #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px}
+  #acct .top{display:flex;align-items:center;justify-content:space-between;margin:-4px 0 10px;position:sticky;top:0;z-index:2;background:#000}
   #acct .back{background:none;border:0;color:#fcfcfc;font:inherit;font-size:14px;letter-spacing:2px;padding:12px 14px 12px 6px;margin:-6px 0 -6px -6px;min-height:52px;min-width:80px;text-align:left;cursor:pointer;touch-action:manipulation}
   #acct .back[aria-label]{min-width:52px;text-align:center;padding:12px;margin:-6px -6px -6px 0}
   #acct h2{margin:0;font-size:20px;letter-spacing:3px;color:#f8d878;text-shadow:2px 2px 0 #000;text-align:center;flex:1}
@@ -186,17 +188,19 @@
   #acct .fprof{display:flex;align-items:center;gap:12px;margin-top:6px}
   #acct .fprof .fgolf{width:80px;height:160px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;padding:4px 16px}
   #acct .fseen{display:block;font-size:10px;letter-spacing:1px;color:#8c9cb4;margin-top:2px;min-height:12px}#acct .fseen.on{color:#58d854}#acct .fseen i{display:inline-block;width:6px;height:6px;background:#58d854;margin-right:5px;vertical-align:1px}
-  /* v8.99.47 tidy friends rows: avatar | name + sub line | fixed-width action | X */
-  #acct .item.fr{gap:10px;padding:10px 0;min-height:64px}
-  #acct .item.fr .who{display:flex;flex-direction:column;justify-content:center;min-width:0;white-space:nowrap;overflow:visible}
-  #acct .item.fr .plink{padding:0;min-height:0;display:block;width:100%;line-height:1.2}
-  #acct .item.fr .fname{display:block;font-size:15px;letter-spacing:1px;line-height:1.2;white-space:nowrap;overflow:hidden}
-  #acct .item.fr .fsub{display:flex;gap:8px;align-items:center;margin-top:4px;min-height:12px;font-size:10px;letter-spacing:1px;color:#8c9cb4}
-  #acct .item.fr .fsub .fseen{display:inline;margin:0;min-height:0}
-  #acct .item.fr .fsub .st{display:inline;margin:0;font-size:10px}
-  #acct .item.fr .fh2h{color:#bcc8e0}
-  #acct .item .fexp{color:#fc9838;letter-spacing:1px;font-size:10px;margin-left:6px}
-  #acct .item .fturn{display:inline-block;background:#c8102e;color:#fcfcfc;font-size:9px;letter-spacing:1px;padding:2px 5px;margin-right:6px;border:1px solid #fcfcfc}
+  /* v8.99.100 compact friends rows: avatar | name + one subline | one action | quiet more */
+  #acct .list.frs{margin-top:6px;border-top:1px solid #243044}
+  #acct .item.fr{gap:8px;padding:5px 0;min-height:0;border-bottom:1px solid #243044}
+  #acct .item.fr .who{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;overflow:hidden;white-space:nowrap}
+  #acct .item.fr .plink{padding:0;min-height:0;display:block;width:100%;min-width:0;line-height:1.15;overflow:hidden}
+  #acct .item.fr .fname{display:block;font-size:13px;letter-spacing:.4px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #acct .item.fr .fsub{display:block;margin-top:2px;min-height:0;font-size:10px;letter-spacing:.4px;color:#8c9cb4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #acct .item.fr .fsub.turn{color:#f8d878}
+  #acct .item.fr .fsub.wait{color:#e0a060}
+  #acct .frconfirm{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:8px;background:#141018;border:1px solid #fc9838;font-size:11px;letter-spacing:1px}
+  #acct .frconfirm span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #acct .frconfirm .btn{flex:none;width:auto;min-height:36px;margin:0;padding:0 10px}
+  #acct .frend{height:12px}
   #acct .stake-seg button{flex:1 1 30%;min-height:40px;font-size:11px}
   #acct .box-reveal{text-align:center;padding:18px 8px;border:3px solid #f8d878;margin:12px 0;background:#102040}
   #acct .box-reveal .tier{font-size:14px;letter-spacing:2px;margin:8px 0}
@@ -213,11 +217,12 @@
   #acct .cc-item.on{outline:2px solid #fce4a0;outline-offset:1px}
   #acct .cc-item.own{box-shadow:inset 0 0 0 2px #f8d878}
 
-  #acct .btn.small.fact{flex:none;width:96px;padding:0;letter-spacing:1px;font-size:12px}
-  #acct .item.fr span.fx{flex:none;width:44px}
-  #acct .btn.small.fx{flex:none;width:44px;padding:0;letter-spacing:0}
+  #acct .item.fr .btn.small.fact{flex:none;width:84px;min-height:32px;height:32px;padding:0 4px;letter-spacing:.4px;font-size:11px;background:#102040;color:#f8d878;border:2px solid #3c4c6c;box-shadow:none}
+  #acct .item.fr .btn.small.fact.play{color:#d8f8d0;border-color:#3c7c4c;background:#102818}
+  #acct .item.fr .btn.small.fact.wait{color:#9cb0c8;border-color:#2c3c5c;background:#0c1830}
+  #acct .btn.more{flex:none;width:28px;min-width:28px;height:32px;min-height:32px;margin:0;padding:0;background:transparent;color:#7c8cac;border:0;box-shadow:none;font-size:18px;letter-spacing:1px;line-height:1}
   #acct .row .btn.fadd{flex:none;width:96px}
-  #acct img.fbust{width:39px;height:45px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;align-self:center}
+  #acct img.fbust{width:32px;height:36px;image-rendering:pixelated;flex:none;background:#183848;border:2px solid #3c4c6c;align-self:center}
   #acct .fprof .big{text-align:left;margin:0 0 4px}
   #acct .fprof .rank{font-size:12px;letter-spacing:1px;margin:0 0 6px;color:#bcc8e0}
   #acct .fprof .rank b{color:#f8d878}
@@ -552,7 +557,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.99';
+const GAME_VERSION = 'v8.99.100';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -676,6 +681,7 @@ function resize() {
     BASE = clamp(want, Math.round(H * 0.58), PLAY_H - Math.max(dirtBand, 28));
   }
   layoutChrome();
+  try { pinAcctSafe(); } catch (e) {}
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
 addEventListener('pageshow', () => { try { resize(); } catch (e) {} });   // bfcache resume: remeasure, don't keep a stale short viewport
@@ -690,6 +696,14 @@ const FS_EL = document.documentElement;
 const fsSupported = !!(FS_EL.requestFullscreen || FS_EL.webkitRequestFullscreen);
 const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function pinAcctSafe() {   // account panel clears the status bar and the home indicator
+  const el = document.getElementById('acct'); if (!el) return;
+  const s = safeCssInsets();
+  let top = s.t, bot = s.b;
+  if (isStandalone()) { if (top < 47) top = 47; if (bot < 34) bot = 34; }
+  el.style.setProperty('--acct-top', top + 'px');
+  el.style.setProperty('--acct-bot', bot + 'px');
+}
 const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 let toast = null;   // { lines, until }
 const toastQ = [];   // v8.46: unlock toasts queue instead of replacing each other
@@ -1071,10 +1085,33 @@ function openMatchWith(fid) {   // v8.99.46: one open match per pair - pending/a
   return (social.matches || []).find(m => ['pending', 'active'].includes(m.status) && (!m.expires_at || Date.parse(m.expires_at) > now) && (m.challenger === fid || m.opponent === fid)) || null;
 }
 function openMatchBtn(m, big) {   // button that replaces CHALLENGE while a match with this friend is open
-  const lab = matchLabel(m), cls = 'btn' + (big ? '' : ' small fact');   // v8.99.47: short list labels, uniform width
-  if (lab === 'YOUR TURN') return '<button class="' + cls + '" data-a="mplay" data-id="' + esc(m.id) + '">' + (big ? 'YOUR TURN' : 'PLAY') + '</button>';
-  if (lab === 'NEW CHALLENGE') return '<button class="' + cls + '" data-a="go:matches">' + (big ? 'NEW CHALLENGE' : 'ACCEPT') + '</button>';
-  return '<button class="' + cls + ' alt" data-a="mresult" data-id="' + esc(m.id) + '">' + (big ? 'IN PROGRESS' : 'WAITING') + '</button>';
+  const lab = matchLabel(m);
+  if (big) {
+    if (lab === 'YOUR TURN') return '<button class="btn" data-a="mplay" data-id="' + esc(m.id) + '">YOUR TURN</button>';
+    if (lab === 'NEW CHALLENGE') return '<button class="btn" data-a="go:matches">NEW CHALLENGE</button>';
+    return '<button class="btn alt" data-a="mresult" data-id="' + esc(m.id) + '">IN PROGRESS</button>';
+  }
+  if (lab === 'YOUR TURN') return '<button class="btn small fact play" data-a="mplay" data-id="' + esc(m.id) + '">PLAY</button>';
+  if (lab === 'NEW CHALLENGE') return '<button class="btn small fact play" data-a="go:matches">ACCEPT</button>';
+  return '<button class="btn small fact wait" data-a="mresult" data-id="' + esc(m.id) + '">WAITING</button>';
+}
+function friendLeftShort(m) {   // one short timer for the friends row, never a second wrapping line
+  const ms = matchExpiryMs(m); if (ms == null || ms <= 0) return '';
+  const h = Math.max(1, Math.ceil(ms / 36e5));
+  return h < 48 ? h + 'H LEFT' : Math.ceil(ms / 864e5) + 'D LEFT';
+}
+function friendRowSub(f) {
+  const om = openMatchWith(f.friend_id);
+  if (om && matchNeedsYou(om)) { const left = friendLeftShort(om); return '<span class="fsub turn">' + esc(left ? 'YOUR TURN · ' + left : 'YOUR TURN') + '</span>'; }
+  if (om) { const left = friendLeftShort(om); return '<span class="fsub wait">' + esc(left || 'WAITING') + '</span>'; }
+  const seen = friendSeenTxt((social.seen || {})[f.friend_id] || '');
+  return '<span class="fsub">' + (seen ? esc(seen) : '&nbsp;') + '</span>';
+}
+function friendOrder(a, b) {   // your turn, then waiting, then everyone else by latest activity
+  const rank = f => { const om = openMatchWith(f.friend_id); return om && matchNeedsYou(om) ? 0 : om ? 1 : 2; };
+  const ra = rank(a), rb = rank(b); if (ra !== rb) return ra - rb;
+  const sa = Date.parse((social.seen || {})[a.friend_id] || '') || 0, sb = Date.parse((social.seen || {})[b.friend_id] || '') || 0;
+  return sb - sa;
 }
 async function createMatch(friend, holes, chirps, stake) {
   if (openMatchWith(friend.friend_id)) return { ok: false, msg: 'YOU ALREADY HAVE A MATCH WITH @' + String(friend.friend_username).toUpperCase() };
@@ -12680,15 +12717,18 @@ const VIEWS = {
     '<label class="chk mkt"><input id="aMkt" type="checkbox"' + (k ? ' checked' : '') + '> SEND ME DROPS &amp; ANNOUNCEMENTS (UNSUBSCRIBE ANYTIME)</label>' +
     '<button class="btn" type="submit">SAVE</button></form>' + (a2hsKind() ? '<button class="btn alt" data-a="a2hs">ADD TO HOME SCREEN</button>' : '') + '<div class="msg"></div>'; },
   friends: () => {
-    const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted');
+    const F = social.friends, inc = F.filter(f => f.status === 'pending' && f.direction === 'in'), out = F.filter(f => f.status === 'pending' && f.direction === 'out'), ok = F.filter(f => f.status === 'accepted').slice().sort(friendOrder);
+    const row = (f, act) => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE"><span class="fname">' + at(f.friend_username) + '</span></button>' + friendRowSub(f) + '</div>' + act + '</div>';
+    const confirm = f => acctOpts.frm === f.id ? '<div class="frconfirm"><span>REMOVE ' + at(f.friend_username) + '?</span><button class="btn small alt" type="button" data-a="frmno">NO</button><button class="btn small" type="button" data-sure="1" data-a="fremove" data-id="' + esc(f.id) + '">REMOVE</button></div>' : '';
     let h = head('FRIENDS') + '<form data-f="addfriend" novalidate><label for="aFriend">ADD BY USERNAME</label><div class="row"><input id="aFriend" type="text" maxlength="13" placeholder="@USERNAME" autocapitalize="off" spellcheck="false"><button class="btn fadd" type="submit">ADD</button></div></form><div class="msg"></div>';
     if (net.missing.friends) return h + '<p class="empty">FRIENDS ARE NOT SET UP ON THE SERVER YET.</p>';
-    if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list">' + inc.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub"><span class="st hot">WANTS TO BE FRIENDS</span></span></div><button class="btn small fact" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small alt fx" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
-    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list">' + (ok.length ? ok.map(f => { const om = openMatchWith(f.friend_id), turnOn = om && matchNeedsYou(om), exp = om ? matchExpiryTag(om) : '';
-      return '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><button class="plink" data-a="fprof" data-id="' + esc(f.friend_username) + '" aria-label="VIEW PROFILE"><span class="fname">' + at(f.friend_username) + '</span></button><span class="fsub">' + (turnOn ? '<span class="fturn">YOUR TURN</span>' : '') + friendSeenHtml(f.friend_id) + (h2hWith(f.friend_username) ? '<span class="fh2h">W-L-T ' + h2hWith(f.friend_username) + '</span>' : '') + (exp ? '<span class="fexp">' + esc(exp) + '</span>' : '') + '</span></div>' + (om ? openMatchBtn(om) : '<button class="btn small fact" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button>') + '<button class="btn small alt fx" data-a="fremove" data-id="' + esc(f.id) + '" aria-label="REMOVE">X</button></div>'; }).join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
+    if (inc.length) h += '<p class="sec">REQUESTS</p><div class="list frs">' + inc.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub turn">WANTS TO BE FRIENDS</span></div><button class="btn small fact play" data-a="faccept" data-id="' + esc(f.id) + '">ACCEPT</button><button class="btn small fact wait" data-a="fdecline" data-id="' + esc(f.id) + '">NO</button></div>').join('') + '</div>';
+    h += '<p class="sec">FRIENDS (' + ok.length + ')</p><div class="list frs">' + (ok.length ? ok.map(f => { const om = openMatchWith(f.friend_id);
+      const act = (om ? openMatchBtn(om) : '<button class="btn small fact" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE</button>') + '<button class="btn more" data-a="fmore" data-id="' + esc(f.id) + '" aria-label="MORE OPTIONS">...</button>';
+      return row(f, act) + confirm(f); }).join('') : '<p class="empty">NO FRIENDS YET. ADD ONE ABOVE.</p>') + '</div>';
     h += '<p class="wallet-line">COINS ' + (walletRefresh().coins|0) + ' · BOXES ' + (WALLET.boxes|0) + ' · <button type="button" data-a="go:boxes" style="background:none;border:0;color:#f8d878;font:inherit;font-size:11px;letter-spacing:1px;text-decoration:underline;cursor:pointer;padding:0">OPEN BOXES</button></p>';
-    if (out.length) h += '<p class="sec">SENT</p><div class="list">' + out.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub"><span class="st">REQUEST SENT</span></span></div><button class="btn small alt fact" data-a="fremove" data-id="' + esc(f.id) + '">CANCEL</button><span class="fx" aria-hidden="true"></span></div>').join('') + '</div>';
-    return h;
+    if (out.length) h += '<p class="sec">SENT</p><div class="list frs">' + out.map(f => '<div class="item fr">' + friendBust(f.friend_username) + '<div class="who"><span class="fname">' + at(f.friend_username) + '</span><span class="fsub">REQUEST SENT</span></div><button class="btn small fact wait" data-a="fcancel" data-id="' + esc(f.id) + '">CANCEL</button></div>').join('') + '</div>';
+    return h + '<div class="frend"></div>';
   },
   locker: o => {   // v8.64: every piece of gear; earned in colour, locked as dark outlines; tap = name · tier · how to get it
     const F = gear.filter, signed = isSignedIn() && hasUsername();
@@ -12718,7 +12758,8 @@ const VIEWS = {
       '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
       '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
       '<div><b>' + fmtB(B.full) + '</b>BEST 18</div><div><b>' + (S.birdies | 0) + '</b>BIRDIES</div><div><b>' + (S.eagles | 0) + '</b>EAGLES</div><div><b>' + (S.aces | 0) + '</b>HOLES-IN-ONE</div></div>' +
-      (f ? (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id), true) : '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>') : '') + '<div class="msg"></div>';
+      (f ? (openMatchWith(f.friend_id) ? openMatchBtn(openMatchWith(f.friend_id), true) : '<button class="btn" data-a="challenge" data-id="' + esc(f.id) + '">CHALLENGE ' + at(P.username) + '</button>') : '') +
+      (f ? (acctOpts.frm === f.id ? '<div class="frconfirm"><span>REMOVE ' + at(P.username) + '?</span><button class="btn small alt" type="button" data-a="frmno">NO</button><button class="btn small" type="button" data-sure="1" data-a="fremove" data-id="' + esc(f.id) + '">REMOVE</button></div>' : '<button class="link" data-a="fmore" data-id="' + esc(f.id) + '">REMOVE FRIEND</button>') : '') + '<div class="msg"></div>';
   },
   challenge: o => {
     const f = social.friends.find(x => x.id === o.fid), n = o.holes || 9; walletRefresh();
@@ -13493,12 +13534,7 @@ function cupEnter() {
 }
 function cupAfterPending() { try { return sessionStorage.getItem(CUP_AFTER_KEY) === '1'; } catch (e) { return false; } }
 function cupAfterClear() { try { sessionStorage.removeItem(CUP_AFTER_KEY); } catch (e) {} }
-function fitFriendNames(root) {   // v8.99.47: shrink a long @name until it fits its row (like the leaderboard)
-  (root || document).querySelectorAll('#acct .item.fr .fname').forEach(el => {
-    el.style.fontSize = ''; let fs = 15;
-    while (fs > 9 && el.scrollWidth > el.clientWidth + 0.5) { fs -= 0.5; el.style.fontSize = fs + 'px'; el.style.letterSpacing = fs < 13 ? '0' : ''; }
-  });
-}
+function fitFriendNames() {}   // names ellipsize in CSS now; shrinking them made long handles collide with the buttons
 if (typeof MutationObserver !== 'undefined') addEventListener('DOMContentLoaded', () => { const b = document.getElementById('acct'); if (b) new MutationObserver(() => fitFriendNames(b)).observe(b, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); });
 addEventListener('resize', () => fitFriendNames());
 async function showAcct(view, opts) {
@@ -13690,7 +13726,10 @@ if (acctEl) {
     if (a === 'pwShow') { const i = document.getElementById(b.getAttribute('data-for')); if (i) { i.type = i.type === 'password' ? 'text' : 'password'; b.textContent = i.type === 'password' ? 'SHOW' : 'HIDE'; } return; }
     if (a === 'signout') { signOut(); hideAcct(); setState('career'); return; }
     if (a === 'faccept' || a === 'fdecline') { await answerFriend(id, a === 'faccept'); showAcct('friends'); return; }
-    if (a === 'fremove') { if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } await removeFriend(id); showAcct('friends'); return; }
+    if (a === 'fmore') { acctOpts.frm = acctOpts.frm === id ? '' : id; showAcct(acctView === 'friendProfile' ? 'friendProfile' : 'friends', acctOpts); return; }
+    if (a === 'frmno') { acctOpts.frm = ''; showAcct(acctView === 'friendProfile' ? 'friendProfile' : 'friends', acctOpts); return; }
+    if (a === 'fcancel') { await removeFriend(id); showAcct('friends'); return; }
+    if (a === 'fremove') { if (b.dataset.sure !== '1' && b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'SURE?'; return; } acctOpts.frm = ''; await removeFriend(id); showAcct('friends'); return; }
     if (a === 'challenge') { const f0 = social.friends.find(x => x.id === id), om = f0 && openMatchWith(f0.friend_id); if (om) { acctMsg('YOU ALREADY HAVE A MATCH WITH @' + String(f0.friend_username).toUpperCase()); return; } showAcct('challenge', { fid: id, holes: 9 }); return; }
     if (a === 'holes') { acctOpts.holes = +b.getAttribute('data-n'); showAcct('challenge', acctOpts); return; }
     if (a === 'chirp') { const i = +b.getAttribute('data-n'), c = acctOpts.chirps || (acctOpts.chirps = []), k = c.indexOf(i); if (k >= 0) c.splice(k, 1); else { c.push(i); if (c.length > 2) c.shift(); } showAcct('challenge', acctOpts); return; }
