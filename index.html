@@ -557,7 +557,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.100';
+const GAME_VERSION = 'v8.99.101';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1155,6 +1155,7 @@ async function createMatch(friend, holes, chirps, stake) {
     await walletPull();
   }
   social.matches.unshift(m);
+  try { dlgTrack('friend_challenge_sent'); } catch (e) {}
   return { ok: true, match: m };
 }
 async function respondMatch(id, action) {
@@ -1421,8 +1422,96 @@ async function loadAdmin() {
   admin.names = n.ok && Array.isArray(n.data) ? n.data.map(String) : [];
   if (!admin.is) admin.unlock = false;
   admin.checked = true;
+  try { if (admin.is) dlgAnalyticsStop(); else { dlgMaybeStart(); dlgIdentify(); } } catch (e) {}
   return admin.is;
 }
+/* v8.99.101: Sentry (errors) + PostHog (light analytics). Never loaded in #test, on localhost, or for an admin. */
+let dlgNoTrack = false, dlgStarted = false, dlgGen = 0;
+function dlgHostBlocked() {
+  try {
+    if (/^#test/.test(location.hash || '')) return true;
+    const h = String(location.hostname || '');
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
+  } catch (e) { return true; }
+  return false;
+}
+function dlgAnalyticsOff() { return dlgNoTrack || dlgHostBlocked() || !!(typeof admin !== 'undefined' && admin && admin.is); }
+function dlgAnalyticsStop() {
+  dlgNoTrack = true; dlgGen++;
+  try { if (window.posthog && typeof posthog.opt_out_capturing === 'function') posthog.opt_out_capturing(); } catch (e) {}
+}
+function dlgTrack(name, props) {
+  try {
+    if (dlgAnalyticsOff()) return;
+    if (!window.posthog || typeof window.posthog.capture !== 'function') return;
+    window.posthog.capture(String(name), props || {});
+  } catch (e) {}
+}
+function dlgIdentify() {
+  try {
+    if (dlgAnalyticsOff() || !isSignedIn() || !hasUsername()) return;
+    if (!window.posthog || typeof window.posthog.identify !== 'function') return;
+    window.posthog.identify(String(account.profile.username));
+  } catch (e) {}
+}
+function dlgLoadSentry() {
+  try {
+    const s = document.createElement('script');
+    s.src = 'https://browser.sentry-cdn.com/8.47.0/bundle.min.js';
+    s.async = true; s.defer = true; s.crossOrigin = 'anonymous';
+    s.onload = function () {
+      try {
+        if (dlgAnalyticsOff() || !window.Sentry || typeof Sentry.init !== 'function') return;
+        Sentry.init({
+          dsn: 'https://9e3f51f1858df2e805187c1e91f446d6@o4512468427341824.ingest.us.sentry.io/4512468480688128',
+          release: GAME_VERSION,
+          environment: 'production',
+          tracesSampleRate: 0,
+          beforeSend: function (event) {
+            try {
+              if (dlgAnalyticsOff()) return null;
+              const vals = (event && event.exception && event.exception.values) || [];
+              const top = vals[0] || {};
+              const msg = String(top.value || (event && event.message) || '');
+              const frames = (top.stacktrace && top.stacktrace.frames) || [];
+              if (msg === 'Script error.' && !frames.length) return null;
+              const files = frames.map(function (f) { return String((f && f.filename) || ''); }).join(' ');
+              if (/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:|webkit-masked-url:/i.test(files)) return null;
+            } catch (e) {}
+            return event;
+          }
+        });
+      } catch (e) {}
+    };
+    s.onerror = function () {};
+    document.head.appendChild(s);
+  } catch (e) {}
+}
+function dlgLoadPosthog() {
+  try {
+    if (window.posthog && window.posthog.__SV) return;
+    !function (t, e) { var o, n, p, r; e.__SV || (window.posthog = e, e._i = [], e.init = function (i, s, a) { function g(t, e) { var o = e.split('.'); 2 == o.length && (t = t[o[0]], e = o[1]), t[e] = function () { t.push([e].concat(Array.prototype.slice.call(arguments, 0))); }; } (p = t.createElement('script')).type = 'text/javascript', p.crossOrigin = 'anonymous', p.async = !0, p.src = s.api_host.replace('.i.posthog.com', '-assets.i.posthog.com') + '/static/array.js', (r = t.getElementsByTagName('script')[0]).parentNode.insertBefore(p, r); var u = e; for (void 0 !== a ? u = e[a] = [] : a = 'posthog', u.people = u.people || [], u.toString = function (t) { var e = 'posthog'; return 'posthog' !== a && (e += '.' + a), t || (e += ' (stub)'), e; }, u.people.toString = function () { return u.toString(1) + '.people (stub)'; }, o = 'init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug'.split(' '), n = 0; n < o.length; n++) g(u, o[n]); e._i.push([i, s, a]); }, e.__SV = 1); }(document, window.posthog || []);
+    posthog.init('phc_p85FohjxWtNGSC8zmX2mwb8zC4xYQYkmjoSxEY4rKvz5', {
+      api_host: 'https://us.i.posthog.com',
+      person_profiles: 'identified_only',
+      autocapture: true,
+      capture_pageview: true,
+      disable_session_recording: true,
+      capture_exceptions: false,
+      persistence: 'localStorage+cookie'
+    });
+  } catch (e) {}
+}
+function dlgMaybeStart() {
+  try {
+    if (dlgStarted || dlgAnalyticsOff()) return;
+    dlgStarted = true;
+    const gen = ++dlgGen;
+    const go = function () { if (gen !== dlgGen || dlgAnalyticsOff()) return; dlgLoadSentry(); dlgLoadPosthog(); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go); else setTimeout(go, 0);
+  } catch (e) {}
+}
+try { if (!isSignedIn()) dlgMaybeStart(); } catch (e) {}
 const adminErr = r => { const m = String((r.data && r.data.message) || ''); return r.status === 0 ? 'NETWORK ERROR' : /admin only/.test(m) ? 'NOT AN ADMIN' : /no such/.test(m) ? m.toUpperCase() : /name taken/.test(m) ? 'NAME TAKEN' : /bad username/.test(m) ? '3-12 LETTERS/NUMBERS/_ , START WITH A LETTER' : /cannot ban an admin/.test(m) ? "CAN'T BAN AN ADMIN" : 'FAILED: ' + (m || r.status).toString().toUpperCase().slice(0, 40); };
 async function adminRpc(fn, body) { const r = await sb('/rest/v1/rpc/' + fn, { method: 'POST', body: body || {} }, 'admin'); if (r.status === 403 || (r.data && r.data.code === '42501' && /admin only/.test(r.data.message || ''))) { admin.is = false; admin.unlock = false; } return r.ok ? { ok: true, data: r.data } : { ok: false, msg: adminErr(r) }; }
 async function adminLoadStats() {   // v8.96: 7d + 30d stats, last 30d of public scores, newest accounts (all existing admin-gated RPCs / public reads)
@@ -4557,6 +4646,7 @@ function buildDailyHole(forceIdx) {
   return def;
 }
 function startDailyFlow(forceIdx) {
+  try { dlgTrack('daily_start'); } catch (e) {}
   const def = buildDailyHole(forceIdx);
   setCourseHoles('daily', [def]);
   openCustomize('daily');
@@ -6248,6 +6338,7 @@ function ovActivate(i, dir = 1) {
     if (i === 0) resumeGame();
     else if (i === 1) openSettings('pause');
     else if (i === 2) {
+      try { if (hole) dlgTrack('round_quit', { course: courseKind || null, hole: displayHoleNum(holeIdx) }); } catch (e) {}
       if (lbiQuitCounted()) {   // leaving does not forfeit; the round stays open until the window closes
         const rnd = lbiCtx.rnd;
         const end = lbiRoundEnd(rnd);
@@ -7267,7 +7358,7 @@ function scoreName(strk, par) {
 function relSoFar() { let d = 0; scores.forEach((s, i) => { if (s != null) d += s - HOLES[i].par; }); return d; }
 
 function startRound() { try { careerRoundStart(); } catch (e) {} holeIdx = 0; scores = []; if (!(courseKind === 'lbi' && lbiCtx && lbiCtx.from)) flySeen = new Set();   // v8.77: fresh round = fresh flyovers
-  if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { GPV.round(roundSeedNow(), courseKind); } catch (e) { cond = { gust: false, firm: false }; bountyIdx = -1; }   /* v8.79 */ try { trackEvent('round_start', trackRoundMeta()); } catch (e) {} startHole(); }
+  if (courseKind === 'lbi' && lbiCtx && lbiCtx.from) { holeIdx = Math.min(lbiCtx.from, HOLES.length - 1); scores = lbiCtx.prev.slice(0, holeIdx); }   /* v8.63 resume */ if (courseKind !== 'daily' && courseKind !== 'match') weather = weather.id ? weather : pickWeather(); try { GPV.round(roundSeedNow(), courseKind); } catch (e) { cond = { gust: false, firm: false }; bountyIdx = -1; }   /* v8.79 */ try { trackEvent('round_start', trackRoundMeta()); dlgTrack('round_start', { course: courseKind || null, mode: scoreModeForSave() }); } catch (e) {} startHole(); }
 function startHole() {
   if (courseKind !== 'lab' && CLUB_SET !== 'std') applyClubSet('std');   // v8.99.2: the pro bag never leaves the LAB
   camY = 0; shotFx = null; yardFx = null;
@@ -7849,6 +7940,7 @@ function finishHole() {
   holeSave = false;
   if (holeIdx === bountyIdx && d <= -1 && !SIM) { if (!doneInfo.save) showMsg('BOUNTY!  2X XP', '#f8d878', 2.2); doneInfo.bounty = true; }   // v8.79
   announce(doneInfo.name + ', ' + doneInfo.strokes + ' strokes');
+  try { dlgTrack('hole_complete', { course: courseKind || null, hole: displayHoleNum(holeIdx), strokes: scores[holeIdx], par: hole.par }); } catch (e) {}
   if (d <= -1 && strokes > 1) crowdCheer(d <= -2 ? 1.4 : 1, true);   // v8.80 under par is a success, one roar for the shot
   if (d <= -2) grantAch('eagle', 'GOLD CROWN HAT!');
   else if (d === -1) grantAch('birdie', 'GOLD TRAIL!');
@@ -7905,6 +7997,7 @@ function finishRound() {
     const meta = Object.assign(trackRoundMeta(), { strokes: total });
     trackEvent('round_finish', meta);
     if (!(NO_SAVE || practice)) trackEvent('score_submit', meta);
+    dlgTrack('round_complete', { course: courseKind || null, mode: mode, score: total, to_par: rel });
   } catch (e) {}
   dogPop = null;
   setState('card'); SFX.fanfare(); try { a2hsAfterRound(); } catch (e) {}
@@ -11462,7 +11555,7 @@ function psAct(t, e) {
   if (a === 'drop') return;   // countdown is not a button
   if (a === 'close') return psClose();
   if (a === 'flip') { shopChipFlip = !shopChipFlip; t.classList.toggle('flip', shopChipFlip); SFX.click(); return; }
-  if (a === 'open') { ps.detail = id; ps.gal = 0; psRender(); SFX.click(); const b = ps.el.querySelector('.ps-back'); if (b && e.detail === 0) b.focus(); return; }
+  if (a === 'open') { try { dlgTrack('shop_item_view', { item: id }); } catch (err) {} ps.detail = id; ps.gal = 0; psRender(); SFX.click(); const b = ps.el.querySelector('.ps-back'); if (b && e.detail === 0) b.focus(); return; }
   if (a === 'back') { ps.detail = null; psRender(); SFX.click(); return; }
   if (a === 'g') { psGalGo(Number(t.getAttribute('data-n')) || 0); SFX.tick(); return; }
   if (a === 'next' || a === 'prev') { psGalGo(ps.gal + (a === 'next' ? 1 : -1)); SFX.tick(); return; }
@@ -11494,6 +11587,7 @@ function psShow() {
   const s = safeCssInsets(), el = ps.el;
   el.style.setProperty('--pst', s.t + 'px'); el.style.setProperty('--psr', s.r + 'px'); el.style.setProperty('--psb', s.b + 'px'); el.style.setProperty('--psl', s.l + 'px');
   ps.open = true; ps.at = performance.now(); ps.detail = null; psRender(); el.classList.add('on'); void el.offsetWidth; el.classList.add('in');
+  try { dlgTrack('shop_open'); } catch (e) {}
   ps.items = shopVisibleItems().map(i => i.id).join() + '|' + JSON.stringify(shopState.links || {});
 }
 function psHide() { ps.open = false; ps.detail = null; shopChipFlip = false; if (ps.el) ps.el.classList.remove('on', 'in'); shopChipEl = null; }
@@ -13030,7 +13124,7 @@ function drawLbiBanner() {   // v8.99.52: one compact 2-line scoreboard strip (n
   }
 }
 function lbiOpen(tab) {
-  try { trackEvent('lbi_open', {}); } catch (e) {}
+  try { trackEvent('lbi_open', {}); dlgTrack('tournament_open'); } catch (e) {}
   showAcct('lbi', { tab: tab || 'board' }); lbiRefresh();
 }
 async function lbiRefresh() {

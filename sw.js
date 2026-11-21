@@ -1,5 +1,5 @@
 /* Dumb Luck Golf service worker - offline shell, never cache Supabase */
-const CACHE = 'dlg-golf-v271';
+const CACHE = 'dlg-golf-v272';
 // v8.20+: include the exact ?v= URLs index.html requests (cache-first lookups match the full URL incl. query)
 const PRECACHE = [
   './',
@@ -46,10 +46,15 @@ function isSupabase(url) {
   return /supabase\.co/i.test(url) || /\/rest\/v1\//i.test(url);
 }
 
+function isAnalytics(url) {
+  return /sentry-cdn\.com|ingest\.us\.sentry\.io|us\.i\.posthog\.com|us-assets\.i\.posthog\.com/i.test(url);
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return;
   const url = req.url;
+  if (isAnalytics(url)) return; // Sentry + PostHog: never cache or intercept
+  if (req.method !== 'GET') return;
   if (isSupabase(url)) return; // network only - never cache leaderboard traffic
 
   const dest = req.destination;
