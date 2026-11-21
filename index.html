@@ -557,7 +557,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.101';
+const GAME_VERSION = 'v8.99.102';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -11378,7 +11378,7 @@ const NEW_MARKER_LINK = 'https://buy.stripe.com/28E5kC0zF88ZeV33AT7Re01';   // v
 const STRIPE_MARKER_URL = 'https://buy.stripe.com/eVq6oG1DJdtj9AJ0oH7Re00';   // v8.99.26: old $10 link — keep active/unused; Buy Now uses NEW_MARKER_LINK
 const SHOPIFY = { domain: '' };   // e.g. 'dumb-luck-golf.myshopify.com'. With a handle / variant id set in admin STORE, BUY goes to that store
 const SHOP_CHIP_SRC = ['shop/lucky-marker-front.webp?v=848', 'shop/lucky-marker-back.webp?v=848'];
-const SHOP_GALLERY = { camo_snapback: [], lucky_marker: ['shop/lucky-marker-front-720.webp?v=850', 'shop/lucky-marker-back-720.webp?v=850'] };
+const SHOP_GALLERY = { camo_snapback: ['shop/camo-snapback-ig-720.webp?v=8102', 'shop/camo-snapback-real-720.webp?v=8102'], lucky_marker: ['shop/lucky-marker-front-720.webp?v=850', 'shop/lucky-marker-back-720.webp?v=850'] };
 let shopPreBox = null, shopChipEl = null, shopChipBox = null, shopChipFlip = false;
 const psUrlOk = u => /^https:\/\/[^\s"'<>\\]{4,500}$/.test(String(u || ''));
 function shopLink(id) {
