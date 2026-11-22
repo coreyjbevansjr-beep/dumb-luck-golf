@@ -557,7 +557,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.103';
+const GAME_VERSION = 'v8.99.104';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1476,7 +1476,8 @@ function dlgLoadSentry() {
               const frames = (top.stacktrace && top.stacktrace.frames) || [];
               if (msg === 'Script error.' && !frames.length) return null;
               const files = frames.map(function (f) { return String((f && f.filename) || ''); }).join(' ');
-              if (/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:|webkit-masked-url:/i.test(files)) return null;
+              if (/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:|webkit-masked-url:|iabjs:/i.test(files)) return null;
+              if (/Java object is gone|Java bridge method/i.test(msg)) return null;   // v8.99.104: Instagram/Facebook in-app browser noise, not the game
             } catch (e) {}
             return event;
           }
