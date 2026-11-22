@@ -557,7 +557,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.104';
+const GAME_VERSION = 'v8.99.105';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -807,6 +807,9 @@ const PAL = { k:'#000000', b:'#b86c28', d:'#6c3410', t:'#fcd8a8', w:'#fcfcfc', p
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+// v8.99.105 polish: tiny easing helpers (visual only - never used by shots, physics or scoring)
+const easeOutCubic = k => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+const easeOutBack = (k, s = 1.70158) => { k = clamp(k, 0, 1) - 1; return 1 + (s + 1) * k * k * k + s * k * k; };
 const lerp = (a, b, t) => a + (b - a) * t;
 function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
@@ -5796,7 +5799,7 @@ function setState(s) {
   if (s === 'title') { refreshTitleLB(); try { lbiPopMaybe(); } catch (e) {} }
   // quick fade between major screens (not every swing state)
   const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
-  if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s };
+  if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s, at: performance.now() };   // v8.99.105: timed + eased
 }
 const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews never write scores
 const hit = (p, r) => p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
@@ -7522,8 +7525,10 @@ function drawBanner() {
   const b = fx.banner; if (!b) return;
   if (b.t > b.dur - 0.3 && Math.floor(b.t * 16) % 2) return;
   const fit = Math.max(1, Math.floor((W - 8) / (b.text.length * 6 - 1)));
-  const sx = Math.min(b.t < 0.05 ? 2 : b.t < 0.14 ? 4 : 3, fit);      // pop: small -> big -> settle
+  const sx = Math.min(3, fit);      // v8.99.105: one size, eased stamp (back-out) instead of stepped 2 -> 4 -> 3
   const w = textW(b.text, sx), x0 = Math.round((W - w) / 2), y = Math.round((CEL.banner != null ? CEL.banner : b.y) - (sx - 3) * 3.5 + Math.sin(b.t * 7) * 1.5);
+  const bsc = REDUCED_MOTION ? 1 : 0.55 + 0.45 * easeOutBack(b.t / 0.26, 2.2);
+  ctx.save(); if (bsc !== 1) { const bcx = W / 2, bcy = y + 3.5 * sx; ctx.translate(bcx, bcy); ctx.scale(bsc, bsc); ctx.translate(-bcx, -bcy); }
   drawText(b.text, x0 + sx, y + sx, '#000', sx);
   for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [2, -2], [-2, 2], [-1, 0], [1, 0], [0, -1], [0, 1]]) drawText(b.text, x0 + ox, y + oy, '#000', sx);
   const shift = Math.floor(b.t * 12);
@@ -7534,6 +7539,7 @@ function drawBanner() {
     if ((tw + ph) % 2) continue;
     rect(tx - 2, ty, 5, 1, '#f8d878'); rect(tx, ty - 2, 1, 5, '#f8d878'); rect(tx, ty, 1, 1, COL.white);
   }
+  ctx.restore();
 }
 /* v8.76 IMPACT FX (visual only, Math.random particles; never touch the ball, the shot RNG or the pre-sim):
    dust puff on fairway / rough landings, sand spray, water splash, a flagstick rattle when a ball meets the pin. */
@@ -8079,7 +8085,8 @@ function renderSplash() {
 }
 function drawFade() {
   if (!fade.a) return;
-  fade.a = Math.max(0, fade.a - 0.08);
+  const fk = fade.at ? (performance.now() - fade.at) / 280 : 1;   // v8.99.105: 280ms ease-out reveal (same on 60Hz and 120Hz screens)
+  fade.a = fk >= 1 ? 0 : Math.max(0, Math.min(fade.a, 1 - easeOutCubic(fk)));
   if (fade.a > 0) { ctx.globalAlpha = fade.a; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1; }
   else fade.going = null;
 }
@@ -8102,7 +8109,7 @@ function canUiTap() { const now = performance.now(); return now >= inputLockUnti
 function armUiTap(key, act, still, e) {
   if (!canUiTap()) return;
   uiTap = { key, act, still, cx: e.clientX, cy: e.clientY };
-  uiPress = { key, until: performance.now() + 140 };
+  uiPress = { key, until: performance.now() + 140, at: performance.now() };
 }
 function fireUiTap(e) {
   if (!uiTap) return false;
@@ -8111,11 +8118,19 @@ function fireUiTap(e) {
   if (!canUiTap()) return false;
   if (t.still && !t.still(e)) return false;   // must release inside the same control
   lastUiTapAt = performance.now();
-  uiPress = { key: t.key, until: performance.now() + 120 };
+  uiPress = { key: t.key, until: performance.now() + 120, at: (uiPress && uiPress.key === t.key && uiPress.at) || performance.now() };
   t.act();
   return true;
 }
-function pressScale(key) { return (uiPress && uiPress.key === key && performance.now() < uiPress.until) ? 0.92 : 1; }
+function pressScale(key) {   // v8.99.105: quick press-down (70ms ease-out) then a small damped spring back (~240ms)
+  if (!uiPress || uiPress.key !== key) return 1;
+  const now = performance.now();
+  if (REDUCED_MOTION) return now < uiPress.until ? 0.94 : 1;
+  if (now < uiPress.until) return 1 - 0.07 * easeOutCubic((now - (uiPress.at || now - 70)) / 70);
+  const r = (now - uiPress.until) / 240;
+  return r >= 1 ? 1 : 1 - 0.07 * Math.exp(-5 * r) * Math.cos(r * 9);
+}
+function pressWrap(key, cx, cy) { const sc = pressScale(key); if (sc !== 1) { ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); } }
 function pressDim(key) { return (uiPress && uiPress.key === key && performance.now() < uiPress.until); }
 function aimAt(px, py) {
   if (state !== 'aim' || clubIdx === PUTT_I || py >= PLAY_H) return;
@@ -11246,6 +11261,7 @@ function renderTitle() {
     const label = it.l, x = it.bx, y = MENU_Y0 + it.by, key = 'menu' + i, dim = pressDim(key), sc = pressScale(key);
     const sel = i === titleSel && !menuPopup && !ov, cx = x + it.w / 2, cy = y + it.h / 2;
     ctx.save();
+    { const mi = REDUCED_MOTION ? 1 : easeOutCubic((st - 0.04 - i * 0.06) / 0.34); if (mi < 1) { ctx.globalAlpha = 0.15 + 0.85 * mi; ctx.translate(0, Math.round(8 * (1 - mi))); } }   // v8.99.105: menu items rise in, staggered (visual only)
     if (sc !== 1) { ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
     if (it.kind === 'p') {          // PLAY: full-size wood plank, gold trim + gold block text (primary)
       const hot = sel || dim;
@@ -11701,7 +11717,7 @@ function drawMenuPopup() {
   const shop = p.kind === 'shop', YEL = '#f8d878';
   ctx.globalAlpha = 0.55; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
   if (shop) return;   // v8.50: PRO SHOP is the DOM overlay (#proShop, see syncShopChip); the canvas only dims behind it
-  const w = 212, h = 104, x = (W - w) / 2, y = Math.round(66 + 10 * (1 - Math.min(1, p.t / 0.12)));   // small slide-in
+  const w = 212, h = 104, x = (W - w) / 2, y = Math.round(66 + 12 * (1 - easeOutCubic(p.t / 0.22)));   // small slide-in (v8.99.105: eased)
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
   rect(x + 3, y + 3, w - 6, h - 6, COL.blue); rect(x + 4, y + 4, w - 8, h - 8, '#000');
   const title = 'GALLERY', tw = textW(title, 2);
@@ -12034,7 +12050,9 @@ function renderCard() {
   // v8.59: the 244-wide card is centred on wide screens (drawTextC already centres on W/2) and sized to its content,
   // with SHARE / LEADERBOARD + the key hint always below it
   const ox = Math.max(0, Math.round((W - 256) / 2)), sumY = tall ? 136 : 96, rateOn = rateAllowed(), boxH = sumY + 66 + (rateOn ? 18 : 0);   // v8.98: +course rating row
-  ctx.globalAlpha = 0.8; rect(ox + 6, 6, 244, boxH, '#000'); ctx.globalAlpha = 1;   // v8.60: see-through card, thin gold rim
+  const cin = REDUCED_MOTION ? 1 : easeOutCubic(st / 0.38);   // v8.99.105: card eases up + fades in (visual only; tap areas don't move)
+  ctx.save(); if (cin < 1) { ctx.globalAlpha = 0.25 + 0.75 * cin; ctx.translate(0, Math.round(12 * (1 - cin))); }
+  { const ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.8; rect(ox + 6, 6, 244, boxH, '#000'); ctx.globalAlpha = ga; }   // v8.60: see-through card, thin gold rim
   rect(ox + 6, 6, 244, 1, CARD_GOLD); rect(ox + 6, 5 + boxH, 244, 1, CARD_GOLD); rect(ox + 6, 6, 1, boxH, CARD_GOLD); rect(ox + 249, 6, 1, boxH, CARD_GOLD);
   drawTextC('FINAL SCORECARD', 14, CARD_GOLD);
   drawText('PLAYER ' + (player.name || '--'), ox + 14, 26, COL.white);
@@ -12060,9 +12078,14 @@ function renderCard() {
   }
   drawCardNine(0, 44);
   if (tall) drawCardNine(9, 90);
-  const cu = REDUCED_MOTION ? 1 : clamp(st / 0.7, 0, 1);   // v8.60: strokes count up
-  drawTextC(Math.round(cardInfo.total * cu) + ' STROKES', sumY, COL.white, 2);
-  if (cu >= 1) drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel < 0 ? COL.lime : cardInfo.rel === 0 ? COL.white : COL.orange, 2);
+  const cu = REDUCED_MOTION ? 1 : clamp((st - 0.15) / 0.8, 0, 1), cuE = cu >= 1 ? 1 : easeOutCubic(cu);   // v8.60: strokes count up (v8.99.105: eased, starts after the card lands)
+  drawTextC(Math.round(cardInfo.total * cuE) + ' STROKES', sumY, COL.white, 2);
+  if (cu >= 1) {   // v8.99.105: VS PAR stamps in with a small back-out
+    const vk = REDUCED_MOTION ? 1 : (st - 0.95) / 0.24, vsc = vk >= 1 ? 1 : 0.6 + 0.4 * easeOutBack(vk, 2.4);
+    ctx.save(); if (vsc !== 1) { ctx.translate(W / 2, sumY + 29); ctx.scale(vsc, vsc); ctx.translate(-W / 2, -(sumY + 29)); }
+    drawTextC(fmtRel(cardInfo.rel) + ' VS PAR', sumY + 22, cardInfo.rel < 0 ? COL.lime : cardInfo.rel === 0 ? COL.white : COL.orange, 2);
+    ctx.restore();
+  }
   if (careerLast && careerLast.rankUp) { const up = careerLast.rankUp, fit = textW('RANK UP  ' + up) <= W - 12 ? up : (careerRank(careerLoad().xp).short || up); drawTextC('RANK UP  ' + fit, sumY + 46, CARD_GOLD); }
   else if (cardInfo.newBest && Math.floor(st * 3) % 2 === 0) drawTextC('NEW BEST SCORE!', sumY + 46, CARD_GOLD);
   {
@@ -12086,10 +12109,14 @@ function renderCard() {
     const by = Math.max(SHARE_BTN.y, 6 + boxH + 6);
     SHARE_BTN.y = by; LB_BTN.y = by;
   }
-  for (const [r, lab, col] of [[SHARE_BTN, 'SHARE', COL.white], [LB_BTN, 'LEADERBOARD', COL.white]]) {
-    const on = mouse.seen && hit(mouse, r);
+  for (const [r, lab, col, pk] of [[SHARE_BTN, 'SHARE', COL.white, 'share'], [LB_BTN, 'LEADERBOARD', COL.white, 'lb']]) {
+    const on = (mouse.seen && hit(mouse, r)) || pressDim(pk);
+    ctx.save(); pressWrap(pk, r.x + r.w / 2, r.y + r.h / 2);   // v8.99.105: press-down + spring back, soft drop shadow, top highlight
+    { const ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.45; rect(r.x + 1, r.y + r.h, r.w - 1, 2, '#000'); ctx.globalAlpha = ga; }
     rect(r.x, r.y, r.w, r.h, on ? '#f8d878' : COL.white); rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#1c2c5c' : '#000');
+    rect(r.x + 2, r.y + 2, r.w - 4, 1, on ? '#34508c' : '#262626');
     drawText(lab, r.x + Math.round((r.w - textW(lab)) / 2), r.y + 4, col);
+    ctx.restore();
   }
   {   // v8.43 follow prompt card (only when it fits below the buttons)
     const cw = Math.min(W - 24, 220), ch = Math.max(18, FOLLOW_TAP) + 22, cx = Math.round((W - cw) / 2);
@@ -12104,6 +12131,7 @@ function renderCard() {
   }
   const f = Math.floor(st * 7) % 2;
   dimg(f ? SPR.walkA : SPR.walkB, ox + 96, Math.max(190, SHARE_BTN.y + 28));
+  ctx.restore();   // v8.99.105: pairs with the card entrance save
 }
 /* v8.96: subtle top-middle wind (number + arrow + drifting streaks); same wind value, display only */
 let windHud = false, windIndKey = '';
@@ -12360,11 +12388,15 @@ function careerGolfer(cx, feetY, s, look, gdx, maxH) {   // detailed standing go
 }
 function careerButton(r, label, lit, key, fsc) {   // gold CTA in the same frame language as the boards
   const on = lit || pressDim(key) || (mouse.seen && !isTouchUi() && hitBtn(mouse, r));
+  ctx.save(); pressWrap(key, r.x + r.w / 2, r.y + r.h / 2);   // v8.99.105: press-down + spring back, soft shadow, top highlight
+  { const ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.35; rect(r.x + 1, r.y + r.h, r.w - 1, 2, '#000'); ctx.globalAlpha = ga; }
   rect(r.x, r.y, r.w, r.h, '#000');
   rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2, on ? '#fce4a0' : CAREER_YEL);
+  rect(r.x + 2, r.y + 2, r.w - 4, 1, on ? '#fff4d0' : '#fce4a0');
   rect(r.x + 2, r.y + r.h - 3, r.w - 4, 1, '#d8a000');
   const sc = fsc || (textW(label, 2) <= r.w - 12 ? 2 : 1);
   drawText(label, Math.round(r.x + (r.w - textW(label, sc)) / 2), Math.round(r.y + (r.h - 7 * sc) / 2), '#102860', sc);
+  ctx.restore();
 }
 /* ---- layout (logical px). Phone portrait stacks; desktop/landscape uses two columns. ---- */
 function careerLayout() {
