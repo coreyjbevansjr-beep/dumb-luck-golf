@@ -107,6 +107,14 @@
   #acct .btn.alt{background:#183848;color:#fcfcfc;box-shadow:inset 0 -3px 0 #0c1848;border-color:#fcfcfc}
   #acct .btn.small,#acct .row .btn{margin-top:0;min-height:44px;font-size:13px;letter-spacing:2px;width:auto;padding:0 12px}
   #acct .btn:disabled{opacity:.55}
+  /* v8.99.106 polish: press-spring on panel buttons + eased panel entrance (reduce-motion: off) */
+  #acct .btn,#acct .back,#acct .link,#acct .plink,#acct .pw button{transition:transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .12s,filter .12s}
+  #acct .btn:active:not(:disabled){transform:translateY(2px) scale(.98);box-shadow:inset 0 -1px 0 #d8a000;filter:brightness(1.06);transition-duration:.06s}
+  #acct .btn.alt:active:not(:disabled){box-shadow:inset 0 -1px 0 #0c1848}
+  #acct .back:active,#acct .link:active,#acct .plink:active,#acct .pw button:active{transform:scale(.95);transition-duration:.06s}
+  #acct.on .box:not(:has(.lbisc,.lbic)){animation:acctIn .26s cubic-bezier(.2,.9,.25,1)}
+  @keyframes acctIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){#acct.on .box{animation:none !important}#acct .btn,#acct .back,#acct .link,#acct .plink,#acct .pw button{transition:none}}
   #acct span.admfr{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 8px;font-size:13px;font-weight:700;letter-spacing:1px;color:#58d854;white-space:nowrap}
   #acct .item.admpl{flex-wrap:wrap;align-items:flex-start;gap:6px 8px}
   #acct .item.admpl .who{flex:1 1 100%;min-width:0}
@@ -557,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.105';
+const GAME_VERSION = 'v8.99.106';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5798,7 +5806,7 @@ function setState(s) {
   if (s !== 'custom') { try { hideNameOverlay(); } catch (e) {} }   // v8.99.64: name field only lives on the customize screen
   if (s === 'title') { refreshTitleLB(); try { lbiPopMaybe(); } catch (e) {} }
   // quick fade between major screens (not every swing state)
-  const major = ['splash', 'title', 'custom', 'intro', 'aim', 'card', 'board', 'career'];
+  const major = ['splash', 'title', 'course', 'custom', 'intro', 'aim', 'card', 'board', 'career'];   // v8.99.106: + course picker
   if (major.includes(from) && major.includes(s) && from !== s) fade = { a: 1, going: s, at: performance.now() };   // v8.99.105: timed + eased
 }
 const NO_SAVE = /preview=/.test(location.hash);           // screenshot previews never write scores
@@ -6512,7 +6520,9 @@ function drawOverlay() {
   if (ov.kind === 'help') { drawHelp(); return; }   // v8.22
   ov.t += 1 / 60;
   const YEL = '#f8d878', pause = ov.kind === 'pause';
-  ctx.globalAlpha = 0.6; rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
+  const oin = REDUCED_MOTION ? 1 : easeOutCubic(ov.t / 0.22);   // v8.99.106: dim + panel ease in (visual only; tap rows are logical)
+  ctx.globalAlpha = 0.6 * Math.max(0.35, oin); rect(0, 0, W, H, '#000'); ctx.globalAlpha = 1;
+  ctx.save(); if (oin < 1) { ctx.globalAlpha = 0.2 + 0.8 * oin; const ocx = W / 2, ocy = H / 2, osc = 0.94 + 0.06 * oin; ctx.translate(ocx, ocy + Math.round(8 * (1 - oin))); ctx.scale(osc, osc); ctx.translate(-ocx, -ocy); }
   const rows = pause ? PAUSE_ITEMS.map(l => [l, null]) : settingsRows();
   const w = pause ? 200 : 232, rh = 20, h = 40 + rows.length * rh, x = Math.round((W - w) / 2), y = Math.round((H - h) / 2) - 6;
   rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000'); rect(x + 3, y + 3, w - 6, h - 6, pause ? COL.lime : COL.blue); rect(x + 4, y + 4, w - 8, h - 8, '#000');
@@ -6521,16 +6531,19 @@ function drawOverlay() {
   rows.forEach(([lab, val], i) => {
     const ry = y + 34 + i * rh, sel = i === ov.sel, col = sel ? YEL : COL.white;
     ovRects.push({ x: x + 4, y: ry - 3, w: w - 8, h: rh, i });
-    if (sel) rect(x + 6, ry - 3, w - 12, rh - 2, '#1c2c5c');
+    ctx.save(); pressWrap('ov' + i, W / 2, ry - 3 + rh / 2);   // v8.99.106: row press-spring
+    if (sel || pressDim('ov' + i)) rect(x + 6, ry - 3, w - 12, rh - 2, pressDim('ov' + i) ? '#2c4c8c' : '#1c2c5c');
     if (val == null) { outlined(lab, Math.round((W - textW(lab, 2)) / 2), ry, col, 2); if (sel) outlined('>', Math.round((W - textW(lab, 2)) / 2) - 16 + (Math.floor(ov.t * 4) % 2), ry, YEL, 2); }
     else {
       outlined(lab, x + 12, ry, col, 2);
       const vc = val === 'ON' ? COL.lime : val === 'OFF' ? COL.orange : COL.gray;
       outlined(val, x + w - 12 - textW(val, 2), ry, vc, 2);
     }
+    ctx.restore();
   });
   const hint = isTouchUi() ? (pause ? 'TAP TO RESUME' : 'TAP TO CHANGE') : pause ? 'ESC/P = RESUME' : 'ENTER = CHANGE  ESC = BACK';
   drawTextC(hint, y + h + 6, COL.gray);
+  ctx.restore();
 }
 const loftShown = () => state === 'aim' && !paused && !ov && !roundTip && hole && clubIdx !== PUTT_I && LOFT_PILL.w >= 60;
 const shotPillShown = () => ['aim', 'power', 'accuracy'].includes(state) && !paused && !ov && !roundTip && hole && ball && SHOT_PILL.w >= 60 && shotKindsNow().length > 1 && (state === 'aim' || shotKind !== 'n');
@@ -8344,7 +8357,7 @@ cv.addEventListener('pointerdown', e => {
     const tb = board && boardTabRects().find(t => hit(p, { x: t.x, y: t.y - 2, w: t.w, h: t.h + 4 }));
     const bo = boardOrigin(), ir = board && board.igRects && board.igRects.find(q => hit(p, { x: q.x + bo.x, y: q.y + bo.y, w: q.w, h: q.h }));
     if (ir) armUiTap('big', () => { SFX.click(); if (ir.ig) { try { window.open('https://www.instagram.com/' + encodeURIComponent(ir.ig) + '/', '_blank', 'noopener'); } catch (er) {} } else showAcct('spookyIg', { ig: '' }); }, () => true, e);   // v8.61
-    else if (tb) armUiTap('btab', () => boardSetTab(tb.kind, tb.v), () => true, e);
+    else if (tb) armUiTap('btab' + tb.kind + tb.v, () => boardSetTab(tb.kind, tb.v), () => true, e);   // v8.99.106: per-tab key (press feedback only)
     else if (board && board.rowRects && (() => { const rr = board.rowRects.find(q => hit(p, { x: q.x + bo.x, y: q.y + bo.y, w: q.w, h: q.h })); if (!rr) return false;
       const f = (social.friends || []).find(f => f.status === 'accepted' && String(f.friend_username || '').toUpperCase() === rr.name.toUpperCase()); if (!f) return false;
       armUiTap('brow', () => { SFX.click(); showAcct('friendProfile', { user: f.friend_username, loading: true }); }, () => true, e); return true; })()) {}   // v8.90: tap a friend's row = their profile
@@ -11482,6 +11495,7 @@ const PS_CSS = `
 .ps-cta{margin-top:auto;min-height:44px;width:calc(100% - 20px);max-width:220px;padding:0 10px;font-weight:800 !important;letter-spacing:2px;color:#000 !important;
   background:#D4AF37;border:3px solid #000;box-shadow:inset 0 -3px 0 #9c7a1c,inset 0 2px 0 #f3d77a,0 3px 0 #000;transition:transform .08s}
 .ps-cta:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #9c7a1c,0 1px 0 #000}
+.ps-x,.ps-back,.ps-thumbs button{transition:transform .2s cubic-bezier(.3,1.6,.5,1)}.ps-x:active,.ps-back:active,.ps-thumbs button:active{transform:scale(.92);transition-duration:.06s}.ps-card:not(.locked):active{transform:scale(.97)}   /* v8.99.106 press-spring */
 .ps-cta.buy{background:#fcfcfc}
 .ps-soon{margin-top:auto;display:flex;align-items:center;justify-content:center;min-height:44px;width:calc(100% - 20px);max-width:260px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:1px;white-space:nowrap;text-align:center;color:#fc9838;border:2px dashed #fc9838}
 .ps-soon.ps-drop{font-size:10px;letter-spacing:.4px;color:#fce4a0;border:2px solid #D4AF37;cursor:default}
@@ -11807,7 +11821,7 @@ function renderCustom() {
     if (f) { rect(rr.x + 3, rr.y + 1, rr.w - 6, rr.h - 2, '#5c3820'); czRing(rr.x + 2, rr.y, rr.w - 4, rr.h, '#f0c850'); }
     const labelScale = (cv.getBoundingClientRect().height || H) / H < 2 ? 2 : 1;
     outlined(lab, pane.x + 12, y + (labelScale === 1 ? 4 : 0), f ? '#fff4c0' : CREAM, labelScale);
-    keycap(ARROW_L(r), '<', f, -1); keycap(ARROW_R(r), '>', f, 1);
+    for (const [kr, kch, kd, kk] of [[ARROW_L(r), '<', -1, 'czL' + r], [ARROW_R(r), '>', 1, 'czR' + r]]) { ctx.save(); pressWrap(kk, kr.x + kr.w / 2, kr.y + kr.h / 2); keycap(kr, kch, f || pressDim(kk), kd); ctx.restore(); }   // v8.99.106: press-spring
     const sr = SWATCH_R(r), sh = Math.min(20, sr.h - 2), sx0 = sr.x, sy0 = Math.round(sr.y + (sr.h - sh) / 2), sw = sr.w;
     rect(sx0, sy0, sw, sh, '#000'); rect(sx0 + 1, sy0 + 1, sw - 2, sh - 2, f ? '#fff0a0' : '#f0e4c0'); rect(sx0 + 2, sy0 + 2, sw - 4, sh - 4, '#2a1608');
     const ix = sx0 + 3, iy = sy0 + 3, iw = sw - 6, ih = sh - 6;
@@ -11861,13 +11875,15 @@ function renderCustom() {
   // TEE OFF / PLAY DAILY / DONE button
   {
     const dl = (cz.from === 'play' || cz.from === 'daily') ? (cz.from === 'daily' ? (dailyMeta && dailyMeta.practice ? 'PRACTICE' : 'PLAY DAILY') : 'TEE OFF') : 'DONE';
-    const df = cz.row === CZ_DONE, on = mouse.seen && !isTouchUi() && hitBtn(mouse, DONE_R), d = DONE_R, hot = df || on;
+    const df = cz.row === CZ_DONE, on = mouse.seen && !isTouchUi() && hitBtn(mouse, DONE_R) || pressDim('czdone'), d = DONE_R, hot = df || on;
+    ctx.save(); pressWrap('czdone', d.x + d.w / 2, d.y + d.h / 2);   // v8.99.106: press-spring
     woodPlank(d.x, d.y, d.w, d.h, hot, hot ? '#fff0a0' : '#f0c850', 7);
     const lw = blockW(dl, 2), ly = d.y + Math.max(4, Math.round((d.h - 16) / 2));
     const arrow = df && blockW('>', 2) + 8 + lw <= d.w - 12;
     const lx = Math.round(d.x + (d.w - lw) / 2 + (arrow ? 6 : 0));
     blockText(dl, lx, ly, hot ? '#fff4c0' : '#f8d050', 2);
     if (arrow) blockText('>', d.x + 8 + (Math.floor(st * 4) % 2), ly, '#f8d050', 2);
+    ctx.restore();
   }
 }
 const MEDALS = [['#f8d878', '#d8a000', '#000'], ['#e8e8f0', '#a0a0b0', '#000'], ['#f0b080', '#b86c2c', '#000']];
@@ -11893,6 +11909,7 @@ function renderBoard() {
   drawSkyScene();
   const o = boardOrigin(), W0 = W;
   ctx.save(); ctx.translate(o.x, o.y); W = 256;
+  { const bin = REDUCED_MOTION ? 1 : easeOutCubic(st / 0.34); if (bin < 1) { ctx.globalAlpha = 0.25 + 0.75 * bin; ctx.translate(0, Math.round(12 * (1 - bin))); } }   // v8.99.106: panel eases up (visual only)
   try { renderBoardPanel(); } finally { W = W0; ctx.restore(); }
 }
 function renderBoardPanel() {
@@ -11915,9 +11932,11 @@ function renderBoardPanel() {
       drawText(nm, x0, t.y + 3, GOLD); if (sub) drawText(sub, x0 + textW(nm), t.y + 3, MUTG);
       continue; }
     if (t.kind === 'ig') { rect(t.x, t.y, t.w, t.h, on ? '#f8a0d8' : '#4c8c64'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, GDK); drawText(t.label, t.x + 4, t.y + 2, on ? INK : CTX); continue; }   // v8.61 IG chip (pink)
+    ctx.save(); pressWrap('btab' + t.kind + t.v, t.x + t.w / 2, t.y + t.h / 2);   // v8.99.106: press-spring
     rect(t.x, t.y, t.w, t.h, on ? GOLD : '#4c8c64'); if (!on) rect(t.x + 1, t.y + 1, t.w - 2, t.h - 2, GDK);
     drawText(t.label, t.x + Math.round((t.w - textW(t.label)) / 2), t.y + 3, on ? INK : CTX);
     if (on) { rect(t.x, t.y + t.h - 1, t.w, 1, '#b08c38'); rect(t.x + 1, t.y, t.w - 2, 1, '#fcf0c8'); }   // v8.90: lit top edge + shaded base
+    ctx.restore();
   }
   const hy = 60;
   const sx = cup ? 214 : 162, px = cup ? 240 : 189;   // v8.61: SPOOKY CUP has no date column - IG gets its own line
@@ -12308,6 +12327,7 @@ function renderCourseSelect() {
     outlined('< BACK', br.x + 4, br.y + Math.round((br.h - 7) / 2), on ? YEL : COL.white);
     if (on) { rect(br.x, br.y, br.w, 1, YEL); rect(br.x, br.y + br.h - 1, br.w, 1, YEL); }
   }
+  ctx.save();
   {   // v8.75: course name header; < > switch courses
     const g = CS_GROUPS[csGroup], all = kindHoles(g.opts.includes('quick3') ? 'full' : g.opts[g.opts.length - 1]), par = all.reduce((a, h) => a + h.par, 0);
     const words = g.name.split(' '); let lines = [g.name];
@@ -12319,10 +12339,12 @@ function renderCourseSelect() {
     drawText(sub, Math.round(CS_HEAD.x - textW(sub) / 2), y0 + lines.length * 16 + 2, lock ? COL.orange : COL.white);
     const dw = CS_GROUPS.length * 6 - 2; for (let k = 0; k < CS_GROUPS.length; k++) rect(Math.round(CS_HEAD.x - dw / 2) + k * 6, y0 + lines.length * 16 + 12, 4, 2, k === csGroup ? YEL : '#5c6c8c');
     { const cn = 'COURSE ' + (csGroup + 1) + ' OF ' + CS_GROUPS.length; drawText(cn, Math.round(CS_HEAD.x - textW(cn) / 2), y0 + lines.length * 16 + 18, '#a8b8d8'); }   // v8.99.23: make the course switcher obvious
-    for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) { const on = hoverOk && hitBtn(mouse, r), cx = r.x + Math.round(r.w / 2), cy = r.y + Math.round(r.h / 2), col = on ? YEL : COL.white;
+    for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) { const on = hoverOk && hitBtn(mouse, r) || pressDim('csarw' + d), cx = r.x + Math.round(r.w / 2), cy = r.y + Math.round(r.h / 2), col = on ? YEL : COL.white;
+      ctx.restore(); ctx.save(); pressWrap('csarw' + d, cx, cy);   // v8.99.106: press-spring
       ctx.globalAlpha = 0.45; rect(r.x + 1, r.y + 3, r.w - 2, r.h - 6, '#000'); ctx.globalAlpha = 1; czRing(r.x + 1, r.y + 3, r.w - 2, r.h - 6, YEL);
       for (let k = 0; k <= 8; k++) rect(cx + d * (4 - k) - 1, cy - k - 1, 3, 2 * k + 3, '#000'); for (let k = 0; k < 8; k++) rect(cx + d * (4 - k), cy - k, 1, 2 * k + 1, col); }
   }
+  ctx.restore();
   // preview follows the highlighted course (keeps the last one while BACK is focused)
   const ci = courseSel < CS_BACK_I ? courseSel : csPrevSel;
   if (ci !== csPrevSel || st < csPrevMark) { csPrevSel = ci; csPrevMark = st; }
@@ -12331,10 +12353,13 @@ function renderCourseSelect() {
   const b = CS_BOARD;
   czBoard(b.x, b.y, b.w, b.h, 0.9, false);
   CS_CARDS.forEach((r, i) => {
-    const sel = i === courseSel, hov = hoverOk && hit(mouse, r), list = courseHoleList(i);
+    const sel = i === courseSel, hov = hoverOk && hit(mouse, r) || pressDim('course' + i), list = courseHoleList(i);
     const kd = csKind(i), par = list.reduce((a, h) => a + h.par, 0), pb = courseBest(kd);
-    if (sel) { ctx.globalAlpha = 0.55; rect(r.x, r.y, r.w, r.h, '#3c64b4'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, YEL); }
-    else { ctx.globalAlpha = 0.35; rect(r.x, r.y, r.w, r.h, '#000'); ctx.globalAlpha = 1; czRing(r.x, r.y, r.w, r.h, '#2c4c8c'); }
+    ctx.save(); pressWrap('course' + i, r.x + r.w / 2, r.y + r.h / 2);   // v8.99.106: press-spring + staggered rise-in (visual only)
+    { const ci2 = REDUCED_MOTION ? 1 : easeOutCubic((st - 0.04 - i * 0.05) / 0.32); if (ci2 < 1) { ctx.globalAlpha = 0.15 + 0.85 * ci2; ctx.translate(0, Math.round(8 * (1 - ci2))); } }
+    const csA = ctx.globalAlpha, csAlpha = a => { ctx.globalAlpha = csA * a; };
+    if (sel) { csAlpha(0.55); rect(r.x, r.y, r.w, r.h, '#3c64b4'); csAlpha(1); czRing(r.x, r.y, r.w, r.h, YEL); }
+    else { csAlpha(0.35); rect(r.x, r.y, r.w, r.h, '#000'); csAlpha(1); czRing(r.x, r.y, r.w, r.h, '#2c4c8c'); }
     const twoLine = r.h >= 30, nameY = twoLine ? r.y + Math.round((r.h - 25) / 2) : r.y + Math.round((r.h - 14) / 2);
     const lx = r.x + 10 + (sel ? 12 : 0);
     if (sel) outlined('>', r.x + 6 + (blink ? 1 : 0), nameY, YEL, 2);
@@ -12352,6 +12377,7 @@ function renderCourseSelect() {
     else if (lockC || kd === 'quick3') {}
     else if (twoLine) { drawText('BEST', rx - textW('BEST'), nameY, sel ? COL.white : COL.gray); outlined(val, rx - vw, nameY + 11, vcol, 2); }
     else outlined(val, rx - vw, nameY, vcol, 2);
+    ctx.restore();
   });
   if (!isTouchUi()) drawTextC('ENTER = SELECT   ESC = BACK', CS_HINT_Y, COL.white);
 }
@@ -14072,6 +14098,8 @@ function renderScene() {
     // v8.13: size the box to its text (min 188, clamped to screen) and center it on W
     const w = Math.min(W - 8, Math.max(188, textW(doneInfo.name, 2) + 24, textW('CLICK FOR SCORECARD') + 16, textW('TOTAL ' + fmtRel(relSoFar())) + 16));
     const x = Math.round((W - w) / 2), y = CEL.done, h = 92;
+    const din = REDUCED_MOTION ? 1 : easeOutCubic(st / 0.3);   // v8.99.106: result card eases down + fades in (visual only)
+    ctx.save(); if (din < 1) { ctx.globalAlpha = 0.2 + 0.8 * din; ctx.translate(0, -Math.round(10 * (1 - din))); }
     rect(x, y, w, h, COL.white); rect(x + 1, y + 1, w - 2, h - 2, '#000');
     drawText('HOLE ' + displayHoleNum(holeIdx), x + 8, y + 8, COL.white);
     drawText('PAR ' + hole.par, x + 8, y + 19, COL.white);
@@ -14082,11 +14110,15 @@ function renderScene() {
     if (FANS.lastHole === holeIdx && FANS.o && liveGal && crowdOn()) { const ft = 'FANS ' + fansFmt(FANS.o.n) + (FANS.lastGain ? ' +' + FANS.lastGain : ''); drawText(ft, x + w - 8 - textW(ft), y + 24, '#f8d878'); }   // v8.99.14
     const nm = doneInfo.name;
     const sc2 = textW(nm, 2) <= w - 12 ? 2 : 1;
-    drawTextC(nm, y + 38, doneInfo.d <= 0 ? COL.lime : COL.orange, sc2, sc2 * (sc2 === 2 ? 1.5 : 1));
+    { const nk = REDUCED_MOTION ? 1 : (st - 0.12) / 0.26, nsc = nk >= 1 ? 1 : 0.6 + 0.4 * easeOutBack(nk, 2.2);   // v8.99.106: BIRDIE / PAR / BOGEY stamps in
+      ctx.save(); if (nsc !== 1) { ctx.translate(W / 2, y + 45); ctx.scale(nsc, nsc); ctx.translate(-W / 2, -(y + 45)); }
+      drawTextC(nm, y + 38, doneInfo.d <= 0 ? COL.lime : COL.orange, sc2, sc2 * (sc2 === 2 ? 1.5 : 1));
+      ctx.restore(); }
     drawTextC(doneInfo.strokes + (doneInfo.strokes === 1 ? ' STROKE' : ' STROKES'), y + 62, COL.white);
     const rel = relSoFar();
     drawTextC('TOTAL ' + fmtRel(rel), y + 72, rel <= 0 ? COL.lime : COL.orange);
     if (st > 0.8 && Math.floor(st * 2) % 2 === 0) drawTextC((isTouchUi() ? 'TAP' : 'CLICK') + (holeIdx + 1 < HOLES.length ? ' FOR NEXT HOLE' : ' FOR SCORECARD'), y + 82, COL.white);
+    ctx.restore();
   }
   drawCursor();
 }
