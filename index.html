@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.108';
+const GAME_VERSION = 'v8.99.109';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -1051,12 +1051,12 @@ async function loadFriendLooks() {   // v8.62: accepted friends' looks (server: 
   if (!r.ok || !r.data || typeof r.data !== 'object') return r;
   const m = {}; for (const k in r.data) m[k.toLowerCase()] = r.data[k] || {};
   social.looks = m;
-  if (acctView === 'friends' && acctEl && !acctEl.querySelector('input:focus')) acctEl.querySelectorAll('img.fbust[data-u]').forEach(im => { const L = m[im.dataset.u.toLowerCase()]; if (L) im.src = golferHDImg(L.appearance, L.gear, 'bust', 1); });
+  if (acctView === 'friends' && acctEl && !acctEl.querySelector('input:focus')) acctEl.querySelectorAll('img.fbust[data-u]').forEach(im => { const L = m[im.dataset.u.toLowerCase()]; if (L) im.src = golferHDImg(L.appearance, champLoadout(im.dataset.u, L.gear), 'bust', 1); });
   return r;
 }
 function friendBust(username) {   // small cached head + shoulders; default golfer until their look arrives
   const L = (social.looks || {})[String(username).toLowerCase()] || {};
-  return '<img class="fbust" alt="" data-u="' + esc(username) + '" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">';
+  return '<img class="fbust" alt="" data-u="' + esc(username) + '" src="' + golferHDImg(L.appearance, champLoadout(username, L.gear), 'bust', 1) + '">';
 }
 async function addFriend(username) {
   username = String(username || '').trim().replace(/^@/, '');
@@ -1378,7 +1378,7 @@ setTimeout(() => { try { loadShopItems(); } catch (e) {} }, 1500);   // v8.48 st
     account.user = s.user; account.profile = s.profile || null; account.email = s.user.email || '';
     if (!account.profile && authOnline()) setTimeout(() => { loadProfile(); }, 0);
     if (authOnline()) setTimeout(() => { loadAdmin(); loadAppearance(); }, 0);
-    setTimeout(() => { try { gearLoadLocal(); if (authOnline()) gearLoad(false); } catch (e) {} }, 0);   // v8.66: equipped gear shows in play from the first shot   // v8.30: admin is asked of the server every launch, never stored   // v8.29: pick up a username saved on another device / by support
+    setTimeout(() => { try { gearLoadLocal(); champGearMaybe(); if (authOnline()) gearLoad(false); } catch (e) {} }, 0);   // v8.66: equipped gear shows in play from the first shot   // v8.30: admin is asked of the server every launch, never stored   // v8.29: pick up a username saved on another device / by support
     if (authOnline() && (account.user.expires_at || 0) < Date.now() / 1000 + 60) refreshSession().then(ok => { if (!ok && (account.user && account.user.expires_at || 0) < Date.now() / 1000) { account.user = null; account.profile = null; saveSession(); } });
   } catch (e) {}
 })();
@@ -2129,7 +2129,7 @@ const GEAR_BUILTIN = [   // same rows the server seeds; the server copy wins whe
   { id: 'streak_shades', name: 'STREAK SHADES', slot: 'face', tier: 'common', req: 'PLAY THE DAILY 7 DAYS IN A ROW', rule: { stat: 'daily.top', min: 7 }, sort: 40 },
   { id: 'dlg_shades', name: 'DLG SHADES', slot: 'face', tier: 'exclusive', req: 'MEMBERS ONLY - THANKS FOR PLAYING', rule: { gift: true }, sort: 41 },   // v8.99.23: gifted to every player, on-device (no server row needed)
   { id: 'pumpkin_head', name: 'PUMPKIN HEAD', slot: 'head', tier: 'rare', req: 'PLAY THE SPOOKY CUP (OCT)', rule: { event: 'spooky' }, available_from: '2026-10-01T04:00:00Z', available_until: '2026-11-01T04:00:00Z', sort: 50 },
-  { id: 'champ_jacket', name: 'GREEN JACKET', slot: 'torso', tier: 'legendary', req: 'WIN A DLG TOURNAMENT (IN-GAME ONLY)', rule: { grant: true }, sort: 60 },
+  { id: 'champ_jacket', name: 'GREEN JACKET', slot: 'torso', tier: 'legendary', req: 'WIN THE DUMB LUCK INVITATIONAL', rule: { grant: true }, sort: 60 },   // v8.99.109: locked copy; granted to the champion username only
   { id: 'lucky_club', name: 'LUCKY CLUB', slot: 'held', tier: 'rare', req: '10 ROUNDS IN A ROW, NO LOST BALLS', rule: { stat: 'cleanTop', min: 10 }, sort: 70 },
   { id: 'camo_hat', name: 'DLG CAMO HAT', slot: 'head', tier: 'rare', req: 'TOP 6 IN A DLG TOURNAMENT OR MERCH CODE', rule: { grant: true, code: true }, sort: 80 },
   { id: 'lucky_marker', name: 'LUCKY MARKER', slot: 'ball', tier: 'common', req: 'MERCH CODE (BALL MARKER)', rule: { code: true }, sort: 90 },
@@ -2338,10 +2338,16 @@ function stakeSummaryHtml(m) { const s = stakeLabel(m && m.setup && m.setup.stak
 
 const GEAR_GIFT = ['dlg_shades'], GIFT_EQ_KEY = 'dlg_gift_wear_v1';
 const gearIsGift = id => GEAR_GIFT.indexOf(id) >= 0;
+const LBI_CHAMP_USER = 'drizzydray', LBI_CHAMP_GEAR = ['champ_jacket', 'camo_hat'], CHAMP_EQ_KEY = 'dlg_champ_wear_v109';   // v8.99.109: Invitational champion (final board, -53). Client grant only; no server write.
+function isLbiChamp(name) { return String(name != null ? name : (typeof hasUsername === 'function' && hasUsername() ? myName() : '')).toLowerCase() === LBI_CHAMP_USER; }
+function isChampGearId(id) { return LBI_CHAMP_GEAR.indexOf(id) >= 0; }
+function gearIsChamp(id) { return isChampGearId(id) && isLbiChamp(); }
+function champLoadout(name, gear) { if (!isLbiChamp(name)) return gear || null; const m = Object.assign({}, gear || {}); if (!m.torso) m.torso = 'champ_jacket'; if (!m.head) m.head = 'camo_hat'; return m; }
+function champGearMaybe() { if (!isLbiChamp()) return; try { if (localStorage.getItem(CHAMP_EQ_KEY) === '1') return; localStorage.setItem(CHAMP_EQ_KEY, '1'); } catch (e) {} const lw = localWornMap(); if (!lw.torso) localWear('torso', 'champ_jacket'); if (!lw.head) localWear('head', 'camo_hat'); }
 /* cust1 LOCAL GEAR: gift items + balls unlocked from this device's career stats; worn per slot on this device (never sent to the server) */
 const LOCAL_EQ_KEY = 'dlg_local_wear_v2', LSTAT = { t: -1e9, c: null };
 function gearLocalRule(id) { const g = typeof gearItem === 'function' ? gearItem(id) : null; return g && g.rule && g.rule.local ? g.rule : null; }
-const gearIsLocal = id => !!id && (gearIsGift(id) || !!gearLocalRule(id));
+const gearIsLocal = id => !!id && (gearIsGift(id) || gearIsChamp(id) || !!gearLocalRule(id));
 function gearIsCoin(id) { const g = gearItem(id); return !!(g && g.rule && g.rule.coin); }
 function gearLocalStat(k) { const now = performance.now(); if (!LSTAT.c || now - LSTAT.t > 1500) { try { LSTAT.c = careerLoad(); } catch (e) { LSTAT.c = {}; } LSTAT.t = now; } return +(LSTAT.c || {})[k] || 0; }
 function gearLocalOwned(id) { const r = gearLocalRule(id); return !!r && gearLocalStat(r.local) >= (r.min || 1); }
@@ -2476,12 +2482,13 @@ function gearItem(id) { return gear.catalog.find(g => g.id === id) || null; }
 function gearArtOf(id) { const g = gearItem(id); return (g && g.art) || id; }
 function gearWindow(g) { const now = Date.now(), f = g.available_from ? Date.parse(g.available_from) : null, u = g.available_until ? Date.parse(g.available_until) : null; return f && now < f ? 'soon' : u && now >= u ? 'ended' : 'open'; }
 function gearDay(iso, start) { try { return new Date(Date.parse(iso) - (start ? 0 : 1000)).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).toUpperCase(); } catch (e) { return ''; } }
-function gearOwned(id) { return gearIsGift(id) || gearLocalOwned(id) || !!gear.owned[id] || walletOwnCount(id) > 0; }
+function gearOwned(id) { return gearIsGift(id) || gearIsChamp(id) || gearLocalOwned(id) || !!gear.owned[id] || walletOwnCount(id) > 0; }
 function gearEquipped() {   // v8.66: memoised (it's read every frame by the in-game golfer); gear.rev bumps on every change
-  if (gear.eqMemo && gear.eqMemo.rev === gear.rev) return gear.eqMemo.o;
+  const who = typeof hasUsername === 'function' && hasUsername() ? myName() : '';
+  if (gear.eqMemo && gear.eqMemo.rev === gear.rev && gear.eqMemo.who === who) return gear.eqMemo.o;
   const o = {}; if (isSignedIn()) for (const id in gear.owned) { const g = gearItem(id); if (gear.owned[id].equipped && g && g.active !== false) o[g.slot] = id; }
   { const lw = localWornMap(); for (const sl in lw) { const id = lw[sl], g = gearItem(id); if (g && g.slot === sl && gearOwned(id) && (gearIsLocal(id) || gearIsCoin(id) || (g.rule && g.rule.box) || !gear.owned[id])) o[sl] = id; } }   // local wear wins when the server locker has no row (xp, coin, box)
-  gear.eqMemo = { rev: gear.rev, o }; return o;
+  gear.eqMemo = { rev: gear.rev, who, o }; return o;
 }
 function gearSaveLocal() { try { localStorage.setItem(GEAR_KEY + careerId(), JSON.stringify({ owned: gear.owned })); } catch (e) {} }
 function gearLoadLocal() { gear.owned = {}; gear.rev++; try { const v = JSON.parse(localStorage.getItem(GEAR_KEY + careerId()) || 'null'); if (v && v.owned && isSignedIn()) gear.owned = v.owned; } catch (e) {} }
@@ -2489,11 +2496,12 @@ function gearSetOwned(list) { const o = {}; (Array.isArray(list) ? list : []).fo
 async function gearLoad(claim) {   // catalog for everyone; owned/equipped (+ earn anything newly qualified) when signed in
   gearLoadLocal();
   const c = await sb('/rest/v1/gear_catalog?select=*&order=sort.asc,id.asc', isSignedIn() ? {} : { noAuth: true }, 'gear');
-  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => (gearIsGift(g.id) || (g.rule && (g.rule.local || g.rule.coin)) || g.id === 'skeleton_mask') && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); gear.rev++; }
+  if (c.ok && Array.isArray(c.data) && c.data.length) { gear.catalog = c.data.map(g => Object.assign({}, g, { rule: g.rule || {} })); GEAR_BUILTIN.filter(g => (gearIsGift(g.id) || isChampGearId(g.id) || (g.rule && (g.rule.local || g.rule.coin)) || g.id === 'skeleton_mask') && !gear.catalog.some(x => x.id === g.id)).forEach(g => gear.catalog.push(Object.assign({}, g))); { const j = gear.catalog.find(g => g.id === 'champ_jacket'); if (j) j.req = 'WIN THE DUMB LUCK INVITATIONAL'; } gear.rev++; }
   if (isSignedIn() && hasUsername()) {
     if (claim) { const r = await sb('/rest/v1/rpc/claim_gear', { method: 'POST', body: {} }, 'gear'); if (r.ok && Array.isArray(r.data) && r.data.length) r.data.forEach(id => { if (gear.fresh.indexOf(id) < 0) gear.fresh.push(id); }); }
     const m = await sb('/rest/v1/rpc/my_gear', { method: 'POST', body: {} }, 'gear'); if (m.ok) gearSetOwned(m.data);
   }
+  try { champGearMaybe(); } catch (e) {}
   gear.loaded = true; return gear;
 }
 async function gearEquip(id, on) {   // optimistic; reverts if the server says no
@@ -2562,9 +2570,9 @@ function playerBust(app, gearMap, size) {   // size 'sm' = 11x11 board chip (can
 const LOADOUT = { map: new Map(), want: new Set(), timer: 0 };   // username -> { slot: item } (equipped gear only, public RPC)
 function gearFor(name) {
   const k = String(name || '').toLowerCase(); if (!k) return null;
-  if (LOADOUT.map.has(k)) return LOADOUT.map.get(k);
+  if (LOADOUT.map.has(k)) return champLoadout(k, LOADOUT.map.get(k));
   if (!LOADOUT.want.has(k) && authOnline()) { LOADOUT.want.add(k); if (!LOADOUT.timer) LOADOUT.timer = setTimeout(gearFetchLoadouts, 250); }
-  return null;
+  return champLoadout(k, null);
 }
 async function gearFetchLoadouts() {
   LOADOUT.timer = 0; const names = [...LOADOUT.want].slice(0, 60); names.forEach(n => LOADOUT.want.delete(n)); if (!names.length) return;
@@ -13006,7 +13014,7 @@ const VIEWS = {
     const fmtB = v => v == null ? '--' : (v > 0 ? '+' + v : v === 0 ? 'E' : String(v));
     const avg = S.nineHoles ? fmtB(Math.round(S.nineRel / S.nineHoles * 10) / 10) : '--';
     const f = social.friends.find(x => x.status === 'accepted' && String(x.friend_username).toLowerCase() === String(P.username).toLowerCase());
-    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferHDImg(P.appearance, P.gear, 'full', 2) + '"><div><p class="big">' + at(P.username) + '</p>' +
+    return back + '<div class="fprof"><img class="fgolf" alt="" src="' + golferHDImg(P.appearance, champLoadout(P.username, P.gear), 'full', 2) + '"><div><p class="big">' + at(P.username) + '</p>' +
       '<p class="rank">DLG TOUR <b>' + esc(r.name) + '</b></p><div class="xpbar"><i style="width:' + Math.round(r.frac * 100) + '%"></i></div><p class="sub l">' + (P.xp | 0) + ' XP' + (r.next ? ' · NEXT: ' + esc(r.next) : '') + '</p></div></div>' +
       '<p class="sec">HEAD TO HEAD</p><div class="kpis h2h"><div><b>' + (H.w | 0) + '-' + (H.l | 0) + '-' + (H.t | 0) + '</b>YOU VS ' + at(P.username) + ' (W-L-T)</div><div><b>' + (n ? Math.round((H.w | 0) / n * 100) + '%' : '--') + '</b>YOUR WIN %</div></div>' +
       '<p class="sec">CAREER</p><div class="kpis"><div><b>' + (P.rounds | 0) + '</b>ROUNDS</div><div><b>' + avg + '</b>AVG / 9</div><div><b>' + fmtB(B.front) + '</b>BEST FRONT 9</div><div><b>' + fmtB(B.back) + '</b>BEST BACK 9</div>' +
@@ -13214,6 +13222,7 @@ function lbiPopShow(board) {
   return true;
 }
 async function lbiPopMaybe() {
+  return;   // v8.99.109: tournament over; no auto standings popup
   if (lbiPopDone || lbiPopBusy) return;
   if (AUTH_TEST && !LBI_POP_FORCE) return;
   if (!isSignedIn() || !hasUsername()) return;
@@ -13236,8 +13245,7 @@ async function lbiPopMaybe() {
   } catch (e) { lbiPopMark(); }
   finally { lbiPopBusy = false; }
 }
-setInterval(() => { if (!document.hidden) lbiPopMaybe(); }, 1500);
-function lbiLook(u) { return (LBI.looks || {})[String(u || '').toLowerCase()] || {}; }
+function lbiLook(u) { const L = Object.assign({}, (LBI.looks || {})[String(u || '').toLowerCase()] || {}); L.gear = champLoadout(u, L.gear); return L; }
 function lbiMini(u) { const L = lbiLook(u); return '<img class="lbim" alt="" src="' + golferHDImg(L.appearance, L.gear, 'full', 1) + '">'; }
 function lbiCard(u) {   // v8.99.49: player card over the field (full-size golfer, name, board stats when they have any)
   const L = lbiLook(u), r = (((LBI.board || {}).rows) || []).find(x => String(x.u || '').toLowerCase() === String(u || '').toLowerCase());
@@ -13246,7 +13254,7 @@ function lbiCard(u) {   // v8.99.49: player card over the field (full-size golfe
     (st ? '<div class="lbics">' + st.map(([k, v]) => '<div><b>' + v + '</b>' + k + '</div>').join('') + '</div>' + (r.mc ? '<p class="sub">MISSED CUT</p>' : '') : '<p class="sub">NO SCORES YET</p>') +
     '<button class="btn alt" data-a="lbiPlX">CLOSE</button></div></div>';
 }
-function lbiBust(u) { const L = (LBI.looks || {})[String(u || '').toLowerCase()] || {}; return '<img class="lbub" alt="" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">'; }
+function lbiBust(u) { const L = lbiLook(u); return '<img class="lbub" alt="" src="' + golferHDImg(L.appearance, L.gear, 'bust', 1) + '">'; }
 setTimeout(() => { lbiLoad(true); }, 1500);
 setInterval(() => { if (!document.hidden) lbiLoad(true); }, 10 * 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { lbiLoad(true); lbiFlush(); } });
@@ -13832,6 +13840,7 @@ async function afterAuth() {
   try { await loadAdmin(); } catch (e) {}
   try { await loadAppearance(); } catch (e) {}   // v8.31: the account's look wins on this device
   try { await gearLoad(true); } catch (e) {}   // v8.66
+  try { champGearMaybe(); } catch (e) {}
   if (cupAfterPending()) { cupAfterClear(); hideAcct(); startCourse('spooky'); return; }   // v8.55
   try { await lbiLoad(true); } catch (e) {}
   { let la = false; try { la = sessionStorage.getItem(LBI_AFTER_KEY) === '1'; sessionStorage.removeItem(LBI_AFTER_KEY); } catch (e) {} if (la) { hideAcct(); setState('title'); lbiOpen('board'); return; } }   // v8.63
