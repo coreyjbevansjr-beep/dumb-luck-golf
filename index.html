@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.106';
+const GAME_VERSION = 'v8.99.107';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -11484,7 +11484,7 @@ const PS_CSS = `
 .ps-stage:after{content:"";position:absolute;left:6%;right:6%;bottom:6px;height:9px;background:#7a4620;border-top:2px solid #b87838;border-bottom:3px solid #3a1d0a;box-shadow:0 3px 0 rgba(0,0,0,.45)}
 .ps-art{position:relative;z-index:1;height:78%;aspect-ratio:1;margin-bottom:10px;animation:psBob 3.6s ease-in-out infinite}
 .ps-art img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 6px 4px rgba(0,0,0,.6));-webkit-user-drag:none;pointer-events:none}
-.ps-art.hat img{transform:scale(1.16)}
+.ps-art.hat img{transform:scale(1.16)}.ps-art.hat.photo img{transform:scale(1.1)}
 #shopChip{perspective:700px;cursor:pointer}
 #shopChip .in{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.3,.7,.4,1);transform-style:preserve-3d}
 #shopChip.flip .in{transform:rotateY(180deg)}
@@ -11553,6 +11553,7 @@ function psRender() {
     body.innerHTML = !items.length ? '<p class="ps-empty">NEW GEAR COMING SOON</p>' : '<div class="ps-shelf n' + items.length + '">' + items.map(it => {
       const art = it.id === 'lucky_marker'
         ? '<div id="shopChip" class="ps-art' + (shopChipFlip ? ' flip' : '') + '" data-ps="flip" role="button" tabindex="0" aria-label="Flip the ball marker"><div class="in"><img alt="" src="' + SHOP_CHIP_SRC[0] + '"><img alt="" class="bk" src="' + SHOP_CHIP_SRC[1] + '"></div></div>'
+        : it.id === 'camo_snapback' && hatDropLive() ? '<div class="ps-art hat photo"><img alt="" decoding="async" src="' + SHOP_GALLERY.camo_snapback[0] + '"></div>'   // v8.99.107: real hat photo on the card once the drop is live
         : '<div class="ps-art hat"><img alt="" src="' + SHOP_HAT_SRC[0] + '"></div>';
       if (psLocked(it)) return '<div class="ps-card locked" aria-disabled="true" aria-label="' + psEsc(it.name) + ' - locked">' +   // v8.99.31: the hat shows as a locked item
         '<div class="ps-stage">' + art + '<span class="ps-lock" aria-hidden="true"></span></div><div class="ps-name">' + psEsc(it.short || it.name) + '</div><div class="ps-price"></div><span class="ps-soon ps-locked">LOCKED</span></div>';
