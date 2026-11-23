@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.107';
+const GAME_VERSION = 'v8.99.108';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -6776,7 +6776,7 @@ function winCardMaybe() {   // the Spooky Cup ended; this champion card stays re
 }
 function giftCardMaybe() {
   try { if (localStorage.getItem(GIFT_SEEN_KEY)) return; } catch (e) { return; }
-  if (state !== 'title' || document.getElementById('giftCard') || document.getElementById('winCard')) return;   // v8.99.28: waits for the SPOOKY CUP card
+  if (state !== 'title' || document.getElementById('giftCard') || document.getElementById('winCard') || document.getElementById('hatLivePop')) return;   // v8.99.28: waits for the SPOOKY CUP card
   try { localStorage.setItem(GIFT_SEEN_KEY, '1'); } catch (e) {}
   let icon = ''; try { icon = gearIcon('dlg_shades', false); } catch (e) {}
   const d = document.createElement('div'); d.id = 'giftCard';
@@ -8071,7 +8071,7 @@ function dismissSplash() {
   audioOn(); SFX.click(); hap(12);
   lbiPopBootUntil = Date.now() + 1600;
   setState('title');
-  setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900);   // v8.99.84 champion card retired; v8.99.89 welcome card no longer auto-opens; v8.99.23 one-time thank-you gift card
+  setTimeout(giftCardMaybe, 420); setTimeout(invWelcomeMaybe, 900); setTimeout(hlpMaybe, 1800);   // v8.99.108 NOW LIVE hat popup (waits for the other cards)   // v8.99.84 champion card retired; v8.99.89 welcome card no longer auto-opens; v8.99.23 one-time thank-you gift card
   if (DEEP_CUP && !deepCupUsed) { deepCupUsed = true; setTimeout(() => { if (state === 'title') { try { trackEvent('spooky_deeplink', {}); } catch (e) {} cupEnter(); } }, 0); }   // v8.52 ?cup=spooky
   // one-time Add to Home Screen hint (iOS Safari, not already standalone)
   try {
@@ -11618,11 +11618,110 @@ function psShow() {
   if (!ps.el) psBuild();
   const s = safeCssInsets(), el = ps.el;
   el.style.setProperty('--pst', s.t + 'px'); el.style.setProperty('--psr', s.r + 'px'); el.style.setProperty('--psb', s.b + 'px'); el.style.setProperty('--psl', s.l + 'px');
-  ps.open = true; ps.at = performance.now(); ps.detail = null; psRender(); el.classList.add('on'); void el.offsetWidth; el.classList.add('in');
+  ps.open = true; ps.at = performance.now(); ps.detail = ps.openTo || null; ps.gal = 0; ps.openTo = null; psRender(); el.classList.add('on'); void el.offsetWidth; el.classList.add('in');   // v8.99.108: ps.openTo = NOW LIVE popup opens straight to the hat
   try { dlgTrack('shop_open'); } catch (e) {}
   ps.items = shopVisibleItems().map(i => i.id).join() + '|' + JSON.stringify(shopState.links || {});
 }
 function psHide() { ps.open = false; ps.detail = null; shopChipFlip = false; if (ps.el) ps.el.classList.remove('on', 'in'); shopChipEl = null; }
+/* ---- v8.99.108 NOW LIVE popup: once the hat drop is live, the title screen shows the camo hat floating (bob + soft shadow,
+   tilts toward the finger and springs back). Hat / SHOP NOW -> PRO SHOP on the hat's detail page. X or outside tap closes.
+   Once per session and once per day per device. Waits for (never stacks with) the gift / invitational / A2HS cards. No quantity. ---- */
+const HLP_KEY = 'dlg_hat_live_pop_v108';
+const HLP_CHAMP = 'DrizzyDray';   // Dumb Luck Invitational 2026 champion (final board, -53, clear 1st)
+let hlpDone = false, hlpTries = 0;
+try { if (sessionStorage.getItem(HLP_KEY) === '1') hlpDone = true; } catch (e) {}
+const HLP_CSS = `
+#hatLivePop{position:fixed;inset:0;z-index:61;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:16px;
+  background:rgba(0,0,0,.66);font-family:ui-monospace,Menlo,Consolas,monospace;color:#fcfcfc;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .22s}
+#hatLivePop.in{opacity:1}
+#hatLivePop button{font:inherit;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:0}
+#hatLivePop :focus-visible{outline:3px solid #fcfcfc;outline-offset:2px}
+.hlp-card{position:relative;width:100%;max-width:310px;box-sizing:border-box;padding:18px 14px 14px;text-align:center;
+  background:linear-gradient(180deg,#0a2a19 0,#14462D 45%,#0f3a24 75%,#06140c 100%);border:3px solid #000;
+  box-shadow:inset 0 0 0 2px #D4AF37,inset 0 0 0 4px #000,0 6px 0 #000,0 0 30px rgba(212,175,55,.35);
+  transform:translateY(14px) scale(.96);transition:transform .34s cubic-bezier(.2,.9,.25,1)}
+#hatLivePop.in .hlp-card{transform:none}
+.hlp-x{position:absolute;right:6px;top:6px;width:44px;height:44px;background:#000;border:2px solid #D4AF37;font-size:20px;line-height:1;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+.hlp-x:active{transform:scale(.92);transition-duration:.06s}
+.hlp-k{display:inline-block;padding:5px 10px;font-size:13px;font-weight:800;letter-spacing:3px;color:#000;background:#D4AF37;border:2px solid #000;box-shadow:2px 2px 0 #000}
+.hlp-stage{position:relative;display:block;width:100%;height:200px;margin:6px 0 2px;padding:0;background:radial-gradient(ellipse 50% 26% at 50% 88%,rgba(255,230,150,.30),transparent 70%);
+  border:0;perspective:600px;touch-action:none}
+.hlp-shadow{position:absolute;left:50%;bottom:16px;width:132px;height:16px;margin-left:-66px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),rgba(0,0,0,0));
+  animation:hlpShadow 3s ease-in-out infinite;pointer-events:none}
+.hlp-bob{position:absolute;left:0;right:0;top:4px;bottom:26px;display:flex;align-items:center;justify-content:center;animation:hlpBob 3s ease-in-out infinite;pointer-events:none}
+.hlp-tilt{display:block;height:100%;aspect-ratio:1;transform:rotateX(var(--hx,0deg)) rotateY(var(--hy,0deg)) rotateZ(var(--hz,0deg));transition:transform .6s cubic-bezier(.34,1.56,.64,1)}
+.hlp-stage.drag .hlp-tilt{transition:transform .12s ease-out}
+.hlp-tilt img{width:100%;height:100%;object-fit:contain;display:block;-webkit-user-drag:none;filter:drop-shadow(0 8px 6px rgba(0,0,0,.45))}
+@keyframes hlpBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes hlpShadow{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(.78);opacity:.5}}
+.hlp-name{font-size:15px;font-weight:800;letter-spacing:1.5px;color:#fce4a0;text-shadow:2px 2px 0 #000}
+.hlp-price{margin-top:4px;font-size:20px;font-weight:800;color:#D4AF37;text-shadow:2px 2px 0 #000}
+.hlp-go{display:block;width:100%;max-width:230px;min-height:46px;margin:10px auto 0;font-weight:800 !important;letter-spacing:2px;color:#000 !important;font-size:15px !important;
+  background:#D4AF37;border:3px solid #000;box-shadow:inset 0 -3px 0 #9c7a1c,inset 0 2px 0 #f3d77a,0 3px 0 #000;transition:transform .08s}
+.hlp-go:active{transform:translateY(2px);box-shadow:inset 0 -1px 0 #9c7a1c,0 1px 0 #000}
+.hlp-champ{margin:12px -2px 0;padding:8px 6px 0;border-top:2px dashed rgba(212,175,55,.55);font-size:11px;font-weight:800;letter-spacing:1px;line-height:1.5;color:#fce4a0}
+.hlp-champ b{color:#58d854}
+@media (prefers-reduced-motion:reduce){.hlp-bob,.hlp-shadow{animation:none}.hlp-tilt,.hlp-card{transition:none}#hatLivePop{transition:none}}
+`;
+function hlpDay() { const d = new Date(hatDropNow()); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function hlpMaybe() {
+  if (hlpDone || document.getElementById('hatLivePop') || !hatDropLive()) return;
+  try { if (localStorage.getItem(HLP_KEY) === hlpDay()) { hlpDone = true; return; } } catch (e) {}
+  if (++hlpTries > 80) return;   // ~2 min of waiting on other cards / another screen, then skip this session
+  if (!shopState.loaded) { if (!shopState.at) loadShopItems(); setTimeout(hlpMaybe, 1500); return; }
+  if (!shopVisibleItems().some(i => i.id === 'camo_snapback') || !shopLink('camo_snapback')) { hlpDone = true; return; }   // admin hid / archived the hat
+  if (lbiPopBlocked() || lbiPopSoon() || lbiPopBusy) { setTimeout(hlpMaybe, 1500); return; }
+  hlpShow();
+}
+function hlpShow() {
+  hlpDone = true;
+  try { sessionStorage.setItem(HLP_KEY, '1'); localStorage.setItem(HLP_KEY, hlpDay()); } catch (e) {}
+  if (!document.getElementById('hlpCss')) { const st = document.createElement('style'); st.id = 'hlpCss'; st.textContent = HLP_CSS; document.head.appendChild(st); }
+  const it = SHOP_ITEMS.find(i => i.id === 'camo_snapback') || {}, src = (SHOP_GALLERY.camo_snapback || [])[0] || '';
+  const d = document.createElement('div'); d.id = 'hatLivePop';
+  d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-label', 'Camo Script Hat now live');
+  d.innerHTML = '<div class="hlp-card"><button type="button" class="hlp-x" data-h="x" aria-label="Close">×</button>' +
+    '<div class="hlp-k">NOW LIVE</div>' +
+    '<button type="button" class="hlp-stage" data-h="shop" aria-label="Shop the Camo Script Hat"><span class="hlp-shadow"></span><span class="hlp-bob"><span class="hlp-tilt"><img alt="" decoding="async" draggable="false" src="' + esc(src) + '"></span></span></button>' +
+    '<div class="hlp-name">' + esc(it.name || 'Camo Script Hat') + '</div><div class="hlp-price">' + esc(it.price || '$50') + '</div>' +
+    '<button type="button" class="hlp-go" data-h="shop">SHOP NOW</button>' +
+    (HLP_CHAMP ? '<div class="hlp-champ">CONGRATS <b>@' + esc(HLP_CHAMP.toUpperCase()) + '</b><br>INVITATIONAL CHAMPION</div>' : '') + '</div>';
+  document.body.appendChild(d);
+  const stage = d.querySelector('.hlp-stage'), tilt = d.querySelector('.hlp-tilt');
+  const still = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+  let down = null, moved = false;
+  const lean = e => { if (still) return; const r = stage.getBoundingClientRect(); if (!r.width) return;
+    const x = Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width * 2 - 1)), y = Math.max(-1, Math.min(1, (e.clientY - r.top) / r.height * 2 - 1));
+    tilt.style.setProperty('--hy', (x * 16).toFixed(1) + 'deg'); tilt.style.setProperty('--hx', (-y * 12).toFixed(1) + 'deg'); tilt.style.setProperty('--hz', (x * 3).toFixed(1) + 'deg'); stage.classList.add('drag'); };
+  const settle = () => { stage.classList.remove('drag'); tilt.style.setProperty('--hx', '0deg'); tilt.style.setProperty('--hy', '0deg'); tilt.style.setProperty('--hz', '0deg'); };
+  stage.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; moved = false; lean(e); });
+  stage.addEventListener('pointermove', e => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) moved = true; if (down || e.pointerType === 'mouse') lean(e); });
+  stage.addEventListener('pointerup', () => { down = null; settle(); });
+  stage.addEventListener('pointercancel', () => { down = null; moved = false; settle(); });
+  stage.addEventListener('pointerleave', () => { if (!down) settle(); });
+  const shownAt = performance.now();
+  d.addEventListener('click', ev => {
+    if (performance.now() - shownAt < 250) return;
+    const b = ev.target.closest('[data-h]'); if (!b && ev.target !== d) return;
+    const k = b ? b.getAttribute('data-h') : 'x';
+    if (k === 'shop' && b === stage && moved) { moved = false; return; }   // a drag to tilt the hat is not a tap
+    hlpClose(k === 'shop');
+  });
+  d.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); hlpClose(false); } });
+  void d.offsetWidth; d.classList.add('in');
+  try { d.querySelector('.hlp-go').focus({ preventScroll: true }); } catch (e) {}
+  try { dlgTrack('hat_live_pop'); } catch (e) {}
+}
+function hlpClose(shop) {
+  const d = document.getElementById('hatLivePop'); if (!d) return;
+  d.remove(); try { SFX.click(); } catch (e) {} try { lockInput(250); } catch (e) {}
+  if (shop && state === 'title') {
+    try { dlgTrack('shop_tap', { mode: 'hat_live_pop' }); } catch (e) {}
+    ps.openTo = 'camo_snapback'; menuPopup = { kind: 'shop', t: 0 }; shopChipFlip = false; loadShopItems();
+  }
+}
+addEventListener('keydown', e => { if (document.getElementById('hatLivePop')) { if (e.key === 'Escape') { e.preventDefault(); hlpClose(false); } e.stopPropagation(); } }, true);   // the game never sees keys while the popup is up
 const psRect = n => { if (!n) return null; const r = n.getBoundingClientRect(); return r.width ? { left: r.left, top: r.top, w: r.width, h: r.height } : null; };
 function syncShopChip() {
   const want = state === 'title' && !!menuPopup && menuPopup.kind === 'shop' && !ov && !a2hs.show && !acctOpen();
@@ -13069,7 +13168,7 @@ function lbiPopRound() {
 function lbiPopBlocked() {
   if (state !== 'title') return true;
   if (acctOpen() || a2hs.show || paused || ov || menuPopup || authReturn) return true;
-  if (document.getElementById('giftCard') || document.getElementById('winCard') || document.getElementById('a2hs') || document.getElementById('lbiPop')) return true;
+  if (document.getElementById('giftCard') || document.getElementById('winCard') || document.getElementById('a2hs') || document.getElementById('lbiPop') || document.getElementById('hatLivePop')) return true;
   const w = document.getElementById('invWelcome'); if (w && !w.hidden) return true;
   const a = document.getElementById('courseArrival'); if (a && !a.hidden) return true;
   const name = document.getElementById('nameOverlay'); if (name && name.classList.contains('on')) return true;
