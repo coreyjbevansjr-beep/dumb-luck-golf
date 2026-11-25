@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.109';
+const GAME_VERSION = 'v8.99.110';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -4212,7 +4212,7 @@ const ROLLER_HOLES = [
    pads:[[206,222]],
    pts:[[0,'tee',20],[24,'rough',20],[44,'fair',18],[130,'fair',26],[180,'fair',16],[204,'fair',18],[226,'fair',16],[300,'fair',6],[360,'fair',10],[456,'fair',12],[462,'rough',12],[466,'water',12],[500,'rough',12],[508,'fair',14],[596,'fair',16],[606,'sand',14],[620,'fair',14],[628,'green',14],[694,'sand',14],[710,'rough',14],[760,'end',16]] }
 ];
-/* ================= v8.75: BIG APPLE LINKS (New York City 18, par 72; FRONT 9 / BACK 9 / FULL 18) =================
+/* ================= v8.75: CONCRETE JUNGLE (New York City 18, par 72; FRONT 9 / BACK 9 / FULL 18) =================
    One identity: a pixel NYC skyline across every hole, the time of day moving from a Central Park morning to Broadway at
    night. Each hole's backdrop carries its landmark (painted into the cached backdrop, not props). Ground is park turf,
    rooftop concrete, harbor water or Coney sand. No random decoration. Uses only existing mechanics + v8.69 ramps/walls. */
@@ -4293,71 +4293,81 @@ Object.assign(THEMES, {
     Object.assign(t, { sky, stars: true, noMoon: true, clouds: false, sun: undefined, bg: nycBg(o), _bd: null,
       C: Object.assign({}, NYC_NIGHT_C, { water: '#2c64c8', waterD: '#1c3c88', glow: k.length % 2 ? '#3cf0ff40' : '#ff4fd840', wet: '#b8fff0' }, keep[k] || {}) }); }
 })();
-const NYC_FRONT = [
- // the Pond guards the green: lay up on the Sheep Meadow or carry it
- { name:'CENTRAL PARK', theme:'nycPark', par:4, cup:360, pins:[346,360,376], wind:2, windR:[-3,4], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[140,'fair',16],[200,'fair',12],[262,'fair',10],[270,'rough',10],[274,'water',10],[304,'rough',10],[310,'fair',10],[326,'green',10],[392,'rough',10],[400,'sand',10],[416,'rough',12],[450,'end',14]] },
- // rooftop to rooftop across 7th Avenue; short and you're down in the street with the cabs
- { name:'TIMES SQUARE', theme:'nycNeon', par:3, cup:172, pins:[162,172,184], wind:1, windR:[-3,3], deco:[],
-   movers:[{ kind:'slide', skin:'taxi', x:92, w:18, hBot:0, hTop:10, period:2.4, phase:0, amp:30 }, { kind:'slide', skin:'bus', x:112, w:26, hBot:0, hTop:16, period:3.2, phase:0.5, amp:20 }],
-   pts:[[0,'tee',44],[22,'fair',44],[44,'fair',42],[50,'rough',8],[144,'rough',8],[150,'fair',30],[154,'green',30],[196,'sand',30],[206,'rough',30],[232,'end',32]] },
- // the elevated rail park: two drops to street level along the way (no penalty, just a long way up)
- { name:'THE HIGH LINE', theme:'nycMorn', par:5, cup:600, pins:[586,600,614], wind:2, windR:[-2,5], deco:[],
-   pts:[[0,'tee',30],[24,'rough',30],[44,'fair',30],[146,'fair',30],[150,'rough',6],[176,'rough',6],[180,'fair',30],[366,'fair',30],[370,'rough',6],[396,'rough',6],[400,'fair',30],[540,'fair',30],[550,'sand',30],[560,'green',30],[632,'sand',30],[640,'rough',30],[680,'end',30]] },
- // the green sits on top of the wedge: a sheer front face, and anything long runs off the back
- { name:'FLATIRON', theme:'nycDay', par:4, cup:326, pins:[312,326,340], wind:-2, windR:[-5,2], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[250,'fair',10],[290,'rough',10],[298,'green',34],[352,'rough',34],[356,'rough',30],[400,'rough',10],[440,'end',12]] },
- // a skybridge spans the canyon: loft it over, or punch it low underneath like a trader on a deadline
- { name:'WALL STREET', theme:'nycGold', par:4, cup:370, pins:[356,370,384], wind:3, windR:[-1,6], deco:[],
-   walls:[[160, 10, 56, 22]],
-   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[200,'fair',12],[300,'fair',6],[320,'sand',6],[336,'green',6],[404,'rough',6],[420,'end',8]] },
- // island green in the harbor under Lady Liberty; drop zone on the pier
- { name:'LADY LIBERTY', theme:'nycHarbor', par:3, cup:170, pins:[166,170,175], wind:-3, windR:[-6,2], drop:128, deco:[],
-   pts:[[0,'tee',18],[22,'rough',16],[32,'water',8],[118,'rough',10],[122,'fair',10],[136,'rough',10],[140,'water',8],[156,'rough',10],[159,'green',10],[182,'rough',10],[185,'water',8],[240,'rough',12],[262,'end',14]] },
- // carry the East River to Brooklyn, or lay up and use the little tower pier
- { name:'BROOKLYN BRIDGE', theme:'nycBridge', par:4, cup:380, pins:[366,380,394], wind:3, windR:[-1,6], deco:[],
-   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[108,'fair',12],[114,'rough',12],[118,'water',12],[150,'rough',10],[153,'fair',10],[165,'rough',10],[168,'water',10],[218,'rough',12],[224,'fair',12],[330,'sand',10],[344,'green',10],[404,'rough',10],[420,'sand',10],[436,'rough',12],[466,'end',14]] },
- // run it down the concourse and hit the lip fast to jump the open track cut; or lay up and go over
- { name:'GRAND CENTRAL', theme:'nycTerminal', par:5, cup:594, pins:[580,594,608], wind:2, windR:[-3,5], deco:[],
-   ramps:[[236, 0.72, 30]],
-   pts:[[0,'tee',32],[24,'rough',32],[40,'fair',30],[120,'fair',14],[200,'fair',14],[236,'fair',22],[238,'rough',2],[300,'rough',2],[306,'fair',20],[470,'fair',22],[530,'sand',20],[546,'fair',20],[560,'green',20],[626,'sand',20],[640,'rough',20],[680,'end',22]] },
- // tee off from the 86th-floor deck: the drop adds yards to everything
- { name:'EMPIRE STATE', theme:'nycSunset', par:4, cup:486, pins:[470,486,502], wind:3, windR:[0,6], deco:[],
-   pts:[[0,'tee',110],[24,'rough',108],[34,'rough',100],[54,'rough',14],[70,'fair',10],[280,'fair',10],[290,'sand',8],[340,'sand',8],[350,'fair',10],[420,'fair',10],[430,'sand',10],[450,'green',10],[516,'rough',10],[526,'sand',10],[542,'rough',12],[566,'end',14]] }
-];
-const NYC_BACK = [
- // the green is beyond the outfield wall: lay up in the outfield and loft it over
- { name:'YANKEE STADIUM', theme:'nycStadium', par:4, cup:336, pins:[322,336,352], wind:2, windR:[-2,5], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[262,'fair',10],[268,'rough',36],[274,'rough',36],[280,'rough',12],[290,'fair',12],[300,'green',12],[370,'rough',12],[378,'sand',12],[394,'rough',14],[420,'end',16]] },
- // the long one up the avenue: cabs and buses in the landing zones, a steam grate that can bounce one a block, and the Plaza fountain
- { name:'FIFTH AVENUE', theme:'nycAve', par:5, cup:680, pins:[664,680,696], wind:2, windR:[-3,5], deco:[],
-   pads:[[210,224]],
-   movers:[{ kind:'slide', skin:'taxi', x:300, w:18, hBot:0, hTop:10, period:2.4, phase:0, amp:30 }, { kind:'slide', skin:'bus', x:470, w:26, hBot:0, hTop:16, period:3.2, phase:0.4, amp:24 }],
-   pts:[[0,'tee',14],[24,'rough',14],[44,'fair',12],[160,'fair',16],[204,'fair',14],[260,'fair',12],[400,'fair',14],[564,'fair',12],[574,'rough',12],[578,'water',12],[610,'rough',12],[614,'fair',12],[632,'sand',12],[648,'green',12],[716,'sand',12],[734,'rough',12],[774,'end',14]] },
- // the green is the rink, sunk below the plaza: the walls hold anything long
- { name:'ROCKEFELLER RINK', theme:'nycRink', par:3, cup:150, pins:[142,150,160], wind:-2, windR:[-4,2], deco:[],
-   pts:[[0,'tee',20],[24,'rough',20],[44,'fair',20],[118,'fair',20],[124,'rough',18],[130,'green',6],[176,'rough',6],[182,'rough',20],[188,'fair',20],[232,'end',20]] },
- // under the Unisphere: a long waste bunker eats lazy drives; carry it or lay up
- { name:'FLUSHING MEADOWS', theme:'nycQueens', par:4, cup:370, pins:[354,370,388], wind:-2, windR:[-5,3], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[210,'fair',10],[216,'sand',8],[252,'sand',8],[258,'fair',10],[330,'rough',10],[336,'green',10],[404,'rough',10],[412,'sand',10],[428,'rough',12],[460,'end',14]] },
- // straight up the Met steps: the green is on the top landing
- { name:'THE MET STEPS', theme:'nycMet', par:4, cup:330, pins:[316,330,346], wind:-1, windR:[-4,3], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[240,'fair',10],[250,'rough',10],[252,'rough',15],[258,'rough',15],[260,'rough',20],[266,'rough',20],[268,'rough',25],[274,'rough',25],[276,'rough',30],[282,'rough',30],[284,'rough',35],[290,'rough',35],[292,'fair',40],[300,'green',40],[362,'rough',40],[380,'rough',30],[420,'end',30]] },
- // water all the way to St. George; bail out on the ferry pier drop zone
- { name:'STATEN FERRY', theme:'nycFerry', par:3, cup:186, pins:[178,186,196], wind:2, windR:[-3,4], drop:136, deco:[],
-   pts:[[0,'tee',16],[22,'rough',14],[30,'water',8],[128,'rough',10],[130,'fair',10],[142,'rough',10],[146,'water',8],[166,'rough',10],[170,'green',10],[204,'rough',10],[210,'sand',10],[222,'rough',12],[250,'end',14]] },
- // boardwalk tee, the beach in the landing zone, the Cyclone rattling past and a bounce on the boardwalk; the Atlantic is long
- { name:'CONEY ISLAND', theme:'nycConey', par:5, cup:584, pins:[568,584,600], wind:3, windR:[0,6], deco:[],
-   pads:[[296,310]],
-   movers:[{ kind:'slide', skin:'coaster', x:390, w:20, hBot:0, hTop:14, period:2.2, phase:0.2, amp:20 }],
-   pts:[[0,'tee',18],[24,'rough',18],[44,'fair',16],[190,'fair',14],[200,'sand',12],[264,'sand',12],[272,'fair',14],[440,'fair',14],[500,'fair',12],[530,'sand',12],[546,'fair',12],[552,'green',12],[616,'sand',10],[630,'rough',10],[640,'water',8],[700,'end',8]] },
- // the green runs right up to the seawall: long is the harbor
- { name:'BATTERY PARK', theme:'nycBattery', par:4, cup:350, pins:[336,350,366], wind:2, windR:[-2,5], deco:[],
-   pts:[[0,'tee',12],[24,'rough',12],[44,'fair',10],[250,'fair',10],[300,'sand',10],[316,'green',10],[380,'rough',10],[386,'water',10],[450,'end',8]] },
- // finale under the lights: off the rooftop, down to the street, up onto the stage
- { name:'BROADWAY', theme:'nycBroadway', par:4, cup:384, pins:[368,384,400], wind:2, windR:[-3,4], deco:[],
-   pts:[[0,'tee',40],[24,'rough',40],[40,'fair',38],[120,'fair',12],[300,'fair',12],[320,'rough',12],[330,'sand',14],[344,'rough',24],[350,'green',24],[420,'rough',24],[428,'sand',24],[444,'rough',26],[480,'end',28]] }
-];
+/* CONCRETE JUNGLE: street-level New York. Cached facades; real existing golf collision. */
+const STREET_COLORS={grass:'#6c7273',fair2:'#73797a',grassD:'#4a5051',green:'#46ac58',green2:'#59bb65',sand:'#d4bc92',sandD:'#a38c68',dirt:'#51575a',dirtD:'#454e51',dirtL:'#62686a',water:'#477487',waterD:'#2b4f65'};
+
+function streetBg(o){return(R,w,h,hz,H1)=>{
+ const floor=Math.min(h-4,BASE-9),night=o.light!=='day'&&o.light!=='rain'&&o.light!=='gold';
+ const word=(s,x,y,c)=>{for(let n=0;n<s.length;n++){const q=FONT[s[n]]||FONT[' '];for(let yy=0;yy<7;yy++)for(let xx=0;xx<5;xx++)if(q[yy][xx]==='#')R(x+n*6+xx,y+yy,1,1,c);}};
+ const line=(x,y,tx,ty,c)=>{const n=Math.max(Math.abs(tx-x),Math.abs(ty-y),1);for(let k=0;k<=n;k++)R(x+(tx-x)*k/n,y+(ty-y)*k/n,1,1,c);};
+ const ad=(x,y,bw,a,b,style)=>{const bc=['#203c48','#7d4836','#2d493e','#8f7549'][style%4];R(x-2,y-2,bw+4,31,'#30383a');R(x,y,bw,27,bc);R(x+1,y+1,bw-2,1,'#ccc7b6');word(a,x+(bw-(a.length*6-1))/2,y+5,'#f1ead7');word(b,x+(bw-(b.length*6-1))/2,y+15,style%2?'#f0d396':'#d4ddd8');for(const xx of[x-1,x+bw]){R(xx,y-1,1,1,'#c9c8ba');R(xx,y+27,1,1,'#c9c8ba');}R(x+6,y-6,1,4,'#404849');R(x+bw-8,y-6,1,4,'#404849');R(x+4,y-7,5,2,night?'#e7d7ac':'#899698');R(x+bw-10,y-7,5,2,night?'#e7d7ac':'#899698');};
+ // Lower Manhattan glimpses beyond the street walls.
+ for(let x=0,i=0;x<w;i++){const bw=12+Math.floor(H1(i+o.seed)*20),ht=75+Math.floor(H1(i+61)*125);R(x,floor-ht,bw-2,ht,o.far);x+=bw;}
+ for(let yy=0;yy<170;yy++){const hw=4+Math.floor(yy/19);R(311-hw,floor-239+yy,hw*2,1,o.glass);}R(311,floor-264,1,25,o.glass);
+ for(let x=-10,i=0;x<w;i++){
+  const type=o.types[i%o.types.length],b0={office:88,bank:98,warehouse:95,cast:70,brick:58,construction:90}[type],bw=b0+Math.floor(H1(i*17+o.seed)*15),h0={office:235,bank:164,warehouse:124,cast:180,brick:198,construction:214}[type],top=Math.max(25,floor-h0-Math.floor(H1(i*43+o.seed)*38));
+  const palettes=type==='office'?['#667e8c','#718795']:type==='cast'?['#b4b1a0','#8f9b91','#a7a89a']:type==='warehouse'?['#8c7160','#8b8879','#7c7770']:type==='bank'?['#a29b89','#9a9383']:['#855e4e','#9a7160','#70594f','#987e66'];
+  const brick=palettes[(i+o.seed)%palettes.length];R(x-1,top-2,bw+1,floor-top+2,'#303a3c');R(x,top,bw-2,floor-top,brick);R(x+bw-10,top+1,8,floor-top-1,'#535957');R(x-3,top-4,bw+4,3,'#4f5553');R(x-1,top-2,bw,1,'#c4bbab');
+  if(type==='construction'){
+   R(x+3,top+3,bw-16,floor-top-5,'#718180');for(let yy=top+8;yy<floor-16;yy+=18){R(x+3,yy,bw-15,4,'#b1a58c');for(let xx=x+10;xx<x+bw-12;xx+=19)R(xx,yy+4,3,14,'#576663');}for(let yy=top+40;yy<floor-25;yy+=36)R(x+7,yy,bw-25,14,'#b7784c');R(x+4,floor-23,bw-12,23,'#526c5d');word('SITE',x+11,floor-16,'#e8debf');
+  }else if(type==='office'){
+   R(x+4,top+4,bw-18,floor-top-47,'#7895a3');for(let xx=x+7;xx<x+bw-16;xx+=9){R(xx,top+5,2,floor-top-48,'#b2c3c6');R(xx+3,top+5,2,floor-top-48,'#536f80');}for(let yy=top+12;yy<floor-40;yy+=10)R(x+4,yy,bw-18,1,'#53646d');for(let yy=top+10;yy<floor-45;yy++)if(yy%15<2)R(x+9,yy,18,1,'#91adb7');
+  }else{
+   const wx=type==='warehouse'?19:type==='cast'?13:12,wy=type==='warehouse'?23:type==='cast'?18:16;
+   for(let yy=top+10;yy<floor-45;yy+=wy){if(type==='cast'||type==='bank')R(x+2,yy-4,bw-14,3,'#c3bdab');else R(x+4,yy-5,bw-17,1,'#6c5b4e');for(let xx=x+8;xx<x+bw-16;xx+=wx){const ww=type==='warehouse'?12:7,hh=type==='warehouse'?15:10;R(xx-1,yy-1,ww+2,hh+3,'#454d4b');R(xx,yy,ww,hh,night&&H1(xx+yy+o.seed)<.5?'#d6b97b':'#9faeac');R(xx+Math.floor(ww/2),yy,1,hh,'#627371');R(xx,yy+Math.floor(hh/2),ww,1,'#627371');R(xx-2,yy+hh+2,ww+4,2,'#c1b6a0');}}
+   if((type==='brick'||type==='cast')&&i%2===0){const fx=x+bw-18;for(let yy=top+24;yy<floor-48;yy+=25){R(fx-13,yy,15,2,'#394340');R(fx-13,yy-7,1,7,'#394340');R(fx+1,yy-7,1,7,'#394340');line(fx,yy+2,fx-11,yy+23,'#394340');}}
+  }
+  if(i%3===1&&type!=='construction'){R(x+15,top-18,3,14,'#625b4e');R(x+35,top-18,3,14,'#625b4e');R(x+11,top-36,29,19,'#7b674a');for(let k=0;k<4;k++)R(x+14+k*7,top-34,1,15,'#514532');R(x+8,top-39,35,3,'#514a3e');}
+  if(type==='bank'){
+   R(x+6,floor-43,bw-21,43,'#a7a18e');R(x+9,floor-35,bw-27,31,'#4b6063');for(let xx=x+12;xx<x+bw-18;xx+=15){R(xx,floor-34,5,34,'#d2cbb9');R(xx-2,floor-35,9,3,'#bcb49f');}R(x+5,floor-46,bw-19,5,'#c5beab');word('EXCHANGE',x+12,floor-42,'#3c4c4b');
+  }else if(type==='warehouse'){
+   R(x+6,floor-38,bw-20,38,'#3d4b4d');for(let yy=floor-35;yy<floor-2;yy+=4)R(x+8,yy,bw-24,1,'#87918a');R(x+9,floor-23,6,3,'#c6c5ad');
+  }else if(type!=='construction'){
+   const sy=floor-35;R(x+5,sy,bw-18,35,'#3f5254');R(x+8,sy+11,bw-24,21,night?'#546d64':'#8ba3a0');R(x+bw-25,sy+10,2,25,'#b9b4a2');const signs=['DELI','COFFEE','NOODLES','MARKET','DLG','BAKERY'],label=signs[(i+o.seed)%6];R(x+4,sy-3,bw-16,12,o.seed%3?'#566b58':'#845849');word(label,x+9,sy,'#ede3cc');if(i%2===0){R(x+4,sy+9,bw-16,5,'#c7bc9f');for(let k=0;k<bw-16;k+=9)R(x+4+k,sy+9,4,5,o.seed%2?'#5c735f':'#9a5f4b');}}
+  // One roof billboard and occasional painted wall ads keep the views distinct.
+  if(i%3===0&&bw>=65){const roof=top>70&&floor-top<160,by=roof?top-34:Math.max(top+31,floor-148-(i%2)*18),bx=x+7,bww=Math.min(90,bw-14),labels=[['DUMB LUCK','GOLF'],['PLAY THE','WIND'],['STREET','GOLF'],['CITY','LINKS']][(o.seed+i)%4];if(roof){R(bx+6,by+26,2,top-by-25,'#4c5352');R(bx+bww-8,by+26,2,top-by-25,'#4c5352');}ad(bx,by,bww,labels[0],labels[1],o.seed+i);}
+  else if(type==='warehouse'&&i%2){word('DLG SUPPLY',x+8,top+21,'#d1c2a0');word('STREET GOLF',x+8,top+32,'#d1c2a0');}
+  x+=bw;
+ }
+ R(0,floor,w,5,'#aaa99d');R(0,floor+5,w,3,'#707775');for(let x=0;x<w;x+=22)R(x,floor,1,5,'#7e8580');
+ for(let x=32;x<w;x+=129){R(x,floor-50,2,51,'#344449');R(x-2,floor-53,16,3,'#344449');R(x+9,floor-49,5,2,night?'#ead09a':'#b0bbb6');R(x-3,floor-30,25,8,'#3a6151');word('ONE',x,floor-29,'#eee9d9');}
+};}
+const STREET_VIEWS={"nycStreetFinancial":{"seed":1,"light":"day","types":["bank","office","brick"],"cranes":1},"nycStreetCastiron":{"seed":2,"light":"day","types":["cast","brick","cast"],"cranes":0},"nycStreetCivic":{"seed":3,"light":"day","types":["office","bank","cast"],"cranes":0},"nycStreetLoading":{"seed":4,"light":"day","types":["warehouse","brick","construction"],"cranes":1},"nycStreetTribeca":{"seed":5,"light":"day","types":["brick","cast","warehouse"],"cranes":0},"nycStreetFulton":{"seed":6,"light":"day","types":["office","cast","office"],"cranes":0},"nycStreetAlley":{"seed":7,"light":"day","types":["brick","brick","cast"],"cranes":0},"nycStreetWorth":{"seed":8,"light":"day","types":["office","brick","bank"],"cranes":1},"nycStreetCanal":{"seed":9,"light":"day","types":["brick","cast","warehouse"],"cranes":0},"nycStreetSeaport":{"seed":10,"light":"day","types":["warehouse","brick","office"],"cranes":0},"nycStreetCourtyard":{"seed":11,"light":"day","types":["cast","brick","cast"],"cranes":0},"nycStreetWestside":{"seed":12,"light":"day","types":["warehouse","construction","brick"],"cranes":1},"nycStreetFranklin":{"seed":13,"light":"day","types":["brick","cast","brick"],"cranes":0},"nycStreetUnderpass":{"seed":14,"light":"rain","types":["office","warehouse","construction"],"cranes":1},"nycStreetMulberry":{"seed":15,"light":"gold","types":["brick","cast","warehouse"],"cranes":0},"nycStreetRoadwork":{"seed":16,"light":"gold","types":["construction","office","warehouse"],"cranes":2},"nycStreetNightwork":{"seed":17,"light":"dusk","types":["construction","warehouse","brick"],"cranes":2},"nycStreetBroadwayFinal":{"seed":18,"light":"night","types":["office","bank","office"],"cranes":1}};
+for(const[id,o]of Object.entries(STREET_VIEWS)){
+ const sky={day:'#b9cdd5',rain:'#9aaeb7',gold:'#dbc3a5',dusk:'#909aa8',night:'#2c3f53'}[o.light],far={day:'#9aafb9',rain:'#8296a2',gold:'#b6a28e',dusk:'#718495',night:'#2b3e50'}[o.light];o.sky=sky;o.far=far;o.glass=o.light==='gold'?'#c6b89c':'#94aeba';
+ THEMES[id]={sky,noMoon:true,clouds:false,bg:streetBg(o),streetOpts:o,C:Object.assign({},COL,STREET_COLORS,o.light==='night'||o.light==='dusk'?{grass:'#566269',fair2:'#606b72',grassD:'#3e4b51',dirt:'#3d474c',dirtD:'#283136'}:{})};
+}
+function streetCraneState(o,t){if(!o.cranes)return[];t=REDUCED_MOTION?0:t;const floor=Math.min(PLAY_H-4,BASE-9);return (o.cranes>1?[80,356]:[214]).map((x,i)=>{const top=Math.max(24,floor-228-i*14),reach=56+(i?12:0),tx=x+Math.sin(t*.18+o.seed+i)*reach*.55;return{x,top,floor,trolley:tx,hook:top+36+(Math.sin(t*.38+i)*.5+.5)*27};});}
+function streetSkyMotion(hl,cam,t){const o=themeOf(hl).streetOpts;if(!o||!o.cranes)return;for(const q of streetCraneState(o,t))for(let tile=-1;tile<=2;tile++){
+ const ox=tile*512-Math.round(cam*.3),x=q.x+ox;if(x<-110||x>W+110)continue;const top=q.top,C=o.light==='night'?'#a28e63':'#aa8d4e';
+ const line=(ax,ay,bx,by,c)=>{const n=Math.max(Math.abs(bx-ax),Math.abs(by-ay),1);for(let k=0;k<=n;k++)rect(Math.round(ax+(bx-ax)*k/n),Math.round(ay+(by-ay)*k/n),1,1,c);};
+ rect(x-3,top,1,q.floor-top-22,C);rect(x+3,top,1,q.floor-top-22,C);for(let y=top+7;y<q.floor-31;y+=12){rect(x-3,y,7,1,C);line(x-2,y+1,x+2,y+11,'#8b7b50');line(x+2,y+1,x-2,y+11,'#8b7b50');}
+ rect(x-47,top,112,3,C);rect(x-47,top-5,112,1,C);rect(x-28,top+4,19,6,'#726e5c');rect(x-4,top-15,7,15,C);for(let xx=-42;xx<65;xx+=10){line(x+xx,top-4,x+xx+5,top-1,C);line(x+xx+5,top-1,x+xx+10,top-4,C);}line(x-1,top-14,x-42,top-5,'#727965');line(x+1,top-14,x+60,top-5,'#727965');rect(x+4,top+3,9,7,'#777b68');rect(x+6,top+4,5,3,'#a5b7b1');
+ const tx=q.trolley+ox;rect(tx-3,top+2,6,3,'#626b64');rect(tx,top+5,1,q.hook-top-5,'#4b5754');rect(tx-2,q.hook,5,3,'#8a7952');rect(tx-7,q.hook+3,15,2,'#767f79');
+ }}
+function streetWall(hl,w,cam){
+ const i=hl.walls.indexOf(w),kind=(hl.def.wallSkins||[])[i]||'barrier',sx=Math.round(w.x-cam),ww=w.ww||8,top=Math.round(BASE-(w.g0+w.hTop)),bot=Math.round(BASE-(w.g0+w.hBot)),hh=bot-top,left=sx-ww/2;
+ rect(left-1,top-1,ww+2,hh+2,'#222c2d');
+ if(kind==='scaffold'){rect(left,top,ww,hh,'#41695b');for(let x=left+3;x<left+ww;x+=10)rect(x,top+2,1,hh-4,'#779387');for(let y=top+8;y<bot-3;y+=12)rect(left+1,y,ww-2,2,'#2c493f');rect(left,bot-2,ww,2,'#a1aaa1');text3(ctx,'WORK',left+3,top+3,'#e8dfc4');}
+ else if(kind==='hydrant'){rect(left,top,ww,hh,'#b44332');rect(left+2,top+2,ww-4,hh-2,'#e0714b');rect(left,top+3,ww,2,'#e89f72');rect(sx-1,top+2,2,hh-3,'#c65338');}
+ else if(kind==='planter'){rect(left,top,ww,hh,'#86908b');rect(left,top,ww,3,'#527953');rect(left+2,top+4,ww-4,hh-5,'#a4aaa0');}
+ else{rect(left,top,ww,hh,'#b4b5aa');for(let k=0;k<ww;k+=6)rect(left+k,top+3,Math.min(3,ww-k),4,'#d67b40');rect(left+1,bot-2,ww-2,2,'#747f7b');}
+}
+function streetDetails(hl,cam){
+ if(!hl.def.street)return;
+ for(let sx=0;sx<W;sx++){const wx=Math.floor(cam)+sx,s=surfAt(hl,wx),gy=Math.round(BASE-groundH(hl,wx));if((s==='fair'||s==='tee')&&wx%26<12)rect(sx,gy+2,1,1,'#cfbd7f');if(s==='rough'&&wx%5===0)rect(sx,gy-1,1,2,'#858b87');}
+ for(const[a,b]of hl.def.crosswalks||[])for(let wx=a;wx<b;wx+=7){const x=wx-cam,y=BASE-groundH(hl,wx);rect(x,y,4,3,'#d9d9ca');}
+ for(const m of hl.movers||[])if(m.cityTraffic){for(const px of [m.rx0,m.rx1]){const sx=px-cam,y=BASE-groundH(hl,px);rect(sx-6,y-20,12,21,'#313b3e');rect(sx-4,y-17,8,17,'#1c2529');rect(sx-6,y-21,12,2,'#9a9d95');}}
+ const gx=hl.cup-31-cam,gy=BASE-groundH(hl,hl.cup-31);rect(gx,gy-1,1,4,'#c2c2b5');
+}
+// Street-only rolling collision: a ground-level hydrant/barrier cannot be rolled through.
+function streetRollCollision(b,hl,px,nx,t){
+ for(const w of hl.walls||[]){if(w.hBot>1||w.hTop<2)continue;const face=w.x+(px<w.x?-1:1)*(w.ww||0)/2;if((px-face)*(nx-face)<=0){b.x=face+Math.sign(px-face||-1)*1.2;b.h=groundH(hl,b.x);b.vx=-b.vx*.55;b.events.push('wall');return true;}}
+ const m=hitMover(hl,{x:nx,h:groundH(hl,nx)},t);if(m&&!b.moverHit){const mx=moverBlockX(m,t),side=b.vx>=0?-1:1;b.x=mx+side*(m.w/2+1.2);b.h=groundH(hl,b.x);b.vx=side*Math.max(5,Math.abs(b.vx)*.55);b.moverHit=true;b.events.push('mover');return true;}if(!m)b.moverHit=false;return false;
+}
+
+const NYC_FRONT = [{"name":"BROADWAY OPENER","theme":"nycStreetFinancial","par":4,"cup":334,"pins":[324,334,344],"wind":0,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[204,"fair",12],[238,"sand",10],[260,"fair",12],[294,"green",18],[376,"rough",18],[424,"end",18]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":168,"amp":28,"w":18,"hBot":0,"hTop":12,"period":5.2,"phase":0,"dir":1,"rx0":140,"rx1":196,"mid":168,"slow":1,"L":206}],"crosswalks":[[100,124]],"block":"BROADWAY"},{"name":"CURB APPEAL","theme":"nycStreetCastiron","par":3,"cup":152,"pins":[142,152,162],"wind":0,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",18],[28,"fair",18],[68,"sand",12],[90,"fair",12],[112,"green",24],[194,"rough",24],[244,"end",24]],"walls":[[82,0,12,8]],"wallSkins":["hydrant"],"block":"MERCER ST"},{"name":"CROSS TOWN","theme":"nycStreetCivic","par":4,"cup":382,"pins":[372,382,392],"wind":0,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[280,"fair",12],[292,"sand",8],[314,"fair",12],[342,"green",12],[424,"rough",12],[474,"end",12]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":146,"amp":32,"w":18,"hBot":0,"hTop":12,"period":4.8,"phase":0,"dir":1,"rx0":114,"rx1":178,"mid":146,"slow":1,"L":214},{"kind":"slide","skin":"truck","loop":true,"cityTraffic":true,"x":236,"amp":26,"w":26,"hBot":0,"hTop":18,"period":7.5,"phase":0.45,"dir":-1,"rx0":210,"rx1":262,"mid":236,"slow":1,"L":210}],"crosswalks":[[112,135],[260,280]],"block":"CHURCH ST"},{"name":"LOADING ZONE","theme":"nycStreetLoading","par":5,"cup":536,"pins":[526,536,546],"wind":0,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",18],[28,"fair",18],[76,"fair",10],[154,"fair",10],[224,"fair",12],[270,"sand",10],[300,"fair",12],[410,"fair",12],[466,"sand",12],[492,"fair",18],[496,"green",18],[578,"rough",18],[630,"end",18]],"walls":[[200,20,54,48]],"wallSkins":["scaffold"],"block":"HUDSON ST"},{"name":"COBBLESTONE CUT","theme":"nycStreetTribeca","par":4,"cup":306,"pins":[296,306,316],"wind":-2,"windR":[-4,2],"deco":[],"street":true,"pts":[[0,"tee",16],[28,"fair",16],[78,"fair",8],[140,"fair",22],[176,"sand",14],[206,"fair",16],[240,"fair",24],[266,"green",24],[348,"rough",24],[408,"end",24]],"block":"DUANE ST"},{"name":"SUBWAY STEPS","theme":"nycStreetFulton","par":3,"cup":184,"pins":[174,184,194],"wind":1,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",22],[28,"fair",22],[90,"fair",22],[112,"rough",28],[126,"fair",16],[144,"green",8],[226,"rough",8],[242,"rough",28],[288,"end",28]],"block":"FULTON ST"},{"name":"SCAFFOLD ALLEY","theme":"nycStreetAlley","par":4,"cup":408,"pins":[398,408,418],"wind":-2,"windR":[-5,2],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[116,"fair",12],[248,"fair",12],[284,"sand",10],[308,"fair",12],[344,"fair",22],[368,"green",22],[450,"rough",22],[504,"end",22]],"walls":[[172,20,60,60]],"wallSkins":["scaffold"],"block":"CORTLANDT ALY"},{"name":"HYDRANT HOP","theme":"nycStreetWorth","par":4,"cup":350,"pins":[340,350,360],"wind":2,"windR":[-2,4],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[210,"fair",12],[244,"water",8],[268,"fair",12],[310,"green",16],[392,"rough",16],[444,"end",16]],"walls":[[126,0,13,10]],"wallSkins":["hydrant"],"drop":280,"crosswalks":[[160,185]],"block":"WORTH ST"},{"name":"CANAL STREET","theme":"nycStreetCanal","par":5,"cup":560,"pins":[550,560,570],"wind":2,"windR":[-3,5],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[222,"fair",12],[270,"sand",8],[326,"fair",12],[470,"fair",12],[494,"sand",12],[520,"green",14],[602,"rough",14],[660,"end",14]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":168,"amp":26,"w":18,"hBot":0,"hTop":12,"period":5.4,"phase":0,"dir":1,"rx0":142,"rx1":194,"mid":168,"slow":1,"L":202},{"kind":"slide","skin":"truck","loop":true,"cityTraffic":true,"x":386,"amp":30,"w":26,"hBot":0,"hTop":18,"period":7,"phase":0.4,"dir":-1,"rx0":356,"rx1":416,"mid":386,"slow":1,"L":218}],"block":"CANAL ST"}];
+const NYC_BACK = [{"name":"ONE WAY","theme":"nycStreetSeaport","par":4,"cup":378,"pins":[368,378,388],"wind":-1,"windR":[-4,3],"deco":[],"street":true,"pts":[[0,"tee",28],[28,"fair",28],[80,"fair",14],[282,"fair",14],[302,"sand",10],[324,"fair",14],[338,"green",14],[420,"rough",14],[476,"end",14]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":214,"amp":42,"w":18,"hBot":0,"hTop":12,"period":5.8,"phase":0,"dir":-1,"rx0":172,"rx1":256,"mid":214,"slow":1,"L":234}],"crosswalks":[[170,195]],"block":"PEARL ST"},{"name":"POCKET PARK","theme":"nycStreetCourtyard","par":3,"cup":164,"pins":[154,164,174],"wind":-2,"windR":[-4,2],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[70,"sand",12],[96,"fair",18],[124,"green",24],[206,"rough",24],[254,"end",24]],"walls":[[84,0,10,9]],"wallSkins":["planter"],"block":"ELIZABETH ST"},{"name":"DELIVERY RUN","theme":"nycStreetWestside","par":5,"cup":572,"pins":[562,572,582],"wind":2,"windR":[-2,5],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[254,"fair",12],[282,"sand",10],[320,"fair",12],[430,"fair",18],[486,"sand",12],[510,"fair",18],[532,"green",18],[614,"rough",18],[674,"end",18]],"movers":[{"kind":"slide","skin":"truck","loop":true,"cityTraffic":true,"x":190,"amp":36,"w":26,"hBot":0,"hTop":18,"period":8,"phase":0.2,"dir":1,"rx0":154,"rx1":226,"mid":190,"slow":1,"L":230}],"walls":[[400,0,14,12]],"wallSkins":["barrier"],"block":"GREENWICH ST"},{"name":"BRICK BANK","theme":"nycStreetFranklin","par":4,"cup":330,"pins":[320,330,340],"wind":0,"windR":[-3,3],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[170,"fair",20],[204,"sand",12],[230,"fair",14],[290,"green",14],[372,"rough",14],[432,"end",14]],"bankstones":[[382,2,398,34]],"block":"FRANKLIN ST"},{"name":"UNDERPASS","theme":"nycStreetUnderpass","par":4,"cup":402,"pins":[392,402,412],"wind":-2,"windR":[-5,3],"deco":[],"street":true,"pts":[[0,"tee",14],[28,"fair",14],[130,"fair",14],[168,"water",8],[222,"fair",12],[286,"fair",12],[334,"fair",20],[362,"green",20],[444,"rough",20],[498,"end",20]],"walls":[[294,24,58,40]],"wallSkins":["scaffold"],"drop":238,"block":"WATER ST"},{"name":"STREET FAIR","theme":"nycStreetMulberry","par":3,"cup":194,"pins":[184,194,204],"wind":1,"windR":[-3,4],"deco":[],"street":true,"pts":[[0,"tee",16],[28,"fair",16],[100,"fair",16],[122,"sand",14],[146,"fair",18],[154,"green",18],[236,"rough",18],[288,"end",18]],"crosswalks":[[64,88]],"block":"MULBERRY ST"},{"name":"ROADWORK","theme":"nycStreetRoadwork","par":4,"cup":362,"pins":[352,362,372],"wind":-2,"windR":[-5,3],"deco":[],"street":true,"pts":[[0,"tee",12],[28,"fair",12],[150,"fair",12],[192,"sand",6],[242,"fair",12],[288,"fair",12],[322,"green",18],[404,"rough",18],[460,"end",18]],"walls":[[160,0,14,14]],"wallSkins":["barrier"],"block":"BEEKMAN ST"},{"name":"LAST DELIVERY","theme":"nycStreetNightwork","par":5,"cup":586,"pins":[576,586,596],"wind":2,"windR":[-3,5],"deco":[],"street":true,"pts":[[0,"tee",14],[28,"fair",14],[280,"fair",14],[318,"water",8],[342,"fair",14],[480,"fair",14],[506,"sand",14],[528,"fair",20],[546,"green",20],[628,"rough",20],[688,"end",20]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":184,"amp":30,"w":18,"hBot":0,"hTop":12,"period":5.2,"phase":0,"dir":1,"rx0":154,"rx1":214,"mid":184,"slow":1,"L":210},{"kind":"slide","skin":"truck","loop":true,"cityTraffic":true,"x":418,"amp":30,"w":26,"hBot":0,"hTop":18,"period":7.6,"phase":0.3,"dir":-1,"rx0":388,"rx1":448,"mid":418,"slow":1,"L":218}],"drop":356,"block":"WEST BROADWAY"},{"name":"CITY NEVER SLEEPS","theme":"nycStreetBroadwayFinal","par":4,"cup":434,"pins":[424,434,444],"wind":1,"windR":[-4,4],"deco":[],"street":true,"pts":[[0,"tee",18],[28,"fair",18],[80,"fair",12],[260,"fair",12],[298,"sand",10],[326,"fair",12],[364,"fair",20],[394,"green",30],[476,"rough",30],[534,"end",30]],"movers":[{"kind":"slide","skin":"taxi","loop":true,"cityTraffic":true,"x":174,"amp":28,"w":18,"hBot":0,"hTop":12,"period":5.5,"phase":0,"dir":1,"rx0":146,"rx1":202,"mid":174,"slow":1,"L":206}],"walls":[[350,0,12,10]],"wallSkins":["barrier"],"block":"BROADWAY"}];
 const NYC_HOLES = NYC_FRONT.concat(NYC_BACK);
 /* v8.39 WILD Daily rotation: new backdrops (city, moon, lava, snow, canyon, pier, theme park) */
 const DAILY_WILD = [
@@ -4678,7 +4688,7 @@ function startCourse(kind) {
   else if (kind === 'back') setCourseHoles('back', BACK_HOLES);
   else if (kind === 'coral') { if (!coralUnlocked()) return; setCourseHoles('coral', CORAL_HOLES); }   // v8.39: career course, signed-in players only
   else if (kind === 'roller') { if (!coralUnlocked()) return; setCourseHoles('roller', ROLLER_HOLES); }   // v8.69: members course, same gate as Coral Cliffs
-  else if (kind === 'nycf' || kind === 'nycb' || kind === 'nyc18') setCourseHoles(kind, kindHoles(kind));   // v8.75 BIG APPLE LINKS (open to everyone)
+  else if (kind === 'nycf' || kind === 'nycb' || kind === 'nyc18') setCourseHoles(kind, kindHoles(kind));   // v8.75 CONCRETE JUNGLE (open to everyone)
   else if (kind === 'spooky') { weather = Object.assign({}, WEATHERS[0]); setCourseHoles('spooky', spookyHoles()); }   // v8.52 SPOOKY CUP: same 4 holes, fixed wind, clear sky
   else if (kind === 'quick3') setCourseHoles('quick3', quick3Pick());   // v8.57
   else setCourseHoles('full', FRONT_HOLES.concat(BACK_HOLES));
@@ -4813,7 +4823,7 @@ function showShotFeedback(carryYds, totalYds, puttLeft) {
    leaderboards as before - display names only). */
 const CS_GROUPS = [
   { name: 'DUMB LUCK COUNTRY CLUB', opts: ['daily', 'front', 'back', 'full', 'quick3'] },
-  { name: 'BIG APPLE LINKS', opts: ['daily', 'nycf', 'nycb', 'nyc18'] },
+  { name: 'CONCRETE JUNGLE', opts: ['daily', 'nycf', 'nycb', 'nyc18'] },
   { name: 'CORAL CLIFFS', opts: ['daily', 'coral'], gate: 'career' },
   { name: 'HIGH ROLLER', opts: ['daily', 'roller'], gate: 'members' }
 ];
@@ -5112,6 +5122,7 @@ function stepBallRaw(b, hl, wind, dt) {
     }
     v -= Math.sign(v) * fr;
     const nx = b.x + v * dt;
+    if(hl.def.street&&streetRollCollision(b,hl,b.x,nx,(typeof performance!=='undefined'?performance.now():0)/1000+(b._t0||0)))return null;
     if (hl.ramps && hl.ramps.length && v > 0) for (const rp of hl.ramps) if (b.x < rp.x && nx >= rp.x && v >= rp.minV) {   // v8.69: rolled off a kicker lip fast enough -> airborne
       b.mode = 'air'; b.x = nx; b.h = groundH(hl, nx) + 0.5; b.vy = v * rp.kick; b.vx = v * 0.9; b.spin = 0; b.events.push('ramp'); return null;
     }
@@ -5134,7 +5145,7 @@ function simulateShot(hl, wind, x, clubIdx, ang, power, err, dir, kind, ex) {
   const lv = launchVel(clubIdx, ang, power, err, surfAt(hl, x), dir, Math.abs(hl.cup - x), { slope: lieSlope(hl, x, dir), kind, divot: ex && ex.divot });
   const b = { x, h: groundH(hl, x), vx: lv.vx, vy: lv.vy, mode: lv.mode, rough: lv.rough, capV: lv.capV, stopR: lv.stopR, lipK: lv.lipK, windK: lv.windK, rollK: lv.rollK, spin: lv.spin, events: [], rollSteps: 0 };
   let r = null, n = 0, carry = null;
-  while (!r && n++ < 240 * 40) { r = stepBall(b, hl, wind, STEP); b.events.length = 0; if (carry == null && b.mode !== 'air') carry = b.x; }
+  while (!r && n++ < 240 * 40) { if(hl.def.street)b._t0=n*STEP; r = stepBall(b, hl, wind, STEP); b.events.length = 0; if (carry == null && b.mode !== 'air') carry = b.x; }
   return { res: r || 'stop', x: b.x, carry: carry == null ? b.x : carry };
 }
 
@@ -10327,7 +10338,7 @@ function drawCourse(hl, cam) {
   if (th.clouds) for (const [cx, cy] of CLOUDS) { let x = Math.round(cx - cam * 0.15 - drift) % 512; if (x < -40) x += 512; if (x < W) drawCloud(x, cy); }
   // far hills (parallax); v8.39 themes with a painted backdrop draw one cached image instead
   let v94 = false; try { v94 = v94Back(th, hl, cam); } catch (e) {}   // v8.94 distant ridges + harmonised near hills
-  if (th.bg) drawBackdrop(th, cam); else if (!v94) for (let sx = 0; sx < W; sx++) {
+  if(th.bg){drawBackdrop(th,cam);if(hl.def.street)streetSkyMotion(hl,cam,now);} else if (!v94) for (let sx = 0; sx < W; sx++) {
     const wx = cam * 0.4 + sx;
     const hh = courseRidge(wx);
     rect(sx, hh, 1, PLAY_H - hh, th.hill); rect(sx, hh, 1, 1, '#000');
@@ -10370,6 +10381,7 @@ function drawCourse(hl, cam) {
     const top = Math.round(BASE - (g0 + w.hTop));
     const bot = Math.round(BASE - (g0 + w.hBot));
     const hh = Math.max(4, bot - top);
+    if(hl.def.street){streetWall(hl,w,cam);continue;}
     if (w.ww) {   // v8.69: wide rock face (HIGH ROLLER BACK DOOR); the dark gap under it is the way through
       const hw = Math.round(w.ww / 2), C = themeOf(hl).C || COL;
       rect(sx - hw - 1, top - 1, w.ww + 2, hh + 2, '#000'); rect(sx - hw, top, w.ww, hh, C.dirt);
@@ -10419,13 +10431,14 @@ function drawCourse(hl, cam) {
         if (!open) { rect(sx - 12, baseY - 8, 25, 4, '#000'); for (let k = 0; k < 23; k += 4) rect(sx - 11 + k, baseY - 7, 2, 2, '#fcfcfc'); }   // v8.20: striped STOP bar while blocked (not colour-only)
       }
     } else {
-      const mx = moverBlockX(m, t);
+      const mx = moverBlockX(m, t); if(mx==null)continue;
       const sx = Math.round(mx - cam);
       if (sx > -20 && sx < W + 20) {
         const g0 = groundH(hl, m.x);
         const top = Math.round(BASE - (g0 + (m.hTop || 28)));
         const bot = Math.round(BASE - (g0 + (m.hBot || 0)));
-        if (m.skin) drawMoverSkin(m, sx, top, bot, t);   // v8.39: taxi / bus / crab / coaster car (same hit box)
+        if(m.cityTraffic)rhCar(sx,bot,m,0);
+        else if (m.skin) drawMoverSkin(m, sx, top, bot, t);   // v8.39: taxi / bus / crab / coaster car (same hit box)
         else {
         rect(sx - Math.round(m.w / 2), top, m.w, Math.max(4, bot - top), '#000');
         rect(sx - Math.round(m.w / 2) + 1, top + 1, m.w - 2, Math.max(2, bot - top - 2), '#e45c10');
@@ -10458,12 +10471,13 @@ function drawCourse(hl, cam) {
     rect(sx, gy + depth, 1, 1, C.dirtD);
     rect(sx, gy - 1, 1, 1, '#000');
     if (C.glow && s !== 'rough' && s !== 'ob') { rect(sx, gy - 2, 1, 1, C.glow); if (hash(wx * 5 + 11) < 0.14) rect(sx, gy, 1, 1, C.wet); }   // v8.92 BIG APPLE night: neon edge glow + wet sheen
-    if (s === 'rough' || s === 'ob') {           // tall grass tufts
+    if ((s === 'rough' || s === 'ob') && !hl.def.street) {           // tall grass tufts
       const bh = 1 + Math.floor(hash(wx * 7 + 3) * 5);
       if (wx % 2 === 0) { rect(sx, gy - 1 - bh, 1, bh, C.grassD); rect(sx, gy - 2 - bh, 1, 1, '#000'); if (bh > 2) rect(sx, gy - bh, 1, 1, C.grass); }
     }
   }
   if (hl.rh) drawRushStreet(hl, cam, performance.now() / 1000);   // v8.99.19: street over the ground strip
+  streetDetails(hl,cam);
   // tee sign: DLG + hole number
   { const sx = Math.round(-20 - cam), gy = Math.round(BASE - groundH(hl, 0));
     if (sx > -18 && sx < W) { rect(sx + 6, gy - 8, 3, 8, '#000'); rect(sx + 7, gy - 8, 1, 8, COL.trunk); rect(sx, gy - 23, 15, 16, '#000'); rect(sx + 1, gy - 22, 13, 14, COL.white);
