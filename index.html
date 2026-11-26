@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.110';
+const GAME_VERSION = 'v8.99.111';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3159,6 +3159,7 @@ async function saveScore(entry) {
       body: { name: e.name, strokes: e.strokes, to_par: e.to_par, mode: mode || 'front9' } });
     if (r.ok) { lbDeviceBest(e, mode); return { ok: true, where: 'online', verified: isSignedIn() }; }
     const code = String((r.data && r.data.code) || '');
+    if (mode === 'nyc18' && code === '22023') { lbLocalSaveMode(e, mode); return { ok: true, where: 'device', pendingMode: true }; }   // v8.99.111: server board not enabled yet -> keep it on this device
     if (/^(23514|22023|42501)$/.test(code)) return { ok: false, where: 'rejected', code };
     if (mode === 'coral' || mode === 'spooky') return { ok: false, where: 'error' };   // coral / spooky cup: signed-in only; no anon/local fallback
   }
@@ -3247,12 +3248,13 @@ async function cupLoadIgs(force) {
 }
 const LB_MODES = [
   { id: 'front9', label: 'FRONT' }, { id: 'back9', label: 'BACK' }, { id: 'full18', label: 'FULL 18' },
-  { id: 'coral', label: 'CORAL' }, { id: 'daily', label: 'DAILY' }];
+  { id: 'coral', label: 'CORAL' }, { id: 'daily', label: 'DAILY' }, { id: 'nyc18', label: 'CONCRETE JUNGLE' }];   // v8.99.111: + CONCRETE JUNGLE (full 18)
 const LB_DEVICE_BEST = 'dlg_lb_best_v2';
 /* v8.99.16 all-courses board: courses ordered by player count (all-time distinct players, read-only leaderboard_rank_of), most popular first */
-const LB_NAMES = { front9: 'FRONT 9', back9: 'BACK 9', full18: 'FULL 18', coral: 'CORAL CLIFFS', daily: 'DAILY HOLE', spooky: 'SPOOKY CUP' };
+const LB_NAMES = { front9: 'FRONT 9', back9: 'BACK 9', full18: 'FULL 18', coral: 'CORAL CLIFFS', daily: 'DAILY HOLE', nyc18: 'CONCRETE JUNGLE', spooky: 'SPOOKY CUP' };
 const lbPop = { n: {}, at: -1e9, busy: null, ok: false };
-function lbPopOrder(L) { const i0 = new Map(L.map((m, i) => [m.id, i])); return L.slice().sort((a, b) => ((lbPop.n[b.id] | 0) - (lbPop.n[a.id] | 0)) || (i0.get(a.id) - i0.get(b.id))); }
+const LB_FIRST = ['daily', 'nyc18'];   // v8.99.111: DAILY first, then CONCRETE JUNGLE, then the rest by player count
+function lbPopOrder(L) { const i0 = new Map(L.map((m, i) => [m.id, i])), pr = id => { const k = LB_FIRST.indexOf(id); return k < 0 ? LB_FIRST.length : k; }; return L.slice().sort((a, b) => (pr(a.id) - pr(b.id)) || ((lbPop.n[b.id] | 0) - (lbPop.n[a.id] | 0)) || (i0.get(a.id) - i0.get(b.id))); }
 function lbPopLoad(force) {
   if (lbPop.busy) return lbPop.busy;
   if (!force && performance.now() - lbPop.at < 300000) return Promise.resolve(lbPop.n);
@@ -4353,8 +4355,41 @@ function streetWall(hl,w,cam){
  else if(kind==='planter'){rect(left,top,ww,hh,'#86908b');rect(left,top,ww,3,'#527953');rect(left+2,top+4,ww-4,hh-5,'#a4aaa0');}
  else{rect(left,top,ww,hh,'#b4b5aa');for(let k=0;k<ww;k+=6)rect(left+k,top+3,Math.min(3,ww-k),4,'#d67b40');rect(left+1,bot-2,ww-2,2,'#747f7b');}
 }
+/* v8.99.111 CONCRETE JUNGLE rats: a couple of tiny pixel rats now and then scurry across the street. Looks only - no collision,
+   no physics, no scoring; they never touch the ball or any hole data. Live hole only (not the course-picker preview),
+   off entirely with Reduce Motion. At most 2 on screen, one every ~5-10s. */
+const cityRats = { hl: null, list: [], next: 0, last: 0, seed: 7 };
+function ratRnd() { cityRats.seed = (cityRats.seed * 1103515245 + 12345) & 0x7fffffff; return cityRats.seed / 0x7fffffff; }
+function streetRats(hl, cam) {
+  if (REDUCED_MOTION || hl !== hole || state === 'course' || state === 'title') { cityRats.hl = null; return; }
+  const now = performance.now() / 1000;
+  if (cityRats.hl !== hl) { cityRats.hl = hl; cityRats.list = []; cityRats.last = now; cityRats.next = now + 1.5 + ratRnd() * 2.5; }
+  const dt = Math.min(0.05, Math.max(0, now - cityRats.last)); cityRats.last = now;
+  const L = cityRats.list;
+  if (now >= cityRats.next && L.length < 2) {
+    const dir = ratRnd() < 0.5 ? 1 : -1, wx = dir > 0 ? cam - 8 : cam + W + 8;
+    if (wx > 0 && wx < hl.len) L.push({ x: wx, dir, v: 34 + ratRnd() * 26, t: ratRnd() * 9, age: 0, pause: ratRnd() < 0.35 ? 0.35 + ratRnd() * 0.5 : 0, pauseAt: cam + 40 + ratRnd() * (W - 80) });
+    cityRats.next = now + 5 + ratRnd() * 5;
+  }
+  for (let i = L.length - 1; i >= 0; i--) {
+    const r = L[i];
+    if (r.pause > 0 && ((r.dir > 0 && r.x >= r.pauseAt) || (r.dir < 0 && r.x <= r.pauseAt))) { r.pause -= dt; r.t += dt * 2; }   // a quick sniff mid-street
+    else { r.x += r.dir * r.v * dt; r.t += dt * 14; }
+    const sx = Math.round(r.x - cam);
+    r.age = (r.age || 0) + dt;
+    if (r.age > 1 && (sx < -14 || sx > W + 14)) { L.splice(i, 1); continue; }   // off screen -> gone
+    if (sx < -14 || sx > W + 14) continue;
+    const s = surfAt(hl, Math.round(r.x)); if (s === 'water') continue;
+    const gy = Math.round(BASE - groundH(hl, Math.round(r.x))), f = Math.floor(r.t) % 2, d = r.dir;
+    const px = (ox, oy, w, h, c) => rect(d > 0 ? sx + ox : sx - ox - w + 1, gy + oy, w, h, c);
+    px(-5, -2, 3, 1, '#8a7a76');                                       // tail
+    px(-2, -3, 5, 2, '#38312f'); px(3, -3, 2, 1, '#38312f'); px(2, -4, 1, 1, '#38312f');   // body, snout, ear (one dark silhouette)
+    px(f ? -1 : 1, -1, 1, 1, '#38312f');                               // two-frame scurry
+  }
+}
 function streetDetails(hl,cam){
  if(!hl.def.street)return;
+ streetRats(hl,cam);
  for(let sx=0;sx<W;sx++){const wx=Math.floor(cam)+sx,s=surfAt(hl,wx),gy=Math.round(BASE-groundH(hl,wx));if((s==='fair'||s==='tee')&&wx%26<12)rect(sx,gy+2,1,1,'#cfbd7f');if(s==='rough'&&wx%5===0)rect(sx,gy-1,1,2,'#858b87');}
  for(const[a,b]of hl.def.crosswalks||[])for(let wx=a;wx<b;wx+=7){const x=wx-cam,y=BASE-groundH(hl,wx);rect(x,y,4,3,'#d9d9ca');}
  for(const m of hl.movers||[])if(m.cityTraffic){for(const px of [m.rx0,m.rx1]){const sx=px-cam,y=BASE-groundH(hl,px);rect(sx-6,y-20,12,21,'#313b3e');rect(sx-4,y-17,8,17,'#1c2529');rect(sx-6,y-21,12,2,'#9a9d95');}}
@@ -4706,7 +4741,7 @@ function scoreModeForSave() {
   if (courseKind === 'full') return 'full18';
   if (courseKind === 'coral') return 'coral9';
   if (courseKind === 'roller') return 'roller9';
-  if (courseKind === 'nycf') return 'nyc_front9'; if (courseKind === 'nycb') return 'nyc_back9'; if (courseKind === 'nyc18') return 'nyc18';   // v8.75: career + analytics only until a board exists   // v8.69: career + analytics only (no leaderboard board yet)
+  if (courseKind === 'nycf') return 'nyc_front9'; if (courseKind === 'nycb') return 'nyc_back9'; if (courseKind === 'nyc18') return 'nyc18';   // v8.75: FULL 18 has its own CONCRETE JUNGLE board (v8.99.111); the 9-hole rounds stay career + analytics only
   if (courseKind === 'spooky') return 'spooky';
   if (courseKind === 'match') return 'match';
   if (courseKind === 'lbi') return 'lbi';   // v8.63: never a leaderboard mode
@@ -4836,6 +4871,13 @@ function csApplyGroup(g) {
   const o = CS_GROUPS[csGroup].opts; CS_N = o.length; CS_BACK_I = CS_N; COURSE_ITEMS = o.map(k => CS_KIND_LABEL[k]).concat(['BACK']);
 }
 csApplyGroup(0);
+const CS_NEW_NAME = 'CONCRETE JUNGLE', CS_NEW_KINDS = ['nycf', 'nycb', 'nyc18'];   // v8.99.111: the newest course
+function csNewPlayed() { try { return CS_NEW_KINDS.some(k => courseBest(k) !== null); } catch (e) { return false; } }   // finished a CONCRETE JUNGLE round on this device -> the NEW tag retires
+function csDefaultNew() {   // PLAY always preselects CONCRETE JUNGLE FULL 18 (new + returning players, whatever was picked last)
+  const g = CS_GROUPS.findIndex(x => x.name === CS_NEW_NAME); if (g < 0) return;
+  csApplyGroup(g); courseSel = Math.max(0, CS_GROUPS[g].opts.indexOf('nyc18')); csPrevSel = courseSel; csPrevMark = 0;
+  try { layoutChrome(); } catch (e) {}
+}
 function coralUnlocked() { try { return !!isSignedIn(); } catch (e) { return false; } }
 let courseSel = 0;
 /* v8.16 Choose Course helpers: per-course hole lists + personal best (front keeps the original dlg_golf_best9 key) */
@@ -5956,7 +5998,7 @@ function menuMove(dr, dc) {
 }
 function menuActivate(i) {
   const label = MENU[i]; SFX.click();
-  if (label === 'PLAY') { courseKind = 'front'; setState('course'); }   // FRONT / BACK / FULL picker
+  if (label === 'PLAY') { courseKind = 'front'; csDefaultNew(); setState('course'); }   // v8.99.111: picker opens on CONCRETE JUNGLE / FULL 18 (any course is one < > tap away)
   else if (label === 'DAILY') startDailyFlow();
   else if (label === 'CAREER') { setState('career'); careerRefresh(); }   // career v2: accounts + friends + matches live here
   else if (label === 'SHOP') {
@@ -7172,7 +7214,8 @@ const TITLE_BOARDS0 = [
   { id: 'back9', label: 'BACK 9' },
   { id: 'full18', label: 'FULL 18' },
   { id: 'coral', label: 'CORAL' },
-  { id: 'daily', label: 'DAILY' }
+  { id: 'daily', label: 'DAILY' },
+  { id: 'nyc18', label: 'CONCRETE JUNGLE' }
 ];
 const TITLE_SPOOKY = { id: 'spooky', label: 'SPOOKY CUP' };
 let titleBoardTouched = false;
@@ -8021,7 +8064,7 @@ function finishRound() {
     else { saveWhere = 'saving'; pendingSave = saveScore(Object.assign({}, lastEntry, { mode: 'spooky' })).then(r => { saveWhere = r.ok ? 'cupin' : r.where; }, () => { saveWhere = 'error'; }); }
   }
   else if (courseKind === 'lbi') { saveWhere = lbiCtx && !lbiCtx.practice ? 'lbi' : 'practice'; pendingSave = null; if (lbiCtx) lbiCtx.done = true; }   // v8.63: holes were already sent one by one
-  else if (courseKind === 'quick3' || courseKind === 'roller' || /^nyc/.test(courseKind)) { saveWhere = 'quick'; pendingSave = null; }   // v8.69: HIGH ROLLER is career-only too   // v8.57: career only, no leaderboard
+  else if (courseKind === 'quick3' || courseKind === 'roller' || courseKind === 'nycf' || courseKind === 'nycb') { saveWhere = 'quick'; pendingSave = null; }   // v8.69: HIGH ROLLER is career-only too   // v8.57: career only, no leaderboard
   else if (NO_SAVE || practice) { saveWhere = practice ? 'practice' : 'device'; pendingSave = null; }
   else {
     if (isDaily) markDailyScored(dailyMeta.date);
@@ -11322,6 +11365,13 @@ function renderTitle() {
     ctx.restore();
     menuRects.push({ x: x - (it.kind === 'p' || it.kind === 'c' ? 1 : 2), y: y - (it.kind === 't' ? 4 : it.kind === 's' ? 8 : 2), w: it.w + (it.kind === 'p' || it.kind === 'c' ? 2 : 4), h: it.h + (it.kind === 't' ? 8 : it.kind === 's' ? 10 : 4), i });
   });
+  try {   // v8.99.111: one small line under PLAY so visitors see there is a new course (retires once they have finished a round on it)
+    const pI = ML.items.find(x => x.kind === 'p');
+    if (pI && !csNewPlayed() && !menuPopup) {
+      const s = 'NEW COURSE: CONCRETE JUNGLE', ty = MENU_Y0 + pI.by + pI.h + 4, ccx = ML.grid ? pI.bx + pI.w + 2 : pI.bx + Math.round(pI.w / 2), tx = Math.round(ccx - textW(s) / 2);
+      drawText(s, tx + 1, ty + 1, '#1a0c04'); drawText(s, tx, ty, '#f0c850');
+    }
+  } catch (e) {}
   drawTitleBoard();
   const d = titleDog, f = Math.floor(st * 7) % 2;
   const k = (d.sniff > 0 ? (f ? 'sniffA' : 'sniffB') : (f ? 'walkB' : 'walkA')) + (d.dir < 0 ? 'L' : '');
@@ -12126,7 +12176,7 @@ function renderBoardPanel() {
 /* ---- share card: branded PNG of the round (navigator.share on phones, download elsewhere) ---- */
 function shareModeLabel() {
   if (courseKind === 'daily') return 'DAILY HOLE';
-  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', roller: 'HIGH ROLLER', nycf: 'BIG APPLE FRONT', nycb: 'BIG APPLE BACK', nyc18: 'BIG APPLE 18', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH', lbi: lbiName(false) })[courseKind] || 'DUMB LUCK GOLF';
+  return ({ front: 'FRONT 9', back: 'BACK 9', full: 'FULL 18', coral: 'CORAL CLIFFS', roller: 'HIGH ROLLER', nycf: 'CONCRETE JUNGLE FRONT', nycb: 'CONCRETE JUNGLE BACK', nyc18: 'CONCRETE JUNGLE 18', spooky: 'SPOOKY CUP', quick3: 'QUICK 3', match: 'MATCH', lbi: lbiName(false) })[courseKind] || 'DUMB LUCK GOLF';
 }
 function makeShareCanvas() {   // v8.58: 1080x1920 card in the game's own pixel look (title sky, logo, scorecard panel, golfer + pup)
   const SW = 270, SH = 480, c = mk(SW, SH), saved = ctx, cx = SW / 2, K = 4;
@@ -12457,8 +12507,9 @@ function renderCourseSelect() {
     const y0 = lines.length > 1 ? CS_HEAD.y - 4 : CS_HEAD.y + 4;
     lines.forEach((ln, k) => outlined(ln, Math.round(CS_HEAD.x - textW(ln, 2) / 2), y0 + k * 16, YEL, 2));
     const lock = g.gate && !coralUnlocked();
-    const sub = all.length + ' HOLES  PAR ' + par + (g.gate === 'members' ? '  MEMBERS' : g.gate === 'career' ? '  CAREER' : '');
-    drawText(sub, Math.round(CS_HEAD.x - textW(sub) / 2), y0 + lines.length * 16 + 2, lock ? COL.orange : COL.white);
+    const newTag = g.name === CS_NEW_NAME && !csNewPlayed();
+    const sub = (newTag ? 'NEW  ' : '') + all.length + ' HOLES  PAR ' + par + (g.gate === 'members' ? '  MEMBERS' : g.gate === 'career' ? '  CAREER' : '');
+    drawText(sub, Math.round(CS_HEAD.x - textW(sub) / 2), y0 + lines.length * 16 + 2, lock ? COL.orange : newTag ? YEL : COL.white);
     const dw = CS_GROUPS.length * 6 - 2; for (let k = 0; k < CS_GROUPS.length; k++) rect(Math.round(CS_HEAD.x - dw / 2) + k * 6, y0 + lines.length * 16 + 12, 4, 2, k === csGroup ? YEL : '#5c6c8c');
     { const cn = 'COURSE ' + (csGroup + 1) + ' OF ' + CS_GROUPS.length; drawText(cn, Math.round(CS_HEAD.x - textW(cn) / 2), y0 + lines.length * 16 + 18, '#a8b8d8'); }   // v8.99.23: make the course switcher obvious
     for (const [r, d] of [[CS_ARW_L, -1], [CS_ARW_R, 1]]) { const on = hoverOk && hitBtn(mouse, r) || pressDim('csarw' + d), cx = r.x + Math.round(r.w / 2), cy = r.y + Math.round(r.h / 2), col = on ? YEL : COL.white;
