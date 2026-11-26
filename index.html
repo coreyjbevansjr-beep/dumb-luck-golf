@@ -374,6 +374,15 @@
   #acct .spk small{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1px;color:#bcc8e0}
   #acct .spk small b{color:#f8d878}
   #acct .spk svg{display:block;width:100%;height:34px;margin-top:3px}
+  #acct .cuph{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  #acct .cup{display:block;width:100%;box-sizing:border-box;text-align:left;background:#000;border:2px solid #D4AF37;color:#fcfcfc;padding:10px 12px;font:inherit;-webkit-appearance:none;border-radius:0}
+  #acct button.cup{cursor:pointer}
+  #acct .cup .cn{display:block;color:#f8d878;font-size:14px;letter-spacing:1.5px;font-weight:700}
+  #acct .cup .cd{display:block;color:#bcc8e0;font-size:11px;letter-spacing:1px;margin-top:3px}
+  #acct .cup .cw{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:8px;font-size:12px;letter-spacing:1px}
+  #acct .cup .cw b{color:#58d854;font-size:14px}
+  #acct .cup .cs{font-size:20px;font-weight:700;color:#fcfcfc;white-space:nowrap}#acct .cup .cs small{font-size:10px;color:#bcc8e0;letter-spacing:1px}
+  #acct .cup .cl{display:block;margin-top:8px;font-size:10px;letter-spacing:2px;color:#3cbcfc;text-align:right}
   #acct .feed{font-size:11px;line-height:1.5;color:#bcc8e0}
   #acct .feed div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid #26324a;padding:3px 0}
   #acct .feed span:last-child{color:#7c8cac;white-space:nowrap}
@@ -565,7 +574,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.112';
+const GAME_VERSION = 'v8.99.113';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -5342,7 +5351,7 @@ for (const t of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(
 // v8.99.10 iPhone: every live sound goes through ONE master bus + limiter (desktop and offline renders: straight to the speakers, as before)
 let iosMaster = null;
 function sDest(A) { if (!isIOS || A !== AC) return A.destination; if (!iosMaster) { try { const g = AC.createGain(); g.gain.value = 0.8; const lim = AC.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 12; lim.ratio.value = 4; lim.attack.value = 0.02; lim.release.value = 0.3;   /* v8.99.13: gentle safety limiter (the old 3 ms / 12:1 one pumped and buzzed the low end all hole long) */ g.connect(lim).connect(AC.destination); iosMaster = g; } catch (e) { return A.destination; } } return iosMaster; }
-const sAtk = A => isIOS && A === AC;   // iPhone: 5 ms attack instead of a hard 0 -> full jump (the click)
+const sAtk = A => isIOS && (A === AC || !!A.isClip);   // v8.99.113: the clip bus gets the same 5 ms attack (hard-start tones clicked on iPhone clips)   // iPhone: 5 ms attack instead of a hard 0 -> full jump (the click)
 function synthTone(A, t0, f, dur, type, vol, slide) {
   const o = A.createOscillator(), g = A.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
@@ -5600,17 +5609,19 @@ const HLV = { w: 270, h: 480, top: 96, band: 340, cw: 135 };   // scene crop 135
 function hlPlan(r) {   // v8.99.31 paced story at 30fps: 1.5s setup (address, waggle, full swing), the whole flight at a calm pace
   // (slow-mo around the apex + the landing, heartbeat parts real time), a 1s hold on the result, celebration 2.2s, end card 2.0s
   const n = r.f.length, out = [], fps = 30, putt = r.club === PUTT_I;
-  const bt = typeof backswingTop === 'function' ? backswingTop(r.power || 0.7) : 20;
-  const nAd = Math.round((putt ? 1.0 : 0.95) * fps), nBk = Math.round((putt ? 0.3 : 0.4) * fps), nDn = Math.max(3, Math.round(DOWN_T * fps * 1.6));
-  for (let k = 0; k < nAd; k++) out.push({ seg: 'pre', i: 0, u: k / fps, sw: SWING_ADDR + (putt ? 1 : 2.5) * Math.sin(k / fps * 3) });
-  for (let k = 0; k < nBk; k++) { const t = (k + 1) / nBk, e = t * t * (3 - 2 * t); out.push({ seg: 'pre', i: 0, u: (nAd + k) / fps, sw: lerp(SWING_ADDR, bt, e) }); }
-  for (let k = 0; k < nDn; k++) { const t = (k + 1) / nDn; out.push({ seg: 'pre', i: 0, u: (nAd + nBk + k) / fps, sw: lerp(bt, SWING_ADDR, t * t) }); }
+  const bt = typeof backswingTop === 'function' ? backswingTop(r.power || 0.7) : 20, pw = clamp(r.power || 0.7, 0.05, 1);
+  // v8.99.113 BUILD-UP (~2.6s): address + waggle, the backswing winding to the top at THIS shot's power, a beat at the top, then the downswing (slowed 3x so the whip + wrap read)
+  const nAd = Math.round((putt ? 1.2 : 1.1) * fps), nBk = Math.round((putt ? 0.6 : 0.55 + 0.5 * pw) * fps), nTp = putt ? 0 : Math.round(0.2 * fps), nDn = putt ? Math.max(3, Math.round(DOWN_T * fps * 1.6)) : Math.max(8, Math.round(DOWN_T * fps * 3));
+  for (let k = 0; k < nAd; k++) out.push({ seg: 'pre', ph: 'ad', i: 0, u: k / fps, sw: SWING_ADDR + (putt ? 1 : 2.5) * Math.sin(k / fps * 3) });
+  for (let k = 0; k < nBk; k++) { const t = (k + 1) / nBk, e = t * t * (3 - 2 * t); out.push({ seg: 'pre', ph: 'bk', i: 0, u: (nAd + k) / fps, sw: lerp(SWING_ADDR, bt, e) }); }
+  for (let k = 0; k < nTp; k++) out.push({ seg: 'pre', ph: 'tp', i: 0, u: (nAd + nBk + k) / fps, sw: bt });
+  for (let k = 0; k < nDn; k++) { const t = (k + 1) / nDn; out.push({ seg: 'pre', ph: 'dn', i: 0, u: (nAd + nBk + nTp + k) / fps, sw: lerp(bt, SWING_ADDR, t * t), dt: t }); }
   // slow-mo marks: apex (h peaks) + landing (first ground touch after flight) + the last 0.5s before the cup
   const slow = new Uint8Array(n); let apex = -1, land = -1, hMax = 0;
   for (let q = 0; q < n; q++) if (r.f[q][1] > hMax) { hMax = r.f[q][1]; apex = q; }
   if (hMax > 6) for (let q = apex + 1; q < n; q++) if (r.f[q][1] <= 0.5) { land = q; break; }
   const mark = (c, w) => { if (c < 0) return; for (let q = Math.max(0, c - w); q <= Math.min(n - 1, c + w); q++) slow[q] = 1; };
-  if (!putt) { mark(apex, 5); mark(land, 7); }
+  if (!putt) { mark(apex, 5); mark(land, 7); for (let q = 0; q < Math.min(n, 14); q++) slow[q] = 1; }   // v8.99.113: the first 0.45s (the whole follow-through) in slow-mo
   if (r.res === 'cup') for (let q = Math.max(0, n - 15); q < n; q++) slow[q] = 1;
   const nHb = r.f.filter(q => q[5] > 0).length, nN = n - nHb, room = Math.max(3.5 * fps, 7.5 * fps - nHb), step = nN > room ? Math.min(2, nN / room) : 1;
   let acc = 0;
@@ -5630,7 +5641,8 @@ function hlPlan(r) {   // v8.99.31 paced story at 30fps: 1.5s setup (address, wa
     const f = hlF(r, o), by = BASE - Math.max(0, f[1]);
     let tx, ty, z = 1;
     if (o.seg === 'pre') tx = r.x0 + r.dir * HLV.cw * 0.12;   // v8.99.31: golfer framed at setup
-    else if (o.seg === 'shot') { tx = f[0] + r.dir * (f[5] > 0 ? 0 : 18); if (f[5] > 0) tx = lerp(f[0], cupX, 0.5); z = 1 + (f[5] > 0 ? 0.18 * Math.min(1, f[5] * 1.6) + 0.06 * f[4] : 0); }
+    else if (o.seg === 'shot') { tx = f[0] + r.dir * (f[5] > 0 ? 0 : 18); if (f[5] > 0) tx = lerp(f[0], cupX, 0.5); z = 1 + (f[5] > 0 ? 0.18 * Math.min(1, f[5] * 1.6) + 0.06 * f[4] : 0); 
+      if (!putt && !(f[5] > 0)) { const ii = o.i + (o.t || 0), w = clamp((ii - 8) / 10, 0, 1); if (w < 1) tx = lerp(((r.x0 - r.dir * 7) + f[0]) / 2 + r.dir * 10, tx, w * w * (3 - 2 * w)); } }   // v8.99.113: stay with the golfer through the follow-through (the wrap), then follow the ball
     else if (o.seg === 'cele') { const pull = crowdX != null ? clamp((o.u - 0.35) / 0.4, 0, 1) : 0; tx = lerp(cupX, lerp(cupX, crowdX || cupX, 0.6), pull * pull * (3 - 2 * pull)); z = 1 + 0.35 * Math.min(1, o.u / 0.3) ** 0.7; }
     else tx = cupX;
     ty = clamp(Math.min(BASE + 40 - chMax, by - chMax * 0.42), 0, PLAY_H - chMax);
@@ -5643,6 +5655,19 @@ function hlPlan(r) {   // v8.99.31 paced story at 30fps: 1.5s setup (address, wa
 }
 let hlSceneC = null;
 function hlF(r, o) { const a = r.f[o.i]; if (!o.t || o.i >= r.f.length - 1) return a; const b = r.f[o.i + 1], t = o.t; return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), a[2], lerp(a[3], b[3], t), a[4], a[5]]; }
+function hlGolferPose(r, o, f) {   // v8.99.113: the live game's own pose rules (golferPose + the flight follow-through), so a clip shows the coil, the downswing smear and the club wrapping around the player
+  const putt = r.club === PUTT_I;
+  if (o.seg === 'pre') {
+    const sw = o.sw != null ? o.sw : SWING_ADDR;
+    if (putt || !o.ph || o.ph === 'ad') return { ang: sw, pose: {} };
+    const bt = typeof backswingTop === 'function' ? backswingTop(r.power || 0.7) : 20;
+    if (o.ph === 'dn') { const top = Math.max(1, bt - SWING_ADDR); return { ang: sw, pose: { coil: clamp((sw - SWING_ADDR) / top, 0, 1) * clamp(r.power || 0.7, 0.05, 1), smear: o.dt > 0.3 ? Math.min(bt, sw + 56) : null } }; }
+    return { ang: sw, pose: { coil: clamp((sw - SWING_ADDR) / 215, 0, 1) } };
+  }
+  if (putt) return { ang: f[3], pose: {} };
+  const tm = o.seg === 'shot' ? (o.i + (o.t || 0)) * HL_DT : 9, t = clamp(tm / FOLLOW_T, 0, 1);
+  return { ang: f[3], pose: { finish: t * t * (3 - 2 * t), smear: tm < 0.08 ? SWING_ADDR : null } };
+}
 function hlDrawFrame(fc, r, o, k, plan) {
   const g = fc.getContext('2d'), saved = ctx; ctx = g; ctx.imageSmoothingEnabled = false;
   const savedCrowd = crowdT;
@@ -5659,7 +5684,7 @@ function hlDrawFrame(fc, r, o, k, plan) {
     drawCourse(r.hl, cam);
     const gx = Math.round(r.x0 - cam) - r.dir * 7, gy = Math.round(BASE - groundH(r.hl, r.x0));
     const shotK = o.seg === 'pre' ? -1 : o.i;
-    drawGolfer(gx, gy, r.dir, o.seg === 'pre' ? (o.sw != null ? o.sw : r.f[0][3]) : f[3], r.look, { finish: o.seg === 'pre' || r.club === PUTT_I ? 0 : clamp(((shotK + (o.t || 0)) * HL_DT - 0.04) / 0.2, 0, 1) });
+    const gp = hlGolferPose(r, o, f); drawGolfer(gx, gy, r.dir, gp.ang, r.look, gp.pose);   // v8.99.113: same pose maths as live play
     if (shotK >= 0) for (let q = Math.max(0, shotK - 60); q < shotK; q += 2) { const p = r.f[q], sx = Math.round(p[0] - cam), sy = Math.round(BASE - p[1]) - 2; rect(sx, sy, 1, 1, q > shotK - 20 ? '#fcfcfc' : '#bcbcbc'); }
     const bx = Math.round(f[0] - cam), by = Math.round(BASE - f[1]) - 4;
     if (o.seg === 'pre') ctx.drawImage(r.ballSkin ? HW.ball : SPR.golfball, Math.round(r.x0 - cam) - 2, Math.round(BASE - groundH(r.hl, r.x0)) - 4);
@@ -5750,26 +5775,44 @@ function hlMime(audio) {
   for (const m of list) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} }
   return null;
 }
-function hlAudio(plan, r) {   // a little sound track on the game's own AudioContext: heartbeat thumps at the recorded beats, the cup, a cheer
+function hlAudio(plan, r) {   // v8.99.113: the clip's sound = the game's OWN voices (swing whoosh, club strike / putt tick, bounces, cup, perfect/fanfare, the crowd sample, heartbeat) on one limited bus, each at the exact frame it belongs to
   try {
     if (!AC || !AC.createMediaStreamDestination || AC.state !== 'running') return null;   // never let a locked context stall the recorder
-    const dest = AC.createMediaStreamDestination();
-    const A = { createOscillator: () => AC.createOscillator(), createGain: () => AC.createGain(), createBuffer: (a, b, c) => AC.createBuffer(a, b, c), createBufferSource: () => AC.createBufferSource(), createBiquadFilter: () => AC.createBiquadFilter(), sampleRate: AC.sampleRate, destination: dest };
-    const beats = new Set(r.beats), ev = [];
+    const dest = AC.createMediaStreamDestination(), lim = AC.createDynamicsCompressor(), master = AC.createGain(), pre = AC.createGain();
+    pre.gain.value = 2.2; pre.connect(lim);   // make-up gain: the game's voices are tuned quiet for the speaker, a shared clip needs to be heard (the limiter below stops any clipping)
+    lim.threshold.value = -6; lim.knee.value = 10; lim.ratio.value = 8; lim.attack.value = 0.003; lim.release.value = 0.2;   // one limiter: no stacked-voice clipping
+    master.gain.value = 0.9; lim.connect(master); master.connect(dest);
+    const A = { isClip: true, createOscillator: () => AC.createOscillator(), createGain: () => AC.createGain(), createBuffer: (a, b, c) => AC.createBuffer(a, b, c), createBufferSource: () => AC.createBufferSource(), createBiquadFilter: () => AC.createBiquadFilter(), sampleRate: AC.sampleRate, destination: pre };
+    const fps = 30, putt = r.club === PUTT_I, beats = new Set(r.beats), ev = [], total = plan.length / fps;
+    const firstK = {}; plan.forEach((o, k) => { if (o.seg === 'shot' && firstK[o.i] == null) firstK[o.i] = k; });
+    const kOf = q => { for (let i = q; i < r.f.length; i++) if (firstK[i] != null) return firstK[i]; return null; };
+    const k0 = plan.findIndex(o => o.seg === 'shot');   // impact = the first flight frame
+    if (k0 >= 0) { if (!putt) ev.push(['whoosh', Math.max(0, k0 / fps - 0.08)]); ev.push([putt ? 'putt' : 'hit', k0 / fps]); }
+    let air = false, lastB = -99, nb = 0;   // every ground contact on the way (the in-game bounce voice)
+    for (let q = 1; q < r.f.length - 3 && nb < 6; q++) { const h = r.f[q][1]; if (h > 2) air = true; else if (air && h <= 0.6) { air = false; const kk = kOf(q); if (kk != null && q - lastB > 5) { ev.push(['bounce', kk / fps]); lastB = q; nb++; } } }
     let last = -1;
     plan.forEach((o, k) => {
-      if (o.seg === 'shot') { for (let i = last + 1; i <= o.i; i++) if (beats.has(i)) ev.push(['beat', k / 30, r.f[o.i][5]]); last = o.i; }
-      if (o.seg === 'cele' && o.u === 0) ev.push(['cup', k / 30]);
-      if (o.seg === 'end' && o.u === 0) ev.push(['end', k / 30]);
+      if (o.seg === 'shot') { for (let i = last + 1; i <= o.i; i++) if (beats.has(i)) ev.push(['beat', k / fps, r.f[o.i][5]]); last = Math.max(last, o.i); }
+      if (o.seg === 'cele' && o.u === 0 && r.res === 'cup') ev.push(['cup', k / fps]);
     });
-    const tone2 = (t, f, dur, type, vol) => { const os = AC.createOscillator(), gg = AC.createGain(); os.type = type; os.frequency.setValueAtTime(f, t); gg.gain.setValueAtTime(vol, t); gg.gain.exponentialRampToValueAtTime(0.0001, t + dur); os.connect(gg).connect(dest); os.start(t); os.stop(t + dur + 0.02); };
-    const noise2 = (t, dur, vol) => { const n = Math.floor(AC.sampleRate * dur), b = AC.createBuffer(1, n, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / n); const s = AC.createBufferSource(), bp = AC.createBiquadFilter(), gg = AC.createGain(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.5; gg.gain.value = vol; s.buffer = b; s.connect(bp).connect(gg).connect(dest); s.start(t); };
+    const big = r.strokes === 1 || r.club !== PUTT_I || (r.par != null && r.strokes - r.par <= -2);
     return { stream: dest.stream, start(t0) {
       ev.forEach(([kind, t, p]) => {
         const at = t0 + t;
-        if (kind === 'beat') { const lv = 0.75 + 0.35 * Math.min(1, p || 0); synthThump(A, at, 0.34 * lv, 92, 44); synthThump(A, at + 0.2, 0.25 * lv, 104, 50); }
-        else if (kind === 'cup') { tone2(at, 523, 0.08, 'square', 0.05); tone2(at + 0.08, 392, 0.16, 'triangle', 0.12); [523, 659, 784, 1047].forEach((f, i) => tone2(at + 0.35 + i * 0.1, f, 0.12, 'square', 0.035)); noise2(at + 0.15, 1.6, r.crowd ? 0.22 : 0.08); }
+        if (kind === 'whoosh') synthNoise(A, at, 0.12, 0.08);                                   // SFX.whoosh
+        else if (kind === 'hit') { synthTone(A, at, 1568, 0.04, 'square', 0.06); synthNoise(A, at, 0.05, 0.15); }   // SFX.hit
+        else if (kind === 'putt') synthTone(A, at, 988, 0.04, 'triangle', 0.22);                // SFX.putt (a touch louder than live: a 40 ms tick is easy to lose on a phone)
+        else if (kind === 'bounce') synthTone(A, at, 140, 0.06, 'triangle', 0.12);              // SFX.bounce
+        else if (kind === 'beat') { const lv = 0.75 + 0.35 * Math.min(1, p || 0); synthThump(A, at, 0.34 * lv, 92, 44); synthThump(A, at + 0.2, 0.25 * lv, 104, 50); }
+        else if (kind === 'cup') {
+          synthTone(A, at, 523, 0.06, 'square', 0.06); synthTone(A, at + 0.08, 392, 0.08, 'triangle', 0.15);   // SFX.cup
+          if (r.strokes === 1 || r.club !== PUTT_I) { [1047, 1319, 1568, 2093].forEach((f, i) => synthTone(A, at + 0.1 + i * 0.05, f, 0.09, 'square', 0.045)); synthTone(A, at + 0.3, 2637, 0.35, 'triangle', 0.05); }   // SFX.perfect
+          if (r.strokes === 1) [523, 523, 523, 659, 784, 659, 784, 1047].forEach((f, i) => synthTone(A, at + 0.45 + i * 0.15, f, 0.16, 'square', 0.05));   // SFX.fanfare
+          const cb = r.crowd && CA && CA.buf && CA.buf[big ? 'cc_roar' : 'cc_applause'];   // the staged crowd voice the game plays (real sample, no static)
+          if (cb) { const s0 = AC.createBufferSource(), g0 = AC.createGain(), v = big ? CC0_GAIN.roar : CC0_GAIN.applause, d0 = at + 0.12, dur = Math.min(cb.duration, Math.max(0.5, total - (d0 - t0) - 0.2)); s0.buffer = cb; g0.gain.setValueAtTime(0.0001, d0); g0.gain.linearRampToValueAtTime(v, d0 + 0.06); g0.gain.setValueAtTime(v, d0 + Math.max(0.06, dur - 0.3)); g0.gain.linearRampToValueAtTime(0.0001, d0 + dur); s0.connect(g0).connect(pre); s0.start(d0, 0, dur + 0.02); }
+        }
       });
+      try { master.gain.setValueAtTime(0.9, t0 + Math.max(0, total - 0.4)); master.gain.linearRampToValueAtTime(0.0001, t0 + total); } catch (e) {}   // clean fade, no cut-off pop
     }, stop() { try { dest.stream.getTracks().forEach(t => t.stop()); } catch (e) {} } };
   } catch (e) { return null; }
 }
@@ -5781,6 +5824,7 @@ async function hlRecord() {
   const base = 'dlg-highlight-' + nyDateStr() + '-h' + r.holeNo;
   let au = null;
   try {
+    if (AC && AC.state !== 'running') { try { await Promise.race([AC.resume(), new Promise(res => setTimeout(res, 600))]); } catch (e) {} }   // v8.99.113: a suspended context used to give a SILENT clip
     au = oc.captureStream ? hlAudio(plan, r) : null;
     let mime = hlMime(!!au); if (!mime && au) { au.stop(); au = null; mime = hlMime(false); }
     if (!mime || !oc.captureStream) {   // fallback: a still story picture of the celebration
@@ -6095,7 +6139,7 @@ const PAUSE_ITEMS = ['RESUME', 'SETTINGS', 'QUIT TO MENU'];
 const LOFT_UP = { x: 0, y: 0, w: 22, h: 22 }, LOFT_DN = { x: 0, y: 0, w: 22, h: 22 }, LOFT_PILL = { x: 0, y: 0, w: 0, h: 0 }, SHOT_PILL = { x: 0, y: 0, w: 0, h: 0 };   // v8.78 shot height pill   // v8.26: loft pill in the bottom HUD
 let loftHold = null;
 const HSHARE_BTN = { x: 190, y: 0, w: 20, h: 22 };   // v8.34
-const YOUTUBE_URL = 'https://www.youtube.com/@dumbluckgolf', HYT_BTN = { x: 136, y: 0, w: 20, h: 22 };
+const YOUTUBE_URL = 'https://www.youtube.com/@dumbluckgolf', HYT_BTN = { x: 136, y: 0, w: 20, h: 22 }, HCUP_BTN = { x: 112, y: 0, w: 0, h: 22 };   // v8.99.113 CUP HISTORY icon
 const SPOOKY_BANNER = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.52   // v8.51 YouTube
 const IG_URL = 'https://www.instagram.com/dumbluckgolfing/', HIG_BTN = { x: 160, y: 0, w: 20, h: 22 }, FOLLOW_BTN = { x: 0, y: -99, w: 0, h: 0, on: false }, CARD_FOLLOW = { x: 0, y: -99, w: 0, h: 0, on: false };   // v8.43 Instagram
 const PAUSE_BTN = { x: 0, y: 0, w: 22, h: 22 }, FS_BTN = { x: 234, y: 0, w: 22, h: 22 }, GEAR_BTN = { x: 212, y: 0, w: 20, h: 22 };
@@ -6138,6 +6182,7 @@ function layoutChrome() {
   // v8.99.32: IG + YT back in the top icon row (beside share/settings); the menu FOLLOW row is gone
   if (isStandalone()) { GEAR_BTN.x = FS_BTN.x; HSHARE_BTN.x = GEAR_BTN.x - tap - gap; FS_BTN.x = -999; FS_BTN.w = 0; }
   HIG_BTN.x = HSHARE_BTN.x - tap - gap; HYT_BTN.x = HIG_BTN.x - tap - gap;   // v8.99.32: keep IG/YT snug beside share
+  HCUP_BTN.w = tap; HCUP_BTN.h = tap; HCUP_BTN.x = HYT_BTN.x - tap - gap; HCUP_BTN.y = FS_BTN.y;   // v8.99.113: CUP HISTORY trophy, left of YouTube
   FOLLOW_TAP = tap;
   PAUSE_BTN.w = tap; PAUSE_BTN.h = tap;
   PAUSE_BTN.x = sl + pad; PAUSE_BTN.y = st + pad;
@@ -6790,6 +6835,12 @@ function igGrad(x, y, w, h) { const g = ctx.createLinearGradient(x, y + h, x + w
 function ytGlyph(x, y, body, play) {   // v8.51: 11x8 rounded play button
   rect(x + 1, y, 9, 8, body); rect(x, y + 1, 11, 6, body);
   rect(x + 4, y + 2, 1, 4, play); rect(x + 5, y + 2, 1, 4, play); rect(x + 6, y + 3, 1, 2, play);
+}
+function drawHomeCupButton() {   // v8.99.113: small dark tile (same as share / settings) with the gold trophy
+  if (!HCUP_BTN.w) return;
+  const x = HCUP_BTN.x + Math.floor((HCUP_BTN.w - 14) / 2), y = HCUP_BTN.y + Math.floor((HCUP_BTN.h - 14) / 2), dim = pressDim('hcup') || (mouse.seen && hit(mouse, HCUP_BTN));
+  ctx.globalAlpha = dim ? 0.75 : 0.55; rect(x, y, 14, 14, '#000'); ctx.globalAlpha = 1;
+  ctx.drawImage(TROPHY, x + 1, y + 1, 12, 12);
 }
 function drawHomeYtButton() {   // v8.99.32: brand red tile + white play triangle
   if (!HYT_BTN.w) return;
@@ -8351,7 +8402,7 @@ cv.addEventListener('pointermove', e => {
     else if (hitTlbArrow(p, a.next)) tlbArrow = 'next';
   }
   tlbHover = state === 'title' && !menuPopup && !tlbArrow && e.pointerType === 'mouse' && hitBtn(p, TLB_R);
-  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, HIG_BTN) || hitBtn(p, HYT_BTN) || (SPOOKY_BANNER.on && hit(p, SPOOKY_BANNER)) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
+  cv.style.cursor = state === 'title' && !menuPopup && !ov && (tlbHover || tlbArrow || menuRects.some(r => hitBtn(p, r)) || hitBtn(p, FS_BTN) || hitBtn(p, HSHARE_BTN) || hitBtn(p, HIG_BTN) || hitBtn(p, HYT_BTN) || (HCUP_BTN.w && hitBtn(p, HCUP_BTN)) || (SPOOKY_BANNER.on && hit(p, SPOOKY_BANNER)) || (FOLLOW_BTN.on && hitBtn(p, FOLLOW_BTN)) || hitBtn(p, GEAR_BTN)) ? 'pointer' : '';
   if (state === 'title' && e.pointerType === 'mouse') { if (menuPopup) return; const m = menuRects.find(r => hit(p, r)); if (m) titleSel = m.i; return; }
   const wp = (GAME_STATES.includes(state) && worldZoom() > 1.001) ? toWorld(e) : p;
   if (e.pointerType === 'mouse') { if (!inLoftCtl(p)) aimAt(wp.x, wp.y); }   // v8.25: hovering the loft buttons must not re-aim
@@ -8436,6 +8487,9 @@ cv.addEventListener('pointerdown', e => {
   }
   if (state === 'title' && !menuPopup && !ov && SPOOKY_BANNER.on && lbiBannerOn() && hit(p, SPOOKY_BANNER)) {   // v8.63: banner -> tournament page
     const r0 = Object.assign({}, SPOOKY_BANNER); armUiTap('lbi', () => lbiOpen('board'), (up) => hit(toLogical(up), r0), e); touchDown = null; return;
+  }
+  if (state === 'title' && !menuPopup && !ov && HCUP_BTN.w && hitBtn(p, HCUP_BTN)) {   // v8.99.113: CUP HISTORY, never starts the game
+    armUiTap('hcup', () => cupHistoryOpen(), (up) => hitBtn(toLogical(up), HCUP_BTN), e); touchDown = null; return;
   }
   if (state === 'title' && !menuPopup && hitBtn(p, HSHARE_BTN)) {   // v8.34: never starts the game
     armUiTap('hshare', () => shareHome(), (up) => hitBtn(toLogical(up), HSHARE_BTN), e); touchDown = null; return;
@@ -12410,7 +12464,7 @@ function syncWindInd() {   // v8.99: bigger bold number + arrow, streaks flowing
 function render() {
   windHud = false;
   renderScene();
-  if (state === 'title') { drawSpookyBanner(); drawFollowButton(); drawHomeYtButton(); drawHomeIgButton(); drawHomeShareButton(); drawGearButton(); if (FS_BTN.w) drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
+  if (state === 'title') { drawSpookyBanner(); drawFollowButton(); drawHomeCupButton(); drawHomeYtButton(); drawHomeIgButton(); drawHomeShareButton(); drawGearButton(); if (FS_BTN.w) drawFsButton(); drawText(GAME_VERSION.toUpperCase(), 4 + (SAFE.l || 0), 4 + (SAFE.t || 0), '#3c7cbc'); }
   drawPauseButton();
   drawLoftControl();
   drawShotPill();   // v8.78
@@ -13046,6 +13100,7 @@ function coinShopHtml() {
   return '<div class="coin-counter"><div class="cc-sign">COIN COUNTER</div><p class="cc-bal">' + coins + ' COINS</p><div class="cc-row">' + tiles + '</div></div>';
 }
 const VIEWS = {
+  cups: () => cupsHtml(),   // v8.99.113
   feedback: () => { const o = acctOpts, cat = o.cat || 'idea', t = o.text || '';
     return head('FEEDBACK', 'fbClose') + '<p class="sub">FOUND A BUG OR HAVE AN IDEA? TELL US!</p><form data-f="feedback" novalidate>' +
       '<label>TYPE</label><div class="seg fbcat">' + FB_CATS.map(([k, l]) => '<button type="button" data-a="fbcat" data-n="' + k + '" class="' + (k === cat ? 'on' : '') + '" aria-pressed="' + (k === cat) + '">' + l + '</button>').join('') + '</div>' +
@@ -13218,7 +13273,7 @@ function lbiNow() { return Date.now() + LBI.skew; }
 function lbiCfg() { return LBI.info && LBI.info.cfg; }
 function lbiT(iso) { const t = Date.parse(iso); return isFinite(t) ? t : 0; }
 function lbiShown() { const c = lbiCfg(); if (!c) return false; const t = lbiNow(); return (t >= lbiT(c.reg_open) && t < lbiT(c.show_until)) || (LBI_FORCE && t < lbiT(c.show_until)); }
-function lbiBannerOn() { try { return !!LBI && lbiShown() && !cupLive(); } catch (e) { return false; } }
+function lbiBannerOn() { return false; }   // v8.99.113: the Invitational title banner is gone; the CUP HISTORY icon (top row) lists past winners and opens the full board
 function lbiFmtDay(iso) { try { return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).format(new Date(iso)).toUpperCase(); } catch (e) { return String(iso).slice(5, 10); } }
 function lbiLeft(ms) { const s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'D ' + h + 'H' : h ? h + 'H ' + m + 'M' : m + 'M ' + (s % 60) + 'S'; }
 function lbiTp(v) { return v == null ? '-' : v === 0 ? 'E' : v > 0 ? '+' + v : String(v); }
@@ -13668,6 +13723,19 @@ function lbiBoardHtml(B, admin) {
   });
   return h + '</table></div>';
 }
+/* v8.99.113 CUP HISTORY: finished tournaments, newest first. Every row is verified from the live data (Invitational: final board via lbi_board_data, DrizzyDray -53 over 4 rounds;
+   Spooky Cup: best score of the Oct 14-31 window in public.scores mode 'spooky' = DAKOTA 8 strokes / -7, and the Skeleton Mask granted to DAKOTA). Add a row when a cup ends. */
+const CUP_HISTORY = [
+  { name: 'THE DUMB LUCK INVITATIONAL', dates: 'NOV 15-22, 2026', winner: 'DRIZZYDRAY', score: '-53', note: '4 ROUNDS', board: true },
+  { name: 'SPOOKY CUP', dates: 'OCT 14-31, 2026', winner: 'DAKOTA', score: '-7', note: '8 STROKES' }
+];
+function cupHistoryOpen() { try { SFX.click(); } catch (e) {} showAcct('cups', {}); }
+function cupsHtml() {
+  return head('CUP HISTORY', 'cupsClose') + '<p class="sub">PAST TOURNAMENT WINNERS</p><div class="cuph">' + CUP_HISTORY.map((c, i) => {
+    const inner = '<span class="cn">' + esc(c.name) + '</span><span class="cd">' + esc(c.dates) + '</span><span class="cw"><span>WINNER <b>@' + esc(c.winner) + '</b></span><span class="cs">' + esc(c.score) + '<small> ' + esc(c.note) + '</small></span></span>' + (c.board ? '<span class="cl">FULL BOARD &gt;</span>' : '');
+    return c.board ? '<button type="button" class="cup" data-a="cupsBoard">' + inner + '</button>' : '<div class="cup">' + inner + '</div>';
+  }).join('') + '</div>';
+}
 function lbiPageHtml(o) {
   const I = LBI.info, c = lbiCfg();
   if (!I || !c) return head('TOURNAMENT', 'lbiClose') + (I ? '<p class="empty">NOT OPEN YET</p>' : '<p class="empty">LOADING...</p>') + '<div class="msg"></div>';
@@ -14069,6 +14137,8 @@ if (acctEl) {
     if (a === 'fbClose') { if (acctView === 'feedback') fbDraft = { cat: acctOpts.cat, text: (document.getElementById('fbText') || {}).value || '' }; else fbDraft = null; hideAcct(); return; }
     if (a === 'fbcat') { acctOpts.cat = b.getAttribute('data-n'); acctBox.querySelectorAll('.fbcat button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); return; }
     if (a === 'spClose') { hideAcct(); return; }   // v8.52
+    if (a === 'cupsClose') { hideAcct(); return; }   // v8.99.113
+    if (a === 'cupsBoard') { SFX.click(); lbiOpen('board'); return; }   // v8.99.113: past Invitational row -> the full final board
     if (a.startsWith('lbi')) {   // v8.63 tournament
       if (a === 'lbiClose' || a === 'lbiGateX') { try { sessionStorage.removeItem(LBI_AFTER_KEY); } catch (e) {} hideAcct(); return; }
       if (a === 'lbiOpen') { lbiOpen('board'); return; }
