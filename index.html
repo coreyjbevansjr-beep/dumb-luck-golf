@@ -565,7 +565,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.111';
+const GAME_VERSION = 'v8.99.112';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3575,34 +3575,113 @@ function makeSprite(rows, flip = false) {
 function mirror(half) { return half.map(r => { r = r.padEnd(12, ' '); return r + [...r].reverse().join(''); }); }
 function dimg(img, x, y, sc = 2) { ctx.drawImage(img, Math.round(x), Math.round(y), img.width * sc, img.height * sc); }
 
-// the dog, side view
-const DOG_TOP = [
-"                                ","                   kkkkkk       ","                  kbbbbbbkk     "," kk              kbbbbbbbbbk    ",
-"kbbk            kddbbbbwkbbbkkk ","kbbk           kdddbbbbkkbbbtkkk"," kbk           kddddbbbbbbttttkk"," kbk           kddddbbbbbtttttk ",
-"  kbk          kdddddbbbbtttkk  ","  kbk          kdddddkbbbbkk    ","   kbkkkkkkkkkkkddddkbttbk      ","   kbbbbbbbbbbbbkdddkttttk      ",
-"    kbbbbbbbbbbbbkkkttttbk      ","    kbbbbbbbbbbbbbbbbtttbk      ","    kbbbbbbbbbbbbbbbbbbbbk      ","    kbbbbbbbttttttttbbbbk       ",
-"     kbbbkkkkkkkkkkkkbbbk       "];
-const LEGS_A = ["     kbbk          kbbk         ","    kbbk            kbbk        ","    kbbk            kbbk        ","   kbbk              kbbk       ","   kttk              kttk       ","   kkkk              kkkk       "];
-const LEGS_B = ["      kbbk        kbbk          ","      kbbk        kbbk          ","       kbbk      kbbk           ","       kbbk      kbbk           ","       kttk      kttk           ","       kkkk      kkkk           "];
-function sniffRows(rows) {
-  const src = rows.map(r => r.padEnd(32, ' ')), out = src.map(r => r.split(''));
-  for (let r = 0; r < 12; r++) for (let c = 15; c < 32; c++) {
-    const head = (r - 2 >= 0 && r - 2 <= 9) ? src[r - 2][c] : ' ', body = r >= 10 ? src[r][c] : ' ';
-    out[r][c] = head !== ' ' ? head : body;
-  }
-  return out.map(a => a.join(''));
-}
+// the dog, side view — v8.99.112: tinier 2-color silhouette, same 32x23 / 24x22 canvas so title, pop and share feet stay put
+const DOG_WALK_A = [
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                   kk           ",
+"                  kbbk          ",
+"                 kbbkbk         ",
+"    kk          kbbbbbbk        ",
+"   kbbk        kbbbbbbbk        ",
+"    kbbkkkkkkkkbbbbbbk          ",
+"     kbbbbbbbbbbbbbbk           ",
+"      kbbbbbbbbbbbbk            ",
+"       kb        kb             ",
+"       kb        kb             ",
+"       kk        kk             "];
+const DOG_WALK_B = [
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                   kk           ",
+"                  kbbk          ",
+"                 kbbkbk         ",
+"    kk          kbbbbbbk        ",
+"   kbbk        kbbbbbbbk        ",
+"    kbbkkkkkkkkbbbbbbk          ",
+"     kbbbbbbbbbbbbbbk           ",
+"      kbbbbbbbbbbbbk            ",
+"        kb      kb              ",
+"        kb      kb              ",
+"        kk      kk              "];
+const DOG_SNIFF_A = [
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                     kk         ",
+"    kk            kbbkbk        ",
+"   kbbk          kbbbbbbk       ",
+"    kbbkkkkkkkkkkbbbbbbk        ",
+"     kbbbbbbbbbbbbbbbk          ",
+"      kbbbbbbbbbbbbk            ",
+"       kb        kb             ",
+"       kb        kb             ",
+"       kk        kk             "];
+const DOG_SNIFF_B = [
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                                ",
+"                     kk         ",
+"    kk            kbbkbk        ",
+"   kbbk          kbbbbbbk       ",
+"    kbbkkkkkkkkkkbbbbbbk        ",
+"     kbbbbbbbbbbbbbbbk          ",
+"      kbbbbbbbbbbbbk            ",
+"        kb      kb              ",
+"        kb      kb              ",
+"        kk      kk              "];
 const SPR = {};
-for (const [k, rows] of Object.entries({ walkA:DOG_TOP.concat(LEGS_A), walkB:DOG_TOP.concat(LEGS_B), sniffA:sniffRows(DOG_TOP.concat(LEGS_A)), sniffB:sniffRows(DOG_TOP.concat(LEGS_B)) })) {
+for (const [k, rows] of Object.entries({ walkA:DOG_WALK_A, walkB:DOG_WALK_B, sniffA:DOG_SNIFF_A, sniffB:DOG_SNIFF_B })) {
   SPR[k] = makeSprite(rows); SPR[k + 'L'] = makeSprite(rows, true);
 }
-const FACE_HALF = ["        kkkk","      kkbbbb","     kbbbbbb","   kkdbbbbbb","  kdddbbbbbb"," kddddbkwwbb"," kddddbkwkbb"," kddddbbbbbt"," kddddbbbttt"," kddddbbbtkk","  kdddbbbtkk","  kdddbbtttt","   kddkbbttt","    kk kbbtt","      kbbbtt","     kbbbttt","    kbbbbttt","    kbbbbttt","   kbbbbtttt","   kbbbbtttt","   kbbbbtttt","   kbbbbtttt"];
+const FACE_HALF = ["            ","            ","            ","            ","            ","            ","     kk     ","     kk     ","     kkkkkkk","     kbbbbbb","     kbkbbbb","     kbbbbbb","     kbbbbbb","      kbbbbb","      kbbkbb","      kbbbbb","       kbbbb","       kbbbb","        kkkk","            ","            ","            "];
 const LAUGH_HALF = FACE_HALF.slice();
-LAUGH_HALF[5] = " kddddbbkkkb"; LAUGH_HALF[6] = " kddddbbbbbb"; LAUGH_HALF[10] = "  kdddbbtkkk";
-LAUGH_HALF[11] = "  kdddbbtkpp"; LAUGH_HALF[12] = "   kddkbbtkp"; LAUGH_HALF[13] = "    kk kbbtk";
+LAUGH_HALF[15] = "      kbbkkk"; LAUGH_HALF[16] = "      kbbk  "; LAUGH_HALF[17] = "       kbk  ";
 SPR.front = makeSprite(mirror(FACE_HALF)); SPR.laugh = makeSprite(mirror(LAUGH_HALF));
 /* Home Screen icon: static apple-touch-icon.png / icon-*.png (no runtime override) */
-SPR.paw = makeSprite([" kkkk ","kbbbbk","kbtbbk","kbbbbk"," kkkk "]);
+SPR.paw = makeSprite([" kk ","kbbk","kbk "," kk "]);
 SPR.golfball = makeSprite([" kkk ","kwwwk","kwwgk","kwggk"," kkk "]);
 // big golf ball the dog holds up
 SPR.bigball = (() => { const c = mk(13, 13), x = c.getContext('2d');
@@ -4382,9 +4461,10 @@ function streetRats(hl, cam) {
     const s = surfAt(hl, Math.round(r.x)); if (s === 'water') continue;
     const gy = Math.round(BASE - groundH(hl, Math.round(r.x))), f = Math.floor(r.t) % 2, d = r.dir;
     const px = (ox, oy, w, h, c) => rect(d > 0 ? sx + ox : sx - ox - w + 1, gy + oy, w, h, c);
-    px(-5, -2, 3, 1, '#8a7a76');                                       // tail
-    px(-2, -3, 5, 2, '#38312f'); px(3, -3, 2, 1, '#38312f'); px(2, -4, 1, 1, '#38312f');   // body, snout, ear (one dark silhouette)
-    px(f ? -1 : 1, -1, 1, 1, '#38312f');                               // two-frame scurry
+    const C = '#38312f';                                               // v8.99.112: one-color tiny silhouette
+    px(-4, -2, 3, 1, C);                                               // tail
+    px(-1, -3, 4, 2, C); px(3, -3, 1, 1, C); px(1, -4, 1, 1, C);       // body, snout, ear
+    px(f ? 0 : 1, -1, 1, 1, C);                                        // two-frame scurry
   }
 }
 function streetDetails(hl,cam){
@@ -4450,7 +4530,7 @@ Object.assign(THEMES, {
       for (let i = 0; i < 6; i++) { const x0 = Math.floor(i * 88 + H1(i) * 30); for (let k = 0; k < 40; k += 2) R(x0 + k, hz - 70 + k, 1, 120, '#1c64a4'); }   // light shafts
       for (let i = 0; i < 26; i++) R(Math.floor(H1(i + 3) * w), Math.floor(H1(i + 40) * hz), 2, 2, '#9cdcfc');   // bubbles
       for (let i = 0; i < 4; i++) { const fx = 40 + i * 120 + Math.floor(H1(i + 9) * 40), fy = hz - 60 + Math.floor(H1(i + 19) * 30), col = ['#f8b800', '#f878f8', '#58d854', '#f83800'][i];
-        R(fx - 1, fy - 1, 12, 7, '#000'); R(fx, fy, 10, 5, col); R(fx + 10, fy - 1, 4, 7, '#000'); R(fx + 10, fy, 3, 5, col); R(fx + 2, fy + 1, 1, 1, '#000'); }   // fish
+        R(fx, fy, 5, 3, col); R(fx + 5, fy, 1, 1, col); R(fx + 6, fy + 1, 1, 1, col); R(fx + 5, fy + 2, 1, 1, col); R(fx + 1, fy + 1, 1, 1, '#000'); }   // v8.99.112 tiny fish
       for (let x = 0; x < w; x++) { const top = hz + 6 + Math.round(6 * Math.sin(x / 27) + 3 * Math.sin(x / 7)); R(x, top, 1, h - top, '#c8b478'); R(x, top, 1, 1, '#000'); }
     },
     C: Object.assign({}, COL, { grass: '#2c9c7c', fair2: '#3cac8c', grassD: '#1c6c5c', sand: '#e8d8a0', sandD: '#c8b478', dirt: '#8c7c54', dirtD: '#5c4c34', dirtL: '#c8b478', water: '#041c4c', waterD: '#000c2c' }) },
@@ -5360,7 +5440,7 @@ const HW = (() => {
     R(7, 0, 3, 4, '#000'); R(8, 1, 1, 3, '#00a800');
     R(4, 6, 2, 2, '#f8d878'); R(10, 6, 2, 2, '#f8d878'); R(7, 8, 2, 1, '#f8d878'); R(4, 10, 8, 1, '#f8d878'); R(5, 9, 1, 1, '#f8d878'); R(10, 9, 1, 1, '#f8d878'); });
   const grave = S(14, 18, R => { R(1, 2, 12, 16, '#000'); R(3, 0, 8, 3, '#000'); R(2, 3, 10, 15, '#8c8c9c'); R(4, 1, 6, 3, '#8c8c9c'); R(2, 3, 2, 15, '#bcbcc8'); R(6, 5, 2, 7, '#3c3c4c'); R(4, 7, 6, 2, '#3c3c4c'); R(0, 16, 14, 2, '#3c3020'); });
-  const bat = f => S(14, 7, R => { R(6, 2, 2, 4, '#000'); if (f) { R(0, 0, 6, 2, '#000'); R(8, 0, 6, 2, '#000'); R(2, 2, 4, 1, '#000'); R(8, 2, 4, 1, '#000'); } else { R(1, 3, 5, 2, '#000'); R(8, 3, 5, 2, '#000'); R(0, 5, 2, 1, '#000'); R(12, 5, 2, 1, '#000'); } R(6, 3, 1, 1, '#f83800'); R(7, 3, 1, 1, '#f83800'); });
+  const bat = f => S(8, 4, R => { R(3, 1, 2, 2, '#000'); if (f) { R(0, 0, 3, 1, '#000'); R(5, 0, 3, 1, '#000'); R(1, 1, 2, 1, '#000'); R(5, 1, 2, 1, '#000'); } else { R(0, 2, 3, 1, '#000'); R(5, 2, 3, 1, '#000'); R(1, 1, 2, 1, '#000'); R(5, 1, 2, 1, '#000'); } });   // v8.99.112 tiny 1-color bat
   const ball = S(5, 5, R => { R(1, 0, 3, 5, '#000'); R(0, 1, 5, 3, '#000'); R(1, 1, 3, 3, '#f87800'); R(2, 1, 1, 3, '#c84c0c'); R(1, 1, 1, 1, '#fca044'); R(2, 0, 1, 1, '#00a800'); });
   return { pumpkin: pumpkin(1), bigPumpkin: pumpkin(2), grave, bats: [bat(0), bat(1)], ball, dead: SPR839.dead };
 })();
@@ -8740,94 +8820,69 @@ const WMAP = { k: '#2c2018', b: '#94704c', d: '#5c3c1c', t: '#d8b494', w: '#ece4
 const WILD_FR = {};
 (function buildWild() {
   const mkF = (rows) => { const a = wildSpr(rows, WMAP); return { R: a, L: flipSpr(a) }; };
-  // Tiny critters — smaller than the dog, 2 frames, few colors
+  // v8.99.112: tinier 1-2 color silhouettes, 2 frames, still smaller than the dog
   WILD_FR.squirrel = [
     mkF([
-      '..kk........',
-      '.kbbkk......',
-      'kbbbbk.kk...',
-      'kbbbbkkbbk..',
-      '.kbwbbbbbk..',
-      '..kbbbbbk...',
-      '...kbk.kbk..',
-      '...kk...kk..']),
+      'k......',
+      'kk....k',
+      '.kkkkkk',
+      '.kbbbk.',
+      '..k.k..']),
     mkF([
-      '..kk........',
-      '.kbbkk......',
-      'kbbbbk..kk..',
-      'kbbbbk.kbbk.',
-      '.kbwbbbbbk..',
-      '..kbbbbbk...',
-      '..kbk..kbk..',
-      '..kk....kk..'])];
+      '..k..k.',
+      'kkkkkkk',
+      '.kbbbk.',
+      'k.k.k..'])];
   WILD_FR.turtle = [
     mkF([
-      '....gggg....',
-      '...gGaGgg...',
-      '..kgGGGGgk..',
-      '.kggggggggk.',
-      'kobkkkkkkbok',
-      '.kk......kk.']),
+      '..ggg.',
+      '.ggggk',
+      'kggggk',
+      'k.k.k.']),
     mkF([
-      '....gggg....',
-      '...gGaGgg...',
-      '..kgGGGGgk..',
-      '.kggggggggk.',
-      '.kobkkkkbok.',
-      'kk........kk'])];
+      '..ggg.',
+      '.ggggk',
+      'kggggk',
+      '.k.k.k'])];
   WILD_FR.rabbit = [
     mkF([
-      '....ktt.....',
-      '....ktk.....',
-      '...kbbk.....',
-      '..kbbbbk....',
-      '.kwbbbbbk...',
-      '..kbbbbk....',
-      '...kb.kwk...',
-      '...kk..kk...']),
+      '.k.k.',
+      '.kkk.',
+      'kbbbk',
+      'kbbbk',
+      '.k.k.']),
     mkF([
-      '...ktt......',
-      '...ktk......',
-      '..kbbk......',
-      '.kbbbbk.....',
-      'kwbbbbbk....',
-      '.kbbbbk.....',
-      'kbk..kwk....',
-      'kk....kk....'])];
+      'k.k..',
+      '.kkk.',
+      'kbbbk',
+      'kbbbk',
+      'k..k.'])];
   WILD_FR.bird = [
     mkF([
-      '..k.......',
-      '.kykk.....',
-      'kywwyk....',
-      '.kyyyk....',
-      '..kok.k...',
-      '...kk.k...']),
+      '.k...',
+      'kyyk.',
+      'kyyyk',
+      '.k.k.']),
     mkF([
-      '..k.......',
-      '.kykk.....',
-      'kywwyk....',
-      '.kyyyk....',
-      '.kok..k...',
-      '.kk...k...'])];
+      '.k...',
+      'kyyk.',
+      '.kyyk',
+      'k..k.'])];
   WILD_FR.birdfly = [
     mkF([
-      'k.....k...',
-      '.k...k....',
-      '..kyyk....',
-      '.kywwyk...',
-      '..kyyyk...',
-      '...kok....']),
+      'k....k',
+      '.kkkk.',
+      '..kkk.',
+      '...o..']),
     mkF([
-      '..........',
-      '..k.k.....',
-      '.kkykk....',
-      'kywwwwyk..',
-      '.kyyyyk...',
-      '..kok.....'])];
+      '.k..k.',
+      'kkkkkk',
+      '.kkkk.',
+      '...o..'])];
 })();
 const WILD_LABEL = { squirrel: 'A SQUIRREL!', turtle: 'A TURTLE!', rabbit: 'A RABBIT HOPS BY!', bird: 'A LITTLE BIRD!', birds: 'BIRDS OVERHEAD!', ducks: 'DUCKS!' };
 const WILD_SPEED = { squirrel: 34, turtle: 8, rabbit: 28, bird: 18, birds: 48 };
-const WILD_SCALE = { squirrel: 2, turtle: 2, rabbit: 2, bird: 2, birds: 2 };   // tiny x2 — still smaller than the dog (~32px)
+const WILD_SCALE = { squirrel: 2, turtle: 2, rabbit: 2, bird: 2, birds: 2 };   // v8.99.112: still x2 on tinier frames
 let wildlife = null;
 let wildBark = null;
 function holeHasWater(hl) { for (let i = 0; i < hl.Ss.length; i++) if (hl.Ss[i] === 'water') return true; return false; }
@@ -8995,10 +9050,10 @@ function drawWildBark() {
   const up = clamp(wildBark.t / 0.12, 0, 1);
   const down = wildBark.t > wildBark.hold ? clamp((wildBark.t - wildBark.hold) / 0.2, 0, 1) : 0;
   if (down >= 1) return;
-  const face = SPR.laugh, fw = 20, fh = 18;
+  const face = SPR.laugh, fw = 16, fh = 16;   // v8.99.112: crop the tiny face in the lower canvas
   const x = wildBark.side > 0 ? W - fw - 6 : 6;
   const y = PLAY_H - 4 - Math.round((fh + 2) * up) + Math.round((fh + 2) * down);
-  ctx.drawImage(face, x, y, fw, fh);
+  ctx.drawImage(face, 5, 8, 14, 14, x, y, fw, fh);
   const label = 'WOOF!', lw = textW(label) + 6;
   const bx = wildBark.side > 0 ? x - lw - 2 : x + fw + 2, by = y + 2;
   rect(bx, by, lw, 9, '#000'); rect(bx + 1, by + 1, lw - 2, 7, COL.white);
@@ -10181,17 +10236,18 @@ function v93DrawSway(img, dx, dy, dw, dh, seed) {   // crisp row-band sway: the 
 }
 /* ---- wildlife: natural flocks (flap + glide, sometimes land and peck), ducks on ponds ---- */
 function v93BirdCol() { const th = themeOf(hole); return th.stars ? '#b8bcd8' : halloweenOn() ? '#1c1424' : '#2c2c38'; }
-function v93DrawFlyBird(x, y, ph, glide, col) {   // little gull shape: body dot + two wing strokes
+function v93DrawFlyBird(x, y, ph, glide, col) {   // v8.99.112: tiny gull, body + short wings
   const f = glide ? 1 : Math.round((Math.sin(ph) + 1) * 1.5);   // 0 up .. 3 down
-  const wy = [-2, -1, 0, 1][f];
+  const wy = [-1, 0, 0, 1][f];
   rect(x, y, 2, 1, col);
-  rect(x - 1, y + Math.min(0, wy), 1, 1, col); rect(x - 2, y + wy, 1, 1, col); rect(x - 3, y + wy + (wy < 0 ? 0 : 0), 1, 1, col);
-  rect(x + 2, y + Math.min(0, wy), 1, 1, col); rect(x + 3, y + wy, 1, 1, col); rect(x + 4, y + wy, 1, 1, col);
+  rect(x - 2, y + wy, 2, 1, col);
+  rect(x + 2, y + wy, 2, 1, col);
 }
-function v93DrawPerchBird(sx, gy, dir, peck, col) {
-  const c2 = hdMix(col, '#a08c70', 0.5);
-  rect(sx - 2, gy - 3, 4, 2, c2); rect(sx - 2, gy - 3, 4, 1, col); rect(sx + (dir > 0 ? 2 : -3), gy - (peck ? 2 : 4), 1, 2, col); rect(sx + (dir > 0 ? 3 : -4), gy - (peck ? 1 : 3), 1, 1, '#c88830');
-  rect(sx + (dir > 0 ? -3 : 2), gy - 3, 1, 1, col); rect(sx - 1, gy - 1, 1, 1, '#5c4c3c'); rect(sx + 1, gy - 1, 1, 1, '#5c4c3c');
+function v93DrawPerchBird(sx, gy, dir, peck, col) {   // v8.99.112: 2-color perch silhouette
+  rect(sx - 1, gy - 3, 3, 2, col);
+  rect(sx + (dir > 0 ? 2 : -2), gy - (peck ? 2 : 3), 1, 1, col);
+  rect(sx + (dir > 0 ? 3 : -3), gy - (peck ? 1 : 2), 1, 1, '#c88830');
+  rect(sx, gy - 1, 1, 1, col);
 }
 function v93Flock(dir, cam) {
   const n = 4 + Math.floor(Math.random() * 4), out = [];
@@ -10235,11 +10291,10 @@ function v93DrawDucks(w) {
     const wx = w.wx - w.dir * i * (i ? 7 : 0) - (i ? w.dir * 3 : 0), big = i === 0, sx = Math.round(wx - camX);
     if (sx < -12 || sx > W + 12) continue;
     const gy = Math.round(BASE - groundH(hole, wx)), bob = Math.round(Math.sin(t * 3 + i * 1.7) * 0.6), d = w.dir, y = gy - 1 + bob;
-    const body = big ? '#8c6c4c' : '#c8a868', head = big ? '#1c6c3c' : '#a88848', bw = big ? 7 : 4;
-    ctx.globalAlpha = 0.5; const wl = 3 + Math.round((Math.sin(t * 2 + i) + 1) * 1.5); rect(sx - d * (bw / 2 + wl) - (d < 0 ? 0 : 0), gy, wl, 1, '#fcfcfc'); rect(sx - d * (bw / 2 + wl + 3), gy + 1, wl, 1, '#fcfcfc'); ctx.globalAlpha = 1;
-    rect(sx - (bw >> 1), y - 3, bw, 3, body); rect(sx - (bw >> 1), y - 1, bw, 1, shadeHex(body, 0.75)); rect(sx - d * (bw >> 1) - (d > 0 ? 1 : -bw + 0), y - 4, 2, 1, body);
-    const hx = sx + d * ((bw >> 1) - 1); rect(hx - (d < 0 ? 1 : 0), y - (big ? 6 : 5), 2, big ? 3 : 2, head); rect(hx + (d > 0 ? 2 : -2), y - (big ? 5 : 4), 1, 1, '#f8a838');
-    if (big) rect(sx - 1, y - 3, 2, 1, '#fcfcfc');
+    const body = big ? '#8c6c4c' : '#c8a868', bw = big ? 5 : 3;   // v8.99.112: tinier 2-color duck (body + beak)
+    ctx.globalAlpha = 0.45; rect(sx - d * (bw + 2), gy, 3, 1, '#fcfcfc'); ctx.globalAlpha = 1;
+    rect(sx - (bw >> 1), y - 2, bw, 2, body);
+    const hx = sx + d * (bw >> 1); rect(hx - (d < 0 ? 1 : 0), y - 4, 2, 2, body); rect(hx + (d > 0 ? 2 : -2), y - 3, 1, 1, '#f8a838');
   }
 }
 function v93UpdateDucks(w, dt) {
@@ -10649,12 +10704,12 @@ function drawMoverSkin(m, sx, top, bot, t) {
     if (m.skin === 'taxi') { rect(x0 + 4, top, w - 8, 5, '#000'); rect(x0 + 5, top + 1, w - 10, 3, '#9cdcfc'); for (let k = 0; k < w - 2; k += 4) rect(x0 + 1 + k, tp + 4, 2, 2, '#000'); rect(sx - 2, top - 2, 5, 2, '#fcfcfc'); }
     else { for (let k = 2; k < w - 4; k += 6) { rect(x0 + k, top + 2, 4, 4, '#000'); rect(x0 + k + 1, top + 3, 2, 2, '#9cdcfc'); } rect(x0 + 1, top + 8, w - 2, 1, '#fcfcfc'); }
     rect(x0 + w - 2, bot - 7, 2, 2, '#fce4a0'); wheel(x0 + 4); wheel(x0 + w - 5);
-  } else if (m.skin === 'crab') {
-    const cl = Math.floor(t * 4) % 2;
-    rect(x0, bot - 7, w, 6, '#000'); rect(x0 + 1, bot - 6, w - 2, 4, '#f83800'); rect(x0 + 3, bot - 9, 2, 3, '#000'); rect(x0 + w - 5, bot - 9, 2, 3, '#000');
-    rect(x0 - 3, bot - 9 - cl, 4, 4, '#000'); rect(x0 - 2, bot - 8 - cl, 2, 2, '#f87858'); rect(x0 + w - 1, bot - 9 - cl, 4, 4, '#000'); rect(x0 + w, bot - 8 - cl, 2, 2, '#f87858');
-    for (let k = 1; k < w - 1; k += 3) rect(x0 + k, bot - 2, 1, 2, '#000');
-    if (h > 12) { ctx.globalAlpha = 0.25; rect(x0, top, w, bot - top - 8, '#f83800'); ctx.globalAlpha = 1; }
+  } else if (m.skin === 'crab') {   // v8.99.112: tiny 2-color silhouette, same hit box (w / hTop unchanged)
+    const cl = Math.floor(t * 4) % 2, cx = sx;
+    rect(cx - 4, bot - 6, 8, 4, '#000'); rect(cx - 3, bot - 5, 6, 2, '#f83800');
+    rect(cx - 2, bot - 7, 1, 2, '#000'); rect(cx + 1, bot - 7, 1, 2, '#000');
+    rect(cx - 6, bot - 6 - cl, 2, 2, '#f83800'); rect(cx + 4, bot - 6 - cl, 2, 2, '#f83800');
+    for (let k = -3; k <= 3; k += 2) rect(cx + k, bot - 2, 1, 2, '#000');
   } else if (m.skin === 'ghost') {   // v8.41: floating ghost (same hit box)
     const bob = Math.round(Math.sin(t * 3) * 2), gt = top + bob, gh = Math.max(10, bot - top);
     ctx.globalAlpha = 0.85; rect(x0 - 1, gt - 1, w + 2, gh - 2, '#000'); rect(x0, gt, w, gh - 4, '#fcfcfc'); rect(x0 + 1, gt - 2, w - 2, 2, '#fcfcfc');
@@ -10985,7 +11040,7 @@ function drawDogPop() {
   else {
     const hop = Math.floor(st * 4) % 2 ? 0 : 2;
     dimg(SPR.front, x, y + hop);
-    dimg(SPR.paw, x + 42, y + 24 + hop); ctx.drawImage(SPR.bigball, x + 41, y + 12 + hop);
+    dimg(SPR.paw, x + 34, y + 30 + hop); ctx.drawImage(SPR.bigball, x + 32, y + 20 + hop, 8, 8);   // v8.99.112: ball + paw sit on the smaller face
   }
   ctx.restore();
 }
