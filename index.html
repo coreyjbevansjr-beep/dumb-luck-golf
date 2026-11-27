@@ -574,7 +574,7 @@ if (/^#(test|preview)/.test(location.hash)) { LEADERBOARD_CONFIG.supabaseUrl = '
    GALLERY_ITEMS  reserved for a future gallery viewer, e.g. [{ src: 'gallery/ace.png', caption: 'HOLE 4 ACE' }].
                   When non-empty, GALLERY appears on the title menu automatically.
                   Until the real viewer is built, GALLERY shows a "coming soon" popup. */
-const GAME_VERSION = 'v8.99.113';
+const GAME_VERSION = 'v8.99.114';
 const REDUCED_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const srLiveEl = document.getElementById('srLive');
 let srLast = '';
@@ -3685,12 +3685,13 @@ const SPR = {};
 for (const [k, rows] of Object.entries({ walkA:DOG_WALK_A, walkB:DOG_WALK_B, sniffA:DOG_SNIFF_A, sniffB:DOG_SNIFF_B })) {
   SPR[k] = makeSprite(rows); SPR[k + 'L'] = makeSprite(rows, true);
 }
-const FACE_HALF = ["            ","            ","            ","            ","            ","            ","     kk     ","     kk     ","     kkkkkkk","     kbbbbbb","     kbkbbbb","     kbbbbbb","     kbbbbbb","      kbbbbb","      kbbkbb","      kbbbbb","       kbbbb","       kbbbb","        kkkk","            ","            ","            "];
+const FACE_HALF = ["        kkkk","      kkbbbb","     kbbbbbb","   kkdbbbbbb","  kdddbbbbbb"," kddddbkwwbb"," kddddbkwkbb"," kddddbbbbbt"," kddddbbbttt"," kddddbbbtkk","  kdddbbbtkk","  kdddbbtttt","   kddkbbttt","    kk kbbtt","      kbbbtt","     kbbbttt","    kbbbbttt","    kbbbbttt","   kbbbbtttt","   kbbbbtttt","   kbbbbtttt","   kbbbbtttt"];
 const LAUGH_HALF = FACE_HALF.slice();
-LAUGH_HALF[15] = "      kbbkkk"; LAUGH_HALF[16] = "      kbbk  "; LAUGH_HALF[17] = "       kbk  ";
+LAUGH_HALF[5] = " kddddbbkkkb"; LAUGH_HALF[6] = " kddddbbbbbb"; LAUGH_HALF[10] = "  kdddbbtkkk";
+LAUGH_HALF[11] = "  kdddbbtkpp"; LAUGH_HALF[12] = "   kddkbbtkp"; LAUGH_HALF[13] = "    kk kbbtk";
 SPR.front = makeSprite(mirror(FACE_HALF)); SPR.laugh = makeSprite(mirror(LAUGH_HALF));
 /* Home Screen icon: static apple-touch-icon.png / icon-*.png (no runtime override) */
-SPR.paw = makeSprite([" kk ","kbbk","kbk "," kk "]);
+SPR.paw = makeSprite([" kkkk ","kbbbbk","kbtbbk","kbbbbk"," kkkk "]);
 SPR.golfball = makeSprite([" kkk ","kwwwk","kwwgk","kwggk"," kkk "]);
 // big golf ball the dog holds up
 SPR.bigball = (() => { const c = mk(13, 13), x = c.getContext('2d');
@@ -9104,10 +9105,10 @@ function drawWildBark() {
   const up = clamp(wildBark.t / 0.12, 0, 1);
   const down = wildBark.t > wildBark.hold ? clamp((wildBark.t - wildBark.hold) / 0.2, 0, 1) : 0;
   if (down >= 1) return;
-  const face = SPR.laugh, fw = 16, fh = 16;   // v8.99.112: crop the tiny face in the lower canvas
+  const face = SPR.laugh, fw = 20, fh = 18;
   const x = wildBark.side > 0 ? W - fw - 6 : 6;
   const y = PLAY_H - 4 - Math.round((fh + 2) * up) + Math.round((fh + 2) * down);
-  ctx.drawImage(face, 5, 8, 14, 14, x, y, fw, fh);
+  ctx.drawImage(face, x, y, fw, fh);
   const label = 'WOOF!', lw = textW(label) + 6;
   const bx = wildBark.side > 0 ? x - lw - 2 : x + fw + 2, by = y + 2;
   rect(bx, by, lw, 9, '#000'); rect(bx + 1, by + 1, lw - 2, 7, COL.white);
@@ -11094,7 +11095,7 @@ function drawDogPop() {
   else {
     const hop = Math.floor(st * 4) % 2 ? 0 : 2;
     dimg(SPR.front, x, y + hop);
-    dimg(SPR.paw, x + 34, y + 30 + hop); ctx.drawImage(SPR.bigball, x + 32, y + 20 + hop, 8, 8);   // v8.99.112: ball + paw sit on the smaller face
+    dimg(SPR.paw, x + 42, y + 24 + hop); ctx.drawImage(SPR.bigball, x + 41, y + 12 + hop);
   }
   ctx.restore();
 }
